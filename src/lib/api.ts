@@ -1,0 +1,580 @@
+/**
+ * Tauri API wrapper - connects to actual Rust backend via invoke()
+ */
+
+import { invoke } from './tauri'
+
+export interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+export interface ApiMeta {
+  total: number
+  page: number
+  limit: number
+}
+
+export interface PaginatedResponse<T> extends ApiResponse<T> {
+  meta?: ApiMeta
+}
+
+// ============================================
+// Types (camelCase to match frontend stores)
+// ============================================
+export interface User {
+  id: string
+  username: string
+  realName: string
+  role: string
+}
+
+export interface Company {
+  id: string
+  name: string
+  accountingSystem: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Subject {
+  code: string
+  name: string
+  type: string
+  level: number
+  parentCode: string | null
+}
+
+export interface Voucher {
+  id: string
+  companyId: string | null
+  number: string
+  date: string
+  summary: string | null
+  amount: number
+  status: 'draft' | 'approved' | 'posted' | 'reversed'
+  attachmentCount: number
+  createdBy: string | null
+  createdAt: string | null
+  modifiedBy: string | null
+  modifiedAt: string | null
+  approvedBy: string | null
+  approvedAt: string | null
+  entries?: VoucherEntry[]
+}
+
+export interface VoucherEntry {
+  id: string
+  voucherId: string
+  accountCode: string
+  accountName: string
+  debit: number
+  credit: number
+  summary: string | null
+  entryIndex: number
+}
+
+export interface VoucherWithEntries extends Voucher {
+  entries: VoucherEntry[]
+}
+
+export interface Invoice {
+  id: string
+  companyId: string | null
+  invoiceType: 'input' | 'output'
+  invoiceNo: string
+  invoiceCode: string | null
+  invoiceDate: string
+  amount: number
+  taxAmount: number
+  totalAmount: number
+  taxRate: number | null
+  sellerName: string | null
+  sellerTaxId: string | null
+  buyerName: string | null
+  buyerTaxId: string | null
+  status: 'pending' | 'verified' | 'matched' | 'rejected'
+  voucherId: string | null
+  remarks: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+// ============================================
+// Auth API
+// ============================================
+export const authApi = {
+  login: async (username: string, password: string): Promise<ApiResponse<{ token: string; user: User }>> => {
+    try {
+      const result = await invoke('login', { request: { username, password } }) as { success: boolean; token?: string; user?: User; error?: string }
+      if (result.success && result.user) {
+        return { success: true, data: { token: result.token!, user: result.user } }
+      }
+      return { success: false, error: result.error }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  logout: async (): Promise<ApiResponse<void>> => {
+    try {
+      await invoke('logout')
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  checkAuth: async (): Promise<ApiResponse<{ isAuthenticated: boolean; user?: User }>> => {
+    try {
+      const result = await invoke('check', { token: null }) as { is_authenticated: boolean; user?: User }
+      return {
+        success: true,
+        data: { isAuthenticated: result.is_authenticated, user: result.user }
+      }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
+
+// ============================================
+// Company API (账套)
+// ============================================
+export const companyApi = {
+  getAll: async (): Promise<ApiResponse<Company[]>> => {
+    try {
+      const result = await invoke('get_companies') as Company[]
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  get: async (id: string): Promise<ApiResponse<Company | null>> => {
+    try {
+      const result = await invoke('get_company', { id }) as Company | null
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  create: async (company: { name: string; accountingSystem?: string }): Promise<ApiResponse<Company>> => {
+    try {
+      const input = { name: company.name, accounting_system: company.accountingSystem }
+      const result = await invoke('create_company', { input }) as Company
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  update: async (id: string, company: { name: string; accountingSystem?: string }): Promise<ApiResponse<Company>> => {
+    try {
+      const input = { name: company.name, accounting_system: company.accountingSystem }
+      const result = await invoke('update_company', { id, input }) as Company
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  delete: async (id: string): Promise<ApiResponse<void>> => {
+    try {
+      await invoke('delete_company', { id })
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
+
+// ============================================
+// Subject API (会计科目)
+// ============================================
+export const subjectApi = {
+  getAll: async (companyId: string): Promise<ApiResponse<Subject[]>> => {
+    try {
+      const result = await invoke('get_subjects', { companyId }) as Subject[]
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  get: async (code: string, companyId: string): Promise<ApiResponse<Subject | null>> => {
+    try {
+      const result = await invoke('get_subject', { code, companyId }) as Subject | null
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  getByType: async (type: string, companyId: string): Promise<ApiResponse<Subject[]>> => {
+    try {
+      const result = await invoke('get_subjects_by_type', { type_: type, companyId }) as Subject[]
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  create: async (subject: { code: string; name: string; type: string; level: number; parentCode?: string }, companyId: string): Promise<ApiResponse<Subject>> => {
+    try {
+      const input = { code: subject.code, name: subject.name, type_: subject.type, level: subject.level, parent_code: subject.parentCode, company_id: companyId }
+      const result = await invoke('create_subject', { input }) as Subject
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  update: async (code: string, subject: { code: string; name: string; type: string; level: number; parentCode?: string }, companyId: string): Promise<ApiResponse<Subject>> => {
+    try {
+      const input = { code: subject.code, name: subject.name, type_: subject.type, level: subject.level, parent_code: subject.parentCode, company_id: companyId }
+      const result = await invoke('update_subject', { code, companyId, input }) as Subject
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  delete: async (code: string, companyId: string): Promise<ApiResponse<void>> => {
+    try {
+      await invoke('delete_subject', { code, companyId })
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  search: async (keyword: string, companyId: string): Promise<ApiResponse<Subject[]>> => {
+    try {
+      const result = await invoke('search_subjects', { keyword, companyId }) as Subject[]
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
+
+// ============================================
+// Voucher API (会计凭证)
+// ============================================
+export const voucherApi = {
+  getAll: async (companyId?: string): Promise<ApiResponse<Voucher[]>> => {
+    try {
+      const result = await invoke('get_vouchers', { companyId }) as Voucher[]
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  get: async (id: string): Promise<ApiResponse<VoucherWithEntries | null>> => {
+    try {
+      const result = await invoke('get_voucher', { id }) as VoucherWithEntries | null
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  create: async (voucher: {
+    companyId?: string
+    number: string
+    date: string
+    summary?: string
+    amount: number
+    status?: string
+    attachmentCount?: number
+    createdBy?: string
+    entries: Array<{
+      accountCode: string
+      accountName: string
+      debit?: number
+      credit?: number
+      summary?: string
+    }>
+  }): Promise<ApiResponse<VoucherWithEntries>> => {
+    try {
+      const input = {
+        account_id: voucher.companyId,
+        number: voucher.number,
+        date: voucher.date,
+        summary: voucher.summary,
+        amount: voucher.amount,
+        status: voucher.status,
+        attachment_count: voucher.attachmentCount,
+        created_by: voucher.createdBy,
+        entries: voucher.entries.map((e, i) => ({
+          account_code: e.accountCode,
+          account_name: e.accountName,
+          debit: e.debit ?? 0,
+          credit: e.credit ?? 0,
+          entry_summary: e.summary,
+          entry_index: i
+        }))
+      }
+      const result = await invoke('create_voucher', { input }) as VoucherWithEntries
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  update: async (id: string, voucher: {
+    number?: string
+    date?: string
+    summary?: string
+    amount?: number
+    status?: string
+    attachmentCount?: number
+    modifiedBy?: string
+    entries?: Array<{
+      accountCode: string
+      accountName: string
+      debit?: number
+      credit?: number
+      summary?: string
+    }>
+  }): Promise<ApiResponse<VoucherWithEntries>> => {
+    try {
+      const input: Record<string, unknown> = {}
+      if (voucher.number !== undefined) input.number = voucher.number
+      if (voucher.date !== undefined) input.date = voucher.date
+      if (voucher.summary !== undefined) input.summary = voucher.summary
+      if (voucher.amount !== undefined) input.amount = voucher.amount
+      if (voucher.status !== undefined) input.status = voucher.status
+      if (voucher.attachmentCount !== undefined) input.attachment_count = voucher.attachmentCount
+      if (voucher.modifiedBy !== undefined) input.modified_by = voucher.modifiedBy
+      if (voucher.entries) {
+        input.entries = voucher.entries.map((e) => ({
+          account_code: e.accountCode,
+          account_name: e.accountName,
+          debit: e.debit ?? 0,
+          credit: e.credit ?? 0,
+          entry_summary: e.summary
+        }))
+      }
+      const result = await invoke('update_voucher', { id, input, companyId: undefined }) as VoucherWithEntries
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  delete: async (id: string): Promise<ApiResponse<void>> => {
+    try {
+      await invoke('delete_voucher', { id })
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  approve: async (id: string, approvedBy: string): Promise<ApiResponse<Voucher>> => {
+    try {
+      const result = await invoke('approve_voucher', { id, approvedBy }) as Voucher
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  reverseApprove: async (id: string): Promise<ApiResponse<Voucher>> => {
+    try {
+      const result = await invoke('reverse_approve_voucher', { id }) as Voucher
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  reverse: async (id: string): Promise<ApiResponse<Voucher>> => {
+    try {
+      const result = await invoke('reverse_voucher', { id }) as Voucher
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  copy: async (id: string): Promise<ApiResponse<VoucherWithEntries>> => {
+    try {
+      const result = await invoke('copy_voucher', { id }) as VoucherWithEntries
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  getEntries: async (voucherId: string): Promise<ApiResponse<VoucherEntry[]>> => {
+    try {
+      const result = await invoke('get_voucher_entries', { voucherId }) as VoucherEntry[]
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  reorganizeNumbers: async (periodId: string, companyId: string): Promise<ApiResponse<void>> => {
+    try {
+      await invoke('reorganize_voucher_numbers', { periodId, companyId })
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  batchApprove: async (ids: string[], approvedBy: string, companyId: string): Promise<ApiResponse<void>> => {
+    try {
+      await invoke('batch_approve_vouchers', { ids, approvedBy, companyId })
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  batchReverseApprove: async (ids: string[], companyId: string): Promise<ApiResponse<void>> => {
+    try {
+      await invoke('batch_reverse_approve_vouchers', { ids, companyId })
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
+
+// ============================================
+// Invoice API (发票)
+// ============================================
+export const invoiceApi = {
+  getAll: async (companyId?: string, invoiceType?: string): Promise<ApiResponse<Invoice[]>> => {
+    try {
+      const result = await invoke('get_invoices', { companyId, invoiceType }) as Invoice[]
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  get: async (id: string, companyId: string): Promise<ApiResponse<Invoice | null>> => {
+    try {
+      const result = await invoke('get_invoice', { id, companyId }) as Invoice | null
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  create: async (invoice: {
+    companyId?: string
+    invoiceType: 'input' | 'output'
+    invoiceNo: string
+    invoiceCode?: string
+    invoiceDate: string
+    amount: number
+    taxAmount: number
+    taxRate?: number
+    sellerName?: string
+    sellerTaxId?: string
+    buyerName?: string
+    buyerTaxId?: string
+    remarks?: string
+  }): Promise<ApiResponse<Invoice>> => {
+    try {
+      const input = {
+        company_id: invoice.companyId,
+        invoice_type: invoice.invoiceType,
+        invoice_no: invoice.invoiceNo,
+        invoice_code: invoice.invoiceCode,
+        invoice_date: invoice.invoiceDate,
+        amount: invoice.amount,
+        tax_amount: invoice.taxAmount,
+        tax_rate: invoice.taxRate,
+        seller_name: invoice.sellerName,
+        seller_tax_id: invoice.sellerTaxId,
+        buyer_name: invoice.buyerName,
+        buyer_tax_id: invoice.buyerTaxId,
+        remarks: invoice.remarks
+      }
+      const result = await invoke('create_invoice', { input }) as Invoice
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  update: async (id: string, invoice: {
+    companyId?: string
+    invoiceType?: string
+    invoiceNo?: string
+    invoiceCode?: string
+    invoiceDate?: string
+    amount?: number
+    taxAmount?: number
+    taxRate?: number
+    sellerName?: string
+    sellerTaxId?: string
+    buyerName?: string
+    buyerTaxId?: string
+    status?: string
+    voucherId?: string
+    remarks?: string
+  }): Promise<ApiResponse<Invoice>> => {
+    try {
+      const input: Record<string, unknown> = {}
+      if (invoice.companyId) input.company_id = invoice.companyId
+      if (invoice.invoiceType) input.invoice_type = invoice.invoiceType
+      if (invoice.invoiceNo) input.invoice_no = invoice.invoiceNo
+      if (invoice.invoiceCode) input.invoice_code = invoice.invoiceCode
+      if (invoice.invoiceDate) input.invoice_date = invoice.invoiceDate
+      if (invoice.amount) input.amount = invoice.amount
+      if (invoice.taxAmount) input.tax_amount = invoice.taxAmount
+      if (invoice.taxRate) input.tax_rate = invoice.taxRate
+      if (invoice.sellerName) input.seller_name = invoice.sellerName
+      if (invoice.sellerTaxId) input.seller_tax_id = invoice.sellerTaxId
+      if (invoice.buyerName) input.buyer_name = invoice.buyerName
+      if (invoice.buyerTaxId) input.buyer_tax_id = invoice.buyerTaxId
+      if (invoice.status) input.status = invoice.status
+      if (invoice.voucherId) input.voucher_id = invoice.voucherId
+      if (invoice.remarks) input.remarks = invoice.remarks
+
+      const result = await invoke('update_invoice', { id, input }) as Invoice
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  delete: async (id: string, companyId: string): Promise<ApiResponse<void>> => {
+    try {
+      await invoke('delete_invoice', { id, companyId })
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  matchToVoucher: async (invoiceId: string, voucherId: string, companyId: string): Promise<ApiResponse<void>> => {
+    try {
+      await invoke('match_invoice_to_voucher', { invoiceId, voucherId, companyId })
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  getByVoucher: async (voucherId: string, companyId: string): Promise<ApiResponse<Invoice[]>> => {
+    try {
+      const result = await invoke('get_invoices_by_voucher', { voucherId, companyId }) as Invoice[]
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
