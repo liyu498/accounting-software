@@ -38,6 +38,7 @@ pnpm-debug.log*
 
 # Local backups and editor state
 src_backup_*/
+.worktrees/
 .DS_Store
 Thumbs.db
 .idea/
