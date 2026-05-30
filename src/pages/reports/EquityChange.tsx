@@ -72,7 +72,7 @@ function deriveEquityFromTrialBalance(items: TrialBalanceItem[]): EquityRow[] {
 
 export function EquityChange() {
   const { selectedCompanyId } = useCompanyStore()
-  const { periods, currentPeriodId, fetchPeriods, setCurrentPeriod, fetchTrialBalance } = usePeriodStore()
+  const { periods, currentPeriodId, dataVersion, fetchPeriods, setCurrentPeriod, fetchTrialBalance } = usePeriodStore()
 
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null)
   const [rows, setRows] = useState<EquityRow[]>([])
@@ -97,11 +97,11 @@ export function EquityChange() {
     } finally {
       setLoading(false)
     }
-  }, [selectedPeriodId, fetchTrialBalance])
+  }, [selectedPeriodId, dataVersion, fetchTrialBalance])
 
   useEffect(() => { loadData() }, [loadData])
 
-  const periodOptions = [...periods].sort((a, b) => (b.period_year * 100 + b.period_month) - (a.period_year * 100 + a.period_month))
+  const periodOptions = [...periods].sort((a, b) => (a.period_year * 100 + a.period_month) - (b.period_year * 100 + b.period_month))
 
   return (
     <div className="space-y-6">

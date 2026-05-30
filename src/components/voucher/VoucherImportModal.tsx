@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Button } from '../ui/Button'
 import { useToast, useSuccessToast, useWarningToast } from '../ui/Toast'
 import { X, Upload, FileDown, AlertCircle, CheckCircle2, FileSpreadsheet } from 'lucide-react'
+import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
+import { invoke } from '@tauri-apps/api/core'
 
 interface ParsedRow {
   row_index: number
@@ -42,7 +44,6 @@ export function VoucherImportModal({ companyId, periodId, onClose, onImported }:
   const handleDownloadTemplate = async () => {
     try {
       if (isTauri) {
-        const { invoke } = await import('@tauri-apps/api/core')
         const path = await invoke<string>('download_voucher_template')
         successToast('模板已下载: ' + path)
       } else {
@@ -57,8 +58,7 @@ export function VoucherImportModal({ companyId, periodId, onClose, onImported }:
   const handleSelectFile = async () => {
     if (isTauri) {
       try {
-        const { open } = await import('@tauri-apps/plugin-dialog')
-        const selected = await open({
+        const selected = await dialogOpen({
           multiple: false,
           filters: [
             { name: 'Excel文件', extensions: ['xlsx', 'xls'] },
@@ -75,7 +75,6 @@ export function VoucherImportModal({ companyId, periodId, onClose, onImported }:
           setImportFormat('json')
           // Read JSON file via Tauri invoke (Rust reads the file)
           try {
-            const { invoke } = await import('@tauri-apps/api/core')
             const text = await invoke<string>('read_text_file', { path: filePath })
             setImportJson(text)
           } catch {
@@ -86,7 +85,6 @@ export function VoucherImportModal({ companyId, periodId, onClose, onImported }:
         }
 
         // Use Rust-side calamine parser for Excel files
-        const { invoke } = await import('@tauri-apps/api/core')
         const result = await invoke<{
           rows: ParsedRow[]
           total_rows: number
@@ -263,8 +261,8 @@ export function VoucherImportModal({ companyId, periodId, onClose, onImported }:
   }
 
   const handleImport = async () => {
-    if (!companyId || !periodId) {
-      warningToast('请先选择账套和会计期间')
+    if (!companyId) {
+      warningToast('请先选择账套')
       return
     }
 
@@ -333,7 +331,6 @@ export function VoucherImportModal({ companyId, periodId, onClose, onImported }:
       }
 
       if (isTauri) {
-        const { invoke } = await import('@tauri-apps/api/core')
         const result = await invoke<{ success: number; errors: string[]; voucher_ids: string[]; auto_created_accounts: number; auto_created_periods: number }>('import_vouchers', {
           companyId,
           periodId,

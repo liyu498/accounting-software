@@ -44,6 +44,131 @@ pub async fn get_period(
     Ok(period)
 }
 
+/// Ensure all 12 periods exist for the current accounting year of a company.
+/// Creates missing periods and initializes their account_balances from the
+/// previous period's closing balances.
+#[tauri::command]
+pub async fn ensure_periods(
+    company_id: String,
+    db: State<'_, Database>,
+) -> Result<Vec<AccountingPeriod>, String> {
+    log::info!("Ensuring all periods exist for company: {}", company_id);
+
+    // Determine the accounting year: use enable_year if set, else current year
+    let enable_info: Option<(i32, i32)> = sqlx::query_as(
+        "SELECT enable_year, enable_month FROM companies WHERE id = ?",
+    )
+    .bind(&company_id)
+    .fetch_optional(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    let year = enable_info
+        .and_then(|(y, _)| if y > 0 { Some(y) } else { None })
+        .unwrap_or_else(|| chrono::Local::now().format("%Y").to_string().parse::<i32>().unwrap_or(2026));
+
+    // Get existing periods for this year
+    let existing: Vec<(i32,)> = sqlx::query_as(
+        "SELECT period_month FROM accounting_periods WHERE company_id = ? AND period_year = ?",
+    )
+    .bind(&company_id)
+    .bind(year)
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+    let existing_months: std::collections::HashSet<i32> = existing.into_iter().map(|(m,)| m).collect();
+
+    // Get all enabled account codes
+    let account_codes: Vec<(String,)> = sqlx::query_as(
+        "SELECT code FROM account_codes WHERE company_id = ? AND is_enabled = 1",
+    )
+    .bind(&company_id)
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    // Create missing months
+    for month in 1..=12 {
+        if existing_months.contains(&month) {
+            continue;
+        }
+
+        let start_date = format!("{}-{:02}-01", year, month);
+        let end_day = days_in_month(year, month);
+        let end_date = format!("{}-{:02}-{}", year, month, end_day);
+        let id = uuid::Uuid::new_v4().to_string();
+
+        sqlx::query(
+            "INSERT INTO accounting_periods (id, company_id, period_year, period_month, start_date, end_date, status) VALUES (?, ?, ?, ?, ?, ?, 'open')",
+        )
+        .bind(&id)
+        .bind(&company_id)
+        .bind(year)
+        .bind(month)
+        .bind(&start_date)
+        .bind(&end_date)
+        .execute(db.pool())
+        .await
+        .map_err(|e| format!("Failed to create period: {}", e))?;
+
+        // Get previous period's closing balances as opening for this period
+        let prev_period: Option<AccountingPeriod> = sqlx::query_as(
+            "SELECT * FROM accounting_periods WHERE company_id = ? AND (period_year < ? OR (period_year = ? AND period_month < ?)) ORDER BY period_year DESC, period_month DESC LIMIT 1",
+        )
+        .bind(&company_id)
+        .bind(year)
+        .bind(year)
+        .bind(month)
+        .fetch_optional(db.pool())
+        .await
+        .map_err(|e| format!("Database error: {}", e))?;
+
+        for (code,) in &account_codes {
+            let (opening_debit, opening_credit) = if let Some(ref prev) = prev_period {
+                let prev_bal: Option<(f64, f64)> = sqlx::query_as(
+                    "SELECT closing_debit, closing_credit FROM account_balances WHERE period_id = ? AND account_code = ?",
+                )
+                .bind(&prev.id)
+                .bind(code)
+                .fetch_optional(db.pool())
+                .await
+                .ok()
+                .flatten();
+                prev_bal.unwrap_or((0.0, 0.0))
+            } else {
+                (0.0, 0.0)
+            };
+
+            sqlx::query(
+                "INSERT OR IGNORE INTO account_balances (id, period_id, account_code, opening_debit, opening_credit, period_debit, period_credit, closing_debit, closing_credit) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)",
+            )
+            .bind(&uuid::Uuid::new_v4().to_string())
+            .bind(&id)
+            .bind(code)
+            .bind(opening_debit)
+            .bind(opening_credit)
+            .bind(opening_debit)
+            .bind(opening_credit)
+            .execute(db.pool())
+            .await
+            .map_err(|e| format!("Failed to init balance: {}", e))?;
+        }
+
+        log::info!("Created period {}-{:02} for company {}", year, month, company_id);
+    }
+
+    // Return all periods
+    let periods: Vec<AccountingPeriod> = sqlx::query_as(
+        "SELECT * FROM accounting_periods WHERE company_id = ? ORDER BY period_year, period_month",
+    )
+    .bind(&company_id)
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    Ok(periods)
+}
+
 #[tauri::command]
 pub async fn get_open_periods(
     company_id: String,
@@ -276,6 +401,8 @@ pub struct TrialBalanceResult {
     pub total_opening_credit: f64,
     pub total_period_debit: f64,
     pub total_period_credit: f64,
+    pub total_cumulative_debit: f64,
+    pub total_cumulative_credit: f64,
     pub total_closing_debit: f64,
     pub total_closing_credit: f64,
     pub is_balanced: bool,
@@ -286,10 +413,14 @@ pub struct TrialBalanceItem {
     pub account_code: String,
     pub account_name: String,
     pub account_type: String,
+    pub account_level: i32,
+    pub is_detail: bool,
     pub opening_debit: f64,
     pub opening_credit: f64,
     pub period_debit: f64,
     pub period_credit: f64,
+    pub cumulative_debit: f64,
+    pub cumulative_credit: f64,
     pub closing_debit: f64,
     pub closing_credit: f64,
 }
@@ -301,15 +432,38 @@ pub async fn get_trial_balance(
 ) -> Result<TrialBalanceResult, String> {
     log::info!("Generating trial balance for period: {}", period_id);
 
-    // Derive company_id from period
-    let company_id: String = sqlx::query_scalar(
-        "SELECT company_id FROM accounting_periods WHERE id = ?",
+    // Derive company_id and period info
+    let period_info: (String, i32, i32) = sqlx::query_as(
+        "SELECT company_id, period_year, period_month FROM accounting_periods WHERE id = ?",
     )
     .bind(&period_id)
     .fetch_one(db.pool())
     .await
     .map_err(|e| format!("Database error: {}", e))?;
 
+    let (company_id, period_year, period_month) = period_info;
+
+    // Get all period IDs in the same year up to and including the current month (for YTD cumulative)
+    let ytd_period_ids: Vec<String> = sqlx::query_scalar(
+        "SELECT id FROM accounting_periods WHERE company_id = ? AND period_year = ? AND period_month <= ? ORDER BY period_month",
+    )
+    .bind(&company_id)
+    .bind(period_year)
+    .bind(period_month)
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    // Get ALL account codes (not just detail accounts) to build hierarchical trial balance
+    let all_accounts: Vec<(String, String, String, i32, bool)> = sqlx::query_as(
+        "SELECT code, name, account_type, level, CASE WHEN is_detail = 1 THEN 1 ELSE 0 END FROM account_codes WHERE company_id = ? AND is_enabled = 1 ORDER BY code",
+    )
+    .bind(&company_id)
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    // Get all detail-level balances for this period
     let balances: Vec<AccountBalance> = sqlx::query_as(
         "SELECT * FROM account_balances WHERE period_id = ? ORDER BY account_code",
     )
@@ -318,50 +472,160 @@ pub async fn get_trial_balance(
     .await
     .map_err(|e| format!("Database error: {}", e))?;
 
-    let mut items = Vec::new();
-    let mut total_od = 0.0; let mut total_oc = 0.0;
-    let mut total_pd = 0.0; let mut total_pc = 0.0;
-    let mut total_cd = 0.0; let mut total_cc = 0.0;
-
+    // Build a map of account_code -> AccountBalance
+    let mut bal_map: std::collections::HashMap<String, &AccountBalance> = std::collections::HashMap::new();
     for bal in &balances {
-        // Only include accounts that have non-zero values
-        if bal.opening_debit.abs() < 0.001 && bal.opening_credit.abs() < 0.001
-            && bal.period_debit.abs() < 0.001 && bal.period_credit.abs() < 0.001
-            && bal.closing_debit.abs() < 0.001 && bal.closing_credit.abs() < 0.001
+        bal_map.insert(bal.account_code.clone(), bal);
+    }
+
+    // For non-detail (parent) accounts, compute balances by summing all children
+    // Children are accounts whose code starts with this parent's code AND have a longer code
+    let mut items = Vec::new();
+    let total_od: f64; let total_oc: f64;
+    let total_pd: f64; let total_pc: f64;
+    let total_cud: f64; let total_cuc: f64;
+    let total_cd: f64; let total_cc: f64;
+
+    // Only sum detail accounts for totals (avoid double-counting parent totals)
+    let mut detail_totals = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
+
+    for (code, name, account_type, level, is_detail) in &all_accounts {
+        let (opening_debit, opening_credit, period_debit, period_credit, closing_debit, closing_credit) = if *is_detail {
+            // Detail account: use its own balance from account_balances
+            if let Some(bal) = bal_map.get(code) {
+                (bal.opening_debit, bal.opening_credit, bal.period_debit, bal.period_credit, bal.closing_debit, bal.closing_credit)
+            } else {
+                (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            }
+        } else {
+            // Parent account: sum all detail children's balances
+            let mut od = 0.0; let mut oc = 0.0;
+            let mut pd = 0.0; let mut pc = 0.0;
+            let mut cd = 0.0; let mut cc = 0.0;
+
+            for (child_code, _, _, _, child_is_detail) in &all_accounts {
+                if !child_is_detail { continue; }
+                // A child starts with this parent's code and is longer
+                if child_code.starts_with(code.as_str()) && child_code.len() > code.len() {
+                    if let Some(bal) = bal_map.get(child_code) {
+                        od += bal.opening_debit;
+                        oc += bal.opening_credit;
+                        pd += bal.period_debit;
+                        pc += bal.period_credit;
+                        cd += bal.closing_debit;
+                        cc += bal.closing_credit;
+                    }
+                }
+            }
+            (od, oc, pd, pc, cd, cc)
+        };
+
+        // Skip accounts with all zeros
+        if opening_debit.abs() < 0.001 && opening_credit.abs() < 0.001
+            && period_debit.abs() < 0.001 && period_credit.abs() < 0.001
+            && closing_debit.abs() < 0.001 && closing_credit.abs() < 0.001
         {
             continue;
         }
 
-        let name: Option<(String, String)> = sqlx::query_as(
-            "SELECT name, account_type FROM account_codes WHERE company_id = ? AND code = ?",
-        )
-        .bind(&company_id)
-        .bind(&bal.account_code)
-        .fetch_optional(db.pool())
-        .await
-        .map_err(|e| format!("Database error: {}", e))?;
+            // Calculate YTD cumulative (deferred — will be filled from batch query below)
+        let cumulative_debit = 0.0_f64;
+        let cumulative_credit = 0.0_f64;
 
-        let (account_name, account_type) = name.unwrap_or(("未知".to_string(), "unknown".to_string()));
-
-        total_od += bal.opening_debit;
-        total_oc += bal.opening_credit;
-        total_pd += bal.period_debit;
-        total_pc += bal.period_credit;
-        total_cd += bal.closing_debit;
-        total_cc += bal.closing_credit;
+        // Track detail-level totals for balance check
+        if *is_detail {
+            detail_totals.0 += opening_debit;
+            detail_totals.1 += opening_credit;
+            detail_totals.2 += period_debit;
+            detail_totals.3 += period_credit;
+            detail_totals.4 += cumulative_debit;
+            detail_totals.5 += cumulative_credit;
+            detail_totals.6 += closing_debit;
+            detail_totals.7 += closing_credit;
+        }
 
         items.push(TrialBalanceItem {
-            account_code: bal.account_code.clone(),
-            account_name,
-            account_type,
-            opening_debit: bal.opening_debit,
-            opening_credit: bal.opening_credit,
-            period_debit: bal.period_debit,
-            period_credit: bal.period_credit,
-            closing_debit: bal.closing_debit,
-            closing_credit: bal.closing_credit,
+            account_code: code.clone(),
+            account_name: name.clone(),
+            account_type: account_type.clone(),
+            account_level: *level,
+            is_detail: *is_detail,
+            opening_debit,
+            opening_credit,
+            period_debit,
+            period_credit,
+            cumulative_debit,
+            cumulative_credit,
+            closing_debit,
+            closing_credit,
         });
     }
+
+    // Use detail-level totals for the official totals and balance check
+    total_od = detail_totals.0;
+    total_oc = detail_totals.1;
+    total_pd = detail_totals.2;
+    total_pc = detail_totals.3;
+    // total_cud/total_cuc set later after batch YTD query
+    total_cd = detail_totals.6;
+    total_cc = detail_totals.7;
+
+    // Batch-load YTD cumulative data in a single query
+    let ytd_placeholders = ytd_period_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let ytd_query = format!(
+        "SELECT account_code, SUM(COALESCE(period_debit, 0)) as cum_debit, SUM(COALESCE(period_credit, 0)) as cum_credit FROM account_balances WHERE period_id IN ({}) GROUP BY account_code",
+        ytd_placeholders
+    );
+    let mut ytd_query_builder = sqlx::query_as::<_, (String, f64, f64)>(&ytd_query);
+    for pid in &ytd_period_ids {
+        ytd_query_builder = ytd_query_builder.bind(pid);
+    }
+    let ytd_cumulatives: Vec<(String, f64, f64)> = ytd_query_builder
+        .fetch_all(db.pool())
+        .await
+        .unwrap_or_default();
+
+    // Build YTD cumulative map: account_code -> (cumulative_debit, cumulative_credit)
+    let ytd_map: std::collections::HashMap<String, (f64, f64)> = ytd_cumulatives
+        .into_iter()
+        .map(|(code, cd, cc)| (code, (cd, cc)))
+        .collect();
+
+    // Fill cumulative values for each item
+    for item in &mut items {
+        if item.is_detail {
+            if let Some((cd, cc)) = ytd_map.get(&item.account_code) {
+                item.cumulative_debit = *cd;
+                item.cumulative_credit = *cc;
+            }
+        } else {
+            // Parent account: sum cumulative from detail children
+            let mut cd = 0.0_f64;
+            let mut cc = 0.0_f64;
+            for (child_code, _, _, _, child_is_detail) in &all_accounts {
+                if !child_is_detail { continue; }
+                if child_code.starts_with(item.account_code.as_str()) && child_code.len() > item.account_code.len() {
+                    if let Some((ccd, ccc)) = ytd_map.get(child_code) {
+                        cd += ccd;
+                        cc += ccc;
+                    }
+                }
+            }
+            item.cumulative_debit = cd;
+            item.cumulative_credit = cc;
+        }
+    }
+
+    // Recompute detail-level cumulative totals
+    let mut cum_totals = (0.0_f64, 0.0_f64);
+    for item in &items {
+        if item.is_detail {
+            cum_totals.0 += item.cumulative_debit;
+            cum_totals.1 += item.cumulative_credit;
+        }
+    }
+    total_cud = cum_totals.0;
+    total_cuc = cum_totals.1;
 
     let is_balanced = (total_od - total_oc).abs() < 0.01
         && (total_cd - total_cc).abs() < 0.01
@@ -373,6 +637,8 @@ pub async fn get_trial_balance(
         total_opening_credit: total_oc,
         total_period_debit: total_pd,
         total_period_credit: total_pc,
+        total_cumulative_debit: total_cud,
+        total_cumulative_credit: total_cuc,
         total_closing_debit: total_cd,
         total_closing_credit: total_cc,
         is_balanced,
@@ -744,6 +1010,7 @@ pub struct SubsidiaryLedgerItem {
     pub voucher_date: String,
     pub voucher_number: String,
     pub summary: String,
+    pub opposite_account: String,
     pub debit: f64,
     pub credit: f64,
     pub balance: f64,
@@ -807,6 +1074,7 @@ pub async fn get_subsidiary_ledger(
             voucher_date: String::new(),
             voucher_number: String::new(),
             summary: "期初余额".to_string(),
+            opposite_account: String::new(),
             debit: 0.0,
             credit: 0.0,
             balance: running_balance.abs(),
@@ -815,13 +1083,17 @@ pub async fn get_subsidiary_ledger(
     }
 
     // Get voucher entries for this account in this period
-    let entries: Vec<(String, String, String, Option<String>, String, f64)> = sqlx::query_as(
-        r#"SELECT ve.id, v.voucher_date, v.voucher_number, ve.summary, ve.direction, ve.amount
+    // Also fetch the opposite account code from entries in the same voucher with the opposite direction
+    let entries: Vec<(String, String, String, Option<String>, String, f64, Option<String>)> = sqlx::query_as(
+        r#"SELECT ve.id, v.voucher_date, v.voucher_number, ve.summary, ve.direction, ve.amount,
+           (SELECT GROUP_CONCAT(ve2.account_code, ',') FROM voucher_entries ve2
+            WHERE ve2.voucher_id = ve.voucher_id AND ve2.direction != ve.direction AND ve2.account_code != ?)
            FROM voucher_entries ve
            JOIN vouchers v ON ve.voucher_id = v.id
            WHERE v.period_id = ? AND ve.account_code = ? AND v.status = 'approved' AND v.company_id = ? AND (v.is_deleted = 0 OR v.is_deleted IS NULL)
            ORDER BY v.voucher_date, v.sequence_num, ve.line_num"#,
     )
+    .bind(&account_code)
     .bind(&period_id)
     .bind(&account_code)
     .bind(&company_id)
@@ -829,7 +1101,7 @@ pub async fn get_subsidiary_ledger(
     .await
     .map_err(|e| format!("Database error: {}", e))?;
 
-    for (_id, date, number, summary, direction, amount) in entries {
+    for (_id, date, number, summary, direction, amount, opposite) in entries {
         let debit = if direction == "debit" { amount } else { 0.0 };
         let credit = if direction == "credit" { amount } else { 0.0 };
 
@@ -844,6 +1116,7 @@ pub async fn get_subsidiary_ledger(
             voucher_date: date,
             voucher_number: number,
             summary: summary.unwrap_or_default(),
+            opposite_account: opposite.unwrap_or_default(),
             debit,
             credit,
             balance: running_balance.abs(),
@@ -1233,54 +1506,64 @@ async fn evaluate_token(token: &str, company_id: &str, period_id: &str, pool: &s
 }
 
 async fn get_account_balance_by_rule(code: &str, company_id: &str, period_id: &str, rule: &str, pool: &sqlx::Pool<Sqlite>) -> f64 {
-    let result: Option<(f64, f64, f64, f64)> = sqlx::query_as(
-        "SELECT COALESCE(opening_debit, 0), COALESCE(opening_credit, 0), COALESCE(period_debit, 0), COALESCE(period_credit, 0) FROM account_balances WHERE period_id = ? AND account_code = ?",
+    // Sum balances for the exact code AND all child codes (e.g., "2211" matches "2211", "221101", "221102", etc.)
+    let rows: Vec<(String, f64, f64, f64, f64)> = sqlx::query_as(
+        "SELECT ab.account_code, COALESCE(ab.opening_debit, 0), COALESCE(ab.opening_credit, 0), COALESCE(ab.period_debit, 0), COALESCE(ab.period_credit, 0) FROM account_balances ab WHERE ab.period_id = ? AND (ab.account_code = ? OR ab.account_code LIKE ?) ORDER BY ab.account_code",
     )
     .bind(period_id)
     .bind(code)
-    .fetch_optional(pool)
+    .bind(format!("{}%", code))
+    .fetch_all(pool)
     .await
-    .ok()
-    .flatten();
+    .unwrap_or_default();
 
-    match result {
-        Some((opening_debit, opening_credit, period_debit, period_credit)) => {
-            match rule {
-                "opening" => {
-                    let normal: Option<(String,)> = sqlx::query_as(
-                        "SELECT normal_balance FROM account_codes WHERE company_id = ? AND code = ?",
-                    )
-                    .bind(company_id)
-                    .bind(code)
-                    .fetch_optional(pool)
-                    .await
-                    .ok()
-                    .flatten();
-                    match normal.as_ref().map(|(b,)| b.as_str()) {
-                        Some("debit") => opening_debit - opening_credit,
-                        _ => opening_credit - opening_debit,
-                    }
-                }
-                "period_debit" => period_debit,
-                "period_credit" => period_credit,
-                "closing_debit" => opening_debit + period_debit,
-                "closing_credit" => opening_credit + period_credit,
-                "cumulative_debit" => opening_debit + period_debit,
-                "cumulative_credit" => opening_credit + period_credit,
-                _ => 0.0,
+    if rows.is_empty() {
+        return 0.0;
+    }
+
+    let mut total_od = 0.0;
+    let mut total_oc = 0.0;
+    let mut total_pd = 0.0;
+    let mut total_pc = 0.0;
+
+    for (_row_code, od, oc, pd, pc) in &rows {
+        total_od += od;
+        total_oc += oc;
+        total_pd += pd;
+        total_pc += pc;
+    }
+
+    match rule {
+        "opening" => {
+            let normal: Option<(String,)> = sqlx::query_as(
+                "SELECT normal_balance FROM account_codes WHERE company_id = ? AND code = ?",
+            )
+            .bind(company_id)
+            .bind(code)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+            match normal.as_ref().map(|(b,)| b.as_str()) {
+                Some("debit") => total_od - total_oc,
+                _ => total_oc - total_od,
             }
         }
-        None => 0.0,
+        "period_debit" => total_pd,
+        "period_credit" => total_pc,
+        "closing_debit" => total_od + total_pd,
+        "closing_credit" => total_oc + total_pc,
+        "cumulative_debit" => total_od + total_pd,
+        "cumulative_credit" => total_oc + total_pc,
+        _ => 0.0,
     }
 }
 
 async fn get_account_closing_balance(code: &str, company_id: &str, period_id: &str, pool: &sqlx::Pool<Sqlite>) -> f64 {
-    // Get the normal balance side as the "balance" for this account
-    let result: Option<(String, f64, f64)> = sqlx::query_as(
-        "SELECT ac.normal_balance, ab.closing_debit, ab.closing_credit FROM account_codes ac LEFT JOIN account_balances ab ON ac.code = ab.account_code AND ac.company_id = ? AND ab.period_id = ? WHERE ac.company_id = ? AND ac.code = ?",
+    // Get the normal balance side for the parent account code
+    let normal: Option<(String,)> = sqlx::query_as(
+        "SELECT normal_balance FROM account_codes WHERE company_id = ? AND code = ?",
     )
-    .bind(company_id)
-    .bind(period_id)
     .bind(company_id)
     .bind(code)
     .fetch_optional(pool)
@@ -1288,18 +1571,30 @@ async fn get_account_closing_balance(code: &str, company_id: &str, period_id: &s
     .ok()
     .flatten();
 
-    match result {
-        Some((normal_balance, closing_debit, closing_credit)) => {
-            // For balance sheet: return the net balance
-            // Asset/debit-normal: closing_debit - closing_credit (but we store the correct side)
-            // Liability/credit-normal: closing_credit - closing_debit
-            if normal_balance == "debit" {
-                closing_debit - closing_credit
-            } else {
-                closing_credit - closing_debit
-            }
-        }
-        None => 0.0,
+    let is_debit_normal = normal.as_ref().map(|(b,)| b.as_str() == "debit").unwrap_or(true);
+
+    // Sum closing balances for exact code AND all child codes
+    let rows: Vec<(f64, f64)> = sqlx::query_as(
+        "SELECT COALESCE(closing_debit, 0), COALESCE(closing_credit, 0) FROM account_balances WHERE period_id = ? AND (account_code = ? OR account_code LIKE ?)",
+    )
+    .bind(period_id)
+    .bind(code)
+    .bind(format!("{}%", code))
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    if rows.is_empty() {
+        return 0.0;
+    }
+
+    let total_cd: f64 = rows.iter().map(|(d, _)| *d).sum();
+    let total_cc: f64 = rows.iter().map(|(_, c)| *c).sum();
+
+    if is_debit_normal {
+        total_cd - total_cc
+    } else {
+        total_cc - total_cd
     }
 }
 

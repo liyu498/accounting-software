@@ -500,6 +500,20 @@ impl Database {
             .await
             .ok();
 
+        // Company soft delete & deactivation
+        sqlx::query("ALTER TABLE companies ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
+            .execute(pool)
+            .await
+            .ok();
+        sqlx::query("ALTER TABLE companies ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+            .execute(pool)
+            .await
+            .ok();
+        sqlx::query("ALTER TABLE companies ADD COLUMN deleted_at TEXT")
+            .execute(pool)
+            .await
+            .ok();
+
         // Voucher soft delete columns
         sqlx::query("ALTER TABLE vouchers ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
             .execute(pool)
@@ -1831,6 +1845,9 @@ pub struct Company {
     pub city: Option<String>,
     pub enable_year: Option<i32>,
     pub enable_month: Option<i32>,
+    pub is_active: i32,
+    pub is_deleted: i32,
+    pub deleted_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -1903,6 +1920,8 @@ pub struct Voucher {
     pub reference_number: Option<String>,
     pub is_settlement: i32,
     pub settlement_rule_id: Option<String>,
+    pub is_deleted: i32,
+    pub deleted_at: Option<String>,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]

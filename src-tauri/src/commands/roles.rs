@@ -424,7 +424,7 @@ pub async fn check_permission(
         .map_err(|e| format!("Database error: {}", e))?
         .ok_or_else(|| "User not found".to_string())?;
 
-    if user.role == "admin" || user.role_id.is_none() && user.role == "admin" {
+    if user.role == "admin" {
         return Ok(true);
     }
 

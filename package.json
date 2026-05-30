@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@playwright/test": "^1.59.1",
-    "@tauri-apps/api": "^2.2.0",
+    "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.8.0",
@@ -29,6 +29,8 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.10.0",
     "playwright": "^1.59.1",
     "postcss": "^8.4.49",
     "sharp": "^0.34.5",

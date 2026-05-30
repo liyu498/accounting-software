@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { invoke } from '../lib/tauri'
+import { usePeriodStore } from './periodStore'
 
 export interface Voucher {
   id: string
@@ -25,6 +26,8 @@ export interface Voucher {
   reversed_at: string | null
   reversal_of_id: string | null
   is_system: number
+  is_deleted: number
+  deleted_at: string | null
   entries: VoucherEntry[]
 }
 
@@ -83,6 +86,8 @@ interface VoucherListResponse {
     reversed_at: string | null
     reversal_of_id: string | null
     is_system: number
+    is_deleted: number
+    deleted_at: string | null
     entries: VoucherEntry[]
   }[]
   total: number
@@ -168,6 +173,11 @@ interface VoucherState {
   deleteCompanyVouchers: (companyId: string) => Promise<number>
   exportVouchersExcel: (companyId: string, periodId?: string) => Promise<string>
 
+  getDeletedVouchers: (companyId: string) => Promise<Voucher[]>
+  restoreVoucher: (id: string, companyId: string) => Promise<void>
+  permanentDeleteVoucher: (id: string, companyId: string) => Promise<void>
+  recalculateBalances: (companyId: string) => Promise<string>
+
   setPage: (page: number) => void
   setPageSize: (size: number) => void
 }
@@ -197,6 +207,8 @@ function mapVoucher(raw: VoucherListResponse['vouchers'][0]): Voucher {
     reversed_at: raw.reversed_at,
     reversal_of_id: raw.reversal_of_id,
     is_system: raw.is_system,
+    is_deleted: raw.is_deleted ?? 0,
+    deleted_at: raw.deleted_at ?? null,
     entries: raw.entries,
   }
 }
@@ -269,6 +281,7 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
         totalVouchers: state.totalVouchers + 1,
         isLoading: false,
       }))
+      usePeriodStore.getState().notifyDataChange()
       return voucher
     } catch (error) {
       set({ error: String(error), isLoading: false })
@@ -288,6 +301,7 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
         vouchers: state.vouchers.map((v) => (v.id === voucher.id ? voucher : v)),
         isLoading: false,
       }))
+      usePeriodStore.getState().notifyDataChange()
       return voucher
     } catch (error) {
       set({ error: String(error), isLoading: false })
@@ -302,6 +316,7 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
         vouchers: state.vouchers.filter((v) => v.id !== id),
         totalVouchers: state.totalVouchers - 1,
       }))
+      usePeriodStore.getState().notifyDataChange()
     } catch (error) {
       set({ error: String(error) })
       throw error
@@ -318,6 +333,7 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
       set((state) => ({
         vouchers: state.vouchers.map((v) => (v.id === id ? { ...v, ...result } : v)),
       }))
+      usePeriodStore.getState().notifyDataChange()
       return result
     } catch (error) {
       set({ error: String(error) })
@@ -331,6 +347,7 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
       set((state) => ({
         vouchers: state.vouchers.map((v) => (v.id === id ? { ...v, ...result } : v)),
       }))
+      usePeriodStore.getState().notifyDataChange()
       return result
     } catch (error) {
       set({ error: String(error) })
@@ -348,6 +365,7 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
       set((state) => ({
         vouchers: [result, ...state.vouchers],
       }))
+      usePeriodStore.getState().notifyDataChange()
       return result
     } catch (error) {
       set({ error: String(error) })
@@ -408,6 +426,7 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
           ids.includes(v.id) ? { ...v, status: 'approved', approved_by: approvedBy } : v,
         ),
       }))
+      usePeriodStore.getState().notifyDataChange()
     } catch (error) {
       set({ error: String(error) })
       throw error
@@ -422,6 +441,7 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
           ids.includes(v.id) ? { ...v, status: 'draft', approved_by: null, approved_at: null } : v,
         ),
       }))
+      usePeriodStore.getState().notifyDataChange()
     } catch (error) {
       set({ error: String(error) })
       throw error
@@ -442,5 +462,43 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
 
   exportVouchersExcel: async (companyId, periodId) => {
     return await invoke<string>('export_vouchers_excel', { companyId, periodId })
+  },
+
+  getDeletedVouchers: async (companyId) => {
+    try {
+      const result = await invoke<Voucher[]>('get_deleted_vouchers', { companyId })
+      return result
+    } catch (error) {
+      set({ error: String(error) })
+      return []
+    }
+  },
+
+  restoreVoucher: async (id, companyId) => {
+    try {
+      await invoke('restore_voucher', { id, companyId })
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
+  permanentDeleteVoucher: async (id, companyId) => {
+    try {
+      await invoke('permanent_delete_voucher', { id, companyId })
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
+  recalculateBalances: async (companyId) => {
+    try {
+      const result = await invoke<string>('recalculate_balances', { companyId })
+      return result
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
   },
 }))

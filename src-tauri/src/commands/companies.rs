@@ -7,10 +7,12 @@ pub async fn get_companies(
 ) -> Result<Vec<Company>, String> {
     log::info!("Fetching all companies");
 
-    let companies: Vec<Company> = sqlx::query_as("SELECT * FROM companies ORDER BY created_at DESC")
-        .fetch_all(db.pool())
-        .await
-        .map_err(|e| format!("Database error: {}", e))?;
+    let companies: Vec<Company> = sqlx::query_as(
+        "SELECT * FROM companies WHERE is_deleted = 0 ORDER BY created_at DESC",
+    )
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
 
     log::info!("Found {} companies", companies.len());
     Ok(companies)
@@ -194,16 +196,225 @@ pub async fn delete_company(
     id: String,
     db: State<'_, Database>,
 ) -> Result<(), String> {
-    log::info!("Deleting company: {}", id);
+    log::info!("Soft-deleting company (30-day retention): {}", id);
 
-    sqlx::query("DELETE FROM companies WHERE id = ?")
+    let now = chrono::Utc::now().to_rfc3339();
+
+    sqlx::query(
+        "UPDATE companies SET is_deleted = 1, is_active = 0, deleted_at = ?, updated_at = ? WHERE id = ?",
+    )
+    .bind(&now)
+    .bind(&now)
+    .bind(&id)
+    .execute(db.pool())
+    .await
+    .map_err(|e| format!("Failed to delete company: {}", e))?;
+
+    log::info!("Company soft-deleted successfully: {}", id);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn deactivate_company(
+    id: String,
+    db: State<'_, Database>,
+) -> Result<Company, String> {
+    log::info!("Deactivating company: {}", id);
+
+    let now = chrono::Utc::now().to_rfc3339();
+
+    sqlx::query("UPDATE companies SET is_active = 0, updated_at = ? WHERE id = ?")
+        .bind(&now)
         .bind(&id)
         .execute(db.pool())
         .await
+        .map_err(|e| format!("Failed to deactivate company: {}", e))?;
+
+    let company: Company = sqlx::query_as("SELECT * FROM companies WHERE id = ?")
+        .bind(&id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|e| format!("Failed to fetch company: {}", e))?;
+
+    log::info!("Company deactivated successfully: {}", id);
+    Ok(company)
+}
+
+#[tauri::command]
+pub async fn activate_company(
+    id: String,
+    db: State<'_, Database>,
+) -> Result<Company, String> {
+    log::info!("Activating company: {}", id);
+
+    let now = chrono::Utc::now().to_rfc3339();
+
+    sqlx::query("UPDATE companies SET is_active = 1, updated_at = ? WHERE id = ?")
+        .bind(&now)
+        .bind(&id)
+        .execute(db.pool())
+        .await
+        .map_err(|e| format!("Failed to activate company: {}", e))?;
+
+    let company: Company = sqlx::query_as("SELECT * FROM companies WHERE id = ?")
+        .bind(&id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|e| format!("Failed to fetch company: {}", e))?;
+
+    log::info!("Company activated successfully: {}", id);
+    Ok(company)
+}
+
+#[tauri::command]
+pub async fn restore_company(
+    id: String,
+    db: State<'_, Database>,
+) -> Result<Company, String> {
+    log::info!("Restoring soft-deleted company: {}", id);
+
+    let now = chrono::Utc::now().to_rfc3339();
+
+    sqlx::query(
+        "UPDATE companies SET is_deleted = 0, is_active = 1, deleted_at = NULL, updated_at = ? WHERE id = ?",
+    )
+    .bind(&now)
+    .bind(&id)
+    .execute(db.pool())
+    .await
+    .map_err(|e| format!("Failed to restore company: {}", e))?;
+
+    let company: Company = sqlx::query_as("SELECT * FROM companies WHERE id = ?")
+        .bind(&id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|e| format!("Failed to fetch company: {}", e))?;
+
+    log::info!("Company restored successfully: {}", id);
+    Ok(company)
+}
+
+#[tauri::command]
+pub async fn permanent_delete_company(
+    id: String,
+    db: State<'_, Database>,
+) -> Result<(), String> {
+    log::info!("Permanently deleting company and all related data: {}", id);
+
+    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+
+    // Delete all related data in correct order (child → parent)
+    let related_tables = [
+        "voucher_entry_auxiliaries",
+        "voucher_entries",
+        "voucher_logs",
+        "vouchers",
+        "account_balances",
+        "account_auxiliary_links",
+        "auxiliary_items",
+        "auxiliary_categories",
+        "currencies",
+        "voucher_template_types",
+        "voucher_templates",
+        "common_digests",
+        "settlement_rules",
+        "dashboard_widgets",
+        "financial_indicators",
+        "voucher_words",
+        "accounting_periods",
+        "account_codes",
+        "counterparties",
+        "invoices",
+        "initial_balances",
+        "user_companies",
+    ];
+
+    for table in &related_tables {
+        sqlx::query(&format!("DELETE FROM {} WHERE company_id = ?", table))
+            .bind(&id)
+            .execute(&mut *tx)
+            .await
+            .ok(); // Ignore errors for tables that don't exist yet
+    }
+
+    // Finally delete the company itself
+    sqlx::query("DELETE FROM companies WHERE id = ?")
+        .bind(&id)
+        .execute(&mut *tx)
+        .await
         .map_err(|e| format!("Failed to delete company: {}", e))?;
 
-    log::info!("Company deleted successfully: {}", id);
+    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+
+    log::info!("Company permanently deleted: {}", id);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_deleted_companies(
+    db: State<'_, Database>,
+) -> Result<Vec<Company>, String> {
+    log::info!("Fetching soft-deleted companies");
+
+    let companies: Vec<Company> = sqlx::query_as(
+        "SELECT * FROM companies WHERE is_deleted = 1 ORDER BY deleted_at DESC",
+    )
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    log::info!("Found {} deleted companies", companies.len());
+    Ok(companies)
+}
+
+#[tauri::command]
+pub async fn cleanup_expired_companies(
+    db: State<'_, Database>,
+) -> Result<u64, String> {
+    log::info!("Cleaning up companies deleted more than 30 days ago");
+
+    // Find companies deleted more than 30 days ago
+    let expired: Vec<(String,)> = sqlx::query_as(
+        "SELECT id FROM companies WHERE is_deleted = 1 AND deleted_at IS NOT NULL AND datetime(deleted_at) <= datetime('now', '-30 days')",
+    )
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    let count = expired.len() as u64;
+
+    for (id,) in &expired {
+        // Inline permanent deletion logic (can't call Tauri command from here)
+        let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+
+        let related_tables = [
+            "voucher_entry_auxiliaries", "voucher_entries", "voucher_logs", "vouchers",
+            "account_balances", "account_auxiliary_links", "auxiliary_items", "auxiliary_categories",
+            "currencies", "voucher_template_types", "voucher_templates", "common_digests",
+            "settlement_rules", "dashboard_widgets", "financial_indicators", "voucher_words",
+            "accounting_periods", "account_codes", "counterparties", "invoices",
+            "initial_balances", "user_companies",
+        ];
+
+        for table in &related_tables {
+            sqlx::query(&format!("DELETE FROM {} WHERE company_id = ?", table))
+                .bind(id)
+                .execute(&mut *tx)
+                .await
+                .ok();
+        }
+
+        sqlx::query("DELETE FROM companies WHERE id = ?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Failed to delete company: {}", e))?;
+
+        tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    }
+
+    log::info!("Permanently deleted {} expired companies", count);
+    Ok(count)
 }
 
 fn days_in_month(year: i32, month: i32) -> i32 {

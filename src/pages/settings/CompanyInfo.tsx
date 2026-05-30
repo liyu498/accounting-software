@@ -78,7 +78,7 @@ export function CompanyInfo() {
     }
   }, [currentCompany])
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
@@ -95,8 +95,8 @@ export function CompanyInfo() {
         accounting_system: formData.accountingStandard,
         province: formData.province || undefined,
         city: formData.city || undefined,
-        enable_year: formData.enableYear,
-        enable_month: formData.enableMonth,
+        enable_year: Number(formData.enableYear),
+        enable_month: Number(formData.enableMonth),
       })
       addToast('保存成功', 'success')
       setIsEditing(false)
@@ -389,7 +389,7 @@ export function CompanyInfo() {
               {isEditing ? (
                 <select
                   value={formData.enableYear}
-                  onChange={(e) => handleChange('enableYear', e.target.value)}
+                  onChange={(e) => handleChange('enableYear', parseInt(e.target.value, 10))}
                   className="w-full h-10 px-3 rounded-lg border border-gray-300 bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   title="启用年份"
                 >
@@ -406,7 +406,7 @@ export function CompanyInfo() {
               {isEditing ? (
                 <select
                   value={formData.enableMonth}
-                  onChange={(e) => handleChange('enableMonth', e.target.value)}
+                  onChange={(e) => handleChange('enableMonth', parseInt(e.target.value, 10))}
                   className="w-full h-10 px-3 rounded-lg border border-gray-300 bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   title="启用月份"
                 >

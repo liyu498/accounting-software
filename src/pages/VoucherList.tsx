@@ -51,10 +51,11 @@ export function VoucherList() {
     batchApprove,
     deleteCompanyVouchers,
     exportVouchersExcel,
+    recalculateBalances,
   } = useVoucherStore()
 
   const { selectedCompanyId } = useCompanyStore()
-  const { periods, currentPeriodId, setCurrentPeriod } = usePeriodStore()
+  const { periods, currentPeriodId, setCurrentPeriod, fetchPeriods } = usePeriodStore()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -62,6 +63,8 @@ export function VoucherList() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
   const [showImportModal, setShowImportModal] = useState(false)
+  const [dateFrom, setDateFrom] = useState<string>('')
+  const [dateTo, setDateTo] = useState<string>('')
 
   const operator = user?.username || user?.realName || 'admin'
 
@@ -70,13 +73,15 @@ export function VoucherList() {
       queryVouchers({
         company_id: selectedCompanyId,
         period_id: currentPeriodId || undefined,
+        start_date: dateFrom || undefined,
+        end_date: dateTo || undefined,
         keyword: searchQuery || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
         page: 1,
         page_size: pageSize,
       })
     }
-  }, [selectedCompanyId, currentPeriodId, searchQuery, statusFilter, pageSize, queryVouchers])
+  }, [selectedCompanyId, currentPeriodId, dateFrom, dateTo, searchQuery, statusFilter, pageSize, queryVouchers])
 
   const handleDeleteVoucher = async (voucher: Voucher) => {
     if (voucher.status !== 'draft') {
@@ -375,6 +380,18 @@ export function VoucherList() {
           <Button variant="outline" onClick={handleReorganize}>
             重新编号
           </Button>
+          <Button variant="outline" onClick={async () => {
+            if (!selectedCompanyId) return
+            if (!confirm('确定要重算所有期间的科目余额吗？这将自动审批所有草稿凭证并补全缺失期间。')) return
+            try {
+              const msg = await recalculateBalances(selectedCompanyId)
+              successToast(msg)
+              fetchPeriods(selectedCompanyId)
+              queryVouchers({ company_id: selectedCompanyId, period_id: currentPeriodId || undefined, page: 1, page_size: pageSize })
+            } catch (e) { addToast('重算失败: ' + String(e), 'error') }
+          }}>
+            重算余额
+          </Button>
           <Button variant="outline" onClick={handleDownloadTemplate}>
             <FileDown className="w-4 h-4 mr-2" />
             下载模板
@@ -438,13 +455,48 @@ export function VoucherList() {
               <option value={200}>每页 200 条</option>
               <option value={500}>每页 500 条</option>
             </select>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500 whitespace-nowrap">日期</span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="h-10 px-3 rounded-lg border border-gray-300 bg-white text-sm"
+                title="开始日期"
+              />
+              <span className="text-gray-400">~</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="h-10 px-3 rounded-lg border border-gray-300 bg-white text-sm"
+                title="结束日期"
+              />
+              {(dateFrom || dateTo) && (
+                <button
+                  onClick={() => { setDateFrom(''); setDateTo('') }}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100"
+                  title="清除日期筛选"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
             <select
               value={currentPeriodId || ''}
-              onChange={(e) => setCurrentPeriod(e.target.value || null)}
-              className="h-10 px-3 rounded-lg border border-gray-300 bg-white text-sm"
-              title="会计期间"
+              onChange={(e) => {
+                setCurrentPeriod(e.target.value || null)
+                // When a period is selected, clear date filters since period_id is sufficient
+                // When "自定义日期" is selected, user can manually set dates
+                if (!e.target.value) {
+                  setDateFrom('')
+                  setDateTo('')
+                }
+              }}
+              className="input-base text-sm"
+              title="按期间选择"
             >
-              <option value="">全部期间</option>
+              <option value="">自定义日期</option>
               {periods.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.period_year}年{String(p.period_month).padStart(2, '0')}月
@@ -734,6 +786,7 @@ export function VoucherList() {
                 page: 1,
                 page_size: pageSize,
               })
+              fetchPeriods(selectedCompanyId)
             }
           }}
         />

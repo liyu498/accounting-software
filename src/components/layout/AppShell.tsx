@@ -37,10 +37,14 @@ import {
   BadgeDollarSign,
   DollarSign,
   Shield,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../../lib/utils'
 import { useAuthStore } from '../../stores/authStore'
+import { useThemeStore, type ThemeMode } from '../../stores/themeStore'
 import { CompanySelector } from '../settings/CompanySelector'
 
 interface SidebarSection {
@@ -351,31 +355,34 @@ export function AppShell({ children }: AppShellProps) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+        <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6">
           <div className="flex items-center gap-4">
             <CompanySelector />
-            <div className="h-6 w-px bg-gray-200" />
-            <h1 className="text-lg font-semibold text-gray-900">
+            <div className="h-6 w-px bg-gray-200 dark:bg-gray-600" />
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               {activeItem?.label || 'Dashboard'}
             </h1>
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+
             {/* User Menu */}
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-primary-600" />
+              <div className="w-8 h-8 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-primary-600 dark:text-primary-400" />
               </div>
               <div className="hidden sm:block">
-                <p className="text-sm font-medium text-gray-900">{user?.username || 'Admin'}</p>
-                <p className="text-xs text-gray-500">{user?.role || '管理员'}</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user?.username || 'Admin'}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{user?.role || '管理员'}</p>
               </div>
             </div>
 
             <button
               type="button"
               onClick={logout}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
               <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline">退出</span>
@@ -384,8 +391,57 @@ export function AppShell({ children }: AppShellProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900">{children}</main>
       </div>
+    </div>
+  )
+}
+
+function ThemeToggle() {
+  const { mode, setMode } = useThemeStore()
+  const [showMenu, setShowMenu] = useState(false)
+
+  const themeOptions: { value: ThemeMode; label: string; icon: React.ReactNode }[] = [
+    { value: 'system', label: '跟随系统', icon: <Monitor className="w-4 h-4" /> },
+    { value: 'light', label: '浅色模式', icon: <Sun className="w-4 h-4" /> },
+    { value: 'dark', label: '深色模式', icon: <Moon className="w-4 h-4" /> },
+  ]
+
+  const currentIcon = mode === 'dark' ? <Moon className="w-4 h-4" /> : mode === 'light' ? <Sun className="w-4 h-4" /> : <Monitor className="w-4 h-4" />
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setShowMenu(!showMenu)}
+        className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+        title="主题设置"
+      >
+        {currentIcon}
+      </button>
+      {showMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+          <div className="absolute right-0 top-full mt-2 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-elevated py-1 min-w-[140px]">
+            {themeOptions.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => { setMode(opt.value); setShowMenu(false) }}
+                className={cn(
+                  'flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors',
+                  mode === opt.value
+                    ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 font-medium'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                )}
+              >
+                {opt.icon}
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

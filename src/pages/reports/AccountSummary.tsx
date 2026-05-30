@@ -8,7 +8,7 @@ import { useCompanyStore } from '../../stores/companyStore'
 
 export function AccountSummary() {
   const { selectedCompanyId } = useCompanyStore()
-  const { periods, currentPeriodId, fetchPeriods, setCurrentPeriod, fetchTrialBalance } = usePeriodStore()
+  const { periods, currentPeriodId, dataVersion, fetchPeriods, setCurrentPeriod, fetchTrialBalance } = usePeriodStore()
 
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null)
   const [items, setItems] = useState<TrialBalanceItem[]>([])
@@ -29,17 +29,18 @@ export function AccountSummary() {
     setLoading(true)
     try {
       const result = await fetchTrialBalance(selectedPeriodId)
-      setItems(result.items)
+      // Show only detail accounts in summary
+      setItems(result.items.filter((i) => i.is_detail))
     } catch {
       setItems([])
     } finally {
       setLoading(false)
     }
-  }, [selectedPeriodId, fetchTrialBalance])
+  }, [selectedPeriodId, dataVersion, fetchTrialBalance])
 
   useEffect(() => { loadData() }, [loadData])
 
-  const periodOptions = [...periods].sort((a, b) => (b.period_year * 100 + b.period_month) - (a.period_year * 100 + a.period_month))
+  const periodOptions = [...periods].sort((a, b) => (a.period_year * 100 + a.period_month) - (b.period_year * 100 + b.period_month))
 
   const totals = items.reduce(
     (acc, r) => ({

@@ -62,11 +62,13 @@ pub async fn login(
         .map_err(|e| format!("Database error: {}", e))?
         .ok_or_else(|| "Invalid credentials".to_string())?;
 
+    log::info!("User found: {}, hash prefix: {}", user.username, &user.password_hash[..8.min(user.password_hash.len())]);
+
     let password_valid = bcrypt::verify(&request.password, &user.password_hash)
         .map_err(|e| format!("Password verification error: {}", e))?;
 
     if !password_valid {
-        log::warn!("Failed login attempt for user: {}", request.username);
+        log::warn!("Failed login attempt for user: {} (password mismatch)", request.username);
         return Ok(LoginResponse {
             success: false,
             token: None,

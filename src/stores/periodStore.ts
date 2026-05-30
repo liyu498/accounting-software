@@ -40,6 +40,8 @@ export interface TrialBalanceItem {
   account_code: string
   account_name: string
   account_type: string
+  account_level: number
+  is_detail: boolean
   opening_debit: number
   opening_credit: number
   period_debit: number
@@ -56,6 +58,8 @@ export interface TrialBalanceResult {
   total_opening_credit: number
   total_period_debit: number
   total_period_credit: number
+  total_cumulative_debit: number
+  total_cumulative_credit: number
   total_closing_debit: number
   total_closing_credit: number
   is_balanced: boolean
@@ -142,13 +146,16 @@ interface PeriodState {
   accountBalances: AccountBalance[]
   isLoading: boolean
   error: string | null
+  dataVersion: number
 
   fetchPeriods: (companyId: string) => Promise<void>
+  ensurePeriods: (companyId: string) => Promise<void>
   fetchOpenPeriods: (companyId: string) => Promise<AccountingPeriod[]>
   createPeriod: (companyId: string, year: number, month: number) => Promise<AccountingPeriod>
   closePeriod: (periodId: string, closedBy?: string) => Promise<void>
   reopenPeriod: (periodId: string) => Promise<void>
   setCurrentPeriod: (periodId: string | null) => void
+  notifyDataChange: () => void
 
   fetchVoucherWords: (companyId: string) => Promise<void>
 
@@ -180,16 +187,32 @@ export const usePeriodStore = create<PeriodState>((set, get) => ({
   accountBalances: [],
   isLoading: false,
   error: null,
+  dataVersion: 0,
+
+  notifyDataChange: () => {
+    set((state) => ({ dataVersion: state.dataVersion + 1, trialBalance: null }))
+  },
 
   fetchPeriods: async (companyId) => {
     set({ isLoading: true, error: null })
     try {
+      // Ensure all periods exist first, then fetch
+      await invoke<AccountingPeriod[]>('ensure_periods', { companyId })
       const result = await invoke<AccountingPeriod[]>('get_accounting_periods', {
         companyId,
       })
       set({ periods: result, isLoading: false })
     } catch (error) {
       set({ error: String(error), isLoading: false })
+    }
+  },
+
+  ensurePeriods: async (companyId) => {
+    try {
+      const result = await invoke<AccountingPeriod[]>('ensure_periods', { companyId })
+      set({ periods: result })
+    } catch (error) {
+      set({ error: String(error) })
     }
   },
 

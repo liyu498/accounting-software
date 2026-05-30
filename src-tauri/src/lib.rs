@@ -53,6 +53,12 @@ pub fn run() {
             commands::companies::create_company,
             commands::companies::update_company,
             commands::companies::delete_company,
+            commands::companies::deactivate_company,
+            commands::companies::activate_company,
+            commands::companies::restore_company,
+            commands::companies::permanent_delete_company,
+            commands::companies::get_deleted_companies,
+            commands::companies::cleanup_expired_companies,
             // Account code commands
             commands::accounts::get_account_codes,
             commands::accounts::get_account_code,
@@ -72,6 +78,7 @@ pub fn run() {
             commands::subjects::delete_subject,
             commands::subjects::search_subjects,
             // Period commands
+            commands::periods::ensure_periods,
             commands::periods::get_accounting_periods,
             commands::periods::get_period,
             commands::periods::get_open_periods,
@@ -110,6 +117,7 @@ pub fn run() {
             commands::vouchers::get_deleted_vouchers,
             commands::vouchers::restore_voucher,
             commands::vouchers::permanent_delete_voucher,
+            commands::vouchers::recalculate_balances,
             commands::vouchers::approve_voucher,
             commands::vouchers::reverse_approve_voucher,
             commands::vouchers::reverse_voucher,

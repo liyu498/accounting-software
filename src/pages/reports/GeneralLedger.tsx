@@ -20,7 +20,7 @@ const ACCOUNT_TYPE_OPTIONS = [
 export function GeneralLedger() {
   const { addToast } = useToast()
   const { selectedCompanyId } = useCompanyStore()
-  const { periods, currentPeriodId, fetchPeriods, setCurrentPeriod, getGeneralLedger } =
+  const { periods, currentPeriodId, dataVersion, fetchPeriods, setCurrentPeriod, getGeneralLedger } =
     usePeriodStore()
 
   const [ledgerData, setLedgerData] = useState<GeneralLedgerItem[]>([])
@@ -46,7 +46,7 @@ export function GeneralLedger() {
         if (!cancelled) setIsLoading(false)
       })
     return () => { cancelled = true }
-  }, [currentPeriodId, accountType, getGeneralLedger])
+  }, [currentPeriodId, accountType, dataVersion, getGeneralLedger])
 
   const toggleAccount = (code: string) => {
     setExpandedAccounts((prev) => {
@@ -141,7 +141,7 @@ export function GeneralLedger() {
                 onChange={(e) => setCurrentPeriod(e.target.value || null)}
               >
                 <option value="">请选择期间</option>
-                {periods.map((p) => (
+                {[...periods].sort((a, b) => (a.period_year * 100 + a.period_month) - (b.period_year * 100 + b.period_month)).map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.period_year}年{p.period_month}月
                   </option>

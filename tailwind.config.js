@@ -1,32 +1,33 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
         primary: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          300: "#93c5fd",
-          400: "#60a5fa",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
-          800: "#1e40af",
-          900: "#1e3a8a",
+          50: "var(--color-primary-50)",
+          100: "var(--color-primary-100)",
+          200: "var(--color-primary-200)",
+          300: "var(--color-primary-300)",
+          400: "var(--color-primary-400)",
+          500: "var(--color-primary-500)",
+          600: "var(--color-primary-600)",
+          700: "var(--color-primary-700)",
+          800: "var(--color-primary-800)",
+          900: "var(--color-primary-900)",
         },
         gray: {
-          50: "#f9fafb",
-          100: "#f3f4f6",
-          200: "#e5e7eb",
-          300: "#d1d5db",
-          400: "#9ca3af",
-          500: "#6b7280",
-          600: "#4b5563",
-          700: "#374151",
-          800: "#1f2937",
-          900: "#111827",
+          50: "var(--color-gray-50)",
+          100: "var(--color-gray-100)",
+          200: "var(--color-gray-200)",
+          300: "var(--color-gray-300)",
+          400: "var(--color-gray-400)",
+          500: "var(--color-gray-500)",
+          600: "var(--color-gray-600)",
+          700: "var(--color-gray-700)",
+          800: "var(--color-gray-800)",
+          900: "var(--color-gray-900)",
         },
         surface: {
           primary: "var(--color-surface-primary)",
@@ -38,6 +39,8 @@ export default {
           secondary: "var(--color-text-secondary)",
           muted: "var(--color-text-muted)",
         },
+        white: "var(--color-white)",
+        black: "var(--color-black)",
       },
       fontFamily: {
         sans: [

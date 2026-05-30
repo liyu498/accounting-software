@@ -58,7 +58,7 @@ function flattenItems(items: BalanceSheetItem[], result: FlatRow[] = []): FlatRo
 
 export function BalanceSheet() {
   const { addToast } = useToast()
-  const { periods, currentPeriodId, fetchPeriods, setCurrentPeriod, getBalanceSheet } = usePeriodStore()
+  const { periods, currentPeriodId, dataVersion, fetchPeriods, setCurrentPeriod, getBalanceSheet } = usePeriodStore()
   const { selectedCompanyId } = useCompanyStore()
 
   const [data, setData] = useState<BalanceSheetResult | null>(null)
@@ -89,7 +89,7 @@ export function BalanceSheet() {
     if (currentPeriodId) {
       loadBalanceSheet(currentPeriodId)
     }
-  }, [currentPeriodId, loadBalanceSheet])
+  }, [currentPeriodId, dataVersion, loadBalanceSheet])
 
   const handlePeriodChange = (periodId: string) => {
     setCurrentPeriod(periodId)
@@ -179,7 +179,7 @@ export function BalanceSheet() {
                 onChange={(e) => handlePeriodChange(e.target.value)}
               >
                 <option value="">请选择期间</option>
-                {periods.map(p => (
+                {[...periods].sort((a, b) => (a.period_year * 100 + a.period_month) - (b.period_year * 100 + b.period_month)).map(p => (
                   <option key={p.id} value={p.id}>
                     {p.period_year}年{String(p.period_month).padStart(2, '0')}月
                     {p.status === 'closed' ? ' (已结账)' : ''}

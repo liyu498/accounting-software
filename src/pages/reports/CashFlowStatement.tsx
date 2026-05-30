@@ -25,7 +25,7 @@ const LEVEL_INDENT: Record<number, string> = { 0: 'pl-2', 1: 'pl-8', 2: 'pl-14' 
 
 export function CashFlowStatement() {
   const { selectedCompanyId } = useCompanyStore()
-  const { periods, currentPeriodId, fetchPeriods, setCurrentPeriod } = usePeriodStore()
+  const { periods, currentPeriodId, dataVersion, fetchPeriods, setCurrentPeriod } = usePeriodStore()
 
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null)
   const [data, setData] = useState<CashFlowResult | null>(null)
@@ -53,11 +53,11 @@ export function CashFlowStatement() {
     } finally {
       setLoading(false)
     }
-  }, [selectedPeriodId])
+  }, [selectedPeriodId, dataVersion])
 
   useEffect(() => { loadData() }, [loadData])
 
-  const periodOptions = [...periods].sort((a, b) => (b.period_year * 100 + b.period_month) - (a.period_year * 100 + a.period_month))
+  const periodOptions = [...periods].sort((a, b) => (a.period_year * 100 + a.period_month) - (b.period_year * 100 + b.period_month))
   const selectedPeriod = periods.find((p) => p.id === selectedPeriodId)
   const periodLabel = selectedPeriod
     ? `${selectedPeriod.period_year}年${String(selectedPeriod.period_month).padStart(2, '0')}月`

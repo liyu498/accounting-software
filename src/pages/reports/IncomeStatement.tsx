@@ -73,7 +73,7 @@ function renderItems(items: IncomeStatementItem[]): React.ReactNode[] {
 export function IncomeStatement() {
   const { addToast } = useToast()
   const { selectedCompanyId } = useCompanyStore()
-  const { periods, currentPeriodId, fetchPeriods, setCurrentPeriod, getIncomeStatement } = usePeriodStore()
+  const { periods, currentPeriodId, dataVersion, fetchPeriods, setCurrentPeriod, getIncomeStatement } = usePeriodStore()
 
   const [data, setData] = useState<IncomeStatementResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -98,7 +98,7 @@ export function IncomeStatement() {
     } finally {
       setIsLoading(false)
     }
-  }, [currentPeriodId, getIncomeStatement])
+  }, [currentPeriodId, dataVersion, getIncomeStatement])
 
   useEffect(() => {
     loadData()
@@ -112,6 +112,7 @@ export function IncomeStatement() {
 
   const treeItems = data ? buildTree(data.items) : []
   const netProfit = data ? data.current_period_total : 0
+  const netProfitYtd = data ? data.year_to_date_total : 0
 
   const handleExportExcel = () => {
     if (!data) return
@@ -122,7 +123,7 @@ export function IncomeStatement() {
       ['', periodLabel].join(','),
       ['项目', '本期金额', '本年累计金额'].join(','),
       ...flattenForExport(treeItems),
-      ['净利润', netProfit, ''].join(','),
+      ['净利润', netProfit, netProfitYtd].join(','),
     ].join('\n')
     const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -172,7 +173,7 @@ export function IncomeStatement() {
                 onChange={(e) => handlePeriodChange(e.target.value)}
               >
                 <option value="" disabled>请选择期间</option>
-                {periods.map((p) => (
+                {[...periods].sort((a, b) => (a.period_year * 100 + a.period_month) - (b.period_year * 100 + b.period_month)).map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.period_year}年{p.period_month}月
                   </option>
@@ -215,7 +216,7 @@ export function IncomeStatement() {
                     {formatCurrency(netProfit)}
                   </td>
                   <td className="py-3 px-2 text-sm text-right font-mono font-bold text-green-700">
-                    {formatCurrency(netProfit)}
+                    {formatCurrency(netProfitYtd)}
                   </td>
                 </tr>
               </tbody>

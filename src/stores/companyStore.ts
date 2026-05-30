@@ -19,6 +19,9 @@ export interface Company {
   city: string | null
   enable_year: number | null
   enable_month: number | null
+  is_active: number
+  is_deleted: number
+  deleted_at: string | null
   created_at: string
   updated_at: string
 }
@@ -59,6 +62,12 @@ interface CompanyState {
     },
   ) => Promise<Company>
   deleteCompany: (id: string) => Promise<void>
+  deactivateCompany: (id: string) => Promise<Company>
+  activateCompany: (id: string) => Promise<Company>
+  restoreCompany: (id: string) => Promise<Company>
+  permanentDeleteCompany: (id: string) => Promise<void>
+  getDeletedCompanies: () => Promise<Company[]>
+  cleanupExpiredCompanies: () => Promise<number>
   selectCompany: (companyId: string | null) => void
 }
 
@@ -127,6 +136,71 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
     } catch (error) {
       set({ error: String(error) })
       throw error
+    }
+  },
+
+  deactivateCompany: async (id) => {
+    try {
+      const updated = await invoke<Company>('deactivate_company', { id })
+      set((state) => ({
+        companies: state.companies.map((c) => (c.id === id ? updated : c)),
+      }))
+      return updated
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
+  activateCompany: async (id) => {
+    try {
+      const updated = await invoke<Company>('activate_company', { id })
+      set((state) => ({
+        companies: state.companies.map((c) => (c.id === id ? updated : c)),
+      }))
+      return updated
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
+  restoreCompany: async (id) => {
+    try {
+      const updated = await invoke<Company>('restore_company', { id })
+      const allCompanies = await invoke<Company[]>('get_companies')
+      set({ companies: allCompanies })
+      return updated
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
+  permanentDeleteCompany: async (id) => {
+    try {
+      await invoke('permanent_delete_company', { id })
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
+  getDeletedCompanies: async () => {
+    try {
+      return await invoke<Company[]>('get_deleted_companies')
+    } catch (error) {
+      set({ error: String(error) })
+      return []
+    }
+  },
+
+  cleanupExpiredCompanies: async () => {
+    try {
+      return await invoke<number>('cleanup_expired_companies')
+    } catch (error) {
+      set({ error: String(error) })
+      return 0
     }
   },
 

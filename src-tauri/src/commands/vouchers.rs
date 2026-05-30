@@ -2100,9 +2100,10 @@ fn parse_year_month(date_str: &str) -> Result<(i32, i32), String> {
     }
 }
 
+#[tauri::command]
 pub async fn import_vouchers(
     company_id: String,
-    _period_id: String,
+    _period_id: Option<String>,
     voucher_word_id: String,
     vouchers: Vec<ImportVoucherInput>,
     db: State<'_, Database>,
@@ -2135,6 +2136,42 @@ pub async fn import_vouchers(
 
     // Cache for period_id lookup: (year, month) → period_id
     let mut period_cache: std::collections::HashMap<(i32, i32), String> = std::collections::HashMap::new();
+
+    // Pre-scan all voucher dates to find the min/max range,
+    // then create ALL periods in that range continuously (no gaps).
+    // This ensures period continuity: Jan, Feb, Mar, Apr, May — not skip Mar.
+    {
+        let mut min_ym: Option<(i32, i32)> = None;
+        let mut max_ym: Option<(i32, i32)> = None;
+        for v in &vouchers {
+            if let Ok((y, m)) = parse_year_month(&v.voucher_date) {
+                match min_ym {
+                    None => { min_ym = Some((y, m)); max_ym = Some((y, m)); }
+                    Some((my, mm)) => {
+                        if y < my || (y == my && m < mm) { min_ym = Some((y, m)); }
+                        if y > my || (y == my && m > mm) { max_ym = Some((y, m)); }
+                    }
+                }
+                if let Some((cy, cm)) = max_ym {
+                    if y > cy || (y == cy && m > cm) { max_ym = Some((y, m)); }
+                }
+            }
+        }
+
+        if let (Some((min_y, min_m)), Some((max_y, max_m))) = (min_ym, max_ym) {
+            // Walk through every month from min to max, creating missing periods
+            let mut cur_y = min_y;
+            let mut cur_m = min_m;
+            loop {
+                let pid = resolve_period_for_date(&company_id, cur_y, cur_m, &mut *tx).await?;
+                period_cache.insert((cur_y, cur_m), pid);
+
+                if cur_y == max_y && cur_m == max_m { break; }
+                cur_m += 1;
+                if cur_m > 12 { cur_m = 1; cur_y += 1; }
+            }
+        }
+    }
 
     let mut success = 0usize;
     let mut errors: Vec<String> = Vec::new();
@@ -2188,15 +2225,45 @@ pub async fn import_vouchers(
             // Parse the underscore-separated path from 科目全称
             // e.g., "应交税费_应交增值税_销项税额" → ["应交税费", "应交增值税", "销项税额"]
             // Each element corresponds to a level in the account hierarchy.
-            let name_path: Vec<&str> = if !full_name.is_empty() {
-                full_name.split('_').filter(|s| !s.is_empty()).collect()
+            let mut name_path: Vec<String> = if !full_name.is_empty() {
+                full_name.split('_').filter(|s| !s.is_empty()).map(|s| s.to_string()).collect()
+            } else if let Some(an) = e.account_name.as_deref() {
+                if !an.is_empty() && an != code { vec![an.to_string()] } else { vec![] }
             } else {
-                let name = e.account_name.as_deref().unwrap_or(code);
-                vec![name]
+                vec![]
             };
 
             if name_path.is_empty() {
-                continue;
+                // No name info provided — derive a default name from the deepest existing parent
+                let parent_name: Option<String> = {
+                    let mut sc = code.clone();
+                    let mut found_name: Option<String> = None;
+                    loop {
+                        if sc.len() > 4 {
+                            sc = sc[..sc.len() - 2].to_string();
+                        } else if sc.len() > 1 {
+                            sc = sc[..sc.len() - 1].to_string();
+                        } else {
+                            break;
+                        }
+                        let pn: Option<(String,)> = sqlx::query_as(
+                            "SELECT name FROM account_codes WHERE code = ? AND company_id = ?",
+                        )
+                        .bind(&sc)
+                        .bind(&company_id)
+                        .fetch_optional(&mut *tx)
+                        .await
+                        .ok()
+                        .flatten();
+                        if let Some((n,)) = pn {
+                            found_name = Some(n);
+                            break;
+                        }
+                    }
+                    found_name
+                };
+                let derived = parent_name.unwrap_or_else(|| code.clone());
+                name_path = vec![derived];
             }
 
             // Determine account type from first digit of code
@@ -2288,9 +2355,9 @@ pub async fn import_vouchers(
 
                         let name_idx = (current_level as usize) - 1;
                         let name = if name_idx < name_path.len() {
-                            name_path[name_idx].to_string()
+                            name_path[name_idx].clone()
                         } else {
-                            name_path.last().unwrap_or(&code.as_str()).to_string()
+                            name_path.last().cloned().unwrap_or_else(|| code.clone())
                         };
 
                         let p_for_this = if codes_to_create.is_empty() {
@@ -2349,9 +2416,9 @@ pub async fn import_vouchers(
                     // Map derived codes to names from name_path
                     for (di, (d_code, d_level)) in codes_derived.iter().enumerate() {
                         let name = if di < name_path.len() {
-                            name_path[di].to_string()
+                            name_path[di].clone()
                         } else {
-                            name_path.last().unwrap_or(&d_code.as_str()).to_string()
+                            name_path.last().cloned().unwrap_or_else(|| d_code.clone())
                         };
 
                         let p_for_this: Option<String> = if di == 0 {
@@ -2367,7 +2434,7 @@ pub async fn import_vouchers(
 
             // Fallback: if nothing to create, create the target directly
             if codes_to_create.is_empty() {
-                let name = name_path.last().unwrap_or(&code.as_str()).to_string();
+                let name = name_path.last().cloned().unwrap_or_else(|| code.clone());
                 codes_to_create.push((code.clone(), name, 1, None));
             }
 
@@ -2468,10 +2535,11 @@ pub async fn import_vouchers(
         let voucher_number = format!("{}字第{:03}号", word_name.0, seq_in_period);
         let now = chrono::Utc::now().to_rfc3339();
 
+        // Imported vouchers are auto-approved since 序时账 represents already-posted entries
         let insert_result = sqlx::query(
             "INSERT INTO vouchers (id, company_id, period_id, voucher_word_id, voucher_number, sequence_num,
-                voucher_date, summary, attachment_count, status, total_debit, total_credit, version, created_by, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'draft', ?, ?, 1, 'import', ?)",
+                voucher_date, summary, attachment_count, status, total_debit, total_credit, version, created_by, created_at, approved_by, approved_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'approved', ?, ?, 1, 'import', ?, 'import', ?)",
         )
         .bind(&id)
         .bind(&company_id)
@@ -2484,6 +2552,7 @@ pub async fn import_vouchers(
         .bind(total_debit)
         .bind(total_credit)
         .bind(&now)
+        .bind(&now) // approved_at
         .execute(&mut *tx)
         .await;
 
@@ -2537,8 +2606,65 @@ pub async fn import_vouchers(
             continue;
         }
 
+        // Update account_balances since imported vouchers are auto-approved
+        if let Err(e) = update_balances_on_approve(&id, &resolved_period_id, &mut tx).await {
+            errors.push(format!("第{}行凭证余额更新失败: {}", idx + 1, e));
+            continue;
+        }
+
         success += 1;
         voucher_ids.push(id);
+    }
+
+    // After all vouchers are imported, recalculate closing balances for each
+    // affected period and carry forward to subsequent periods.
+    // This ensures that when multiple periods are created during import,
+    // each period's closing balance correctly feeds into the next period's opening.
+    {
+        // Collect all affected period IDs in chronological order
+        let mut affected_periods: Vec<(i32, i32, String)> = Vec::new();
+        for ((y, m), pid) in &period_cache {
+            affected_periods.push((*y, *m, pid.clone()));
+        }
+        affected_periods.sort_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
+
+        // For each period, recalculate closing balances from opening + period activity
+        for (idx, (_y, _m, pid)) in affected_periods.iter().enumerate() {
+            // Recalculate closing balances for this period based on actual period_debit/period_credit
+            sqlx::query(
+                "UPDATE account_balances SET closing_debit = opening_debit + period_debit, closing_credit = opening_credit + period_credit WHERE period_id = ?",
+            )
+            .bind(pid)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("更新期间{}期末余额失败: {}", pid, e))?;
+
+            // Carry forward closing balances to the next period's opening balances
+            if idx + 1 < affected_periods.len() {
+                let next_pid = &affected_periods[idx + 1].2;
+                // Update opening balances of next period from this period's closing balances
+                let closings: Vec<(String, f64, f64)> = sqlx::query_as(
+                    "SELECT account_code, closing_debit, closing_credit FROM account_balances WHERE period_id = ?",
+                )
+                .bind(pid)
+                .fetch_all(&mut *tx)
+                .await
+                .map_err(|e| format!("查询期间{}期末余额失败: {}", pid, e))?;
+
+                for (code, cd, cc) in &closings {
+                    sqlx::query(
+                        "UPDATE account_balances SET opening_debit = ?, opening_credit = ?, closing_debit = opening_debit + period_debit, closing_credit = opening_credit + period_credit WHERE period_id = ? AND account_code = ?",
+                    )
+                    .bind(cd)
+                    .bind(cc)
+                    .bind(next_pid)
+                    .bind(code)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| format!("结转余额到期间{}失败: {}", next_pid, e))?;
+                }
+            }
+        }
     }
 
     tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
@@ -2879,4 +3005,250 @@ pub async fn parse_voucher_excel(
         errors: global_errors,
         rows,
     })
+}
+
+/// Recalculate all account_balances for a company.
+/// This will:
+/// 1. Approve all draft vouchers (imported vouchers should be auto-approved)
+/// 2. Recalculate period_debit/period_credit/closing for each period
+/// 3. Carry forward closing balances to next period's opening
+/// 4. Create missing periods between min and max voucher dates
+#[tauri::command]
+pub async fn recalculate_balances(
+    company_id: String,
+    db: State<'_, Database>,
+) -> Result<String, String> {
+    log::info!("Recalculating balances for company: {}", company_id);
+
+    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+
+    // Step 0: Deduplicate periods — keep the earliest created one per (year, month)
+    let dup_periods: Vec<(String, i32, i32)> = sqlx::query_as(
+        r#"SELECT p.id, p.period_year, p.period_month
+           FROM accounting_periods p
+           WHERE p.company_id = ? AND p.id NOT IN (
+               SELECT MIN(p2.id) FROM accounting_periods p2 WHERE p2.company_id = ? GROUP BY p2.period_year, p2.period_month
+           )"#,
+    )
+    .bind(&company_id)
+    .bind(&company_id)
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(|e| format!("查询重复期间失败: {}", e))?;
+
+    let mut duplicates_removed = 0u32;
+    for (dup_id, _dy, _dm) in &dup_periods {
+        // Reassign any vouchers referencing the duplicate period to the kept period
+        let kept: Option<(String,)> = sqlx::query_as(
+            "SELECT MIN(id) FROM accounting_periods WHERE company_id = ? AND period_year = ? AND period_month = ?",
+        )
+        .bind(&company_id)
+        .bind(_dy)
+        .bind(_dm)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|e| format!("查询保留期间失败: {}", e))?;
+
+        if let Some((kept_id,)) = kept {
+            sqlx::query("UPDATE vouchers SET period_id = ? WHERE period_id = ?")
+                .bind(&kept_id)
+                .bind(dup_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| format!("迁移凭证期间失败: {}", e))?;
+
+            sqlx::query("DELETE FROM account_balances WHERE period_id = ?")
+                .bind(dup_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| format!("删除重复余额失败: {}", e))?;
+
+            sqlx::query("DELETE FROM accounting_periods WHERE id = ?")
+                .bind(dup_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| format!("删除重复期间失败: {}", e))?;
+
+            duplicates_removed += 1;
+        }
+    }
+    if duplicates_removed > 0 {
+        log::info!("Removed {} duplicate periods", duplicates_removed);
+    }
+
+    // Step 1: Approve all draft vouchers
+    let now = chrono::Utc::now().to_rfc3339();
+    let draft_count = sqlx::query(
+        "UPDATE vouchers SET status = 'approved', approved_by = 'recalculate', approved_at = ? WHERE company_id = ? AND status = 'draft' AND (is_deleted = 0 OR is_deleted IS NULL)",
+    )
+    .bind(&now)
+    .bind(&company_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| format!("审批草稿凭证失败: {}", e))?
+    .rows_affected();
+
+    log::info!("Approved {} draft vouchers", draft_count);
+
+    // Step 2: Determine the full date range from both voucher dates AND existing periods,
+    // then create all missing periods to ensure continuity (no gaps between months).
+    let voucher_range: Option<(String, String)> = sqlx::query_as(
+        "SELECT MIN(voucher_date), MAX(voucher_date) FROM vouchers WHERE company_id = ? AND (is_deleted = 0 OR is_deleted IS NULL)",
+    )
+    .bind(&company_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|e| format!("查询凭证日期范围失败: {}", e))?;
+
+    let period_range: Option<(i32, i32, i32, i32)> = sqlx::query_as(
+        "SELECT MIN(period_year), MIN(period_month), MAX(period_year), MAX(period_month) FROM accounting_periods WHERE company_id = ?",
+    )
+    .bind(&company_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|e| format!("查询期间范围失败: {}", e))?;
+
+    // Compute overall min and max across vouchers and existing periods
+    let mut min_y = i32::MAX;
+    let mut min_m = i32::MAX;
+    let mut max_y = 0i32;
+    let mut max_m = 0i32;
+
+    if let Some((min_date, max_date)) = voucher_range {
+        if let (Ok((vy1, vm1)), Ok((vy2, vm2))) = (parse_year_month(&min_date), parse_year_month(&max_date)) {
+            min_y = min_y.min(vy1); min_m = min_m.min(vm1);
+            max_y = max_y.max(vy2); max_m = max_m.max(vm2);
+        }
+    }
+    if let Some((py1, pm1, py2, pm2)) = period_range {
+        min_y = min_y.min(py1); min_m = min_m.min(pm1);
+        max_y = max_y.max(py2); max_m = max_m.max(pm2);
+    }
+
+    let mut periods_created = 0u32;
+
+    if min_y > 0 && max_y > 0 {
+        let mut cur_y = min_y;
+        let mut cur_m = min_m;
+        loop {
+            let existing: Option<(String,)> = sqlx::query_as(
+                "SELECT id FROM accounting_periods WHERE company_id = ? AND period_year = ? AND period_month = ?",
+            )
+            .bind(&company_id)
+            .bind(cur_y)
+            .bind(cur_m)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| format!("查询期间失败: {}", e))?;
+
+            if existing.is_none() {
+                let _pid = resolve_period_for_date(&company_id, cur_y, cur_m, &mut *tx).await?;
+                log::info!("Created missing period {}-{}", cur_y, cur_m);
+                periods_created += 1;
+            }
+
+            if cur_y == max_y && cur_m == max_m { break; }
+            cur_m += 1;
+            if cur_m > 12 { cur_m = 1; cur_y += 1; }
+        }
+    }
+
+    // Step 3: Reset all account_balances to zero, then recalculate from vouchers
+    // Get all periods in chronological order
+    let periods: Vec<(String, i32, i32)> = sqlx::query_as(
+        "SELECT id, period_year, period_month FROM accounting_periods WHERE company_id = ? ORDER BY period_year, period_month",
+    )
+    .bind(&company_id)
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(|e| format!("查询期间失败: {}", e))?;
+
+    // Get all enabled account codes
+    let account_codes: Vec<(String,)> = sqlx::query_as(
+        "SELECT code FROM account_codes WHERE company_id = ? AND is_enabled = 1",
+    )
+    .bind(&company_id)
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(|e| format!("查询科目失败: {}", e))?;
+
+    // First period gets opening from initial_balances or zero
+    let mut prev_closing: std::collections::HashMap<String, (f64, f64)> = std::collections::HashMap::new();
+
+    for (period_id, _year, _month) in &periods {
+        // For each account, reset period activity and recalculate from vouchers
+        for (code,) in &account_codes {
+            // Get opening from previous period's closing
+            let (opening_debit, opening_credit) = prev_closing.get(code).copied().unwrap_or((0.0, 0.0));
+
+            // Sum debit/credit from approved, non-deleted vouchers in this period
+            let activity: (f64, f64) = sqlx::query_as(
+                r#"SELECT COALESCE(SUM(CASE WHEN ve.direction = 'debit' THEN ve.amount ELSE 0 END), 0),
+                          COALESCE(SUM(CASE WHEN ve.direction = 'credit' THEN ve.amount ELSE 0 END), 0)
+                   FROM voucher_entries ve
+                   JOIN vouchers v ON ve.voucher_id = v.id
+                   WHERE v.period_id = ? AND ve.account_code = ? AND v.status = 'approved' AND (v.is_deleted = 0 OR v.is_deleted IS NULL)"#,
+            )
+            .bind(period_id)
+            .bind(code)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|e| format!("查询期间活动失败: {}", e))?;
+
+            let (period_debit, period_credit) = activity;
+            let closing_debit = opening_debit + period_debit;
+            let closing_credit = opening_credit + period_credit;
+
+            // Upsert the balance row
+            let existing_bal: Option<(String,)> = sqlx::query_as(
+                "SELECT id FROM account_balances WHERE period_id = ? AND account_code = ?",
+            )
+            .bind(period_id)
+            .bind(code)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| format!("查询余额行失败: {}", e))?;
+
+            if existing_bal.is_some() {
+                sqlx::query(
+                    "UPDATE account_balances SET opening_debit = ?, opening_credit = ?, period_debit = ?, period_credit = ?, closing_debit = ?, closing_credit = ? WHERE period_id = ? AND account_code = ?",
+                )
+                .bind(opening_debit)
+                .bind(opening_credit)
+                .bind(period_debit)
+                .bind(period_credit)
+                .bind(closing_debit)
+                .bind(closing_credit)
+                .bind(period_id)
+                .bind(code)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| format!("更新余额失败: {}", e))?;
+            } else {
+                sqlx::query(
+                    "INSERT INTO account_balances (id, period_id, account_code, opening_debit, opening_credit, period_debit, period_credit, closing_debit, closing_credit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                )
+                .bind(uuid::Uuid::new_v4().to_string())
+                .bind(period_id)
+                .bind(code)
+                .bind(opening_debit)
+                .bind(opening_credit)
+                .bind(period_debit)
+                .bind(period_credit)
+                .bind(closing_debit)
+                .bind(closing_credit)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| format!("插入余额失败: {}", e))?;
+            }
+
+            prev_closing.insert(code.clone(), (closing_debit, closing_credit));
+        }
+    }
+
+    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+
+    let msg = format!("重算完成: 清理{}个重复期间, 审批{}张草稿凭证, 新建{}个期间, 重算{}个期间余额", duplicates_removed, draft_count, periods_created, periods.len());
+    log::info!("{}", msg);
+    Ok(msg)
 }
