@@ -252,7 +252,17 @@ export function VoucherListPage() {
         }
         extra={
           <Space>
-            <ExportActions title="凭证列表" type="voucher" />
+            <ExportActions
+              title="凭证列表"
+              onExport={async (format) => {
+                const result = await accountingApi.exportDocument({
+                  type: 'voucher',
+                  format,
+                  title: '凭证列表',
+                })
+                message.success(result.message)
+              }}
+            />
             <Button
               icon={<FileAddOutlined />}
               onClick={() => {

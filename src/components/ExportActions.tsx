@@ -1,24 +1,19 @@
 import { DownOutlined } from '@ant-design/icons'
-import { Button, Dropdown, message } from 'antd'
+import { Button, Dropdown } from 'antd'
 import { useState } from 'react'
-import { accountingApi } from '../services/accountingApi'
-import type { ExportInput } from '../services/types'
 
-type ExportActionsProps = {
-  type: ExportInput['type']
+interface ExportActionsProps {
   title: string
+  onExport: (format: 'excel' | 'pdf') => Promise<void>
 }
 
-export function ExportActions({ type, title }: ExportActionsProps) {
+export function ExportActions({ title, onExport }: ExportActionsProps) {
   const [loading, setLoading] = useState(false)
 
-  async function handleExport(format: ExportInput['format']) {
+  async function handleExport(format: 'excel' | 'pdf') {
     setLoading(true)
     try {
-      const result = await accountingApi.exportDocument({ format, title, type })
-      message.success(result.message)
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : '导出失败')
+      await onExport(format)
     } finally {
       setLoading(false)
     }
@@ -30,14 +25,14 @@ export function ExportActions({ type, title }: ExportActionsProps) {
         items: [
           {
             key: 'excel',
-            label: '导出 Excel',
+            label: 'Excel',
             onClick: () => {
               void handleExport('excel')
             },
           },
           {
             key: 'pdf',
-            label: '导出 PDF',
+            label: 'PDF',
             onClick: () => {
               void handleExport('pdf')
             },
@@ -46,7 +41,7 @@ export function ExportActions({ type, title }: ExportActionsProps) {
       }}
       trigger={['click']}
     >
-      <Button icon={<DownOutlined />} loading={loading}>
+      <Button aria-label={`${title}导出`} icon={<DownOutlined />} loading={loading}>
         导出
       </Button>
     </Dropdown>

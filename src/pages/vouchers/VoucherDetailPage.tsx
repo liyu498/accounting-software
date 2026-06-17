@@ -128,7 +128,17 @@ export function VoucherDetailPage() {
         subtitle={voucher ? `${voucher.voucherDate} · ${voucher.summary || '未填写摘要'}` : '查看凭证分录与状态'}
         extra={
           <Space wrap>
-            <ExportActions title={voucher?.voucherNumber ?? '凭证详情'} type="voucher" />
+            <ExportActions
+              title={voucher?.voucherNumber ?? '凭证详情'}
+              onExport={async (format) => {
+                const result = await accountingApi.exportDocument({
+                  type: 'voucher',
+                  format,
+                  title: voucher?.voucherNumber ?? '凭证详情',
+                })
+                message.success(result.message)
+              }}
+            />
             <Button
               onClick={() => {
                 navigate('/vouchers')

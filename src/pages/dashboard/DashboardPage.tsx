@@ -5,7 +5,7 @@ import {
   FileAddOutlined,
   FileTextOutlined,
 } from '@ant-design/icons'
-import { Alert, Button, Card, Col, Empty, List, Row, Space, Statistic, Table, Tag, Typography } from 'antd'
+import { Alert, Button, Card, Col, Empty, List, Row, Space, Statistic, Table, Tag, Typography, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -113,7 +113,19 @@ export function DashboardPage() {
             ? `${selectedCompany.name} · ${selectedPeriod.year}-${String(selectedPeriod.month).padStart(2, '0')}`
             : '当前账套或当前期间未选择'
         }
-        extra={<ExportActions title="工作台" type="report" />}
+        extra={
+          <ExportActions
+            title="工作台"
+            onExport={async (format) => {
+              const result = await accountingApi.exportDocument({
+                type: 'report',
+                format,
+                title: '工作台',
+              })
+              message.success(result.message)
+            }}
+          />
+        }
       />
 
       {errorMessage ? <Alert message={errorMessage} showIcon type="error" /> : null}

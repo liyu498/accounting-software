@@ -1,30 +1,19 @@
-import { Card, Space, Typography } from 'antd'
 import { createBrowserRouter, createMemoryRouter, Navigate, Outlet, type RouteObject } from 'react-router-dom'
-import { ExportActions } from '../components/ExportActions'
 import { AppLayout } from '../layouts/AppLayout'
 import { AuthLayout } from '../layouts/AuthLayout'
 import { CompanySelectPage } from '../pages/companies/CompanySelectPage'
 import { DashboardPage } from '../pages/dashboard/DashboardPage'
+import { GeneralLedgerPage } from '../pages/ledgers/GeneralLedgerPage'
+import { SubsidiaryLedgerPage } from '../pages/ledgers/SubsidiaryLedgerPage'
+import { TrialBalancePage } from '../pages/ledgers/TrialBalancePage'
 import { LoginPage } from '../pages/login/LoginPage'
+import { BalanceSheetPage } from '../pages/reports/BalanceSheetPage'
+import { IncomeStatementPage } from '../pages/reports/IncomeStatementPage'
 import { VoucherDetailPage } from '../pages/vouchers/VoucherDetailPage'
 import { VoucherEditorPage } from '../pages/vouchers/VoucherEditorPage'
 import { VoucherListPage } from '../pages/vouchers/VoucherListPage'
 import { useCompanyStore } from '../stores/companyStore'
 import { useSessionStore } from '../stores/sessionStore'
-
-function PlaceholderPage({ title, copy }: { title: string; copy: string }) {
-  return (
-    <Card>
-      <Space className="placeholder-page" direction="vertical" size={16}>
-        <div>
-          <Typography.Title level={2}>{title}</Typography.Title>
-          <Typography.Paragraph type="secondary">{copy}</Typography.Paragraph>
-        </div>
-        <ExportActions title={title} type="report" />
-      </Space>
-    </Card>
-  )
-}
 
 function RootRedirect() {
   const session = useSessionStore((state) => state.session)
@@ -132,23 +121,23 @@ const appRoutes: RouteObject[] = [
           },
           {
             path: '/ledgers/trial-balance',
-            element: <PlaceholderPage copy="科目余额表将在后续任务中完成。" title="科目余额表" />,
+            element: <TrialBalancePage />,
           },
           {
             path: '/ledgers/general',
-            element: <PlaceholderPage copy="总账功能将在后续任务中完成。" title="总账" />,
+            element: <GeneralLedgerPage />,
           },
           {
             path: '/ledgers/subsidiary',
-            element: <PlaceholderPage copy="明细账功能将在后续任务中完成。" title="明细账" />,
+            element: <SubsidiaryLedgerPage />,
           },
           {
             path: '/reports/balance-sheet',
-            element: <PlaceholderPage copy="资产负债表将在后续任务中完成。" title="资产负债表" />,
+            element: <BalanceSheetPage />,
           },
           {
             path: '/reports/income-statement',
-            element: <PlaceholderPage copy="利润表将在后续任务中完成。" title="利润表" />,
+            element: <IncomeStatementPage />,
           },
         ],
       },

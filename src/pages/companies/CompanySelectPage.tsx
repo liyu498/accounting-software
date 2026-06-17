@@ -5,12 +5,10 @@ import { useCompanyStore } from '../../stores/companyStore'
 
 export function CompanySelectPage() {
   const navigate = useNavigate()
-  const { companies, selectedCompany, loadCompanies, selectCompany } = useCompanyStore((state) => ({
-    companies: state.companies,
-    selectedCompany: state.selectedCompany,
-    loadCompanies: state.loadCompanies,
-    selectCompany: state.selectCompany,
-  }))
+  const companies = useCompanyStore((state) => state.companies)
+  const selectedCompany = useCompanyStore((state) => state.selectedCompany)
+  const loadCompanies = useCompanyStore((state) => state.loadCompanies)
+  const selectCompany = useCompanyStore((state) => state.selectCompany)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
