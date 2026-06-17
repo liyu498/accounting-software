@@ -6,10 +6,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AmountText } from '../../components/AmountText'
 import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { VoucherEntryGrid } from '../../features/vouchers/VoucherEntryGrid'
-import { getVoucherTotals, isVoucherBalanced, isVoucherEditable } from '../../features/vouchers/voucherRules'
+import { getVoucherTotals, isVoucherBalanced } from '../../features/vouchers/voucherRules'
 import { accountingApi } from '../../services/accountingApi'
 import type { SaveVoucherInput, VoucherDetail, VoucherEntry } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
+import { getEditorModeState } from './voucherEditorState'
 
 type VoucherFormValues = {
   voucherDate: Dayjs
@@ -54,6 +55,8 @@ export function VoucherEditorPage() {
         attachmentCount: 1,
       })
       setVoucher(null)
+      setErrorMessage(null)
+      setLoading(false)
       setEntries([createEmptyEntry(), createEmptyEntry()])
       return
     }
@@ -63,6 +66,8 @@ export function VoucherEditorPage() {
     void (async () => {
       setLoading(true)
       setErrorMessage(null)
+      setVoucher(null)
+
       try {
         const detail = await accountingApi.getVoucher(id)
         if (cancelled) {
@@ -79,6 +84,7 @@ export function VoucherEditorPage() {
       } catch (error) {
         if (!cancelled) {
           setErrorMessage(error instanceof Error ? error.message : '凭证加载失败')
+          setEntries([createEmptyEntry(), createEmptyEntry()])
         }
       } finally {
         if (!cancelled) {
@@ -94,9 +100,18 @@ export function VoucherEditorPage() {
 
   const totals = useMemo(() => getVoucherTotals(entries), [entries])
   const balanced = useMemo(() => isVoucherBalanced(entries), [entries])
-  const editable = voucher ? isVoucherEditable(voucher.status) : true
+  const editorModeState = getEditorModeState({
+    routeVoucherId: id,
+    loading,
+    voucher,
+    loadErrorMessage: errorMessage,
+  })
 
   async function handleSave(values: VoucherFormValues) {
+    if (!editorModeState.canSave) {
+      return
+    }
+
     if (!selectedCompany || !selectedPeriodId) {
       setErrorMessage('请先选择账套和会计期间')
       return
@@ -141,7 +156,7 @@ export function VoucherEditorPage() {
               取消
             </Button>
             <Button
-              disabled={!editable || !balanced || saving}
+              disabled={!editorModeState.canSave || !balanced || saving}
               htmlType="submit"
               icon={<SaveOutlined />}
               loading={saving}
@@ -156,20 +171,24 @@ export function VoucherEditorPage() {
         }
       />
 
-      {errorMessage ? <Alert message={errorMessage} showIcon type="error" /> : null}
+      {errorMessage && editorModeState.mode !== 'load-error' ? <Alert message={errorMessage} showIcon type="error" /> : null}
 
-      {voucher && !editable ? (
+      {editorModeState.mode === 'load-error' || editorModeState.mode === 'not-found' || editorModeState.mode === 'locked' ? (
         <Card>
           <Result
             extra={
               <Space>
                 <Button
                   onClick={() => {
-                    navigate(`/vouchers/${voucher.id}`)
+                    if (voucher) {
+                      navigate(`/vouchers/${voucher.id}`)
+                    } else {
+                      navigate('/vouchers')
+                    }
                   }}
                   type="primary"
                 >
-                  返回凭证详情
+                  {voucher ? '返回凭证详情' : '返回凭证列表'}
                 </Button>
                 <Button
                   onClick={() => {
@@ -180,14 +199,16 @@ export function VoucherEditorPage() {
                 </Button>
               </Space>
             }
-            status="warning"
-            subTitle="只有草稿状态的凭证可以编辑，请返回详情页查看或继续处理。"
-            title="当前凭证不可编辑"
+            status={editorModeState.resultStatus}
+            subTitle={editorModeState.subTitle}
+            title={editorModeState.title}
           />
         </Card>
       ) : null}
 
-      {!voucher || editable ? (
+      {editorModeState.mode === 'loading' ? <Card loading /> : null}
+
+      {editorModeState.mode === 'create' || editorModeState.mode === 'edit' ? (
         <Card loading={loading}>
           <Form<VoucherFormValues>
             form={form}
@@ -208,11 +229,7 @@ export function VoucherEditorPage() {
               <Form.Item label="凭证字" name="voucherWord" rules={[{ required: true, message: '请选择凭证字' }]}>
                 <Select options={voucherWordOptions} style={{ width: 120 }} />
               </Form.Item>
-              <Form.Item
-                label="附件张数"
-                name="attachmentCount"
-                rules={[{ required: true, message: '请输入附件张数' }]}
-              >
+              <Form.Item label="附件张数" name="attachmentCount" rules={[{ required: true, message: '请输入附件张数' }]}>
                 <InputNumber min={0} precision={0} style={{ width: 120 }} />
               </Form.Item>
             </Space>
@@ -220,13 +237,13 @@ export function VoucherEditorPage() {
         </Card>
       ) : null}
 
-      {!voucher || editable ? (
+      {editorModeState.mode === 'create' || editorModeState.mode === 'edit' ? (
         <Card title="分录">
           <VoucherEntryGrid entries={entries} onChange={setEntries} />
         </Card>
       ) : null}
 
-      {!voucher || editable ? (
+      {editorModeState.mode === 'create' || editorModeState.mode === 'edit' ? (
         <div
           style={{
             position: 'sticky',

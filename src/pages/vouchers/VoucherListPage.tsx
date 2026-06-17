@@ -8,7 +8,6 @@ import {
 } from '@ant-design/icons'
 import { Alert, Button, DatePicker, Form, Input, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import type { Dayjs } from 'dayjs'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AmountText } from '../../components/AmountText'
@@ -16,14 +15,11 @@ import { ExportActions } from '../../components/ExportActions'
 import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { isVoucherEditable } from '../../features/vouchers/voucherRules'
 import { accountingApi } from '../../services/accountingApi'
-import type { VoucherQuery, VoucherStatus, VoucherSummary } from '../../services/types'
+import type { VoucherStatus, VoucherSummary } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
+import { buildVoucherListQuery, filterVoucherPageItems, getVoucherListFilterMeta, type VoucherListFilters } from './voucherListQuery'
 
-type FilterValues = {
-  keyword?: string
-  status?: VoucherStatus | 'all'
-  voucherDate?: Dayjs | null
-}
+type FilterValues = VoucherListFilters
 
 const statusOptions = [
   { label: '全部状态', value: 'all' },
@@ -58,6 +54,7 @@ export function VoucherListPage() {
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [items, setItems] = useState<VoucherSummary[]>([])
+  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [filters, setFilters] = useState<FilterValues>({ status: 'all' })
@@ -67,10 +64,12 @@ export function VoucherListPage() {
     () => periods.find((period) => period.id === selectedPeriodId) ?? null,
     [periods, selectedPeriodId],
   )
+  const filterMeta = useMemo(() => getVoucherListFilterMeta(filters), [filters])
 
   useEffect(() => {
     if (!selectedCompany || !selectedPeriodId) {
       setItems([])
+      setTotal(0)
       return
     }
 
@@ -80,24 +79,21 @@ export function VoucherListPage() {
       setLoading(true)
       setErrorMessage(null)
 
-      const query: VoucherQuery = {
+      const query = buildVoucherListQuery({
         companyId: selectedCompany.id,
         periodId: selectedPeriodId,
-        status: filters.status ?? 'all',
-        keyword: filters.keyword?.trim() || undefined,
-        page: 1,
-        pageSize: 200,
-      }
+        page,
+        pageSize,
+        filters,
+      })
 
       try {
         const response = await accountingApi.listVouchers(query)
-        const filteredByDate = filters.voucherDate
-          ? response.items.filter((item) => item.voucherDate === filters.voucherDate?.format('YYYY-MM-DD'))
-          : response.items
+        const filteredItems = filterVoucherPageItems(response.items, filters)
 
         if (!cancelled) {
-          setItems(filteredByDate)
-          setPage(1)
+          setItems(filteredItems)
+          setTotal(filterMeta.shouldResetPage ? filteredItems.length : response.total)
         }
       } catch (error) {
         if (!cancelled) {
@@ -113,12 +109,7 @@ export function VoucherListPage() {
     return () => {
       cancelled = true
     }
-  }, [filters, refreshToken, selectedCompany, selectedPeriodId])
-
-  const pagedItems = useMemo(() => {
-    const start = (page - 1) * pageSize
-    return items.slice(start, start + pageSize)
-  }, [items, page, pageSize])
+  }, [filterMeta.shouldResetPage, filters, page, pageSize, refreshToken, selectedCompany, selectedPeriodId])
 
   function refreshList() {
     setRefreshToken((value) => value + 1)
@@ -279,17 +270,24 @@ export function VoucherListPage() {
       />
 
       {errorMessage ? <Alert message={errorMessage} showIcon type="error" /> : null}
+      {filterMeta.notice ? <Alert message={filterMeta.notice} showIcon type="info" /> : null}
 
       <Form
         form={form}
         initialValues={{ status: 'all' }}
         layout="inline"
         onFinish={(values) => {
-          setFilters({
+          const nextFilters: FilterValues = {
             keyword: values.keyword,
             status: values.status ?? 'all',
             voucherDate: values.voucherDate ?? null,
-          })
+          }
+
+          if (getVoucherListFilterMeta(nextFilters).shouldResetPage) {
+            setPage(1)
+          }
+
+          setFilters(nextFilters)
         }}
       >
         <Form.Item name="keyword">
@@ -309,6 +307,7 @@ export function VoucherListPage() {
             <Button
               onClick={() => {
                 form.resetFields()
+                setPage(1)
                 setFilters({ status: 'all' })
               }}
             >
@@ -320,12 +319,12 @@ export function VoucherListPage() {
 
       <Table<VoucherSummary>
         columns={columns}
-        dataSource={pagedItems}
+        dataSource={items}
         loading={loading}
         pagination={{
           current: page,
           pageSize,
-          total: items.length,
+          total,
           showSizeChanger: true,
           showTotal: (value) => `共 ${value} 张凭证`,
           onChange: (nextPage, nextPageSize) => {
