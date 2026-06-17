@@ -1,0 +1,23 @@
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  color: #1f2329;
+  background: #f5f7fa;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 1024px;
+}
+
+.amount-text {
+  display: inline-block;
+  min-width: 7em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: "Cascadia Code", "SF Mono", Consolas, monospace;
+}
