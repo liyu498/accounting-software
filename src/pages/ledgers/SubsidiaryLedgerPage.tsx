@@ -8,7 +8,7 @@ import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { accountingApi } from '../../services/accountingApi'
 import type { LedgerEntry, SubsidiaryLedger } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
-import { getIdleFinancialPageState, resetFinancialPageState } from '../financialPageState'
+import { getIdleFinancialPageState, getLoadingFinancialPageState, resetFinancialPageState } from '../financialPageState'
 import { shouldResetSubsidiaryLedgerFilter } from './subsidiaryLedgerFilter'
 
 type SubsidiaryRow = SubsidiaryLedger[number]
@@ -118,10 +118,12 @@ export function SubsidiaryLedgerPage() {
     }
 
     let cancelled = false
+    const nextState = getLoadingFinancialPageState<SubsidiaryLedger>([])
 
     void (async () => {
-      setLoading(true)
-      setErrorMessage(null)
+      setLoading(nextState.loading)
+      setRows(nextState.data)
+      setErrorMessage(nextState.errorMessage)
 
       try {
         const response = await accountingApi.getSubsidiaryLedger({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getIdleFinancialPageState, resetFinancialPageState } from './financialPageState'
+import { getIdleFinancialPageState, getLoadingFinancialPageState, resetFinancialPageState } from './financialPageState'
 
 describe('resetFinancialPageState', () => {
   it('returns empty data and a message for Error instances', () => {
@@ -27,6 +27,16 @@ describe('resetFinancialPageState', () => {
       data: emptyData,
       errorMessage: null,
       loading: false,
+    })
+  })
+
+  it('marks loading financial pages as empty and pending', () => {
+    const emptyData: string[] = []
+
+    expect(getLoadingFinancialPageState(emptyData)).toEqual({
+      data: emptyData,
+      errorMessage: null,
+      loading: true,
     })
   })
 })

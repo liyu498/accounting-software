@@ -1,4 +1,4 @@
-import { Alert, Card, Empty, Space, Table, message } from 'antd'
+import { Alert, Card, Empty, Space, Table } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useMemo, useState } from 'react'
 import { AccountingPeriodPicker } from '../../components/AccountingPeriodPicker'
@@ -8,7 +8,7 @@ import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { accountingApi } from '../../services/accountingApi'
 import type { TrialBalance, TrialBalanceRow } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
-import { getIdleFinancialPageState, resetFinancialPageState } from '../financialPageState'
+import { getIdleFinancialPageState, getLoadingFinancialPageState, resetFinancialPageState } from '../financialPageState'
 
 const columns: ColumnsType<TrialBalanceRow> = [
   { title: '科目编码', dataIndex: 'accountCode', key: 'accountCode', width: 120 },
@@ -86,9 +86,11 @@ export function TrialBalancePage() {
     }
 
     let cancelled = false
+    const nextState = getLoadingFinancialPageState(emptyTrialBalance)
 
     void (async () => {
-      setLoading(true)
+      setLoading(nextState.loading)
+      setTrialBalance(nextState.data)
       setErrorMessage(null)
 
       try {
@@ -118,23 +120,6 @@ export function TrialBalancePage() {
     }
   }, [selectedCompany, selectedPeriodId])
 
-  async function handleExport(format: 'excel' | 'pdf') {
-    if (!selectedCompany || !selectedPeriodId) {
-      return
-    }
-
-    try {
-      const result = await accountingApi.exportDocument({
-        type: 'ledger',
-        format,
-        title: '科目余额表',
-      })
-      message.success(result.message)
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : '导出失败')
-    }
-  }
-
   return (
     <Space direction="vertical" size={24} style={{ display: 'flex' }}>
       <PageHeaderBar
@@ -147,7 +132,16 @@ export function TrialBalancePage() {
         extra={
           <Space wrap>
             <AccountingPeriodPicker />
-            <ExportActions title="科目余额表" onExport={handleExport} />
+            <ExportActions
+              title="科目余额表"
+              onExport={(format) =>
+                accountingApi.exportDocument({
+                  type: 'ledger',
+                  format,
+                  title: '科目余额表',
+                })
+              }
+            />
           </Space>
         }
       />

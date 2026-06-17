@@ -1,4 +1,4 @@
-import { Alert, Card, Empty, Space, Table, message } from 'antd'
+import { Alert, Card, Empty, Space, Table } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useMemo, useState } from 'react'
 import { AccountingPeriodPicker } from '../../components/AccountingPeriodPicker'
@@ -8,7 +8,7 @@ import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { accountingApi } from '../../services/accountingApi'
 import type { BalanceSheet, ReportRow } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
-import { getIdleFinancialPageState, resetFinancialPageState } from '../financialPageState'
+import { getIdleFinancialPageState, getLoadingFinancialPageState, resetFinancialPageState } from '../financialPageState'
 
 const columns: ColumnsType<ReportRow> = [
   { title: '行次', dataIndex: 'lineNumber', key: 'lineNumber', width: 100 },
@@ -51,9 +51,11 @@ export function BalanceSheetPage() {
     }
 
     let cancelled = false
+    const nextState = getLoadingFinancialPageState(emptyBalanceSheet)
 
     void (async () => {
-      setLoading(true)
+      setLoading(nextState.loading)
+      setReport(nextState.data)
       setErrorMessage(null)
 
       try {
@@ -83,23 +85,6 @@ export function BalanceSheetPage() {
     }
   }, [selectedCompany, selectedPeriodId])
 
-  async function handleExport(format: 'excel' | 'pdf') {
-    if (!selectedCompany || !selectedPeriodId) {
-      return
-    }
-
-    try {
-      const result = await accountingApi.exportDocument({
-        type: 'report',
-        format,
-        title: '资产负债表',
-      })
-      message.success(result.message)
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : '导出失败')
-    }
-  }
-
   return (
     <Space direction="vertical" size={24} style={{ display: 'flex' }}>
       <PageHeaderBar
@@ -112,7 +97,16 @@ export function BalanceSheetPage() {
         extra={
           <Space wrap>
             <AccountingPeriodPicker />
-            <ExportActions title="资产负债表" onExport={handleExport} />
+            <ExportActions
+              title="资产负债表"
+              onExport={(format) =>
+                accountingApi.exportDocument({
+                  type: 'report',
+                  format,
+                  title: '资产负债表',
+                })
+              }
+            />
           </Space>
         }
       />

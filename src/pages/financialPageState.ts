@@ -12,3 +12,11 @@ export function getIdleFinancialPageState<T>(emptyData: T) {
     loading: false,
   }
 }
+
+export function getLoadingFinancialPageState<T>(emptyData: T) {
+  return {
+    data: emptyData,
+    errorMessage: null,
+    loading: true,
+  }
+}
