@@ -14,7 +14,7 @@ export function AccountingPeriodPicker() {
         label: `${period.year}-${String(period.month).padStart(2, '0')}`,
         value: period.id,
       }))}
-      placeholder="閫夋嫨鏈熼棿"
+      placeholder="当前期间"
       value={selectedPeriodId ?? undefined}
       onChange={selectPeriod}
     />

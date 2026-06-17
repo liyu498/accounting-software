@@ -18,7 +18,7 @@ export function ExportActions({ type, title }: ExportActionsProps) {
       const result = await accountingApi.exportDocument({ format, title, type })
       message.success(result.message)
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '瀵煎嚭澶辫触')
+      message.error(error instanceof Error ? error.message : '导出失败')
     } finally {
       setLoading(false)
     }
@@ -30,14 +30,14 @@ export function ExportActions({ type, title }: ExportActionsProps) {
         items: [
           {
             key: 'excel',
-            label: '瀵煎嚭 Excel',
+            label: '导出 Excel',
             onClick: () => {
               void handleExport('excel')
             },
           },
           {
             key: 'pdf',
-            label: '瀵煎嚭 PDF',
+            label: '导出 PDF',
             onClick: () => {
               void handleExport('pdf')
             },
@@ -47,7 +47,7 @@ export function ExportActions({ type, title }: ExportActionsProps) {
       trigger={['click']}
     >
       <Button icon={<DownOutlined />} loading={loading}>
-        瀵煎嚭
+        导出
       </Button>
     </Dropdown>
   )

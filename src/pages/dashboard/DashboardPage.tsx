@@ -15,24 +15,27 @@ import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { accountingApi } from '../../services/accountingApi'
 import type { VoucherSummary } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
+import { loadDashboardData, type DashboardData } from './dashboardData'
 
-type DashboardData = {
-  vouchers: VoucherSummary[]
-  total: number
+const emptyDashboardData: DashboardData = {
+  recentVouchers: [],
+  total: 0,
+  approvedCount: 0,
+  draftCount: 0,
 }
 
 const statusLabels: Record<VoucherSummary['status'], string> = {
-  draft: '鑽夌',
-  approved: '宸插鏍?',
-  reversed: '宸茬孩瀛?',
+  draft: '草稿',
+  approved: '已审核',
+  reversed: '已红冲',
 }
 
 const columns: ColumnsType<VoucherSummary> = [
-  { title: '鏃ユ湡', dataIndex: 'voucherDate', key: 'voucherDate', width: 120 },
-  { title: '鍑瘉鍙?', dataIndex: 'voucherNumber', key: 'voucherNumber', width: 140 },
-  { title: '鎽樿', dataIndex: 'summary', key: 'summary' },
+  { title: '日期', dataIndex: 'voucherDate', key: 'voucherDate', width: 120 },
+  { title: '凭证号', dataIndex: 'voucherNumber', key: 'voucherNumber', width: 140 },
+  { title: '摘要', dataIndex: 'summary', key: 'summary' },
   {
-    title: '鐘舵€?',
+    title: '状态',
     dataIndex: 'status',
     key: 'status',
     width: 120,
@@ -41,7 +44,7 @@ const columns: ColumnsType<VoucherSummary> = [
     ),
   },
   {
-    title: '鍊熸柟',
+    title: '借方',
     dataIndex: 'debitTotal',
     key: 'debitTotal',
     width: 140,
@@ -57,11 +60,11 @@ export function DashboardPage() {
   const selectedPeriodId = useCompanyStore((state) => state.selectedPeriodId)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [data, setData] = useState<DashboardData>({ vouchers: [], total: 0 })
+  const [data, setData] = useState<DashboardData>(emptyDashboardData)
 
   useEffect(() => {
     if (!selectedCompany || !selectedPeriodId) {
-      setData({ vouchers: [], total: 0 })
+      setData(emptyDashboardData)
       return
     }
 
@@ -72,19 +75,17 @@ export function DashboardPage() {
       setErrorMessage(null)
 
       try {
-        const result = await accountingApi.listVouchers({
+        const result = await loadDashboardData(accountingApi, {
           companyId: selectedCompany.id,
           periodId: selectedPeriodId,
-          page: 1,
-          pageSize: 20,
         })
 
         if (!cancelled) {
-          setData({ vouchers: result.items, total: result.total })
+          setData(result)
         }
       } catch (error) {
         if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : '浠〃鏁版嵁鍔犺浇澶辫触')
+          setErrorMessage(error instanceof Error ? error.message : '工作台数据加载失败')
         }
       } finally {
         if (!cancelled) {
@@ -103,19 +104,16 @@ export function DashboardPage() {
     [periods, selectedPeriodId],
   )
 
-  const approvedCount = data.vouchers.filter((voucher) => voucher.status === 'approved').length
-  const draftCount = data.vouchers.filter((voucher) => voucher.status === 'draft').length
-
   return (
     <Space className="dashboard-page" direction="vertical" size={24}>
       <PageHeaderBar
-        title="Dashboard"
+        title="工作台"
         subtitle={
           selectedCompany && selectedPeriod
             ? `${selectedCompany.name} · ${selectedPeriod.year}-${String(selectedPeriod.month).padStart(2, '0')}`
-            : '鏈€夋嫨璐﹀鎴栨湡闂?'
+            : '当前账套或当前期间未选择'
         }
-        extra={<ExportActions title="Dashboard" type="report" />}
+        extra={<ExportActions title="工作台" type="report" />}
       />
 
       {errorMessage ? <Alert message={errorMessage} showIcon type="error" /> : null}
@@ -123,44 +121,44 @@ export function DashboardPage() {
       <Row gutter={[16, 16]}>
         <Col span={8}>
           <Card>
-            <Statistic prefix={<FileTextOutlined />} title="鍑瘉鎬绘暟" value={data.total} />
+            <Statistic prefix={<FileTextOutlined />} title="凭证总数" value={data.total} />
           </Card>
         </Col>
         <Col span={8}>
           <Card>
-            <Statistic prefix={<CheckCircleOutlined />} title="宸插鏍?" value={approvedCount} />
+            <Statistic prefix={<CheckCircleOutlined />} title="已审核" value={data.approvedCount} />
           </Card>
         </Col>
         <Col span={8}>
           <Card>
-            <Statistic prefix={<ClockCircleOutlined />} title="鑽夌" value={draftCount} />
+            <Statistic prefix={<ClockCircleOutlined />} title="草稿" value={data.draftCount} />
           </Card>
         </Col>
       </Row>
 
       <Row gutter={[16, 16]}>
         <Col span={10}>
-          <Card title="蹇€熸搷浣?">
+          <Card title="快捷操作">
             <List
               dataSource={[
                 {
-                  key: 'vouchers',
-                  title: '鍒涘缓鍑瘉',
-                  description: '杩涘叆鍑瘉鍒楄〃锛岀户缁綋鏈熷綍鍏ャ€?',
+                  key: 'new-voucher',
+                  title: '新建凭证',
+                  description: '继续录入本期业务凭证。',
                   icon: <FileAddOutlined />,
                   path: '/vouchers',
                 },
                 {
-                  key: 'trial-balance',
-                  title: '鏌ョ湅绉戠洰浣欓琛?',
-                  description: '鏍稿鍊熻捶骞宠　鍜岀粨浣欐儏鍐点€?',
+                  key: 'view-vouchers',
+                  title: '查看凭证',
+                  description: '查看最近录入与待处理凭证。',
                   icon: <ArrowRightOutlined />,
-                  path: '/ledgers/trial-balance',
+                  path: '/vouchers',
                 },
                 {
-                  key: 'income-statement',
-                  title: '鏌ョ湅鍒╂鼎琛?',
-                  description: '蹇€熺‘璁ゆ湰鏈熸敹鍏ヤ笌鎹熺泭銆?',
+                  key: 'view-reports',
+                  title: '查看报表',
+                  description: '打开利润表与资产负债表。',
                   icon: <ArrowRightOutlined />,
                   path: '/reports/income-statement',
                 },
@@ -175,7 +173,7 @@ export function DashboardPage() {
                       }}
                       type="link"
                     >
-                      鎵撳紑
+                      打开
                     </Button>,
                   ]}
                 >
@@ -186,23 +184,29 @@ export function DashboardPage() {
           </Card>
         </Col>
         <Col span={14}>
-          <Card title="褰撴湡淇℃伅">
+          <Card title="当前账套">
             <Space className="dashboard-current" direction="vertical" size={8}>
-              <Typography.Text>璐﹀锛?{selectedCompany?.name ?? '鏈€夋嫨'}</Typography.Text>
+              <Typography.Text>当前账套：{selectedCompany?.name ?? '未选择'}</Typography.Text>
               <Typography.Text>
-                浼氳鏈熼棿锛?{selectedPeriod ? `${selectedPeriod.year}-${String(selectedPeriod.month).padStart(2, '0')}` : '鏈€夋嫨'}
+                当前期间：{selectedPeriod ? `${selectedPeriod.year}-${String(selectedPeriod.month).padStart(2, '0')}` : '未选择'}
               </Typography.Text>
-              <Typography.Text>褰撳墠鍑瘉鏁帮細{data.total}</Typography.Text>
+              <Typography.Text>凭证总数：{data.total}</Typography.Text>
             </Space>
           </Card>
         </Col>
       </Row>
 
-      <Card title="鏈€杩戝嚟璇?">
-        {data.vouchers.length > 0 ? (
-          <Table<VoucherSummary> columns={columns} dataSource={data.vouchers} loading={loading} pagination={false} rowKey="id" />
+      <Card title="最近凭证">
+        {data.recentVouchers.length > 0 ? (
+          <Table<VoucherSummary>
+            columns={columns}
+            dataSource={data.recentVouchers}
+            loading={loading}
+            pagination={false}
+            rowKey="id"
+          />
         ) : (
-          <Empty description="褰撳墠鏈熼棿鏆傛棤鍑瘉" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         )}
       </Card>
     </Space>

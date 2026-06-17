@@ -34,5 +34,5 @@ test('redirects /companies to /dashboard when session and company are already se
   await waitFor(() => {
     expect(router.state.location.pathname).toBe('/dashboard')
   })
-  expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: '工作台' })).toBeInTheDocument()
 })

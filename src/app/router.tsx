@@ -113,27 +113,27 @@ const appRoutes: RouteObject[] = [
           },
           {
             path: '/vouchers',
-            element: <PlaceholderPage copy="鍑瘉鍒楄〃涓庣紪杈戝姛鑳藉皢鍦ㄥ悗缁换鍔′腑瀹屾垚銆?" title="鍑瘉" />,
+            element: <PlaceholderPage copy="凭证列表与编辑功能将在后续任务中完成。" title="凭证" />,
           },
           {
             path: '/ledgers/trial-balance',
-            element: <PlaceholderPage copy="绉戠洰浣欓琛ㄥ皢鍦ㄥ悗缁换鍔′腑瀹屾垚銆?" title="绉戠洰浣欓琛?" />,
+            element: <PlaceholderPage copy="科目余额表将在后续任务中完成。" title="科目余额表" />,
           },
           {
             path: '/ledgers/general',
-            element: <PlaceholderPage copy="鎬昏处鍔熻兘鍦ㄥ悗缁换鍔′腑瀹屾垚銆?" title="鎬昏处" />,
+            element: <PlaceholderPage copy="总账功能将在后续任务中完成。" title="总账" />,
           },
           {
             path: '/ledgers/subsidiary',
-            element: <PlaceholderPage copy="鏄庣粏璐﹀姛鑳藉皢鍦ㄥ悗缁换鍔′腑瀹屾垚銆?" title="鏄庣粏璐?" />,
+            element: <PlaceholderPage copy="明细账功能将在后续任务中完成。" title="明细账" />,
           },
           {
             path: '/reports/balance-sheet',
-            element: <PlaceholderPage copy="璧勪骇璐熷€鸿〃灏嗗湪鍚庣画浠诲姟涓畬鎴愩€?" title="璧勪骇璐熷€鸿〃" />,
+            element: <PlaceholderPage copy="资产负债表将在后续任务中完成。" title="资产负债表" />,
           },
           {
             path: '/reports/income-statement',
-            element: <PlaceholderPage copy="鍒╂鼎琛ㄥ皢鍦ㄥ悗缁换鍔′腑瀹屾垚銆?" title="鍒╂鼎琛?" />,
+            element: <PlaceholderPage copy="利润表将在后续任务中完成。" title="利润表" />,
           },
         ],
       },

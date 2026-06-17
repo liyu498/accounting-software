@@ -14,25 +14,25 @@ import { useCompanyStore } from '../stores/companyStore'
 import { useSessionStore } from '../stores/sessionStore'
 
 const menuItems = [
-  { key: '/dashboard', icon: <AppstoreOutlined />, label: '宸ヤ綔鍙?' },
-  { key: '/vouchers', icon: <UnorderedListOutlined />, label: '鍑瘉' },
+  { key: '/dashboard', icon: <AppstoreOutlined />, label: '工作台' },
+  { key: '/vouchers', icon: <UnorderedListOutlined />, label: '凭证' },
   {
     key: 'ledgers',
     type: 'group' as const,
-    label: '璐︾翱',
+    label: '账簿',
     children: [
-      { key: '/ledgers/trial-balance', icon: <BookOutlined />, label: '绉戠洰浣欓琛?' },
-      { key: '/ledgers/general', icon: <BookOutlined />, label: '鎬昏处' },
-      { key: '/ledgers/subsidiary', icon: <BookOutlined />, label: '鏄庣粏璐?' },
+      { key: '/ledgers/trial-balance', icon: <BookOutlined />, label: '科目余额表' },
+      { key: '/ledgers/general', icon: <BookOutlined />, label: '总账' },
+      { key: '/ledgers/subsidiary', icon: <BookOutlined />, label: '明细账' },
     ],
   },
   {
     key: 'reports',
     type: 'group' as const,
-    label: '鎶ヨ〃',
+    label: '报表',
     children: [
-      { key: '/reports/balance-sheet', icon: <FileTextOutlined />, label: '璧勪骇璐熷€鸿〃' },
-      { key: '/reports/income-statement', icon: <FileTextOutlined />, label: '鍒╂鼎琛?' },
+      { key: '/reports/balance-sheet', icon: <FileTextOutlined />, label: '资产负债表' },
+      { key: '/reports/income-statement', icon: <FileTextOutlined />, label: '利润表' },
     ],
   },
 ]
@@ -51,6 +51,7 @@ export function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const selectedCompany = useCompanyStore((state) => state.selectedCompany)
+  const periods = useCompanyStore((state) => state.periods)
   const selectedPeriodId = useCompanyStore((state) => state.selectedPeriodId)
   const resetCompany = useCompanyStore((state) => state.reset)
   const logout = useSessionStore((state) => state.logout)
@@ -60,11 +61,16 @@ export function AppLayout() {
     return matchedPath ? [matchedPath] : ['/dashboard']
   }, [location.pathname])
 
+  const selectedPeriodLabel = useMemo(() => {
+    const selectedPeriod = periods.find((period) => period.id === selectedPeriodId)
+    return selectedPeriod ? `${selectedPeriod.year}-${String(selectedPeriod.month).padStart(2, '0')}` : '未选择'
+  }, [periods, selectedPeriodId])
+
   const companyActions = [
     {
       key: 'switch-company',
       icon: <SwapOutlined />,
-      label: '鍒囨崲璐﹀',
+      label: '切换账套',
       onClick: () => {
         resetCompany()
         navigate('/companies')
@@ -73,7 +79,7 @@ export function AppLayout() {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: '閫€鍑虹櫥褰?',
+      label: '退出登录',
       onClick: () => {
         logout()
         navigate('/login')
@@ -86,11 +92,13 @@ export function AppLayout() {
       <Layout.Sider breakpoint="lg" className="app-sider" collapsible width={252}>
         <div className="app-brand">
           <Typography.Text className="app-brand__eyebrow">AI Account</Typography.Text>
+          <Typography.Text type="secondary">当前账套</Typography.Text>
           <Typography.Title className="app-brand__title" level={4}>
-            {selectedCompany?.name ?? '璐﹀姟宸ヤ綔鍙?'}
+            {selectedCompany?.name ?? '未选择'}
           </Typography.Title>
+          <Typography.Text type="secondary">当前期间</Typography.Text>
           <Tag color="blue" variant="filled">
-            {selectedPeriodId ?? '鏈€夋嫨鏈熼棿'}
+            {selectedPeriodLabel}
           </Tag>
         </div>
         <Menu
@@ -110,7 +118,7 @@ export function AppLayout() {
           <Space size={12}>
             <AccountingPeriodPicker />
             <Dropdown menu={{ items: companyActions }} trigger={['click']}>
-              <Button>{selectedCompany?.code ?? 'company'}</Button>
+              <Button>{selectedCompany?.code ?? '未选择'}</Button>
             </Dropdown>
           </Space>
         </Layout.Header>
