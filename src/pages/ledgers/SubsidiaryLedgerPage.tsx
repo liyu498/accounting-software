@@ -1,4 +1,4 @@
-import { Alert, Card, Empty, Select, Space, Table, message } from 'antd'
+import { Alert, Card, Empty, Select, Space, Table } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useMemo, useState } from 'react'
 import { AccountingPeriodPicker } from '../../components/AccountingPeriodPicker'
@@ -112,7 +112,7 @@ export function SubsidiaryLedgerPage() {
     if (!selectedCompany || !selectedPeriodId) {
       const nextState = getIdleFinancialPageState<SubsidiaryLedger>([])
       setLoading(nextState.loading)
-      setRows([])
+      setRows(nextState.data)
       setErrorMessage(nextState.errorMessage)
       return
     }
@@ -153,23 +153,6 @@ export function SubsidiaryLedgerPage() {
     }
   }, [accountCode, selectedCompany, selectedPeriodId])
 
-  async function handleExport(format: 'excel' | 'pdf') {
-    if (!selectedCompany || !selectedPeriodId) {
-      return
-    }
-
-    try {
-      const result = await accountingApi.exportDocument({
-        type: 'ledger',
-        format,
-        title: accountCode ? `明细账-${accountCode}` : '明细账',
-      })
-      message.success(result.message)
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : '导出失败')
-    }
-  }
-
   return (
     <Space direction="vertical" size={24} style={{ display: 'flex' }}>
       <PageHeaderBar
@@ -192,7 +175,16 @@ export function SubsidiaryLedgerPage() {
                 setAccountCode(value)
               }}
             />
-            <ExportActions title="明细账" onExport={handleExport} />
+            <ExportActions
+              title="明细账"
+              onExport={(format) =>
+                accountingApi.exportDocument({
+                  type: 'ledger',
+                  format,
+                  title: accountCode ? `明细账${accountCode}` : '明细账',
+                })
+              }
+            />
           </Space>
         }
       />

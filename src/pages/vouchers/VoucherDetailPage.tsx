@@ -130,14 +130,13 @@ export function VoucherDetailPage() {
           <Space wrap>
             <ExportActions
               title={voucher?.voucherNumber ?? '凭证详情'}
-              onExport={async (format) => {
-                const result = await accountingApi.exportDocument({
+              onExport={(format) =>
+                accountingApi.exportDocument({
                   type: 'voucher',
                   format,
                   title: voucher?.voucherNumber ?? '凭证详情',
                 })
-                message.success(result.message)
-              }}
+              }
             />
             <Button
               onClick={() => {

@@ -5,7 +5,7 @@ import {
   FileAddOutlined,
   FileTextOutlined,
 } from '@ant-design/icons'
-import { Alert, Button, Card, Col, Empty, List, Row, Space, Statistic, Table, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Col, Empty, List, Row, Space, Statistic, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -116,14 +116,13 @@ export function DashboardPage() {
         extra={
           <ExportActions
             title="工作台"
-            onExport={async (format) => {
-              const result = await accountingApi.exportDocument({
+            onExport={(format) =>
+              accountingApi.exportDocument({
                 type: 'report',
                 format,
                 title: '工作台',
               })
-              message.success(result.message)
-            }}
+            }
           />
         }
       />
