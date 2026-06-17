@@ -85,6 +85,38 @@ body {
   padding: 24px;
 }
 
+.accounting-period-picker {
+  min-width: 144px;
+}
+
+.page-header-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-header-bar__title {
+  margin: 0 !important;
+}
+
+.page-header-bar__subtitle {
+  margin: 8px 0 0;
+}
+
+.dashboard-page {
+  display: flex;
+  width: 100%;
+}
+
+.dashboard-current {
+  width: 100%;
+}
+
+.placeholder-page {
+  width: 100%;
+}
+
 .app-content__title {
   margin-top: 0;
 }

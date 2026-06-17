@@ -1,24 +1,24 @@
-import { Card, Typography } from 'antd'
+import { Card, Space, Typography } from 'antd'
 import { createBrowserRouter, createMemoryRouter, Navigate, Outlet, type RouteObject } from 'react-router-dom'
+import { ExportActions } from '../components/ExportActions'
+import { AppLayout } from '../layouts/AppLayout'
 import { AuthLayout } from '../layouts/AuthLayout'
 import { CompanySelectPage } from '../pages/companies/CompanySelectPage'
+import { DashboardPage } from '../pages/dashboard/DashboardPage'
 import { LoginPage } from '../pages/login/LoginPage'
 import { useCompanyStore } from '../stores/companyStore'
 import { useSessionStore } from '../stores/sessionStore'
 
-function DashboardPlaceholder() {
-  const company = useCompanyStore((state) => state.selectedCompany)
-  const selectedPeriodId = useCompanyStore((state) => state.selectedPeriodId)
-
+function PlaceholderPage({ title, copy }: { title: string; copy: string }) {
   return (
-    <Card className="dashboard-placeholder">
-      <Typography.Title level={2}>Dashboard</Typography.Title>
-      <Typography.Paragraph>
-        当前账套：{company?.name ?? '未选择'}
-      </Typography.Paragraph>
-      <Typography.Paragraph type="secondary">
-        当前期间：{selectedPeriodId ?? '未选择'}
-      </Typography.Paragraph>
+    <Card>
+      <Space className="placeholder-page" direction="vertical" size={16}>
+        <div>
+          <Typography.Title level={2}>{title}</Typography.Title>
+          <Typography.Paragraph type="secondary">{copy}</Typography.Paragraph>
+        </div>
+        <ExportActions title={title} type="report" />
+      </Space>
     </Card>
   )
 }
@@ -36,16 +36,6 @@ function RootRedirect() {
   }
 
   return <Navigate replace to="/dashboard" />
-}
-
-function RequireSession() {
-  const session = useSessionStore((state) => state.session)
-
-  if (!session) {
-    return <Navigate replace to="/login" />
-  }
-
-  return <Outlet />
 }
 
 function RequireCompany() {
@@ -115,8 +105,37 @@ const appRoutes: RouteObject[] = [
     element: <RequireCompany />,
     children: [
       {
-        path: '/dashboard',
-        element: <DashboardPlaceholder />,
+        element: <AppLayout />,
+        children: [
+          {
+            path: '/dashboard',
+            element: <DashboardPage />,
+          },
+          {
+            path: '/vouchers',
+            element: <PlaceholderPage copy="鍑瘉鍒楄〃涓庣紪杈戝姛鑳藉皢鍦ㄥ悗缁换鍔′腑瀹屾垚銆?" title="鍑瘉" />,
+          },
+          {
+            path: '/ledgers/trial-balance',
+            element: <PlaceholderPage copy="绉戠洰浣欓琛ㄥ皢鍦ㄥ悗缁换鍔′腑瀹屾垚銆?" title="绉戠洰浣欓琛?" />,
+          },
+          {
+            path: '/ledgers/general',
+            element: <PlaceholderPage copy="鎬昏处鍔熻兘鍦ㄥ悗缁换鍔′腑瀹屾垚銆?" title="鎬昏处" />,
+          },
+          {
+            path: '/ledgers/subsidiary',
+            element: <PlaceholderPage copy="鏄庣粏璐﹀姛鑳藉皢鍦ㄥ悗缁换鍔′腑瀹屾垚銆?" title="鏄庣粏璐?" />,
+          },
+          {
+            path: '/reports/balance-sheet',
+            element: <PlaceholderPage copy="璧勪骇璐熷€鸿〃灏嗗湪鍚庣画浠诲姟涓畬鎴愩€?" title="璧勪骇璐熷€鸿〃" />,
+          },
+          {
+            path: '/reports/income-statement',
+            element: <PlaceholderPage copy="鍒╂鼎琛ㄥ皢鍦ㄥ悗缁换鍔′腑瀹屾垚銆?" title="鍒╂鼎琛?" />,
+          },
+        ],
       },
     ],
   },
