@@ -1,16 +1,11 @@
-import { render, within } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { App } from './App'
 
-test('renders the local shell title and route menu', () => {
+test('renders the login route when there is no session', () => {
   const { getByRole, getByText } = render(<App />)
 
   expect(getByText('AI Account')).toBeInTheDocument()
-  expect(getByText('Local scaffold')).toBeInTheDocument()
-  expect(getByRole('heading', { name: 'Navigation scaffold' })).toBeInTheDocument()
-  expect(getByText('Task 1 shell')).toBeInTheDocument()
-
-  const menu = getByRole('menu')
-  expect(within(menu).getByText('Dashboard')).toBeInTheDocument()
-  expect(within(menu).getByText('Ledger')).toBeInTheDocument()
-  expect(within(menu).getByText('Settings')).toBeInTheDocument()
+  expect(getByRole('heading', { name: '会计核心流程' })).toBeInTheDocument()
+  expect(getByRole('heading', { name: '登录' })).toBeInTheDocument()
+  expect(getByRole('button', { name: '登录' })).toBeInTheDocument()
 })
