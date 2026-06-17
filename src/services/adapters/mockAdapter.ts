@@ -24,8 +24,12 @@ import type {
   VoucherSummary,
 } from '../types'
 
-const UNBALANCED_ERROR = '鍊熻捶涓嶅钩琛?'
-const AUDIT_STATUS_ERROR = '鍙兘瀹℃牳鑽夌鍑瘉'
+const UNBALANCED_ERROR = '借贷不平衡'
+const AUDIT_STATUS_ERROR = '只有草稿凭证才能审核'
+const REVERSE_AUDIT_STATUS_ERROR = '只有已审核凭证才能反审核'
+const DIRECT_EDIT_APPROVED_ERROR = '已审核凭证不能直接修改'
+const RED_REVERSAL_STATUS_ERROR = '只有已审核凭证才能红字冲销'
+const INVALID_CREDENTIALS_ERROR = '用户名或密码错误'
 
 let currentSession: Session | null = null
 let voucherStore: VoucherDetail[] = seedVouchers.map(clone)
@@ -98,8 +102,14 @@ function filterVouchers(query: VoucherQuery) {
     })
 }
 
+function getPostedVouchers(query: LedgerQuery) {
+  return voucherStore.filter(
+    (voucher) => voucher.companyId === query.companyId && voucher.periodId === query.periodId && voucher.status !== 'draft',
+  )
+}
+
 function buildLedgerRows(query: LedgerQuery): GeneralLedgerRow[] {
-  const filtered = voucherStore.filter((voucher) => voucher.companyId === query.companyId && voucher.periodId === query.periodId)
+  const filtered = getPostedVouchers(query)
 
   return accounts.map((account) => {
     let balance = 0
@@ -153,10 +163,10 @@ function buildBalanceSheet(query: ReportQuery): BalanceSheet {
   const income = rows.filter((row) => row.accountCode.startsWith('6')).reduce((total, row) => total + row.closingCredit, 0)
 
   return {
-    assets: [{ item: 'Cash and bank', lineNumber: '1', amount: cash }],
+    assets: [{ item: '货币资金', lineNumber: '1', amount: cash }],
     liabilitiesAndEquity: [
-      { item: 'Liabilities', lineNumber: '20', amount: liabilities },
-      { item: 'Current earnings', lineNumber: '30', amount: income },
+      { item: '负债合计', lineNumber: '20', amount: liabilities },
+      { item: '本期收益', lineNumber: '30', amount: income },
     ],
   }
 }
@@ -167,21 +177,21 @@ function buildIncomeStatement(query: ReportQuery): IncomeStatement {
     .reduce((total, row) => total + row.periodCredit - row.periodDebit, 0)
 
   return {
-    rows: [{ item: 'Main business income', lineNumber: '1', amount: income }],
+    rows: [{ item: '主营业务收入', lineNumber: '1', amount: income }],
   }
 }
 
 function buildExportResult(input: ExportInput): ExportResult {
   return {
     success: true,
-    message: `${input.title} exported as ${input.format}`,
+    message: `${input.title}已导出为${input.format}`,
   }
 }
 
 export const mockAdapter: AccountingApi = {
   async login(input: LoginInput): Promise<LoginResult> {
     if (input.username !== 'admin' || input.password !== 'admin123') {
-      throw new Error('Invalid credentials')
+      throw new Error(INVALID_CREDENTIALS_ERROR)
     }
 
     currentSession = clone(adminSession)
@@ -229,8 +239,12 @@ export const mockAdapter: AccountingApi = {
       throw new Error(UNBALANCED_ERROR)
     }
 
-    const summary = input.entries[0]?.summary ?? ''
     const existing = input.id ? voucherStore.find((voucher) => voucher.id === input.id) : undefined
+    if (existing && existing.status !== 'draft') {
+      throw new Error(DIRECT_EDIT_APPROVED_ERROR)
+    }
+
+    const summary = input.entries[0]?.summary ?? ''
     const voucher: VoucherDetail = {
       id: existing?.id ?? `voucher-${crypto.randomUUID()}`,
       companyId: input.companyId,
@@ -268,7 +282,7 @@ export const mockAdapter: AccountingApi = {
   async reverseAuditVoucher(id) {
     const voucher = requireVoucher(id)
     if (voucher.status !== 'approved') {
-      throw new Error('Only approved vouchers can reverse audit')
+      throw new Error(REVERSE_AUDIT_STATUS_ERROR)
     }
 
     voucher.status = 'draft'
@@ -276,6 +290,10 @@ export const mockAdapter: AccountingApi = {
 
   async createRedReversal(id) {
     const voucher = requireVoucher(id)
+    if (voucher.status !== 'approved') {
+      throw new Error(RED_REVERSAL_STATUS_ERROR)
+    }
+
     const reversal = await this.saveVoucher({
       companyId: voucher.companyId,
       periodId: voucher.periodId,
@@ -291,9 +309,18 @@ export const mockAdapter: AccountingApi = {
     })
 
     reversal.status = 'approved'
-    voucherStore = voucherStore.map((item) => (item.id === reversal.id ? clone(reversal) : item))
+    voucher.status = 'reversed'
+    voucherStore = voucherStore.map((item) => {
+      if (item.id === reversal.id) {
+        return clone(reversal)
+      }
+      if (item.id === voucher.id) {
+        return clone(voucher)
+      }
+      return item
+    })
 
-    return reversal
+    return clone(reversal)
   },
 
   async getTrialBalance(query) {
