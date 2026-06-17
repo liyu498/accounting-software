@@ -17,7 +17,7 @@ import { isVoucherEditable } from '../../features/vouchers/voucherRules'
 import { accountingApi } from '../../services/accountingApi'
 import type { VoucherStatus, VoucherSummary } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
-import { buildVoucherListQuery, filterVoucherPageItems, getVoucherListFilterMeta, type VoucherListFilters } from './voucherListQuery'
+import { buildVoucherListQuery, type VoucherListFilters } from './voucherListQuery'
 
 type FilterValues = VoucherListFilters
 
@@ -64,8 +64,6 @@ export function VoucherListPage() {
     () => periods.find((period) => period.id === selectedPeriodId) ?? null,
     [periods, selectedPeriodId],
   )
-  const filterMeta = useMemo(() => getVoucherListFilterMeta(filters), [filters])
-
   useEffect(() => {
     if (!selectedCompany || !selectedPeriodId) {
       setItems([])
@@ -89,11 +87,10 @@ export function VoucherListPage() {
 
       try {
         const response = await accountingApi.listVouchers(query)
-        const filteredItems = filterVoucherPageItems(response.items, filters)
 
         if (!cancelled) {
-          setItems(filteredItems)
-          setTotal(filterMeta.shouldResetPage ? filteredItems.length : response.total)
+          setItems(response.items)
+          setTotal(response.total)
         }
       } catch (error) {
         if (!cancelled) {
@@ -109,7 +106,7 @@ export function VoucherListPage() {
     return () => {
       cancelled = true
     }
-  }, [filterMeta.shouldResetPage, filters, page, pageSize, refreshToken, selectedCompany, selectedPeriodId])
+  }, [filters, page, pageSize, refreshToken, selectedCompany, selectedPeriodId])
 
   function refreshList() {
     setRefreshToken((value) => value + 1)
@@ -270,7 +267,6 @@ export function VoucherListPage() {
       />
 
       {errorMessage ? <Alert message={errorMessage} showIcon type="error" /> : null}
-      {filterMeta.notice ? <Alert message={filterMeta.notice} showIcon type="info" /> : null}
 
       <Form
         form={form}
@@ -283,10 +279,7 @@ export function VoucherListPage() {
             voucherDate: values.voucherDate ?? null,
           }
 
-          if (getVoucherListFilterMeta(nextFilters).shouldResetPage) {
-            setPage(1)
-          }
-
+          setPage(1)
           setFilters(nextFilters)
         }}
       >

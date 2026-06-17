@@ -11,6 +11,7 @@ import { accountingApi } from '../../services/accountingApi'
 import type { SaveVoucherInput, VoucherDetail, VoucherEntry } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
 import { getEditorModeState } from './voucherEditorState'
+import { getVoucherSaveBlockMessage } from './voucherSaveGuard'
 
 type VoucherFormValues = {
   voucherDate: Dayjs
@@ -112,15 +113,23 @@ export function VoucherEditorPage() {
       return
     }
 
-    if (!selectedCompany || !selectedPeriodId) {
-      setErrorMessage('请先选择账套和会计期间')
+    const blockMessage = getVoucherSaveBlockMessage({
+      canSave: editorModeState.canSave,
+      hasCompany: Boolean(selectedCompany),
+      hasPeriod: Boolean(selectedPeriodId),
+      entries,
+    })
+
+    if (blockMessage) {
+      setErrorMessage(blockMessage)
+      message.warning(blockMessage)
       return
     }
 
     const payload: SaveVoucherInput = {
       id: voucher?.id,
-      companyId: selectedCompany.id,
-      periodId: selectedPeriodId,
+      companyId: selectedCompany!.id,
+      periodId: selectedPeriodId!,
       voucherDate: values.voucherDate.format('YYYY-MM-DD'),
       voucherWord: values.voucherWord,
       attachmentCount: values.attachmentCount,

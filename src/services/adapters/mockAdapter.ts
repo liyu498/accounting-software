@@ -91,6 +91,8 @@ function filterVouchers(query: VoucherQuery) {
     .filter((voucher) => voucher.companyId === query.companyId)
     .filter((voucher) => !query.periodId || voucher.periodId === query.periodId)
     .filter((voucher) => !query.status || query.status === 'all' || voucher.status === query.status)
+    .filter((voucher) => !query.startDate || voucher.voucherDate >= query.startDate)
+    .filter((voucher) => !query.endDate || voucher.voucherDate <= query.endDate)
     .filter((voucher) => {
       if (!query.keyword) {
         return true

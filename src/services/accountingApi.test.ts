@@ -101,3 +101,20 @@ test('trial balance ignores draft vouchers', async () => {
   expect(trialBalance.totalDebit).toBe(500)
   expect(trialBalance.totalCredit).toBe(500)
 })
+
+test('listing vouchers honors server-side date range filters', async () => {
+  const accountingApi = await getAccountingApi()
+
+  const result = await accountingApi.listVouchers({
+    companyId: 'company-1',
+    periodId: 'period-2026-06',
+    startDate: '2026-06-10',
+    endDate: '2026-06-10',
+    page: 1,
+    pageSize: 20,
+  })
+
+  expect(result.total).toBe(1)
+  expect(result.items).toHaveLength(1)
+  expect(result.items[0]?.id).toBe('voucher-1')
+})

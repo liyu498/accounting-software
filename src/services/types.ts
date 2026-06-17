@@ -87,6 +87,8 @@ export interface VoucherQuery {
   periodId?: string
   status?: VoucherStatus | 'all'
   keyword?: string
+  startDate?: string
+  endDate?: string
   page: number
   pageSize: number
 }
