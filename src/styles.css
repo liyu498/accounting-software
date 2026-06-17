@@ -12,12 +12,81 @@
 body {
   margin: 0;
   min-width: 1024px;
+  min-height: 100vh;
 }
 
-.amount-text {
-  display: inline-block;
-  min-width: 7em;
-  text-align: right;
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-sider {
+  padding: 20px 16px;
+}
+
+.app-brand {
+  padding: 8px 12px 20px;
+}
+
+.app-brand__eyebrow {
+  display: block;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+.app-brand__title {
+  margin: 4px 0 0 !important;
+  color: #fff !important;
+}
+
+.app-menu {
+  border-inline-end: 0;
+}
+
+.app-panel {
+  min-height: 100vh;
+  background: #f5f7fa;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  height: 64px;
+  padding: 0 24px;
+  background: #fff;
+  border-bottom: 1px solid #e5e6eb;
+}
+
+.app-content {
+  padding: 24px;
+}
+
+.app-content__title {
+  margin-top: 0;
+}
+
+.app-content__copy {
+  max-width: 52rem;
+}
+
+.app-route-list {
+  display: grid;
+  gap: 12px;
+  max-width: 40rem;
+}
+
+.app-route-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid #e5e6eb;
+  border-radius: 6px;
+  background: #fff;
   font-variant-numeric: tabular-nums;
-  font-family: "Cascadia Code", "SF Mono", Consolas, monospace;
 }
