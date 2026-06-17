@@ -19,10 +19,18 @@ const routeMetadata: RouteMeta[] = [
   { key: 'settings', label: 'Settings', path: '/settings', icon: <ApartmentOutlined /> },
 ]
 
-const menuItems = routeMetadata.map(({ key, label, icon }) => ({
+const menuItems = routeMetadata.map(({ key, label, path, icon }) => ({
   key,
-  label,
+  label: (
+    <span className="app-menu__item">
+      <span>{label}</span>
+      <Typography.Text className="app-menu__path" type="secondary">
+        {path}
+      </Typography.Text>
+    </span>
+  ),
   icon,
+  title: path,
 }))
 
 export function App() {

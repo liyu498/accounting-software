@@ -15,6 +15,14 @@ body {
   min-height: 100vh;
 }
 
+.amount-text {
+  display: inline-block;
+  min-width: 7em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: "Cascadia Code", "SF Mono", Consolas, monospace;
+}
+
 #root {
   min-height: 100vh;
 }
@@ -46,6 +54,17 @@ body {
 
 .app-menu {
   border-inline-end: 0;
+}
+
+.app-menu__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.2;
+}
+
+.app-menu__path {
+  font-size: 12px;
 }
 
 .app-panel {

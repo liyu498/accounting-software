@@ -6,7 +6,9 @@
 
 **Architecture:** The app is a Vite React TypeScript frontend with a local Ant Design shell. UI code talks only to `accountingApi`; adapter selection chooses mock data in browser preview and a Tauri adapter skeleton in desktop mode. Domain pages stay thin by using feature components and service types.
 
-**Tech Stack:** React 18, TypeScript, Vite, React Router, Ant Design 6, ProComponents 2, Zustand, Vitest, Testing Library.
+**Tech Stack:** React 18, TypeScript, Vite, React Router, Ant Design 6, Zustand, Vitest, Testing Library.
+
+**Note:** ProComponents is deferred until there is a clean Ant Design 6-compatible install path.
 
 ## Global Constraints
 
@@ -103,7 +105,6 @@ Create `package.json`:
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
-    "@ant-design/pro-components": "^2.8.10",
     "@tauri-apps/api": "^2.10.1",
     "antd": "^6.4.4",
     "dayjs": "^1.11.19",
