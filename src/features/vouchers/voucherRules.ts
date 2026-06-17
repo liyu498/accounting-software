@@ -1,4 +1,4 @@
-import type { VoucherEntry } from '../../services/types'
+import type { VoucherEntry, VoucherStatus } from '../../services/types'
 
 export function getVoucherTotals(entries: VoucherEntry[]) {
   return entries.reduce(
@@ -13,4 +13,8 @@ export function getVoucherTotals(entries: VoucherEntry[]) {
 export function isVoucherBalanced(entries: VoucherEntry[]) {
   const { debitTotal, creditTotal } = getVoucherTotals(entries)
   return debitTotal > 0 && Math.abs(debitTotal - creditTotal) < 0.005
+}
+
+export function isVoucherEditable(status: VoucherStatus) {
+  return status === 'draft'
 }

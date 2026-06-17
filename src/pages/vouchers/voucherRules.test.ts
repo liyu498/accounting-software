@@ -1,4 +1,4 @@
-import { getVoucherTotals, isVoucherBalanced } from '../../features/vouchers/voucherRules'
+import { getVoucherTotals, isVoucherBalanced, isVoucherEditable } from '../../features/vouchers/voucherRules'
 
 test('calculates debit and credit totals', () => {
   const totals = getVoucherTotals([
@@ -16,4 +16,10 @@ test('detects unbalanced vouchers', () => {
       { id: '2', summary: '鏀跺叆', accountCode: '6001', accountName: '涓昏惀涓氬姟鏀跺叆', debit: 0, credit: 499 },
     ]),
   ).toBe(false)
+})
+
+test('only draft vouchers are editable', () => {
+  expect(isVoucherEditable('draft')).toBe(true)
+  expect(isVoucherEditable('approved')).toBe(false)
+  expect(isVoucherEditable('reversed')).toBe(false)
 })

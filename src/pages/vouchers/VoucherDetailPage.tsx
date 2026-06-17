@@ -6,6 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AmountText } from '../../components/AmountText'
 import { ExportActions } from '../../components/ExportActions'
 import { PageHeaderBar } from '../../components/PageHeaderBar'
+import { isVoucherEditable } from '../../features/vouchers/voucherRules'
 import { accountingApi } from '../../services/accountingApi'
 import type { VoucherDetail, VoucherEntry, VoucherStatus } from '../../services/types'
 
@@ -136,7 +137,7 @@ export function VoucherDetailPage() {
               返回列表
             </Button>
             <Button
-              disabled={!voucher || voucher.status !== 'draft'}
+              disabled={!voucher || !isVoucherEditable(voucher.status)}
               icon={<EditOutlined />}
               onClick={() => {
                 if (voucher) {

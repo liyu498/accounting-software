@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom'
 import { AmountText } from '../../components/AmountText'
 import { ExportActions } from '../../components/ExportActions'
 import { PageHeaderBar } from '../../components/PageHeaderBar'
+import { isVoucherEditable } from '../../features/vouchers/voucherRules'
 import { accountingApi } from '../../services/accountingApi'
 import type { VoucherQuery, VoucherStatus, VoucherSummary } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
@@ -196,7 +197,7 @@ export function VoucherListPage() {
             查看
           </Button>
           <Button
-            disabled={record.status !== 'draft'}
+            disabled={!isVoucherEditable(record.status)}
             icon={<EditOutlined />}
             onClick={() => {
               navigate(`/vouchers/${record.id}/edit`)
