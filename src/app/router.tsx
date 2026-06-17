@@ -6,6 +6,9 @@ import { AuthLayout } from '../layouts/AuthLayout'
 import { CompanySelectPage } from '../pages/companies/CompanySelectPage'
 import { DashboardPage } from '../pages/dashboard/DashboardPage'
 import { LoginPage } from '../pages/login/LoginPage'
+import { VoucherDetailPage } from '../pages/vouchers/VoucherDetailPage'
+import { VoucherEditorPage } from '../pages/vouchers/VoucherEditorPage'
+import { VoucherListPage } from '../pages/vouchers/VoucherListPage'
 import { useCompanyStore } from '../stores/companyStore'
 import { useSessionStore } from '../stores/sessionStore'
 
@@ -113,7 +116,19 @@ const appRoutes: RouteObject[] = [
           },
           {
             path: '/vouchers',
-            element: <PlaceholderPage copy="凭证列表与编辑功能将在后续任务中完成。" title="凭证" />,
+            element: <VoucherListPage />,
+          },
+          {
+            path: '/vouchers/new',
+            element: <VoucherEditorPage />,
+          },
+          {
+            path: '/vouchers/:id',
+            element: <VoucherDetailPage />,
+          },
+          {
+            path: '/vouchers/:id/edit',
+            element: <VoucherEditorPage />,
           },
           {
             path: '/ledgers/trial-balance',
