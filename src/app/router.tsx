@@ -1,5 +1,5 @@
 import { Card, Typography } from 'antd'
-import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
+import { createBrowserRouter, createMemoryRouter, Navigate, Outlet, type RouteObject } from 'react-router-dom'
 import { AuthLayout } from '../layouts/AuthLayout'
 import { CompanySelectPage } from '../pages/companies/CompanySelectPage'
 import { LoginPage } from '../pages/login/LoginPage'
@@ -78,7 +78,22 @@ function LoginRoute() {
   return <LoginPage />
 }
 
-export const appRouter = createBrowserRouter([
+function CompanyRoute() {
+  const session = useSessionStore((state) => state.session)
+  const selectedCompany = useCompanyStore((state) => state.selectedCompany)
+
+  if (!session) {
+    return <Navigate replace to="/login" />
+  }
+
+  if (selectedCompany) {
+    return <Navigate replace to="/dashboard" />
+  }
+
+  return <CompanySelectPage />
+}
+
+const appRoutes: RouteObject[] = [
   {
     path: '/',
     element: <RootRedirect />,
@@ -93,13 +108,8 @@ export const appRouter = createBrowserRouter([
     ],
   },
   {
-    element: <RequireSession />,
-    children: [
-      {
-        path: '/companies',
-        element: <CompanySelectPage />,
-      },
-    ],
+    path: '/companies',
+    element: <CompanyRoute />,
   },
   {
     element: <RequireCompany />,
@@ -114,4 +124,16 @@ export const appRouter = createBrowserRouter([
     path: '*',
     element: <RootRedirect />,
   },
-])
+]
+
+export function createAppRouter(options?: { initialEntries?: string[] }) {
+  if (options?.initialEntries) {
+    return createMemoryRouter(appRoutes, {
+      initialEntries: options.initialEntries,
+    })
+  }
+
+  return createBrowserRouter(appRoutes)
+}
+
+export const appRouter = createAppRouter()

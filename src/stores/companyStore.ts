@@ -7,6 +7,7 @@ type CompanyState = {
   selectedCompany: Company | null
   periods: AccountingPeriod[]
   selectedPeriodId: string | null
+  reset: () => void
   loadCompanies: () => Promise<void>
   selectCompany: (companyId: string) => Promise<void>
   selectPeriod: (periodId: string) => void
@@ -17,6 +18,14 @@ export const useCompanyStore = create<CompanyState>((set) => ({
   selectedCompany: null,
   periods: [],
   selectedPeriodId: null,
+  reset() {
+    set({
+      companies: [],
+      selectedCompany: null,
+      periods: [],
+      selectedPeriodId: null,
+    })
+  },
   async loadCompanies() {
     const companies = await accountingApi.listCompanies()
     set((state) => ({
