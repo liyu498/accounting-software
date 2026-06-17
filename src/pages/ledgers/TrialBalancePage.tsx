@@ -8,6 +8,7 @@ import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { accountingApi } from '../../services/accountingApi'
 import type { TrialBalance, TrialBalanceRow } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
+import { resetFinancialPageState } from '../financialPageState'
 
 const columns: ColumnsType<TrialBalanceRow> = [
   { title: '科目编码', dataIndex: 'accountCode', key: 'accountCode', width: 120 },
@@ -78,6 +79,7 @@ export function TrialBalancePage() {
   useEffect(() => {
     if (!selectedCompany || !selectedPeriodId) {
       setTrialBalance(emptyTrialBalance)
+      setErrorMessage(null)
       return
     }
 
@@ -98,7 +100,9 @@ export function TrialBalancePage() {
         }
       } catch (error) {
         if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : '科目余额表加载失败')
+          const nextState = resetFinancialPageState(emptyTrialBalance, error, '科目余额表加载失败')
+          setTrialBalance(nextState.data)
+          setErrorMessage(nextState.errorMessage)
         }
       } finally {
         if (!cancelled) {

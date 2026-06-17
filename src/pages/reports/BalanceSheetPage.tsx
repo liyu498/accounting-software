@@ -8,6 +8,7 @@ import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { accountingApi } from '../../services/accountingApi'
 import type { BalanceSheet, ReportRow } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
+import { resetFinancialPageState } from '../financialPageState'
 
 const columns: ColumnsType<ReportRow> = [
   { title: '行次', dataIndex: 'lineNumber', key: 'lineNumber', width: 100 },
@@ -43,6 +44,7 @@ export function BalanceSheetPage() {
   useEffect(() => {
     if (!selectedCompany || !selectedPeriodId) {
       setReport(emptyBalanceSheet)
+      setErrorMessage(null)
       return
     }
 
@@ -63,7 +65,9 @@ export function BalanceSheetPage() {
         }
       } catch (error) {
         if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : '资产负债表加载失败')
+          const nextState = resetFinancialPageState(emptyBalanceSheet, error, '资产负债表加载失败')
+          setReport(nextState.data)
+          setErrorMessage(nextState.errorMessage)
         }
       } finally {
         if (!cancelled) {

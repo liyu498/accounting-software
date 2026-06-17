@@ -1,0 +1,22 @@
+import { describe, expect, it } from 'vitest'
+import { resetFinancialPageState } from './financialPageState'
+
+describe('resetFinancialPageState', () => {
+  it('returns empty data and a message for Error instances', () => {
+    const emptyData = { rows: [], total: 0 }
+
+    expect(resetFinancialPageState(emptyData, new Error('reload failed'), 'fallback')).toEqual({
+      data: emptyData,
+      errorMessage: 'reload failed',
+    })
+  })
+
+  it('returns empty data and the fallback for unknown errors', () => {
+    const emptyData = ['stale']
+
+    expect(resetFinancialPageState(emptyData, 'boom', 'fallback')).toEqual({
+      data: emptyData,
+      errorMessage: 'fallback',
+    })
+  })
+})

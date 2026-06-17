@@ -8,7 +8,7 @@ test('triggers export success callback', async () => {
 
   render(<ExportActions title="资产负债表" onExport={onExport} />)
 
-  await user.click(screen.getByRole('button', { name: /导出/ }))
+  await user.click(screen.getByRole('button', { name: '导出' }))
   await user.click(screen.getByText('Excel'))
 
   expect(onExport).toHaveBeenCalledWith('excel')

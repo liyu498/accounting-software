@@ -8,6 +8,7 @@ import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { accountingApi } from '../../services/accountingApi'
 import type { LedgerEntry, SubsidiaryLedger } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
+import { resetFinancialPageState } from '../financialPageState'
 
 type SubsidiaryRow = SubsidiaryLedger[number]
 
@@ -100,6 +101,7 @@ export function SubsidiaryLedgerPage() {
   useEffect(() => {
     if (!selectedCompany || !selectedPeriodId) {
       setRows([])
+      setErrorMessage(null)
       return
     }
 
@@ -121,7 +123,9 @@ export function SubsidiaryLedgerPage() {
         }
       } catch (error) {
         if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : '明细账加载失败')
+          const nextState = resetFinancialPageState<SubsidiaryLedger>([], error, '明细账加载失败')
+          setRows(nextState.data)
+          setErrorMessage(nextState.errorMessage)
         }
       } finally {
         if (!cancelled) {

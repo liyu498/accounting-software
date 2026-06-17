@@ -7,7 +7,7 @@ interface ExportActionsProps {
   onExport: (format: 'excel' | 'pdf') => Promise<void>
 }
 
-export function ExportActions({ title, onExport }: ExportActionsProps) {
+export function ExportActions({ onExport }: ExportActionsProps) {
   const [loading, setLoading] = useState(false)
 
   async function handleExport(format: 'excel' | 'pdf') {
@@ -41,7 +41,7 @@ export function ExportActions({ title, onExport }: ExportActionsProps) {
       }}
       trigger={['click']}
     >
-      <Button aria-label={`${title}导出`} icon={<DownOutlined />} loading={loading}>
+      <Button icon={<span aria-hidden="true"><DownOutlined /></span>} loading={loading}>
         导出
       </Button>
     </Dropdown>
