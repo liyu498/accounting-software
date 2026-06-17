@@ -8,7 +8,7 @@ import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { accountingApi } from '../../services/accountingApi'
 import type { TrialBalance, TrialBalanceRow } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
-import { resetFinancialPageState } from '../financialPageState'
+import { getIdleFinancialPageState, resetFinancialPageState } from '../financialPageState'
 
 const columns: ColumnsType<TrialBalanceRow> = [
   { title: '科目编码', dataIndex: 'accountCode', key: 'accountCode', width: 120 },
@@ -78,8 +78,10 @@ export function TrialBalancePage() {
 
   useEffect(() => {
     if (!selectedCompany || !selectedPeriodId) {
+      const nextState = getIdleFinancialPageState(emptyTrialBalance)
+      setLoading(nextState.loading)
       setTrialBalance(emptyTrialBalance)
-      setErrorMessage(null)
+      setErrorMessage(nextState.errorMessage)
       return
     }
 

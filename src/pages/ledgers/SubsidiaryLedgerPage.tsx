@@ -8,7 +8,8 @@ import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { accountingApi } from '../../services/accountingApi'
 import type { LedgerEntry, SubsidiaryLedger } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
-import { resetFinancialPageState } from '../financialPageState'
+import { getIdleFinancialPageState, resetFinancialPageState } from '../financialPageState'
+import { shouldResetSubsidiaryLedgerFilter } from './subsidiaryLedgerFilter'
 
 type SubsidiaryRow = SubsidiaryLedger[number]
 
@@ -79,15 +80,24 @@ export function SubsidiaryLedgerPage() {
   const selectedCompany = useCompanyStore((state) => state.selectedCompany)
   const periods = useCompanyStore((state) => state.periods)
   const selectedPeriodId = useCompanyStore((state) => state.selectedPeriodId)
+  const currentContextKey = selectedCompany && selectedPeriodId ? `${selectedCompany.id}:${selectedPeriodId}` : null
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [rows, setRows] = useState<SubsidiaryLedger>([])
   const [accountCode, setAccountCode] = useState<string | undefined>()
+  const [previousContextKey, setPreviousContextKey] = useState<string | null>(() => currentContextKey)
 
   const selectedPeriod = useMemo(
     () => periods.find((period) => period.id === selectedPeriodId) ?? null,
     [periods, selectedPeriodId],
   )
+
+  useEffect(() => {
+    if (shouldResetSubsidiaryLedgerFilter(previousContextKey, currentContextKey)) {
+      setAccountCode(undefined)
+    }
+    setPreviousContextKey(currentContextKey)
+  }, [currentContextKey, previousContextKey])
 
   const accountOptions = useMemo(
     () =>
@@ -100,8 +110,10 @@ export function SubsidiaryLedgerPage() {
 
   useEffect(() => {
     if (!selectedCompany || !selectedPeriodId) {
+      const nextState = getIdleFinancialPageState<SubsidiaryLedger>([])
+      setLoading(nextState.loading)
       setRows([])
-      setErrorMessage(null)
+      setErrorMessage(nextState.errorMessage)
       return
     }
 

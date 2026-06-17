@@ -8,7 +8,7 @@ import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { accountingApi } from '../../services/accountingApi'
 import type { GeneralLedger, GeneralLedgerRow, LedgerEntry } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
-import { resetFinancialPageState } from '../financialPageState'
+import { getIdleFinancialPageState, resetFinancialPageState } from '../financialPageState'
 
 const ledgerColumns: ColumnsType<GeneralLedgerRow> = [
   { title: '科目编码', dataIndex: 'accountCode', key: 'accountCode', width: 120 },
@@ -88,8 +88,10 @@ export function GeneralLedgerPage() {
 
   useEffect(() => {
     if (!selectedCompany || !selectedPeriodId) {
+      const nextState = getIdleFinancialPageState<GeneralLedger>([])
+      setLoading(nextState.loading)
       setRows([])
-      setErrorMessage(null)
+      setErrorMessage(nextState.errorMessage)
       return
     }
 

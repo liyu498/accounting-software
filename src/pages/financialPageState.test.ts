@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resetFinancialPageState } from './financialPageState'
+import { getIdleFinancialPageState, resetFinancialPageState } from './financialPageState'
 
 describe('resetFinancialPageState', () => {
   it('returns empty data and a message for Error instances', () => {
@@ -17,6 +17,16 @@ describe('resetFinancialPageState', () => {
     expect(resetFinancialPageState(emptyData, 'boom', 'fallback')).toEqual({
       data: emptyData,
       errorMessage: 'fallback',
+    })
+  })
+
+  it('marks idle financial pages as not loading', () => {
+    const emptyData: string[] = []
+
+    expect(getIdleFinancialPageState(emptyData)).toEqual({
+      data: emptyData,
+      errorMessage: null,
+      loading: false,
     })
   })
 })

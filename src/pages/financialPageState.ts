@@ -4,3 +4,11 @@ export function resetFinancialPageState<T>(emptyData: T, error: unknown, fallbac
     errorMessage: error instanceof Error ? error.message : fallbackMessage,
   }
 }
+
+export function getIdleFinancialPageState<T>(emptyData: T) {
+  return {
+    data: emptyData,
+    errorMessage: null,
+    loading: false,
+  }
+}

@@ -8,7 +8,7 @@ import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { accountingApi } from '../../services/accountingApi'
 import type { BalanceSheet, ReportRow } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
-import { resetFinancialPageState } from '../financialPageState'
+import { getIdleFinancialPageState, resetFinancialPageState } from '../financialPageState'
 
 const columns: ColumnsType<ReportRow> = [
   { title: '行次', dataIndex: 'lineNumber', key: 'lineNumber', width: 100 },
@@ -43,8 +43,10 @@ export function BalanceSheetPage() {
 
   useEffect(() => {
     if (!selectedCompany || !selectedPeriodId) {
+      const nextState = getIdleFinancialPageState(emptyBalanceSheet)
+      setLoading(nextState.loading)
       setReport(emptyBalanceSheet)
-      setErrorMessage(null)
+      setErrorMessage(nextState.errorMessage)
       return
     }
 

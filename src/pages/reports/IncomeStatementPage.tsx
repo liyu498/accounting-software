@@ -8,7 +8,7 @@ import { PageHeaderBar } from '../../components/PageHeaderBar'
 import { accountingApi } from '../../services/accountingApi'
 import type { IncomeStatement, ReportRow } from '../../services/types'
 import { useCompanyStore } from '../../stores/companyStore'
-import { resetFinancialPageState } from '../financialPageState'
+import { getIdleFinancialPageState, resetFinancialPageState } from '../financialPageState'
 
 const columns: ColumnsType<ReportRow> = [
   { title: '行次', dataIndex: 'lineNumber', key: 'lineNumber', width: 100 },
@@ -42,8 +42,10 @@ export function IncomeStatementPage() {
 
   useEffect(() => {
     if (!selectedCompany || !selectedPeriodId) {
+      const nextState = getIdleFinancialPageState(emptyIncomeStatement)
+      setLoading(nextState.loading)
       setReport(emptyIncomeStatement)
-      setErrorMessage(null)
+      setErrorMessage(nextState.errorMessage)
       return
     }
 
