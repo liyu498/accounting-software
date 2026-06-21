@@ -65,6 +65,8 @@ export function DashboardPage() {
   useEffect(() => {
     if (!selectedCompany || !selectedPeriodId) {
       setData(emptyDashboardData)
+      setErrorMessage(null)
+      setLoading(false)
       return
     }
 
@@ -72,6 +74,7 @@ export function DashboardPage() {
 
     void (async () => {
       setLoading(true)
+      setData(emptyDashboardData)
       setErrorMessage(null)
 
       try {
@@ -85,6 +88,7 @@ export function DashboardPage() {
         }
       } catch (error) {
         if (!cancelled) {
+          setData(emptyDashboardData)
           setErrorMessage(error instanceof Error ? error.message : '工作台数据加载失败')
         }
       } finally {

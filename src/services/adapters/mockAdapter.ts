@@ -1,4 +1,5 @@
 import { accounts, adminSession, companies, periods, seedVouchers } from '../../mocks/seed'
+import { normalizeAmount } from '../accountingMath'
 import type {
   AccountingApi,
   BalanceSheet,
@@ -237,7 +238,7 @@ export const mockAdapter: AccountingApi = {
   async saveVoucher(input) {
     requireCompany(input.companyId)
     const totals = calculateTotals(input.entries)
-    if (totals.debit !== totals.credit) {
+    if (normalizeAmount(totals.debit) !== normalizeAmount(totals.credit)) {
       throw new Error(UNBALANCED_ERROR)
     }
 

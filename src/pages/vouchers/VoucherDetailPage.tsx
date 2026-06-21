@@ -56,13 +56,15 @@ export function VoucherDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [voucher, setVoucher] = useState<VoucherDetail | null>(null)
 
-  async function loadVoucher() {
+  async function reloadVoucher() {
     if (!id) {
+      setVoucher(null)
       setErrorMessage('缺少凭证编号')
       return
     }
 
     setLoading(true)
+    setVoucher(null)
     setErrorMessage(null)
 
     try {
@@ -76,7 +78,40 @@ export function VoucherDetailPage() {
   }
 
   useEffect(() => {
-    void loadVoucher()
+    if (!id) {
+      setVoucher(null)
+      setErrorMessage('缺少凭证编号')
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      setLoading(true)
+      setVoucher(null)
+      setErrorMessage(null)
+
+      try {
+        const detail = await accountingApi.getVoucher(id)
+        if (!cancelled) {
+          setVoucher(detail)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setVoucher(null)
+          setErrorMessage(error instanceof Error ? error.message : '凭证详情加载失败')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
   }, [id])
 
   async function handleAudit() {
@@ -87,7 +122,7 @@ export function VoucherDetailPage() {
     try {
       await accountingApi.auditVoucher(voucher.id)
       message.success('凭证已审核')
-      await loadVoucher()
+      await reloadVoucher()
     } catch (error) {
       message.error(error instanceof Error ? error.message : '审核失败')
     }
@@ -101,7 +136,7 @@ export function VoucherDetailPage() {
     try {
       await accountingApi.reverseAuditVoucher(voucher.id)
       message.success('已反审核凭证')
-      await loadVoucher()
+      await reloadVoucher()
     } catch (error) {
       message.error(error instanceof Error ? error.message : '反审核失败')
     }
@@ -115,7 +150,7 @@ export function VoucherDetailPage() {
     try {
       const reversal = await accountingApi.createRedReversal(voucher.id)
       message.success(`已生成红字冲销凭证 ${reversal.voucherNumber}`)
-      await loadVoucher()
+      await reloadVoucher()
     } catch (error) {
       message.error(error instanceof Error ? error.message : '红字冲销失败')
     }

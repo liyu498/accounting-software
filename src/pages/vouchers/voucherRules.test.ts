@@ -18,6 +18,16 @@ test('detects unbalanced vouchers', () => {
   ).toBe(false)
 })
 
+test('treats two-decimal floating point totals as balanced by cents', () => {
+  expect(
+    isVoucherBalanced([
+      { id: '1', summary: 'decimal', accountCode: '1002', accountName: 'bank', debit: 0.1, credit: 0 },
+      { id: '2', summary: 'decimal', accountCode: '1002', accountName: 'bank', debit: 0.2, credit: 0 },
+      { id: '3', summary: 'decimal', accountCode: '6001', accountName: 'income', debit: 0, credit: 0.3 },
+    ]),
+  ).toBe(true)
+})
+
 test('only draft vouchers are editable', () => {
   expect(isVoucherEditable('draft')).toBe(true)
   expect(isVoucherEditable('approved')).toBe(false)

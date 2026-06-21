@@ -22,7 +22,7 @@ beforeEach(() => {
 
 test('triggers export success callback', async () => {
   const user = userEvent.setup()
-  const onExport = vi.fn().mockResolvedValue(undefined)
+  const onExport = vi.fn().mockResolvedValue({ success: true, message: '导出成功' })
 
   render(<ExportActions title="资产负债表" onExport={onExport} />)
 
@@ -30,6 +30,9 @@ test('triggers export success callback', async () => {
   await user.click(screen.getByText('Excel'))
 
   expect(onExport).toHaveBeenCalledWith('excel')
+  await waitFor(() => {
+    expect(message.success).toHaveBeenCalledWith('导出成功')
+  })
 })
 
 test('shows a readable Chinese error toast when export fails', async () => {

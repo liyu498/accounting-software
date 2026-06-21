@@ -68,6 +68,8 @@ export function VoucherListPage() {
     if (!selectedCompany || !selectedPeriodId) {
       setItems([])
       setTotal(0)
+      setErrorMessage(null)
+      setLoading(false)
       return
     }
 
@@ -75,6 +77,8 @@ export function VoucherListPage() {
 
     void (async () => {
       setLoading(true)
+      setItems([])
+      setTotal(0)
       setErrorMessage(null)
 
       const query = buildVoucherListQuery({
@@ -94,6 +98,8 @@ export function VoucherListPage() {
         }
       } catch (error) {
         if (!cancelled) {
+          setItems([])
+          setTotal(0)
           setErrorMessage(error instanceof Error ? error.message : '凭证列表加载失败')
         }
       } finally {

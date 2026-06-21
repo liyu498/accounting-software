@@ -56,6 +56,26 @@ test('auditing a draft voucher changes its status to approved', async () => {
   expect(detail.status).toBe('approved')
 })
 
+test('saving a voucher accepts two-decimal floating point totals by cents', async () => {
+  const accountingApi = await getAccountingApi()
+
+  const saved = await accountingApi.saveVoucher({
+    companyId: 'company-1',
+    periodId: 'period-2026-06',
+    voucherDate: '2026-06-17',
+    voucherWord: 'J',
+    attachmentCount: 0,
+    entries: [
+      { id: 'line-1', summary: 'decimal', accountCode: '1002', accountName: 'bank', debit: 0.1, credit: 0 },
+      { id: 'line-2', summary: 'decimal', accountCode: '1002', accountName: 'bank', debit: 0.2, credit: 0 },
+      { id: 'line-3', summary: 'decimal', accountCode: '6001', accountName: 'income', debit: 0, credit: 0.3 },
+    ],
+  })
+
+  expect(saved.debitTotal).toBeCloseTo(0.3)
+  expect(saved.creditTotal).toBe(0.3)
+})
+
 test('saving changes to an approved voucher is rejected', async () => {
   const accountingApi = await getAccountingApi()
 
