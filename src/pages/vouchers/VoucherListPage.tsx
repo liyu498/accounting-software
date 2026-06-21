@@ -1,9 +1,7 @@
 import {
   CheckCircleOutlined,
-  CloudDownloadOutlined,
   CopyOutlined,
   DeleteOutlined,
-  EyeOutlined,
   FileAddOutlined,
   PrinterOutlined,
   ReloadOutlined,
@@ -33,10 +31,71 @@ type VoucherGridRow = {
   rowSpan: number
 }
 
+type EntryFilterKey =
+  | 'customerSupplier'
+  | 'account'
+  | 'asset'
+  | 'inventory'
+  | 'department'
+  | 'project'
+  | 'tag'
+  | 'cashFlow'
+
+type EntryFilterOption = {
+  key: EntryFilterKey
+  label: string
+  matches: (row: { voucher: VoucherDetail; entry: VoucherEntry }) => boolean
+}
+
 const emptyVoucherPage = {
   items: [] as VoucherDetail[],
   total: 0,
 }
+
+const entryFilterOptions: EntryFilterOption[] = [
+  {
+    key: 'customerSupplier',
+    label: '客户/供应商',
+    matches: ({ entry }) => entry.accountCode.startsWith('22'),
+  },
+  {
+    key: 'account',
+    label: '账户',
+    matches: ({ entry }) => ['1001', '1002'].includes(entry.accountCode),
+  },
+  {
+    key: 'asset',
+    label: '资产',
+    matches: ({ entry }) => entry.accountCode.startsWith('1'),
+  },
+  {
+    key: 'inventory',
+    label: '存货',
+    matches: ({ entry }) => entry.accountCode.startsWith('14'),
+  },
+  {
+    key: 'department',
+    label: '部门',
+    matches: ({ entry }) => /工资|社保|个税|管理费用/.test(entry.summary + entry.accountName),
+  },
+  {
+    key: 'project',
+    label: '项目',
+    matches: ({ entry }) => entry.accountCode.startsWith('6'),
+  },
+  {
+    key: 'tag',
+    label: '标签',
+    matches: () => false,
+  },
+  {
+    key: 'cashFlow',
+    label: '现金流量项目',
+    matches: ({ entry }) => ['1001', '1002'].includes(entry.accountCode),
+  },
+]
+
+const defaultEntryFilterKeys = entryFilterOptions.map((option) => option.key)
 
 const statusOptions = [
   { label: '全部状态', value: 'all' },
@@ -66,14 +125,24 @@ function formatVoucherNo(voucherNumber: string) {
   return voucherNumber.replace('-', '')
 }
 
-function buildVoucherRows(vouchers: VoucherDetail[]): VoucherGridRow[] {
+function buildVoucherRows(vouchers: VoucherDetail[], activeFilterKeys: EntryFilterKey[]): VoucherGridRow[] {
+  const activeFilters = entryFilterOptions.filter((option) => activeFilterKeys.includes(option.key))
+
   return vouchers.flatMap((voucher) =>
-    voucher.entries.map((entry, entryIndex) => ({
+    voucher.entries
+      .filter((entry) => {
+        if (activeFilters.length === 0) {
+          return true
+        }
+
+        return activeFilters.some((filter) => filter.matches({ voucher, entry }))
+      })
+      .map((entry, entryIndex, visibleEntries) => ({
       key: `${voucher.id}-${entry.id}`,
       voucher,
       entry,
       entryIndex,
-      rowSpan: entryIndex === 0 ? voucher.entries.length : 0,
+      rowSpan: entryIndex === 0 ? visibleEntries.length : 0,
     })),
   )
 }
@@ -94,13 +163,15 @@ export function VoucherListPage() {
   const [refreshToken, setRefreshToken] = useState(0)
   const [showFilters, setShowFilters] = useState(false)
   const [selectedVoucherId, setSelectedVoucherId] = useState<string | null>(null)
+  const [hoveredVoucherId, setHoveredVoucherId] = useState<string | null>(null)
+  const [activeEntryFilterKeys, setActiveEntryFilterKeys] = useState<EntryFilterKey[]>(defaultEntryFilterKeys)
 
   const selectedPeriod = useMemo(
     () => periods.find((period) => period.id === selectedPeriodId) ?? null,
     [periods, selectedPeriodId],
   )
 
-  const rows = useMemo(() => buildVoucherRows(items), [items])
+  const rows = useMemo(() => buildVoucherRows(items, activeEntryFilterKeys), [activeEntryFilterKeys, items])
   const selectedVoucher = useMemo(
     () => items.find((item) => item.id === selectedVoucherId) ?? items[0] ?? null,
     [items, selectedVoucherId],
@@ -304,17 +375,6 @@ export function VoucherListPage() {
       render: (_, row) => (row.entry.credit ? <AmountText value={row.entry.credit} /> : null),
     },
     {
-      title: '辅助项',
-      key: 'assist',
-      width: 210,
-      render: (_, row) => (
-        <Space size={4} wrap>
-          {row.voucher.status !== 'draft' ? <Tag color={statusColor(row.voucher.status)}>{statusLabels[row.voucher.status]}</Tag> : null}
-          {row.entryIndex === row.voucher.entries.length - 1 ? <Tag color="red">{row.voucher.createdBy}</Tag> : null}
-        </Space>
-      ),
-    },
-    {
       title: '制单人',
       key: 'createdBy',
       width: 96,
@@ -457,7 +517,6 @@ export function VoucherListPage() {
             反审核
           </Button>
           <Button icon={<PrinterOutlined />}>打印</Button>
-          <Button icon={<PrinterOutlined />}>打印（新版）</Button>
           <ExportActions
             title="凭证列表"
             onExport={(format) =>
@@ -566,10 +625,23 @@ export function VoucherListPage() {
 
       {errorMessage ? <Alert className="voucher-error" message={errorMessage} showIcon type="error" /> : null}
 
-      <div className="voucher-column-switches" aria-label="列显示选项">
-        {['客户/供应商', '账户', '资产', '存货', '部门', '项目', '标签', '现金流量项目'].map((label, index) => (
-          <Checkbox checked={index < 6} key={label}>
-            {label}
+      <div className="voucher-entry-filters" aria-label="分录筛选">
+        <span className="voucher-entry-filters__label">分录筛选</span>
+        {entryFilterOptions.map((option) => (
+          <Checkbox
+            checked={activeEntryFilterKeys.includes(option.key)}
+            key={option.key}
+            onChange={(event) => {
+              setActiveEntryFilterKeys((current) => {
+                if (event.target.checked) {
+                  return current.includes(option.key) ? current : [...current, option.key]
+                }
+
+                return current.filter((key) => key !== option.key)
+              })
+            }}
+          >
+            {option.label}
           </Checkbox>
         ))}
       </div>
@@ -589,13 +661,26 @@ export function VoucherListPage() {
             setPage(nextPage)
           },
         }}
-        rowClassName={(row) => (row.voucher.id === selectedVoucherId ? 'voucher-row--selected' : '')}
-        scroll={{ x: 1720 }}
+        rowClassName={(row) =>
+          [
+            row.voucher.id === selectedVoucherId ? 'voucher-row--selected' : '',
+            row.voucher.id === hoveredVoucherId ? 'voucher-row--hovered' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')
+        }
+        scroll={{ x: 1510 }}
         size="small"
         sticky
         onRow={(row) => ({
           onClick: () => {
             setSelectedVoucherId(row.voucher.id)
+          },
+          onMouseEnter: () => {
+            setHoveredVoucherId(row.voucher.id)
+          },
+          onMouseLeave: () => {
+            setHoveredVoucherId(null)
           },
         })}
       />

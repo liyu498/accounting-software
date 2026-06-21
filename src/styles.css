@@ -244,7 +244,7 @@ body {
   margin: 10px 16px 0;
 }
 
-.voucher-column-switches {
+.voucher-entry-filters {
   justify-content: flex-end;
   align-items: center;
   display: flex;
@@ -258,7 +258,13 @@ body {
   border-bottom: 1px solid #e1e6ee;
 }
 
-.voucher-column-switches .ant-checkbox-wrapper {
+.voucher-entry-filters__label {
+  margin-right: 6px;
+  color: #526173;
+  font-weight: 600;
+}
+
+.voucher-entry-filters .ant-checkbox-wrapper {
   margin-inline-start: 0;
   font-size: 12px;
 }
@@ -288,9 +294,13 @@ body {
   border-color: #dce5ef;
 }
 
-.voucher-ledger-table .ant-table-tbody > tr:hover > td,
+.voucher-ledger-table .ant-table-tbody > tr.voucher-row--hovered > td,
 .voucher-ledger-table .ant-table-tbody > tr.voucher-row--selected > td {
   background: #a9dcfb !important;
+}
+
+.voucher-ledger-table .ant-table-tbody > tr.voucher-row--hovered:not(.voucher-row--selected) > td {
+  background: #d7effd !important;
 }
 
 .voucher-ledger-table .ant-table-cell-fix-left,
