@@ -1,89 +1,107 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, CardContent } from '../components/ui/Card'
+import {
+  Archive,
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  CircleAlert,
+  Clock3,
+  FileCheck2,
+  FileText,
+  Landmark,
+  Plus,
+  ReceiptText,
+  Search,
+  ShieldCheck,
+  UploadCloud,
+  WalletCards,
+} from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { useWarningToast, useSuccessToast } from '../components/ui/Toast'
-import {
-  Plus,
-  Building2,
-  Trash2,
-  ChevronRight,
-  Power,
-  PowerOff,
-  RotateCcw,
-  Archive,
-} from 'lucide-react'
+import { useWarningToast } from '../components/ui/Toast'
 import { useCompanyStore, type Company } from '../stores/companyStore'
 import { usePeriodStore } from '../stores/periodStore'
-import { taxpayerTypeLabels, accountingSystemLabels, accountingSystemDescriptions, accountingStandardLabels, provinces, citiesByProvince, TaxpayerType, AccountingSystem } from '../lib/constants'
+import { TaxpayerType, AccountingSystem } from '../lib/constants'
 import { cn } from '../lib/utils'
+
+interface SummaryMetric {
+  label: string
+  value: string | number
+  icon: React.ComponentType<{ className?: string }>
+}
+
+const demoCompanies = [
+  { code: '01460', name: '科旋电气（上海）有限公司', status: '已结账', invoices: '126/138', vouchers: '82', tax: '待确认', risk: '2' },
+  { code: '02018', name: '上海云启科技有限公司', status: '做账中', invoices: '84/91', vouchers: '47', tax: '未取数', risk: '5' },
+  { code: '03009', name: '杭州辰光贸易有限公司', status: '待收票', invoices: '38/70', vouchers: '19', tax: '未开始', risk: '8' },
+]
+
+const taxCalendar = [
+  { date: '06-24', name: '增值税及附加', count: 12, tone: 'warn' },
+  { date: '06-25', name: '个税扣缴', count: 18, tone: 'info' },
+  { date: '06-28', name: '社保费', count: 9, tone: 'ok' },
+]
 
 export function Welcome() {
   const navigate = useNavigate()
   const warningToast = useWarningToast()
-  const successToast = useSuccessToast()
-
-  const {
-    companies,
-    selectedCompanyId,
-    selectCompany,
-    fetchCompanies,
-    createCompany,
-    deleteCompany,
-    deactivateCompany,
-    activateCompany,
-    restoreCompany,
-    permanentDeleteCompany,
-    getDeletedCompanies,
-    cleanupExpiredCompanies,
-  } = useCompanyStore()
-
+  const { companies, selectCompany, fetchCompanies, createCompany } = useCompanyStore()
   const { fetchPeriods, fetchVoucherWords } = usePeriodStore()
-
-  useEffect(() => {
-    fetchCompanies().catch((err) => {
-      console.error('[Welcome] fetchCompanies failed:', err)
-    })
-  }, [fetchCompanies])
-
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
-  const [showRecycleBin, setShowRecycleBin] = useState(false)
-  const [showInactive, setShowInactive] = useState(false)
-  const [deletedCompanies, setDeletedCompanies] = useState<Company[]>([])
   const [newCompany, setNewCompany] = useState({
     name: '',
     code: '',
     taxId: '',
-    province: '',
-    city: '',
     taxpayerType: 'small' as TaxpayerType,
     accountingSystem: 'small_enterprise' as AccountingSystem,
     enableYear: new Date().getFullYear(),
     enableMonth: new Date().getMonth() + 1,
   })
 
+  useEffect(() => {
+    fetchCompanies().catch((err) => console.error('[Welcome] fetchCompanies failed:', err))
+  }, [fetchCompanies])
+
   const filteredCompanies = useMemo(() => {
-    let list = companies
-    if (!showInactive) {
-      list = list.filter((c) => c.is_active)
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      list = list.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.code.toLowerCase().includes(q),
-      )
-    }
-    return list
-  }, [companies, searchQuery, showInactive])
+    const q = searchQuery.trim().toLowerCase()
+    return companies.filter((company) => {
+      if (!company.is_active) return false
+      if (!q) return true
+      return company.name.toLowerCase().includes(q) || company.code.toLowerCase().includes(q)
+    })
+  }, [companies, searchQuery])
 
-  const activeCount = useMemo(() => companies.filter((c) => c.is_active).length, [companies])
-  const inactiveCount = useMemo(() => companies.filter((c) => !c.is_active).length, [companies])
+  const rows = filteredCompanies.length > 0
+    ? filteredCompanies.map((company) => ({
+        id: company.id,
+        code: company.code,
+        name: company.name,
+        status: '做账中',
+        invoices: '0/0',
+        vouchers: '0',
+        tax: '未取数',
+        risk: '0',
+        real: true,
+      }))
+    : demoCompanies.map((company) => ({ ...company, id: company.code, real: false }))
 
-  const handleSelectCompany = async (companyId: string) => {
+  const summaryMetrics: SummaryMetric[] = [
+    { label: '客户数', value: companies.length || demoCompanies.length, icon: Building2 },
+    { label: '待收票', value: 18, icon: ReceiptText },
+    { label: '待做账', value: 27, icon: FileText },
+    { label: '待申报', value: 12, icon: FileCheck2 },
+    { label: '风险项', value: 15, icon: CircleAlert },
+    { label: '自动化任务', value: 36, icon: ShieldCheck },
+  ]
+
+  const handleSelectCompany = async (companyId: string, isReal: boolean) => {
+    if (!isReal) {
+      navigate('/dashboard')
+      return
+    }
     selectCompany(companyId)
     await fetchPeriods(companyId)
     await fetchVoucherWords(companyId)
@@ -91,557 +109,177 @@ export function Welcome() {
   }
 
   const handleCreateCompany = async () => {
-    if (!newCompany.name.trim() || !newCompany.code.trim()) {
-      warningToast('请填写客户名称和编码')
-      return
-    }
-    if (!newCompany.taxId.trim()) {
-      warningToast('请填写纳税人识别号')
+    if (!newCompany.name.trim() || !newCompany.code.trim() || !newCompany.taxId.trim()) {
+      warningToast('请填写客户名称、编码和纳税人识别号')
       return
     }
 
-    try {
-      const company = await createCompany({
-        code: newCompany.code,
-        name: newCompany.name,
-        tax_id: newCompany.taxId,
-        tax_type: newCompany.taxpayerType,
-        province: newCompany.province || undefined,
-        city: newCompany.city || undefined,
-        accounting_system: newCompany.accountingSystem,
-        enable_year: newCompany.enableYear,
-        enable_month: newCompany.enableMonth,
-      })
-      setShowAddModal(false)
-      setNewCompany({
-        name: '',
-        code: '',
-        taxId: '',
-        province: '',
-        city: '',
-        taxpayerType: 'small',
-        accountingSystem: 'small_enterprise',
-        enableYear: new Date().getFullYear(),
-        enableMonth: new Date().getMonth() + 1,
-      })
-      handleSelectCompany(company.id)
-    } catch (error) {
-      warningToast(`创建失败: ${error}`)
-    }
-  }
-
-  const handleDeleteCompany = async (id: string, name: string) => {
-    if (!confirm(`确定要删除账套「${name}」吗？\n\n删除后保留30天，期间可从回收站恢复。30天后将永久删除。`)) return
-    try {
-      await deleteCompany(id)
-      successToast(`账套「${name}」已删除，30天内可恢复`)
-    } catch (error) {
-      warningToast(`删除失败: ${error}`)
-    }
-  }
-
-  const handleDeactivateCompany = async (id: string, name: string) => {
-    if (!confirm(`确定要停用账套「${name}」吗？\n\n停用后该账套数据保留，但无法进行日常操作。可随时重新启用。`)) return
-    try {
-      await deactivateCompany(id)
-      successToast(`账套「${name}」已停用`)
-    } catch (error) {
-      warningToast(`停用失败: ${error}`)
-    }
-  }
-
-  const handleActivateCompany = async (id: string, name: string) => {
-    try {
-      await activateCompany(id)
-      successToast(`账套「${name}」已启用`)
-    } catch (error) {
-      warningToast(`启用失败: ${error}`)
-    }
-  }
-
-  const handleOpenRecycleBin = async () => {
-    try {
-      const deleted = await getDeletedCompanies()
-      setDeletedCompanies(deleted)
-      setShowRecycleBin(true)
-    } catch (error) {
-      warningToast(`获取回收站数据失败: ${error}`)
-    }
-  }
-
-  const handleRestoreCompany = async (id: string, name: string) => {
-    try {
-      await restoreCompany(id)
-      const deleted = await getDeletedCompanies()
-      setDeletedCompanies(deleted)
-      successToast(`账套「${name}」已恢复`)
-    } catch (error) {
-      warningToast(`恢复失败: ${error}`)
-    }
-  }
-
-  const handlePermanentDelete = async (id: string, name: string) => {
-    if (!confirm(`确定要永久删除账套「${name}」吗？\n\n此操作不可恢复，所有数据将被彻底清除！`)) return
-    if (!confirm(`再次确认：永久删除「${name}」的所有数据？`)) return
-    try {
-      await permanentDeleteCompany(id)
-      const deleted = await getDeletedCompanies()
-      setDeletedCompanies(deleted)
-      successToast(`账套「${name}」已永久删除`)
-    } catch (error) {
-      warningToast(`永久删除失败: ${error}`)
-    }
-  }
-
-  const handleCleanup = async () => {
-    try {
-      const count = await cleanupExpiredCompanies()
-      if (count > 0) {
-        const deleted = await getDeletedCompanies()
-        setDeletedCompanies(deleted)
-        successToast(`已清理 ${count} 个过期账套`)
-      } else {
-        successToast('暂无过期账套需要清理')
-      }
-    } catch (error) {
-      warningToast(`清理失败: ${error}`)
-    }
+    const company = await createCompany({
+      code: newCompany.code,
+      name: newCompany.name,
+      tax_id: newCompany.taxId,
+      tax_type: newCompany.taxpayerType,
+      accounting_system: newCompany.accountingSystem,
+      enable_year: newCompany.enableYear,
+      enable_month: newCompany.enableMonth,
+    })
+    setShowAddModal(false)
+    await handleSelectCompany(company.id, true)
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-[#eef3f8] text-slate-900">
+      <header className="border-b border-slate-200 bg-[#f8fbff]">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-6 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded bg-[#1f65a7] text-sm font-semibold text-white">账</div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">代账客户管理</h1>
-              <p className="text-sm text-gray-500 mt-1">
-                共 {activeCount} 家客户{inactiveCount > 0 && `，${inactiveCount} 家已停用`}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button onClick={() => setShowAddModal(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                新增客户
-              </Button>
-              <Button variant="outline" onClick={handleOpenRecycleBin}>
-                <Archive className="w-4 h-4 mr-2" />
-                回收站
-              </Button>
+              <div className="text-base font-semibold">代理记账工作台</div>
+              <div className="text-xs text-slate-500">多企业做账、申报、风险和资料进度</div>
             </div>
           </div>
-
-          {/* Search */}
-          <div className="mt-4 flex items-center gap-4">
-            <Input
-              placeholder="搜索客户名称或编码..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="max-w-md"
-            />
-            {inactiveCount > 0 && (
-              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none whitespace-nowrap">
-                <input
-                  type="checkbox"
-                  checked={showInactive}
-                  onChange={(e) => setShowInactive(e.target.checked)}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                显示已停用 ({inactiveCount})
-              </label>
-            )}
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline">
+              <Archive className="h-4 w-4" />
+              下载中心
+            </Button>
+            <Button size="sm" onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4" />
+              新增账套
+            </Button>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Company List */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        {filteredCompanies.length === 0 ? (
-          <div className="text-center py-16">
-            <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">暂无客户</p>
-            <p className="text-gray-400 text-sm mt-2">
-              点击「新增客户」添加第一家代账客户
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredCompanies.map((company) => (
-              <Card
-                key={company.id}
-                className={cn(
-                  'cursor-pointer transition-all hover:shadow-md hover:border-primary-200',
-                  company.id === selectedCompanyId &&
-                    'ring-2 ring-primary-500 border-primary-300',
-                )}
-                onClick={() => handleSelectCompany(company.id)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-semibold text-gray-900 truncate">
-                        {company.name}
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        {company.code}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 ml-2">
-                      {company.is_active ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeactivateCompany(company.id, company.name)
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-amber-500 rounded-lg hover:bg-amber-50 transition-colors"
-                          title="停用账套"
-                        >
-                          <PowerOff className="w-3.5 h-3.5" />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleActivateCompany(company.id, company.name)
-                          }}
-                          className="p-1.5 text-amber-400 hover:text-green-500 rounded-lg hover:bg-green-50 transition-colors"
-                          title="启用账套"
-                        >
-                          <Power className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteCompany(company.id, company.name)
-                        }}
-                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"
-                        title="删除账套（30天可恢复）"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                      <ChevronRight className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {!company.is_active && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700">
-                        已停用
-                      </span>
-                    )}
-                    {company.tax_id && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                        税号: {company.tax_id}
-                      </span>
-                    )}
-                    {company.tax_type && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
-                        {taxpayerTypeLabels[company.tax_type as TaxpayerType] || company.tax_type}
-                      </span>
-                    )}
-                    {company.accounting_system && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700">
-                        {accountingStandardLabels[company.accounting_system] || company.accounting_system}
-                      </span>
-                    )}
-                    {company.province && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">
-                        {company.province}
-                        {company.city && ` ${company.city}`}
-                      </span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+      <main className="mx-auto grid max-w-[1440px] grid-cols-1 gap-4 px-6 py-4 xl:grid-cols-[1fr_320px]">
+        <section className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+            {summaryMetrics.map(({ label, value, icon: Icon }) => (
+              <div key={label} className="rounded border border-slate-200 bg-white px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">{label}</span>
+                  <Icon className="h-4 w-4 text-[#2d6fa8]" />
+                </div>
+                <div className="mt-2 text-2xl font-semibold tabular-nums">{String(value)}</div>
+              </div>
             ))}
           </div>
-        )}
-      </div>
 
-      {/* Recycle Bin Modal */}
-      {showRecycleBin && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                <Archive className="w-5 h-5 inline mr-2" />
-                回收站
-              </h2>
-              <Button variant="outline" size="sm" onClick={() => setShowRecycleBin(false)}>
-                关闭
-              </Button>
+          <div className="rounded border border-slate-200 bg-white">
+            <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h1 className="text-lg font-semibold">客户账套进度</h1>
+                <p className="text-xs text-slate-500">按竞品工作台方式集中查看收票、凭证、报表、申报和风险状态</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <div className="relative w-72">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input className="h-9 rounded border-slate-300 pl-9" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="搜索客户名称或编码" />
+                </div>
+                <Button size="sm" variant="outline"><UploadCloud className="h-4 w-4" />批量导入</Button>
+                <Button size="sm" onClick={() => setShowAddModal(true)}><Plus className="h-4 w-4" />新增客户</Button>
+              </div>
             </div>
 
-            {deletedCompanies.length === 0 ? (
-              <div className="text-center py-8">
-                <Archive className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">回收站为空</p>
-                <p className="text-gray-400 text-sm mt-1">删除的账套将在此保留30天</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {deletedCompanies.map((company) => {
-                  const deletedDate = company.deleted_at ? new Date(company.deleted_at) : null
-                  const expiryDate = deletedDate ? new Date(deletedDate.getTime() + 30 * 24 * 60 * 60 * 1000) : null
-                  const daysLeft = expiryDate ? Math.max(0, Math.ceil((expiryDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000))) : 30
-
-                  return (
-                    <div key={company.id} className="border border-gray-200 rounded-lg p-3">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-900">{company.name}</h4>
-                          <p className="text-xs text-gray-500">{company.code}</p>
-                          <p className="text-xs text-amber-600 mt-1">
-                            {daysLeft > 0 ? `${daysLeft}天后永久删除` : '已过期，待清理'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRestoreCompany(company.id, company.name)}
-                          >
-                            <RotateCcw className="w-3.5 h-3.5 mr-1" />
-                            恢复
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                            onClick={() => handlePermanentDelete(company.id, company.name)}
-                          >
-                            <Trash2 className="w-3.5 h-3.5 mr-1" />
-                            永久删除
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-                <div className="pt-3 border-t border-gray-100">
-                  <Button variant="outline" size="sm" onClick={handleCleanup}>
-                    清理过期账套
-                  </Button>
-                </div>
-              </div>
-            )}
+            <div className="overflow-x-auto">
+              <table className="min-w-[980px] w-full text-left text-sm">
+                <thead className="bg-[#f3f7fb] text-xs font-semibold text-slate-600">
+                  <tr>
+                    <th className="px-4 py-3">客户编码</th>
+                    <th className="px-4 py-3">客户名称</th>
+                    <th className="px-4 py-3">账期</th>
+                    <th className="px-4 py-3">结账状态</th>
+                    <th className="px-4 py-3">发票采集</th>
+                    <th className="px-4 py-3">凭证</th>
+                    <th className="px-4 py-3">申报</th>
+                    <th className="px-4 py-3">风险</th>
+                    <th className="px-4 py-3 text-right">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {rows.map((company) => (
+                    <tr key={company.id} className="hover:bg-[#f8fbff]">
+                      <td className="px-4 py-3 font-mono text-xs text-slate-500">{company.code}</td>
+                      <td className="px-4 py-3 font-medium">{company.name}</td>
+                      <td className="px-4 py-3">2026-05</td>
+                      <td className="px-4 py-3"><StatusPill value={company.status} /></td>
+                      <td className="px-4 py-3">{company.invoices}</td>
+                      <td className="px-4 py-3">{company.vouchers} 张</td>
+                      <td className="px-4 py-3">{company.tax}</td>
+                      <td className="px-4 py-3"><span className={cn('font-semibold', Number(company.risk) > 0 ? 'text-red-600' : 'text-green-600')}>{company.risk}</span></td>
+                      <td className="px-4 py-3 text-right">
+                        <button onClick={() => handleSelectCompany(company.id, company.real)} className="inline-flex items-center gap-1 text-sm font-medium text-[#1f65a7] hover:text-[#174f82]">
+                          进入账套
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        </section>
 
-      {/* Add Company Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              新增代账客户
-            </h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  客户编码 <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={newCompany.code}
-                  onChange={(e) =>
-                    setNewCompany({ ...newCompany, code: e.target.value })
-                  }
-                  placeholder="如: A001"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  客户名称 <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={newCompany.name}
-                  onChange={(e) =>
-                    setNewCompany({ ...newCompany, name: e.target.value })
-                  }
-                  placeholder="如: 北京示例科技有限公司"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  纳税人识别号 <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={newCompany.taxId}
-                  onChange={(e) =>
-                    setNewCompany({ ...newCompany, taxId: e.target.value })
-                  }
-                  placeholder="统一社会信用代码（18位）"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  会计制度 <span className="text-red-500">*</span>
-                  <span className="text-xs text-amber-600 ml-2">确定后不可更改</span>
-                </label>
-                <div className="space-y-2">
-                  {(Object.keys(accountingSystemLabels) as AccountingSystem[]).map((key) => (
-                    <label
-                      key={key}
-                      className={cn(
-                        'flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-all',
-                        newCompany.accountingSystem === key
-                          ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-200'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        name="accountingSystem"
-                        value={key}
-                        checked={newCompany.accountingSystem === key}
-                        onChange={() =>
-                          setNewCompany({ ...newCompany, accountingSystem: key })
-                        }
-                        className="mt-0.5"
-                      />
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {accountingSystemLabels[key]}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {accountingSystemDescriptions[key]}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
+        <aside className="space-y-4">
+          <div className="rounded border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-4 py-3 font-semibold">税务日历</div>
+            <div className="space-y-2 p-4">
+              {taxCalendar.map((item) => (
+                <div key={item.name} className="flex items-center justify-between rounded bg-slate-50 px-3 py-2">
+                  <div className="flex items-center gap-3">
+                    <CalendarDays className="h-4 w-4 text-[#2d6fa8]" />
+                    <div>
+                      <div className="text-sm font-medium">{item.name}</div>
+                      <div className="text-xs text-slate-500">截止 {item.date}</div>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold">{item.count}</span>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  启用期间 <span className="text-red-500">*</span>
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <select
-                    value={newCompany.enableYear}
-                    onChange={(e) =>
-                      setNewCompany({ ...newCompany, enableYear: parseInt(e.target.value) })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    title="启用年份"
-                  >
-                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
-                      <option key={y} value={y}>{y}年</option>
-                    ))}
-                  </select>
-                  <select
-                    value={newCompany.enableMonth}
-                    onChange={(e) =>
-                      setNewCompany({ ...newCompany, enableMonth: parseInt(e.target.value) })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    title="启用月份"
-                  >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                      <option key={m} value={m}>{m}月</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  纳税人类型
-                </label>
-                <select
-                  value={newCompany.taxpayerType}
-                  onChange={(e) =>
-                    setNewCompany({
-                      ...newCompany,
-                      taxpayerType: e.target.value as TaxpayerType,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  title="纳税人类型"
-                >
-                  {Object.entries(taxpayerTypeLabels).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    省份
-                  </label>
-                  <select
-                    value={newCompany.province}
-                    onChange={(e) =>
-                      setNewCompany({
-                        ...newCompany,
-                        province: e.target.value,
-                        city: '',
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    title="省份"
-                  >
-                    <option value="">请选择</option>
-                    {provinces.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    城市
-                  </label>
-                  <select
-                    value={newCompany.city}
-                    onChange={(e) =>
-                      setNewCompany({ ...newCompany, city: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    disabled={
-                      !newCompany.province ||
-                      !citiesByProvince[newCompany.province]
-                    }
-                    title="城市"
-                  >
-                    <option value="">请选择</option>
-                    {newCompany.province &&
-                      citiesByProvince[newCompany.province]?.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              </div>
+              ))}
             </div>
+          </div>
 
-            <div className="flex justify-end gap-3 mt-6">
-              <Button
-                variant="outline"
-                onClick={() => setShowAddModal(false)}
-              >
-                取消
-              </Button>
-              <Button onClick={handleCreateCompany}>创建客户</Button>
+          <div className="rounded border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-4 py-3 font-semibold">批量处理</div>
+            <div className="grid grid-cols-2 gap-2 p-4 text-sm">
+              {['采集发票', '导入流水', '生成凭证', '风险检查', '报表重算', '申报取数'].map((action) => (
+                <button key={action} className="rounded border border-slate-200 bg-white px-3 py-2 text-left hover:border-[#2d6fa8] hover:text-[#1f65a7]">{action}</button>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </main>
+
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-lg rounded border border-slate-200 bg-white shadow-xl">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-lg font-semibold">新增客户账套</h2>
+            </div>
+            <div className="space-y-3 p-5">
+              <Input placeholder="客户名称" value={newCompany.name} onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })} />
+              <Input placeholder="客户编码" value={newCompany.code} onChange={(e) => setNewCompany({ ...newCompany, code: e.target.value })} />
+              <Input placeholder="纳税人识别号" value={newCompany.taxId} onChange={(e) => setNewCompany({ ...newCompany, taxId: e.target.value })} />
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
+              <Button variant="outline" onClick={() => setShowAddModal(false)}>取消</Button>
+              <Button onClick={handleCreateCompany}>保存并进入</Button>
             </div>
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+function StatusPill({ value }: { value: string }) {
+  const cls = value === '已结账' ? 'bg-green-50 text-green-700' : value === '做账中' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+  const Icon = value === '已结账' ? CheckCircle2 : value === '做账中' ? Clock3 : WalletCards
+  return (
+    <span className={cn('inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium', cls)}>
+      <Icon className="h-3.5 w-3.5" />
+      {value}
+    </span>
   )
 }
