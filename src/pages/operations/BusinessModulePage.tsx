@@ -14,9 +14,6 @@ import {
   Settings2,
   Upload,
 } from 'lucide-react'
-import { Button } from '../../components/ui/Button'
-import { Card, CardContent } from '../../components/ui/Card'
-import { Input } from '../../components/ui/Input'
 import { cn } from '../../lib/utils'
 
 type ModuleKind =
@@ -88,6 +85,8 @@ interface ModuleConfig {
   rows: ModuleRow[]
   notes: string[]
 }
+
+type PrintTemplateKind = 'list' | 'voucher' | 'ledger' | 'financial' | 'tax'
 
 const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   outputInvoice: {
@@ -1091,6 +1090,142 @@ function statusBadge(status: ModuleRow['status']) {
   return <span className={cn('inline-flex rounded px-2 py-0.5 text-xs font-medium ring-1', className)}>{status}</span>
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+function printTemplateKind(kind: ModuleKind): PrintTemplateKind {
+  if (kind === 'voucher' || kind === 'voucherRecycle') return 'voucher'
+  if (kind === 'ledgerReport' || kind === 'initialBalance') return 'ledger'
+  if (kind === 'financialReport') return 'financial'
+  if (kind === 'taxReport' || kind === 'taxInit') return 'tax'
+  return 'list'
+}
+
+function printableRows(config: ModuleConfig, rows: ModuleRow[]) {
+  return rows.map((row) => ({
+    row,
+    cells: [
+      ...config.columns.map((column) => row.values[column.key] || ''),
+      row.status,
+      row.voucher || '',
+      row.attachment || '',
+    ],
+  }))
+}
+
+function renderGenericPrintHtml(params: {
+  title: string
+  headers: string[]
+  rows: ReturnType<typeof printableRows>
+  exportedAt: string
+  status: string
+  keyword: string
+}) {
+  const { title, headers, rows, exportedAt, status, keyword } = params
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:24px;color:#111827}
+    h1{text-align:center;font-size:18px;margin:0 0 10px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 14px;font-size:12px;color:#334155;margin-bottom:14px}
+    .meta span{border-bottom:1px solid #cbd5e1;padding-bottom:4px}
+    table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #94a3b8;padding:6px 8px;white-space:nowrap}
+    th{background:#e8eef6;text-align:left}.note{margin-top:12px;font-size:11px;color:#64748b}
+  </style></head><body><h1>${escapeHtml(title)}</h1><div class="meta"><span>公司: 科旋电气（上海）有限公司</span><span>所属期: 2026-05</span><span>导出时间: ${escapeHtml(exportedAt)}</span><span>筛选状态: ${escapeHtml(status)}</span><span>关键词: ${escapeHtml(keyword || '全部')}</span><span>记录数: ${rows.length} 条</span></div>
+  <table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>
+  ${rows.map(({ cells }) => `<tr>${cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}
+  </tbody></table><div class="note">制表说明: 本打印件按当前列表筛选条件、列顺序和账期生成；正式导出需要保留操作日志和文件哈希。</div></body></html>`
+}
+
+function renderVoucherPrintHtml(title: string, rows: ReturnType<typeof printableRows>, exportedAt: string) {
+  const items = rows.map(({ row }) => {
+    const values = row.values
+    return `<section class="voucher">
+      <div class="voucher-head"><div>记账凭证</div><div class="no">${escapeHtml(values.wordNo || row.voucher || row.id)}</div></div>
+      <div class="meta"><span>公司: 科旋电气（上海）有限公司</span><span>日期: ${escapeHtml(values.date || '2026-05')}</span><span>附件: ${escapeHtml(row.attachment || '-')}</span></div>
+      <table><thead><tr><th>摘要</th><th>借方科目</th><th>贷方科目</th><th>借方金额</th><th>贷方金额</th></tr></thead><tbody>
+        <tr><td>${escapeHtml(values.summary || '')}</td><td>${escapeHtml(values.debitAccount || '')}</td><td>${escapeHtml(values.creditAccount || '')}</td><td class="amount">${escapeHtml(values.debit || '')}</td><td class="amount">${escapeHtml(values.credit || '')}</td></tr>
+      </tbody></table>
+      <div class="sign"><span>制单: ${escapeHtml(values.maker || '系统')}</span><span>审核: ${escapeHtml(values.auditor || '未审')}</span><span>来源: ${escapeHtml(values.source || row.voucher || '-')}</span><span>打印: ${escapeHtml(exportedAt)}</span></div>
+    </section>`
+  }).join('')
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:18px;color:#111827}
+    .voucher{break-inside:avoid;margin:0 0 18px;border:1.5px solid #111827;padding:12px}
+    .voucher-head{display:flex;align-items:center;justify-content:center;position:relative;font-size:20px;font-weight:700;letter-spacing:0}
+    .voucher-head .no{position:absolute;right:0;font-size:13px;font-weight:500}
+    .meta,.sign{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;font-size:12px;color:#334155}
+    table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #111827;padding:9px 8px} th{background:#f1f5f9}.amount{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  </style></head><body>${items}</body></html>`
+}
+
+function renderLedgerPrintHtml(title: string, headers: string[], rows: ReturnType<typeof printableRows>, exportedAt: string) {
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:20px;color:#111827}
+    h1{text-align:center;font-size:18px;margin:0 0 8px}.sub{display:flex;justify-content:space-between;font-size:12px;margin-bottom:10px;color:#334155}
+    table{width:100%;border-collapse:collapse;font-size:11px} th,td{border:1px solid #64748b;padding:6px 7px;white-space:nowrap} th{background:#e8eef6}.amount{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    tfoot td{background:#f8fafc;font-weight:700}
+  </style></head><body><h1>${escapeHtml(title)}</h1><div class="sub"><span>单位: 科旋电气（上海）有限公司</span><span>期间: 2026-05</span><span>打印: ${escapeHtml(exportedAt)}</span></div>
+  <table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>${rows.map(({ cells }) => `<tr>${cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
+  <tfoot><tr><td colspan="${headers.length}">本页小计: 当前筛选 ${rows.length} 行，借贷平衡状态以系统试算结果为准。</td></tr></tfoot></table></body></html>`
+}
+
+function renderFinancialPrintHtml(title: string, rows: ReturnType<typeof printableRows>, exportedAt: string) {
+  const bodyRows = rows.map(({ row }) => `<tr><td>${escapeHtml(row.values.line || '')}</td><td>${escapeHtml(row.values.item || '')}</td><td>${escapeHtml(row.values.opening || '')}</td><td>${escapeHtml(row.values.ending || '')}</td><td>${escapeHtml(row.values.note || row.status)}</td></tr>`).join('')
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:22px;color:#111827}
+    h1{text-align:center;font-size:19px;margin:0 0 8px}.meta{display:flex;justify-content:space-between;font-size:12px;margin-bottom:10px;color:#334155}
+    table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #475569;padding:7px 8px} th{background:#e8eef6}.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    .foot{display:flex;justify-content:space-between;margin-top:14px;font-size:12px}
+  </style></head><body><h1>${escapeHtml(title)}</h1><div class="meta"><span>编制单位: 科旋电气（上海）有限公司</span><span>所属期: 2026-05</span><span>单位: 元</span></div>
+  <table><thead><tr><th>行次</th><th>项目</th><th>期初余额/本月数</th><th>期末余额/本年累计</th><th>说明</th></tr></thead><tbody>${bodyRows}</tbody></table>
+  <div class="foot"><span>制表: 系统</span><span>复核: 未签章</span><span>打印时间: ${escapeHtml(exportedAt)}</span></div></body></html>`
+}
+
+function renderTaxPrintHtml(title: string, rows: ReturnType<typeof printableRows>, exportedAt: string) {
+  const bodyRows = rows.map(({ row }) => `<tr><td>${escapeHtml(row.values.taxType || '')}</td><td>${escapeHtml(row.values.form || row.values.period || '')}</td><td>${escapeHtml(row.values.source || row.values.method || '')}</td><td class="num">${escapeHtml(row.values.amount || '')}</td><td class="num">${escapeHtml(row.values.tax || '')}</td><td>${escapeHtml(row.values.check || row.status)}</td></tr>`).join('')
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:22px;color:#111827}
+    h1{text-align:center;font-size:18px;margin:0 0 8px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px;margin-bottom:12px;color:#334155}
+    table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #475569;padding:7px 8px} th{background:#e8eef6}.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    .notice{margin-top:12px;border:1px solid #cbd5e1;background:#f8fafc;padding:8px;font-size:11px;color:#475569}
+  </style></head><body><h1>${escapeHtml(title)}</h1><div class="meta"><span>纳税人: 科旋电气（上海）有限公司</span><span>税号: 91310115MA1K3****X</span><span>所属期: 2026-05</span><span>申报口径: 系统取数</span><span>状态: 待人工确认</span><span>打印: ${escapeHtml(exportedAt)}</span></div>
+  <table><thead><tr><th>税种</th><th>申报表/周期</th><th>取数来源/方式</th><th>本期金额</th><th>税额</th><th>校验</th></tr></thead><tbody>${bodyRows}</tbody></table>
+  <div class="notice">边界说明: 本打印件为申报预览和留档材料，不代表已向电子税务局提交。真实申报需要 adapter 授权、提交回执和人工确认。</div></body></html>`
+}
+
+function buildPrintHtml(params: {
+  kind: ModuleKind
+  title: string
+  config: ModuleConfig
+  rows: ModuleRow[]
+  exportedAt: string
+  status: string
+  keyword: string
+}) {
+  const headers = [...params.config.columns.map((column) => column.label), '状态', '凭证', '附件']
+  const rows = printableRows(params.config, params.rows)
+  const template = printTemplateKind(params.kind)
+
+  if (template === 'voucher') return renderVoucherPrintHtml(params.title, rows, params.exportedAt)
+  if (template === 'ledger') return renderLedgerPrintHtml(params.title, headers, rows, params.exportedAt)
+  if (template === 'financial') return renderFinancialPrintHtml(params.title, rows, params.exportedAt)
+  if (template === 'tax') return renderTaxPrintHtml(params.title, rows, params.exportedAt)
+
+  return renderGenericPrintHtml({
+    title: params.title,
+    headers,
+    rows,
+    exportedAt: params.exportedAt,
+    status: params.status,
+    keyword: params.keyword,
+  })
+}
+
 export function BusinessModulePage({ kind, title, description }: BusinessModulePageProps) {
   const config = moduleConfigs[kind]
   const [keyword, setKeyword] = useState('')
@@ -1140,25 +1275,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handlePrint = () => {
-    const headers = [...config.columns.map((column) => column.label), '状态', '凭证', '附件']
-    const rows = filteredRows.map((row) => [
-      ...config.columns.map((column) => row.values[column.key] || ''),
-      row.status,
-      row.voucher || '',
-      row.attachment || '',
-    ])
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>
-      body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:24px;color:#111827}
-      h1{text-align:center;font-size:18px;margin:0 0 10px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 14px;font-size:12px;color:#334155;margin-bottom:14px}
-      .meta span{border-bottom:1px solid #cbd5e1;padding-bottom:4px}
-      table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #94a3b8;padding:6px 8px;white-space:nowrap}
-      th{background:#e8eef6;text-align:left} td.num{text-align:right} tfoot td{font-weight:600;background:#f8fafc}
-      .note{margin-top:12px;font-size:11px;color:#64748b}
-    </style></head><body><h1>${title}</h1><div class="meta"><span>公司: 科旋电气（上海）有限公司</span><span>所属期: 2026-05</span><span>导出时间: ${exportedAt}</span><span>筛选状态: ${status}</span><span>关键词: ${keyword.trim() || '全部'}</span><span>记录数: ${filteredRows.length} 条</span></div>
-    <table><thead><tr>${headers.map((header) => `<th>${header}</th>`).join('')}</tr></thead><tbody>
-    ${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('')}
-    </tbody></table><div class="note">制表说明: 本打印件按当前列表筛选条件、列顺序和账期生成；正式导出需要保留操作日志和文件哈希。</div></body></html>`
+    const html = buildPrintHtml({
+      kind,
+      title,
+      config,
+      rows: filteredRows,
+      exportedAt,
+      status,
+      keyword: keyword.trim(),
+    })
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
     printWindow.document.write(html)
