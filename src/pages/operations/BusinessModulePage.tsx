@@ -41,6 +41,22 @@ type ModuleKind =
   | 'taxReport'
   | 'settingsData'
   | 'matchingRules'
+  | 'companyInfo'
+  | 'initialBalance'
+  | 'taxInit'
+  | 'accountArchive'
+  | 'customerArchive'
+  | 'supplierArchive'
+  | 'otherContactArchive'
+  | 'projectArchive'
+  | 'departmentArchive'
+  | 'tagArchive'
+  | 'subjectSettings'
+  | 'assetCategory'
+  | 'invoiceMatchingRules'
+  | 'billMatchingRules'
+  | 'settlementRules'
+  | 'voucherRecycle'
 
 interface BusinessModulePageProps {
   kind: ModuleKind
@@ -632,6 +648,424 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     ],
     notes: ['匹配规则必须保留命中日志和人工确认状态，AI 只能建议规则。'],
   },
+  companyInfo: {
+    keywordPlaceholder: '搜索企业名称、纳税人识别号、开户行、联系人',
+    primaryAction: '保存资料',
+    importLabel: '导入执照',
+    statusOptions: ['全部', '启用', '待确认', '异常'],
+    summary: [
+      { label: '基础字段', value: '42 项', tone: 'blue' },
+      { label: '已完成', value: '36 项', tone: 'green' },
+      { label: '待补资料', value: '5 项', tone: 'amber' },
+      { label: '关键异常', value: '1 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'field', label: '资料项' },
+      { key: 'value', label: '当前值' },
+      { key: 'source', label: '来源' },
+      { key: 'required', label: '必填', align: 'center' },
+      { key: 'updatedBy', label: '维护人' },
+      { key: 'updatedAt', label: '更新时间' },
+    ],
+    rows: [
+      { id: 'ci-001', status: '启用', voucher: '-', attachment: '营业执照', values: { field: '企业名称', value: '科旋电气（上海）有限公司', source: '营业执照识别', required: '是', updatedBy: '王会计', updatedAt: '2026-05-01 09:20' } },
+      { id: 'ci-002', status: '启用', voucher: '-', attachment: '税务截图', values: { field: '纳税人识别号', value: '91310115MA1K3****X', source: '手工录入', required: '是', updatedBy: '李会计', updatedAt: '2026-05-01 09:24' } },
+      { id: 'ci-003', status: '待确认', voucher: '-', attachment: '开户许可证', values: { field: '开户行及账号', value: '招商银行上海分行 6214********8801', source: '银行资料', required: '是', updatedBy: '赵会计', updatedAt: '2026-05-02 14:08' } },
+    ],
+    notes: ['企业信息页按资料项维护税号、纳税人类型、开户行、联系人、申报口径和税务初始化基础。', '真实工商和税局资料同步需要外部授权接口；当前保留导入、识别和人工确认链路。'],
+  },
+  initialBalance: {
+    keywordPlaceholder: '搜索科目编码、科目名称、辅助核算、方向',
+    primaryAction: '试算平衡',
+    importLabel: '导入期初',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '科目行数', value: '128 行', tone: 'blue' },
+      { label: '期初借方', value: '¥2,186,300.00', tone: 'green' },
+      { label: '期初贷方', value: '¥2,186,300.00', tone: 'green' },
+      { label: '差异', value: '¥0.00', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'code', label: '科目编码' },
+      { key: 'name', label: '科目名称' },
+      { key: 'aux', label: '辅助核算' },
+      { key: 'direction', label: '余额方向', align: 'center' },
+      { key: 'debit', label: '期初借方', align: 'right' },
+      { key: 'credit', label: '期初贷方', align: 'right' },
+      { key: 'check', label: '试算平衡' },
+    ],
+    rows: [
+      { id: 'ib-1002', status: '已通过', voucher: '期初', attachment: '导入表', values: { code: '1002', name: '银行存款', aux: '工行基本户', direction: '借', debit: '¥220,000.00', credit: '-', check: '通过' } },
+      { id: 'ib-1122', status: '已通过', voucher: '期初', attachment: '导入表', values: { code: '1122', name: '应收账款', aux: '客户辅助', direction: '借', debit: '¥410,000.00', credit: '-', check: '通过' } },
+      { id: 'ib-2202', status: '待确认', voucher: '期初', attachment: '导入表', values: { code: '2202', name: '应付账款', aux: '供应商辅助', direction: '贷', debit: '-', credit: '¥268,000.00', check: '辅助明细待核' } },
+    ],
+    notes: ['期初余额需要支持科目和辅助核算双层录入，并在启用账套前完成试算平衡。', '历史账簿导入后可反向形成期初余额，但需要人工确认差异。'],
+  },
+  taxInit: {
+    keywordPlaceholder: '搜索税种、申报周期、税局账号、申报口径',
+    primaryAction: '保存初始化',
+    importLabel: '导入税种认定',
+    statusOptions: ['全部', '启用', '待确认', '异常'],
+    summary: [
+      { label: '认定税种', value: '9 项', tone: 'blue' },
+      { label: '已启用', value: '7 项', tone: 'green' },
+      { label: '待确认', value: '2 项', tone: 'amber' },
+      { label: '接口缺失', value: '1 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'taxType', label: '税种' },
+      { key: 'period', label: '申报周期' },
+      { key: 'method', label: '计税方式' },
+      { key: 'adapter', label: '税局 adapter' },
+      { key: 'account', label: '申报账号' },
+      { key: 'nextPeriod', label: '下次申报期' },
+    ],
+    rows: [
+      { id: 'ti-vat', status: '启用', voucher: '-', attachment: '认定截图', values: { taxType: '增值税', period: '月报', method: '一般纳税人', adapter: '上海电子税务局', account: '已配置', nextPeriod: '2026-06' } },
+      { id: 'ti-income', status: '启用', voucher: '-', attachment: '认定截图', values: { taxType: '企业所得税', period: '季报', method: '查账征收', adapter: '上海电子税务局', account: '已配置', nextPeriod: '2026-Q2' } },
+      { id: 'ti-stamp', status: '待确认', voucher: '-', attachment: '待补', values: { taxType: '印花税', period: '按次/季报', method: '应税合同', adapter: '未接入', account: '待配置', nextPeriod: '待确认' } },
+    ],
+    notes: ['申报初始化只维护取数和申报参数，不伪造税局提交能力。', '自动报税后续必须通过合法 adapter、授权登录、回执和人工确认闭环实现。'],
+  },
+  accountArchive: {
+    keywordPlaceholder: '搜索账户名称、银行账号、开户行、默认科目',
+    primaryAction: '新增账户',
+    importLabel: '导入账户',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '账户数量', value: '8 个', tone: 'blue' },
+      { label: '启用', value: '6 个', tone: 'green' },
+      { label: '待对账', value: '2 个', tone: 'amber' },
+      { label: '异常', value: '1 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'name', label: '账户名称' },
+      { key: 'type', label: '账户类型' },
+      { key: 'bank', label: '开户行/平台' },
+      { key: 'number', label: '账号' },
+      { key: 'subject', label: '默认科目' },
+      { key: 'balance', label: '账面余额', align: 'right' },
+    ],
+    rows: [
+      { id: 'acct-001', status: '启用', voucher: '-', attachment: '开户许可证', values: { name: '工行基本户', type: '银行账户', bank: '工商银行上海分行', number: '6222********0198', subject: '1002 银行存款', balance: '¥466,380.00' } },
+      { id: 'acct-002', status: '启用', voucher: '-', attachment: '网银截图', values: { name: '招行一般户', type: '银行账户', bank: '招商银行上海分行', number: '6214********8801', subject: '1002 银行存款', balance: '¥82,600.00' } },
+      { id: 'acct-003', status: '异常', voucher: '-', attachment: '缺失', values: { name: '支付宝账户', type: '第三方支付', bank: '支付宝', number: 'finance@demo.com', subject: '1012 其他货币资金', balance: '待对账' } },
+    ],
+    notes: ['账户登记是银行流水、账户转账和资金余额表的基础资料。'],
+  },
+  customerArchive: {
+    keywordPlaceholder: '搜索客户编码、名称、税号、合同',
+    primaryAction: '新增客户',
+    importLabel: '导入客户',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '客户数量', value: '46 户', tone: 'blue' },
+      { label: '启用', value: '43 户', tone: 'green' },
+      { label: '待补税号', value: '4 户', tone: 'amber' },
+      { label: '停用', value: '3 户', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'code', label: '客户编码' },
+      { key: 'name', label: '客户名称' },
+      { key: 'taxNo', label: '纳税人识别号' },
+      { key: 'bank', label: '开户行' },
+      { key: 'subject', label: '默认科目' },
+      { key: 'contract', label: '关联合同' },
+    ],
+    rows: [
+      { id: 'cust-001', status: '启用', voucher: '-', attachment: '合同', values: { code: 'C001', name: '上海辰光贸易有限公司', taxNo: '9131********001X', bank: '上海银行浦东支行', subject: '1122 应收账款', contract: 'HT-2026-001' } },
+      { id: 'cust-002', status: '启用', voucher: '-', attachment: '开票资料', values: { code: 'C002', name: '杭州辰星科技有限公司', taxNo: '9133********889K', bank: '杭州银行科技支行', subject: '1122 应收账款', contract: 'HT-2026-008' } },
+      { id: 'cust-003', status: '异常', voucher: '-', attachment: '缺失', values: { code: 'C009', name: '南京云杉贸易有限公司', taxNo: '待补', bank: '待补', subject: '1122 应收账款', contract: '无' } },
+    ],
+    notes: ['客户档案影响销项发票、收款核销、应收辅助账和合同印花税取数。'],
+  },
+  supplierArchive: {
+    keywordPlaceholder: '搜索供应商编码、名称、税号、别名',
+    primaryAction: '新增供应商',
+    importLabel: '导入供应商',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '供应商', value: '39 户', tone: 'blue' },
+      { label: '启用', value: '35 户', tone: 'green' },
+      { label: '别名待确认', value: '6 户', tone: 'amber' },
+      { label: '异常', value: '2 户', tone: 'red' },
+    ],
+    columns: [
+      { key: 'code', label: '供应商编码' },
+      { key: 'name', label: '供应商名称' },
+      { key: 'alias', label: '发票/流水别名' },
+      { key: 'taxNo', label: '纳税人识别号' },
+      { key: 'subject', label: '默认科目' },
+      { key: 'taxRate', label: '常用税率' },
+    ],
+    rows: [
+      { id: 'sup-001', status: '启用', voucher: '-', attachment: '开票资料', values: { code: 'S001', name: '苏州材料供应链有限公司', alias: '苏州材料', taxNo: '9132********888K', subject: '2202 应付账款', taxRate: '13%' } },
+      { id: 'sup-002', status: '启用', voucher: '-', attachment: '合同', values: { code: 'S002', name: '上海云启科技有限公司', alias: '云启科技', taxNo: '9131********775M', subject: '2202 应付账款', taxRate: '6%' } },
+      { id: 'sup-003', status: '异常', voucher: '-', attachment: '缺失', values: { code: 'S009', name: '杭州设备服务有限公司', alias: '设备服务', taxNo: '待补', subject: '2202 应付账款', taxRate: '待核' } },
+    ],
+    notes: ['供应商档案影响进项发票识别、付款核销、应付辅助账和税率风险检查。'],
+  },
+  otherContactArchive: {
+    keywordPlaceholder: '搜索往来名称、类型、证件号、默认科目',
+    primaryAction: '新增往来',
+    importLabel: '导入往来',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '其他往来', value: '24 个', tone: 'blue' },
+      { label: '启用', value: '22 个', tone: 'green' },
+      { label: '待补证件', value: '3 个', tone: 'amber' },
+      { label: '异常', value: '1 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'code', label: '往来编码' },
+      { key: 'name', label: '往来名称' },
+      { key: 'type', label: '往来类型' },
+      { key: 'idNo', label: '证件号/税号' },
+      { key: 'subject', label: '默认科目' },
+      { key: 'remark', label: '备注' },
+    ],
+    rows: [
+      { id: 'oc-001', status: '启用', voucher: '-', attachment: '-', values: { code: 'O001', name: '张三', type: '员工备用金', idNo: '310********1234', subject: '1221 其他应收款', remark: '销售备用金' } },
+      { id: 'oc-002', status: '启用', voucher: '-', attachment: '-', values: { code: 'O002', name: '李股东', type: '股东往来', idNo: '320********5421', subject: '2241 其他应付款', remark: '借款往来' } },
+      { id: 'oc-003', status: '异常', voucher: '-', attachment: '缺失', values: { code: 'O006', name: '临时个人', type: '个人往来', idNo: '待补', subject: '1221 其他应收款', remark: '待确认' } },
+    ],
+    notes: ['其他往来用于员工、股东、个人和临时往来辅助核算。'],
+  },
+  projectArchive: {
+    keywordPlaceholder: '搜索项目编码、名称、负责人、默认科目',
+    primaryAction: '新增项目',
+    importLabel: '导入项目',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '项目数量', value: '12 个', tone: 'blue' },
+      { label: '进行中', value: '9 个', tone: 'green' },
+      { label: '待归集', value: '3 个', tone: 'amber' },
+      { label: '停用', value: '2 个', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'code', label: '项目编码' },
+      { key: 'name', label: '项目名称' },
+      { key: 'owner', label: '负责人' },
+      { key: 'start', label: '开始日期' },
+      { key: 'subject', label: '默认科目' },
+      { key: 'budget', label: '预算金额', align: 'right' },
+    ],
+    rows: [
+      { id: 'proj-001', status: '启用', voucher: '-', attachment: '立项单', values: { code: 'P001', name: '研发项目A', owner: '研发部', start: '2026-01-01', subject: '5301 研发支出', budget: '¥520,000.00' } },
+      { id: 'proj-002', status: '启用', voucher: '-', attachment: '合同', values: { code: 'P002', name: '华东销售项目', owner: '销售部', start: '2026-03-01', subject: '6601 销售费用', budget: '¥180,000.00' } },
+      { id: 'proj-003', status: '待确认', voucher: '-', attachment: '待补', values: { code: 'P006', name: '设备改造', owner: '生产部', start: '待确认', subject: '1604 在建工程', budget: '待确认' } },
+    ],
+    notes: ['项目档案影响费用归集、研发辅助账和项目维度报表。'],
+  },
+  departmentArchive: {
+    keywordPlaceholder: '搜索部门编码、名称、负责人',
+    primaryAction: '新增部门',
+    importLabel: '导入部门',
+    statusOptions: ['全部', '启用', '停用'],
+    summary: [
+      { label: '部门数量', value: '8 个', tone: 'blue' },
+      { label: '启用', value: '7 个', tone: 'green' },
+      { label: '人员归属', value: '42 人', tone: 'amber' },
+      { label: '停用', value: '1 个', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'code', label: '部门编码' },
+      { key: 'name', label: '部门名称' },
+      { key: 'parent', label: '上级部门' },
+      { key: 'owner', label: '负责人' },
+      { key: 'subject', label: '费用科目' },
+      { key: 'people', label: '人员数', align: 'right' },
+    ],
+    rows: [
+      { id: 'dept-001', status: '启用', voucher: '-', attachment: '-', values: { code: 'D001', name: '销售部', parent: '总部', owner: '陈经理', subject: '6601 销售费用', people: '14' } },
+      { id: 'dept-002', status: '启用', voucher: '-', attachment: '-', values: { code: 'D002', name: '财务部', parent: '总部', owner: '王会计', subject: '6602 管理费用', people: '5' } },
+      { id: 'dept-003', status: '停用', voucher: '-', attachment: '-', values: { code: 'D009', name: '临时项目组', parent: '总部', owner: '-', subject: '6602 管理费用', people: '0' } },
+    ],
+    notes: ['部门档案用于工资、费用、辅助核算和管理报表。'],
+  },
+  tagArchive: {
+    keywordPlaceholder: '搜索标签名称、适用模块、颜色',
+    primaryAction: '新增标签',
+    importLabel: '导入标签',
+    statusOptions: ['全部', '启用', '停用'],
+    summary: [
+      { label: '标签数量', value: '18 个', tone: 'blue' },
+      { label: '启用', value: '16 个', tone: 'green' },
+      { label: '本期使用', value: '126 次', tone: 'amber' },
+      { label: '停用', value: '2 个', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'name', label: '标签名称' },
+      { key: 'module', label: '适用模块' },
+      { key: 'color', label: '颜色/标识' },
+      { key: 'rule', label: '自动标记规则' },
+      { key: 'count', label: '使用次数', align: 'right' },
+      { key: 'remark', label: '备注' },
+    ],
+    rows: [
+      { id: 'tag-001', status: '启用', voucher: '-', attachment: '-', values: { name: '需客户确认', module: '发票/流水/凭证', color: '橙色', rule: '金额差异', count: '38', remark: '待办跟踪' } },
+      { id: 'tag-002', status: '启用', voucher: '-', attachment: '-', values: { name: '税务风险', module: '税表/凭证', color: '红色', rule: '税率异常', count: '12', remark: '风险检查' } },
+      { id: 'tag-003', status: '停用', voucher: '-', attachment: '-', values: { name: '旧标签', module: '单据', color: '灰色', rule: '无', count: '0', remark: '不再使用' } },
+    ],
+    notes: ['标签用于跨模块筛选、待办、客户沟通和风险追踪。'],
+  },
+  subjectSettings: {
+    keywordPlaceholder: '搜索科目编码、科目名称、辅助核算、报表项目',
+    primaryAction: '新增科目',
+    importLabel: '导入科目',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '科目数量', value: '128 个', tone: 'blue' },
+      { label: '启用', value: '126 个', tone: 'green' },
+      { label: '辅助核算', value: '32 个', tone: 'amber' },
+      { label: '映射异常', value: '2 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'code', label: '科目编码' },
+      { key: 'name', label: '科目名称' },
+      { key: 'direction', label: '余额方向', align: 'center' },
+      { key: 'aux', label: '辅助核算' },
+      { key: 'report', label: '报表项目' },
+      { key: 'cashFlow', label: '现金流量项目' },
+    ],
+    rows: [
+      { id: 'subj-1002', status: '启用', voucher: '-', attachment: '-', values: { code: '1002', name: '银行存款', direction: '借', aux: '账户', report: '货币资金', cashFlow: '现金及现金等价物' } },
+      { id: 'subj-1122', status: '启用', voucher: '-', attachment: '-', values: { code: '1122', name: '应收账款', direction: '借', aux: '客户', report: '应收账款', cashFlow: '销售商品收到的现金' } },
+      { id: 'subj-2221', status: '异常', voucher: '-', attachment: '-', values: { code: '2221', name: '应交税费', direction: '贷', aux: '税种', report: '应交税费', cashFlow: '待映射' } },
+    ],
+    notes: ['科目设置需要维护余额方向、辅助核算、报表取数和现金流量映射。'],
+  },
+  assetCategory: {
+    keywordPlaceholder: '搜索资产类别、折旧年限、残值率、默认科目',
+    primaryAction: '新增类别',
+    importLabel: '导入类别',
+    statusOptions: ['全部', '启用', '停用'],
+    summary: [
+      { label: '资产类别', value: '9 类', tone: 'blue' },
+      { label: '启用', value: '8 类', tone: 'green' },
+      { label: '默认规则', value: '8 条', tone: 'amber' },
+      { label: '停用', value: '1 类', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'code', label: '类别编码' },
+      { key: 'name', label: '资产类别' },
+      { key: 'life', label: '折旧年限' },
+      { key: 'residual', label: '残值率' },
+      { key: 'method', label: '折旧方法' },
+      { key: 'subject', label: '默认科目' },
+    ],
+    rows: [
+      { id: 'asset-001', status: '启用', voucher: '-', attachment: '-', values: { code: 'FA01', name: '机器设备', life: '10 年', residual: '5%', method: '平均年限法', subject: '1601 固定资产/1602 累计折旧' } },
+      { id: 'asset-002', status: '启用', voucher: '-', attachment: '-', values: { code: 'FA02', name: '电子设备', life: '3 年', residual: '5%', method: '平均年限法', subject: '1601 固定资产/6602 管理费用' } },
+      { id: 'asset-003', status: '停用', voucher: '-', attachment: '-', values: { code: 'FA09', name: '旧资产类别', life: '5 年', residual: '5%', method: '平均年限法', subject: '停用' } },
+    ],
+    notes: ['资产类别是折旧摊销模块的规则基础，影响折旧凭证和资产明细表。'],
+  },
+  invoiceMatchingRules: {
+    keywordPlaceholder: '搜索规则名称、发票商品、购销方、税率、凭证模板',
+    primaryAction: '新增发票规则',
+    importLabel: '导入规则',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '发票规则', value: '18 条', tone: 'blue' },
+      { label: '本期命中', value: '96 次', tone: 'green' },
+      { label: 'AI 建议', value: '5 条', tone: 'amber' },
+      { label: '冲突', value: '1 条', tone: 'red' },
+    ],
+    columns: [
+      { key: 'name', label: '规则名称' },
+      { key: 'condition', label: '匹配条件' },
+      { key: 'template', label: '凭证模板' },
+      { key: 'subject', label: '科目/税率' },
+      { key: 'priority', label: '优先级', align: 'center' },
+      { key: 'hit', label: '命中次数', align: 'right' },
+    ],
+    rows: [
+      { id: 'ir-001', status: '启用', voucher: '-', attachment: '-', values: { name: '销售商品', condition: '销项 商品名称包含控制器', template: '借应收 贷收入/销项税', subject: '主营业务收入 13%', priority: '90', hit: '42' } },
+      { id: 'ir-002', status: '启用', voucher: '-', attachment: '-', values: { name: '技术服务收入', condition: '销项 税率 6%', template: '借应收 贷服务收入/销项税', subject: '主营业务收入 6%', priority: '80', hit: '18' } },
+      { id: 'ir-003', status: '异常', voucher: '-', attachment: '-', values: { name: '办公采购', condition: '进项 商品名称包含办公', template: '费用凭证', subject: '管理费用 6%/13%', priority: '冲突', hit: '9' } },
+    ],
+    notes: ['发票规则要记录匹配条件、凭证模板、优先级和命中日志；AI 规则必须人工确认后启用。'],
+  },
+  billMatchingRules: {
+    keywordPlaceholder: '搜索规则名称、流水摘要、对方户名、金额区间',
+    primaryAction: '新增账单规则',
+    importLabel: '导入规则',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '账单规则', value: '14 条', tone: 'blue' },
+      { label: '本期命中', value: '118 次', tone: 'green' },
+      { label: '待确认', value: '7 条', tone: 'amber' },
+      { label: '冲突', value: '1 条', tone: 'red' },
+    ],
+    columns: [
+      { key: 'name', label: '规则名称' },
+      { key: 'condition', label: '匹配条件' },
+      { key: 'action', label: '生成动作' },
+      { key: 'subject', label: '目标科目' },
+      { key: 'priority', label: '优先级', align: 'center' },
+      { key: 'hit', label: '命中次数', align: 'right' },
+    ],
+    rows: [
+      { id: 'br-001', status: '启用', voucher: '-', attachment: '-', values: { name: '银行手续费', condition: '摘要包含手续费 金额小于1000', action: '生成费用凭证', subject: '6603 财务费用', priority: '95', hit: '22' } },
+      { id: 'br-002', status: '启用', voucher: '-', attachment: '-', values: { name: '销售收款核销', condition: '对方户名=客户 金额=发票价税合计', action: '核销应收', subject: '1002/1122', priority: '90', hit: '61' } },
+      { id: 'br-003', status: '待确认', voucher: '-', attachment: '-', values: { name: '个人备用金', condition: '对方户名为个人', action: '其他应收', subject: '1221 其他应收款', priority: '60', hit: '6' } },
+    ],
+    notes: ['账单规则用于流水分类、收付款核销和回单凭证生成，需要保留命中明细。'],
+  },
+  settlementRules: {
+    keywordPlaceholder: '搜索结转类型、执行顺序、取数来源、凭证模板',
+    primaryAction: '新增结转规则',
+    importLabel: '导入规则',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '结转规则', value: '11 条', tone: 'blue' },
+      { label: '启用', value: '10 条', tone: 'green' },
+      { label: '待执行', value: '6 条', tone: 'amber' },
+      { label: '阻断', value: '1 条', tone: 'red' },
+    ],
+    columns: [
+      { key: 'order', label: '顺序', align: 'center' },
+      { key: 'name', label: '结转类型' },
+      { key: 'source', label: '取数来源' },
+      { key: 'template', label: '凭证模板' },
+      { key: 'condition', label: '执行条件' },
+      { key: 'lastRun', label: '最近执行' },
+    ],
+    rows: [
+      { id: 'sr-001', status: '启用', voucher: '记-0080', attachment: '明细', values: { order: '1', name: '折旧摊销', source: '固定资产/待摊费用', template: '借费用 贷累计折旧', condition: '资产已计提', lastRun: '2026-05-20' } },
+      { id: 'sr-002', status: '启用', voucher: '记-0086', attachment: '明细', values: { order: '2', name: '税费计提', source: '税务报表', template: '借税金及附加 贷应交税费', condition: '税表已确认', lastRun: '2026-05-20' } },
+      { id: 'sr-003', status: '异常', voucher: '未生成', attachment: '风险项', values: { order: '8', name: '损益结转', source: '损益类科目余额', template: '结转本年利润', condition: '凭证借贷平衡', lastRun: '被风险阻断' } },
+    ],
+    notes: ['结转规则进入期末结转工作台，必须按顺序执行并记录凭证来源。'],
+  },
+  voucherRecycle: {
+    keywordPlaceholder: '搜索凭证号、摘要、删除人、删除原因',
+    primaryAction: '恢复凭证',
+    importLabel: '导出日志',
+    statusOptions: ['全部', '待确认', '已通过', '异常'],
+    summary: [
+      { label: '删除凭证', value: '6 张', tone: 'blue' },
+      { label: '可恢复', value: '5 张', tone: 'green' },
+      { label: '待复核', value: '1 张', tone: 'amber' },
+      { label: '异常', value: '1 张', tone: 'red' },
+    ],
+    columns: [
+      { key: 'date', label: '凭证日期' },
+      { key: 'wordNo', label: '凭证字号' },
+      { key: 'summary', label: '摘要' },
+      { key: 'amount', label: '金额', align: 'right' },
+      { key: 'deletedBy', label: '删除人' },
+      { key: 'deletedAt', label: '删除时间' },
+      { key: 'reason', label: '删除原因' },
+    ],
+    rows: [
+      { id: 'vr-001', status: '待确认', voucher: '记-0028', attachment: '附件2', values: { date: '2026-05-06', wordNo: '记-0028', summary: '差旅费报销', amount: '¥2,860.00', deletedBy: '王会计', deletedAt: '2026-05-18 11:20', reason: '重复生成' } },
+      { id: 'vr-002', status: '已通过', voucher: '记-0033', attachment: '附件1', values: { date: '2026-05-08', wordNo: '记-0033', summary: '办公用品', amount: '¥1,240.00', deletedBy: '李会计', deletedAt: '2026-05-19 09:12', reason: '改由发票生成' } },
+      { id: 'vr-003', status: '异常', voucher: '记-0041', attachment: '无', values: { date: '2026-05-10', wordNo: '记-0041', summary: '银行手续费', amount: '¥320.00', deletedBy: '赵会计', deletedAt: '2026-05-19 15:44', reason: '关联结账检查' } },
+    ],
+    notes: ['凭证回收箱需要保留删除、恢复和彻底删除审计日志，避免凭证断号不可追溯。'],
+  },
 }
 
 const toneClasses = {
@@ -672,16 +1106,34 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     })
   }, [config.rows, keyword, status])
 
-  const exportRows = filteredRows.map((row) => ({
-    ...Object.fromEntries(config.columns.map((column) => [column.label, row.values[column.key] || ''])),
-    状态: row.status,
-    凭证: row.voucher || '',
-    附件: row.attachment || '',
-  }))
-
   const handleExportExcel = async () => {
     const XLSX = await import('xlsx')
-    const worksheet = XLSX.utils.json_to_sheet(exportRows)
+    const headers = [...config.columns.map((column) => column.label), '状态', '凭证', '附件']
+    const rows = filteredRows.map((row) => [
+      ...config.columns.map((column) => row.values[column.key] || ''),
+      row.status,
+      row.voucher || '',
+      row.attachment || '',
+    ])
+    const exportedAt = new Date().toLocaleString('zh-CN')
+    const sheetRows = [
+      [`${title}导出表`],
+      ['公司', '科旋电气（上海）有限公司', '所属期', '2026-05', '导出时间', exportedAt],
+      ['筛选状态', status, '关键词', keyword.trim() || '全部', '记录数', `${filteredRows.length} 条`],
+      [],
+      headers,
+      ...rows,
+      [],
+      ['制表说明', '本文件按当前列表筛选条件、列顺序和账期生成；真实数据导出需写入操作日志、文件哈希和操作人。'],
+    ]
+    const worksheet = XLSX.utils.aoa_to_sheet(sheetRows)
+    worksheet['!cols'] = headers.map((header) => ({
+      wch: Math.max(10, Math.min(28, header.length * 2 + 8)),
+    }))
+    worksheet['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(headers.length - 1, 0) } },
+      { s: { r: sheetRows.length - 1, c: 1 }, e: { r: sheetRows.length - 1, c: Math.max(headers.length - 1, 1) } },
+    ]
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, title.slice(0, 28))
     XLSX.writeFile(workbook, `${title}-2026-05.xlsx`)
@@ -695,15 +1147,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       row.voucher || '',
       row.attachment || '',
     ])
+    const exportedAt = new Date().toLocaleString('zh-CN')
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>
       body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:24px;color:#111827}
-      h1{font-size:18px;margin:0 0 4px} .meta{font-size:12px;color:#64748b;margin-bottom:14px}
-      table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #cbd5e1;padding:6px 8px;white-space:nowrap}
-      th{background:#eef3f8;text-align:left} td.num{text-align:right} tfoot td{font-weight:600;background:#f8fafc}
-    </style></head><body><h1>${title}</h1><div class="meta">公司: 科旋电气（上海）有限公司　所属期: 2026-05　导出时间: ${new Date().toLocaleString('zh-CN')}</div>
+      h1{text-align:center;font-size:18px;margin:0 0 10px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 14px;font-size:12px;color:#334155;margin-bottom:14px}
+      .meta span{border-bottom:1px solid #cbd5e1;padding-bottom:4px}
+      table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #94a3b8;padding:6px 8px;white-space:nowrap}
+      th{background:#e8eef6;text-align:left} td.num{text-align:right} tfoot td{font-weight:600;background:#f8fafc}
+      .note{margin-top:12px;font-size:11px;color:#64748b}
+    </style></head><body><h1>${title}</h1><div class="meta"><span>公司: 科旋电气（上海）有限公司</span><span>所属期: 2026-05</span><span>导出时间: ${exportedAt}</span><span>筛选状态: ${status}</span><span>关键词: ${keyword.trim() || '全部'}</span><span>记录数: ${filteredRows.length} 条</span></div>
     <table><thead><tr>${headers.map((header) => `<th>${header}</th>`).join('')}</tr></thead><tbody>
     ${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('')}
-    </tbody></table></body></html>`
+    </tbody></table><div class="note">制表说明: 本打印件按当前列表筛选条件、列顺序和账期生成；正式导出需要保留操作日志和文件哈希。</div></body></html>`
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
     printWindow.document.write(html)

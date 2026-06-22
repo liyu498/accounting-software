@@ -135,30 +135,30 @@ function App() {
             <Route path="/tax/non-tax" element={businessPage('taxReport', '非税收入', '维护非税收入申报事项、缴费状态和回执归档。')} />
 
             {/* Settings Sub-pages - 设置子页面 */}
-            <Route path="/settings/company-info" element={businessPage('settingsData', '企业信息', '维护纳税人识别号、税种认定、开户行、联系人和申报基础资料。')} />
-            <Route path="/settings/initial-balances" element={businessPage('settingsData', '期初余额', '录入科目和辅助核算期初余额，校验借贷平衡。')} />
-            <Route path="/settings/tax-init" element={businessPage('settingsData', '申报初始化', '维护税种、申报周期、申报账号、税局 adapter 参数和申报口径。')} />
+            <Route path="/settings/company-info" element={businessPage('companyInfo', '企业信息', '维护纳税人识别号、税种认定、开户行、联系人和申报基础资料。')} />
+            <Route path="/settings/initial-balances" element={businessPage('initialBalance', '期初余额', '录入科目和辅助核算期初余额，校验借贷平衡。')} />
+            <Route path="/settings/tax-init" element={businessPage('taxInit', '申报初始化', '维护税种、申报周期、申报账号、税局 adapter 参数和申报口径。')} />
             <Route path="/settings/history-vouchers" element={businessPage('documentRegister', '历史凭证', '导入和查看历史凭证，支持断号检查、附件和科目映射。')} />
             <Route path="/settings/history-balances" element={businessPage('ledgerReport', '历史科目余额表', '导入历史科目余额表，形成期初和对账依据。')} />
             <Route path="/settings/history-general-ledger" element={businessPage('ledgerReport', '历史总账', '导入历史总账，支持科目映射和余额校验。')} />
             <Route path="/settings/history-subsidiary-ledger" element={businessPage('ledgerReport', '历史明细账', '导入历史明细账，支持凭证和科目穿透。')} />
-            <Route path="/settings/accounts" element={businessPage('settingsData', '账户登记', '维护银行账户、现金账户、第三方支付账户和默认科目。')} />
-            <Route path="/settings/customers" element={businessPage('settingsData', '客户', '维护客户编码、名称、税号、开户行、银行账号和默认科目。')} />
-            <Route path="/settings/customers-contracts" element={businessPage('settingsData', '客户与合同', '维护客户、合同和应税合同台账。')} />
-            <Route path="/settings/suppliers" element={businessPage('settingsData', '供应商', '维护供应商编码、税号、银行账号、别名和默认科目。')} />
-            <Route path="/settings/other-contacts" element={businessPage('settingsData', '其他往来', '维护员工、股东、个人和其他往来辅助资料。')} />
-            <Route path="/settings/projects" element={businessPage('settingsData', '项目', '维护项目档案、项目辅助核算和默认科目。')} />
-            <Route path="/settings/departments" element={businessPage('settingsData', '部门', '维护部门档案、部门核算和人员归属。')} />
-            <Route path="/settings/tags" element={businessPage('settingsData', '标签', '维护凭证、发票、流水和单据的业务标签。')} />
-            <Route path="/settings/account-codes" element={businessPage('settingsData', '科目', '维护会计科目、辅助核算、余额方向和报表映射。')} />
-            <Route path="/settings/asset-categories" element={businessPage('settingsData', '资产类别', '维护资产类别、折旧年限、残值率和默认科目。')} />
-            <Route path="/settings/invoice-rules" element={businessPage('matchingRules', '发票自动匹配规则', '维护发票到科目、客户供应商、税率和凭证模板的自动匹配规则。')} />
-            <Route path="/settings/bill-rules" element={businessPage('matchingRules', '账单自动匹配规则', '维护银行流水摘要、对方户名、金额区间和凭证模板规则。')} />
-            <Route path="/settings/voucher-recycle" element={businessPage('documentRegister', '会计凭证回收箱', '查看已删除凭证、恢复、彻底删除和审计日志。')} />
+            <Route path="/settings/accounts" element={businessPage('accountArchive', '账户登记', '维护银行账户、现金账户、第三方支付账户和默认科目。')} />
+            <Route path="/settings/customers" element={businessPage('customerArchive', '客户', '维护客户编码、名称、税号、开户行、银行账号和默认科目。')} />
+            <Route path="/settings/customers-contracts" element={businessPage('customerArchive', '客户与合同', '维护客户、合同和应税合同台账。')} />
+            <Route path="/settings/suppliers" element={businessPage('supplierArchive', '供应商', '维护供应商编码、税号、银行账号、别名和默认科目。')} />
+            <Route path="/settings/other-contacts" element={businessPage('otherContactArchive', '其他往来', '维护员工、股东、个人和其他往来辅助资料。')} />
+            <Route path="/settings/projects" element={businessPage('projectArchive', '项目', '维护项目档案、项目辅助核算和默认科目。')} />
+            <Route path="/settings/departments" element={businessPage('departmentArchive', '部门', '维护部门档案、部门核算和人员归属。')} />
+            <Route path="/settings/tags" element={businessPage('tagArchive', '标签', '维护凭证、发票、流水和单据的业务标签。')} />
+            <Route path="/settings/account-codes" element={businessPage('subjectSettings', '科目', '维护会计科目、辅助核算、余额方向和报表映射。')} />
+            <Route path="/settings/asset-categories" element={businessPage('assetCategory', '资产类别', '维护资产类别、折旧年限、残值率和默认科目。')} />
+            <Route path="/settings/invoice-rules" element={businessPage('invoiceMatchingRules', '发票自动匹配规则', '维护发票到科目、客户供应商、税率和凭证模板的自动匹配规则。')} />
+            <Route path="/settings/bill-rules" element={businessPage('billMatchingRules', '账单自动匹配规则', '维护银行流水摘要、对方户名、金额区间和凭证模板规则。')} />
+            <Route path="/settings/voucher-recycle" element={businessPage('voucherRecycle', '会计凭证回收箱', '查看已删除凭证、恢复、彻底删除和审计日志。')} />
             <Route path="/settings/auxiliary-categories" element={businessPage('settingsData', '辅助核算类别', '维护客户、供应商、项目、部门、人员等辅助核算类别。')} />
             <Route path="/settings/auxiliary-items" element={businessPage('settingsData', '辅助核算项目', '维护各类辅助核算明细资料。')} />
             <Route path="/settings/common-digests" element={businessPage('settingsData', '常用摘要', '维护凭证摘要模板和 AI 摘要推荐词库。')} />
-            <Route path="/settings/settlement-rules" element={businessPage('matchingRules', '结转规则', '维护期末结转、损益结转、税费计提和折旧摊销规则。')} />
+            <Route path="/settings/settlement-rules" element={businessPage('settlementRules', '结转规则', '维护期末结转、损益结转、税费计提和折旧摊销规则。')} />
             <Route path="/settings/currencies" element={businessPage('settingsData', '币别管理', '维护币别、汇率、外币核算和折算规则。')} />
             <Route path="/settings/roles" element={businessPage('settingsData', '权限管理', '维护角色、菜单权限、操作权限和审计范围。')} />
           </Route>
