@@ -488,26 +488,26 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
 }
 
 const toneClasses = {
-  blue: 'bg-blue-50 text-blue-700 border-blue-100',
-  green: 'bg-green-50 text-green-700 border-green-100',
-  amber: 'bg-amber-50 text-amber-700 border-amber-100',
-  red: 'bg-red-50 text-red-700 border-red-100',
-  gray: 'bg-gray-50 text-gray-700 border-gray-100',
+  blue: 'text-[#1f65a7]',
+  green: 'text-green-700',
+  amber: 'text-amber-700',
+  red: 'text-red-700',
+  gray: 'text-slate-600',
 }
 
 function statusBadge(status: ModuleRow['status']) {
   const className = {
-    待处理: 'bg-amber-100 text-amber-700',
-    已匹配: 'bg-blue-100 text-blue-700',
-    已生成凭证: 'bg-green-100 text-green-700',
-    待确认: 'bg-amber-100 text-amber-700',
-    异常: 'bg-red-100 text-red-700',
-    启用: 'bg-green-100 text-green-700',
-    停用: 'bg-gray-100 text-gray-700',
-    已通过: 'bg-green-100 text-green-700',
+    待处理: 'bg-amber-50 text-amber-700 ring-amber-100',
+    已匹配: 'bg-blue-50 text-blue-700 ring-blue-100',
+    已生成凭证: 'bg-green-50 text-green-700 ring-green-100',
+    待确认: 'bg-amber-50 text-amber-700 ring-amber-100',
+    异常: 'bg-red-50 text-red-700 ring-red-100',
+    启用: 'bg-green-50 text-green-700 ring-green-100',
+    停用: 'bg-slate-50 text-slate-600 ring-slate-200',
+    已通过: 'bg-green-50 text-green-700 ring-green-100',
   }[status]
 
-  return <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', className)}>{status}</span>
+  return <span className={cn('inline-flex rounded px-2 py-0.5 text-xs font-medium ring-1', className)}>{status}</span>
 }
 
 export function BusinessModulePage({ kind, title, description }: BusinessModulePageProps) {
@@ -525,149 +525,238 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     })
   }, [config.rows, keyword, status])
 
+  const exportRows = filteredRows.map((row) => ({
+    ...Object.fromEntries(config.columns.map((column) => [column.label, row.values[column.key] || ''])),
+    状态: row.status,
+    凭证: row.voucher || '',
+    附件: row.attachment || '',
+  }))
+
+  const handleExportExcel = async () => {
+    const XLSX = await import('xlsx')
+    const worksheet = XLSX.utils.json_to_sheet(exportRows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, title.slice(0, 28))
+    XLSX.writeFile(workbook, `${title}-2026-05.xlsx`)
+  }
+
+  const handlePrint = () => {
+    const headers = [...config.columns.map((column) => column.label), '状态', '凭证', '附件']
+    const rows = filteredRows.map((row) => [
+      ...config.columns.map((column) => row.values[column.key] || ''),
+      row.status,
+      row.voucher || '',
+      row.attachment || '',
+    ])
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>
+      body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:24px;color:#111827}
+      h1{font-size:18px;margin:0 0 4px} .meta{font-size:12px;color:#64748b;margin-bottom:14px}
+      table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #cbd5e1;padding:6px 8px;white-space:nowrap}
+      th{background:#eef3f8;text-align:left} td.num{text-align:right} tfoot td{font-weight:600;background:#f8fafc}
+    </style></head><body><h1>${title}</h1><div class="meta">公司: 科旋电气（上海）有限公司　所属期: 2026-05　导出时间: ${new Date().toLocaleString('zh-CN')}</div>
+    <table><thead><tr>${headers.map((header) => `<th>${header}</th>`).join('')}</tr></thead><tbody>
+    ${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('')}
+    </tbody></table></body></html>`
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+    printWindow.document.write(html)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+  }
+
+  const tabs = ['列表', '明细', '凭证草稿', '匹配规则', '附件', '操作日志']
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{title}</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm">
-            <Upload className="mr-2 h-4 w-4" />
-            {config.importLabel}
-          </Button>
-          <Button variant="outline" size="sm">
-            <FileDown className="mr-2 h-4 w-4" />
-            导出Excel
-          </Button>
-          <Button variant="outline" size="sm">
-            <Printer className="mr-2 h-4 w-4" />
-            打印
-          </Button>
-          <Button variant="primary" size="sm">
-            <FilePlus2 className="mr-2 h-4 w-4" />
-            {config.primaryAction}
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {config.summary.map((item) => (
-          <div key={item.label} className={cn('rounded-lg border px-4 py-3', toneClasses[item.tone])}>
-            <div className="text-xs font-medium opacity-80">{item.label}</div>
-            <div className="mt-1 text-xl font-semibold">{item.value}</div>
+    <div className="h-full min-w-[1120px] bg-[#f3f6fa] text-slate-900">
+      <div className="border border-slate-200 bg-white">
+        <div className="flex h-11 items-center justify-between border-b border-slate-200 px-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="text-base font-semibold">{title}</h1>
+            <span className="rounded bg-[#e9f2fb] px-2 py-1 text-xs text-[#1f65a7]">科旋电气（上海）有限公司</span>
+            <span className="rounded bg-white px-2 py-1 text-xs text-slate-500 ring-1 ring-slate-200">所属期 2026-05</span>
+            <span className="max-w-[520px] truncate text-xs text-slate-500">{description}</span>
           </div>
-        ))}
-      </div>
+          <div className="flex items-center gap-1">
+            <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} />
+            <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" />
+            <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="模板" />
+            <ToolbarButton icon={<FileDown className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
+            <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印" onClick={handlePrint} />
+            <button className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">
+              <FilePlus2 className="h-3.5 w-3.5" />
+              {config.primaryAction}
+            </button>
+          </div>
+        </div>
 
-      <Card>
-        <CardContent className="space-y-4 p-4">
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_160px_160px_160px]">
+        <div className="flex border-b border-slate-200 bg-[#f8fafc] px-2">
+          {tabs.map((tab, index) => (
+            <button
+              key={tab}
+              className={cn(
+                'h-9 border-b-2 px-3 text-xs font-medium',
+                index === 0 ? 'border-[#1f65a7] bg-white text-[#1f65a7]' : 'border-transparent text-slate-600 hover:bg-white hover:text-slate-900'
+              )}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-4 border-b border-slate-200 bg-white">
+          {config.summary.map((item) => (
+            <div key={item.label} className="border-r border-slate-100 px-4 py-3 last:border-r-0">
+              <div className="text-xs text-slate-500">{item.label}</div>
+              <div className={cn('mt-1 text-lg font-semibold tabular-nums', toneClasses[item.tone])}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between border-b border-slate-200 bg-[#fbfcfe] px-3 py-2">
+          <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input className="pl-9" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder={config.keywordPlaceholder} />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <input
+                className="h-8 w-80 rounded border border-slate-300 bg-white pl-8 pr-3 text-xs outline-none focus:border-[#1f65a7]"
+                value={keyword}
+                onChange={(event) => setKeyword(event.target.value)}
+                placeholder={config.keywordPlaceholder}
+              />
             </div>
             <select
               value={status}
               onChange={(event) => setStatus(event.target.value)}
-              className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+              className="h-8 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#1f65a7]"
               aria-label="状态筛选"
             >
               {config.statusOptions.map((option) => (
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
-            <button className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
-              <Filter className="mr-2 h-4 w-4" />
+            <button className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">
+              <Filter className="h-3.5 w-3.5" />
               高级筛选
             </button>
-            <button className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
-              <Columns3 className="mr-2 h-4 w-4" />
-              列设置
-            </button>
           </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-2 border-y border-gray-100 py-2 dark:border-gray-800">
-            <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <span>期间: 2026-05</span>
-              <span>状态: 可编辑</span>
-              <span>显示 {filteredRows.length} / {config.rows.length} 条</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button className="inline-flex items-center rounded-md px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
-                <RefreshCw className="mr-1 h-3.5 w-3.5" />
-                刷新
-              </button>
-              <button className="inline-flex items-center rounded-md px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
-                <Settings2 className="mr-1 h-3.5 w-3.5" />
-                规则
-              </button>
-              <button className="inline-flex items-center rounded-md px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
-                <Download className="mr-1 h-3.5 w-3.5" />
-                模板
-              </button>
-            </div>
+          <div className="flex items-center gap-1">
+            <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="规则" />
+            <ToolbarButton icon={<Columns3 className="h-3.5 w-3.5" />} label="列设置" />
           </div>
+        </div>
+      </div>
 
-          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-            <table className="min-w-[980px] w-full text-left text-sm">
-              <thead className="bg-gray-50 text-xs font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+      <div className="grid grid-cols-[1fr_300px] gap-3 pt-3">
+        <section className="border border-slate-200 bg-white">
+          <div className="flex h-9 items-center justify-between border-b border-slate-200 bg-[#f8fafc] px-3">
+            <div className="text-sm font-semibold text-slate-900">{title}列表</div>
+            <div className="text-xs text-slate-500">显示 {filteredRows.length} / {config.rows.length} 条，支持导出和打印</div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-[1120px] w-full border-collapse text-left text-xs">
+              <thead className="bg-[#eef3f8] text-slate-600">
                 <tr>
-                  <th className="w-10 px-3 py-3">
-                    <input type="checkbox" aria-label="全选" className="rounded border-gray-300" />
+                  <th className="w-9 border-b border-slate-200 px-2 py-2">
+                    <input type="checkbox" aria-label="全选" />
                   </th>
                   {config.columns.map((column) => (
-                    <th key={column.key} className={cn('whitespace-nowrap px-3 py-3', column.align === 'right' && 'text-right', column.align === 'center' && 'text-center')}>
+                    <th key={column.key} className={cn('whitespace-nowrap border-b border-slate-200 px-2 py-2', column.align === 'right' && 'text-right', column.align === 'center' && 'text-center')}>
                       {column.label}
                     </th>
                   ))}
-                  <th className="whitespace-nowrap px-3 py-3">状态</th>
-                  <th className="whitespace-nowrap px-3 py-3">凭证</th>
-                  <th className="whitespace-nowrap px-3 py-3">附件</th>
-                  <th className="whitespace-nowrap px-3 py-3 text-right">操作</th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-2 py-2">状态</th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-2 py-2">凭证</th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-2 py-2">附件</th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-2 py-2 text-right">操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white dark:divide-gray-800 dark:bg-gray-900">
+              <tbody>
                 {filteredRows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                    <td className="px-3 py-3">
-                      <input type="checkbox" aria-label={`选择 ${row.id}`} className="rounded border-gray-300" />
+                  <tr key={row.id} className="hover:bg-[#f8fbff]">
+                    <td className="border-b border-slate-100 px-2 py-2">
+                      <input type="checkbox" aria-label={`选择 ${row.id}`} />
                     </td>
                     {config.columns.map((column) => (
-                      <td key={column.key} className={cn('whitespace-nowrap px-3 py-3 text-gray-700 dark:text-gray-200', column.align === 'right' && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
+                      <td key={column.key} className={cn('whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-700', column.align === 'right' && 'text-right font-mono tabular-nums', column.align === 'center' && 'text-center')}>
                         {row.values[column.key]}
                       </td>
                     ))}
-                    <td className="whitespace-nowrap px-3 py-3">{statusBadge(row.status)}</td>
-                    <td className="whitespace-nowrap px-3 py-3 text-gray-600 dark:text-gray-300">{row.voucher}</td>
-                    <td className="whitespace-nowrap px-3 py-3 text-gray-600 dark:text-gray-300">
+                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2">{statusBadge(row.status)}</td>
+                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-600">{row.voucher}</td>
+                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-600">
                       <span className="inline-flex items-center gap-1">
                         <Paperclip className="h-3.5 w-3.5" />
                         {row.attachment}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-right">
-                      <button className="text-sm font-medium text-primary-600 hover:text-primary-700">查看</button>
-                      <span className="mx-2 text-gray-300">|</span>
-                      <button className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300">生成凭证</button>
+                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
+                      <button className="mr-2 text-[#1f65a7] hover:underline">查看</button>
+                      <button className="text-[#1f65a7] hover:underline">生成凭证</button>
                     </td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="bg-[#f8fafc]">
+                <tr>
+                  <td className="px-2 py-2" />
+                  <td className="px-2 py-2 font-semibold" colSpan={Math.max(config.columns.length - 1, 1)}>合计/小计</td>
+                  <td className="px-2 py-2 text-right text-xs text-slate-500" colSpan={4}>当前筛选结果 {filteredRows.length} 条</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
+          <div className="flex h-10 items-center justify-between border-t border-slate-200 px-3 text-xs text-slate-500">
+            <div>导出文件按当前筛选、列顺序和金额格式生成；PDF 打印使用同一表格模板。</div>
+            <div>第 1 / 1 页，每页 50 条</div>
+          </div>
+        </section>
 
-          <div className="flex flex-col gap-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300">
+        <aside className="space-y-3">
+          <section className="border border-slate-200 bg-white">
+            <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              规则与提示
+            </div>
             {config.notes.map((note, index) => (
-              <div key={note} className="flex items-start gap-2">
-                {index === 0 ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-amber-500" /> : <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-green-500" />}
-                <span>{note}</span>
+              <div key={note} className="border-b border-slate-100 p-3 text-xs leading-5 text-slate-600 last:border-b-0">
+                <div className="mb-1 flex items-center gap-2 font-medium text-slate-800">
+                  {index === 0 ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> : <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
+                  {index === 0 ? '业务边界' : '自动化说明'}
+                </div>
+                {note}
               </div>
             ))}
-          </div>
-        </CardContent>
-      </Card>
+          </section>
+          <section className="border border-slate-200 bg-white">
+            <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
+              <Settings2 className="h-4 w-4 text-[#1f65a7]" />
+              操作日志
+            </div>
+            {['刷新列表', '执行筛选', '导出文件'].map((action, index) => (
+              <div key={action} className="border-b border-slate-100 p-3 text-xs last:border-b-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-slate-800">{action}</span>
+                  <span className="font-mono text-slate-400">09:{30 + index * 6}</span>
+                </div>
+                <div className="mt-1 text-slate-500">系统记录操作人、账期、筛选条件和导出文件名称。</div>
+              </div>
+            ))}
+          </section>
+        </aside>
+      </div>
     </div>
+  )
+}
+
+function ToolbarButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]"
+    >
+      {icon}
+      {label}
+    </button>
   )
 }
