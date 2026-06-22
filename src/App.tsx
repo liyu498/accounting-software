@@ -87,9 +87,9 @@ function App() {
             <Route path="/settings" element={businessPage('settingsData', '设置总览', '维护企业资料、期初、历史账簿、基础档案、匹配规则和权限。')} />
 
             {/* Business Processing - 业务处理 */}
-            <Route path="/invoices/output" element={businessPage('taxReport', '销项发票', '管理销项发票、开票数据、税额汇总、凭证生成和导出。')} />
+            <Route path="/invoices/output" element={businessPage('outputInvoice', '销项发票', '管理销项发票、开票数据、税额汇总、凭证生成和导出。')} />
             <Route path="/invoices/selection" element={businessPage('invoiceSelection', '发票勾选', '维护进项发票勾选认证、抵扣用途、异常税率和凭证匹配。')} />
-            <Route path="/invoices/input" element={businessPage('invoiceSelection', '进项发票', '管理进项发票、税额抵扣、发票影像、供应商匹配和凭证草稿。')} />
+            <Route path="/invoices/input" element={businessPage('inputInvoice', '进项发票', '管理进项发票、税额抵扣、发票影像、供应商匹配和凭证草稿。')} />
             <Route path="/bills" element={businessPage('billList', '账单一览', '导入和匹配银行流水、回单、摘要分类、凭证草稿和附件。')} />
             <Route path="/bank" element={businessPage('billList', '银行账单', '处理银行流水采集、对账、回单归档、AI 分类和凭证生成。')} />
             <Route path="/receipts" element={businessPage('receipt', '票据', '登记承兑汇票、到期、背书、贴现和凭证联动。')} />
@@ -104,25 +104,25 @@ function App() {
             <Route path="/units" element={businessPage('unitSettings', '计量单位', '维护计量单位、换算组、精度和存货数量口径。')} />
 
             {/* Finance - 财务 */}
-            <Route path="/vouchers" element={businessPage('documentRegister', '会计凭证', '管理凭证新增、审核、反审核、打印、导出、红冲、断号整理和批量处理。')} />
-            <Route path="/vouchers/detail/:id" element={businessPage('documentRegister', '会计凭证详情', '查看凭证来源、分录、附件、审核日志、打印和导出。')} />
+            <Route path="/vouchers" element={businessPage('voucher', '会计凭证', '管理凭证新增、审核、反审核、打印、导出、红冲、断号整理和批量处理。')} />
+            <Route path="/vouchers/detail/:id" element={businessPage('voucher', '会计凭证详情', '查看凭证来源、分录、附件、审核日志、打印和导出。')} />
             <Route path="/period-closing" element={businessPage('riskCheck', '期末结转', '执行增值税、附加税、折旧摊销、成本、所得税、损益和本年利润结转。')} />
             <Route path="/risk-check" element={businessPage('riskCheck', '风险检查', '执行凭证、发票、工资、报表、税表和结账前风险校验。')} />
-            <Route path="/reports/trial-balance" element={businessPage('taxReport', '科目余额表', '按科目、辅助核算和期间展示期初、本期、累计和期末余额。')} />
-            <Route path="/reports/account-summary" element={businessPage('taxReport', '科目汇总表', '按科目汇总本期借贷发生额，支持凭证穿透、导出和打印。')} />
-            <Route path="/reports/general-ledger" element={businessPage('taxReport', '总账', '按科目展示月度汇总、方向、余额和凭证来源。')} />
-            <Route path="/reports/subsidiary-ledger" element={businessPage('taxReport', '明细账', '按科目展示逐笔凭证明细、摘要、借贷方、方向和余额。')} />
-            <Route path="/reports/auxiliary-ledger" element={businessPage('taxReport', '辅助核算账', '按客户、供应商、项目、部门、人员等辅助维度展示明细账。')} />
-            <Route path="/reports/auxiliary-balance" element={businessPage('taxReport', '辅助余额表', '按辅助核算维度展示期初、本期、累计和期末余额。')} />
-            <Route path="/reports/multi-column-ledger" element={businessPage('taxReport', '多栏账', '按费用、收入和成本类科目展示多栏式明细账。')} />
+            <Route path="/reports/trial-balance" element={businessPage('ledgerReport', '科目余额表', '按科目、辅助核算和期间展示期初、本期、累计和期末余额。')} />
+            <Route path="/reports/account-summary" element={businessPage('ledgerReport', '科目汇总表', '按科目汇总本期借贷发生额，支持凭证穿透、导出和打印。')} />
+            <Route path="/reports/general-ledger" element={businessPage('ledgerReport', '总账', '按科目展示月度汇总、方向、余额和凭证来源。')} />
+            <Route path="/reports/subsidiary-ledger" element={businessPage('ledgerReport', '明细账', '按科目展示逐笔凭证明细、摘要、借贷方、方向和余额。')} />
+            <Route path="/reports/auxiliary-ledger" element={businessPage('ledgerReport', '辅助核算账', '按客户、供应商、项目、部门、人员等辅助维度展示明细账。')} />
+            <Route path="/reports/auxiliary-balance" element={businessPage('ledgerReport', '辅助余额表', '按辅助核算维度展示期初、本期、累计和期末余额。')} />
+            <Route path="/reports/multi-column-ledger" element={businessPage('ledgerReport', '多栏账', '按费用、收入和成本类科目展示多栏式明细账。')} />
 
             {/* Reports - 报表 */}
-            <Route path="/reports/balance-sheet" element={businessPage('taxReport', '资产负债表', '按会计准则生成资产、负债和所有者权益报表，支持取数说明和重分类。')} />
-            <Route path="/reports/income-statement" element={businessPage('taxReport', '利润表', '生成月报利润表，支持本月、本年累计、公式说明、导出和打印。')} />
-            <Route path="/reports/income-quarter" element={businessPage('taxReport', '利润表季报', '生成企业所得税申报使用的季度利润表和取数快照。')} />
-            <Route path="/reports/cash-flow" element={businessPage('taxReport', '现金流量表', '生成现金流量表主表，支持项目映射、凭证穿透和导出。')} />
-            <Route path="/reports/cash-flow-quarter" element={businessPage('taxReport', '现金流量表季报', '生成季度现金流量表和财报报送数据。')} />
-            <Route path="/reports/equity-change" element={businessPage('taxReport', '所有者权益变动表', '生成所有者权益变动表，支持项目明细和报送快照。')} />
+            <Route path="/reports/balance-sheet" element={businessPage('financialReport', '资产负债表', '按会计准则生成资产、负债和所有者权益报表，支持取数说明和重分类。')} />
+            <Route path="/reports/income-statement" element={businessPage('financialReport', '利润表', '生成月报利润表，支持本月、本年累计、公式说明、导出和打印。')} />
+            <Route path="/reports/income-quarter" element={businessPage('financialReport', '利润表季报', '生成企业所得税申报使用的季度利润表和取数快照。')} />
+            <Route path="/reports/cash-flow" element={businessPage('financialReport', '现金流量表', '生成现金流量表主表，支持项目映射、凭证穿透和导出。')} />
+            <Route path="/reports/cash-flow-quarter" element={businessPage('financialReport', '现金流量表季报', '生成季度现金流量表和财报报送数据。')} />
+            <Route path="/reports/equity-change" element={businessPage('financialReport', '所有者权益变动表', '生成所有者权益变动表，支持项目明细和报送快照。')} />
 
             {/* Tax Reports - 税务申报 */}
             <Route path="/tax/workspace" element={<TaxWorkspace />} />
@@ -139,9 +139,9 @@ function App() {
             <Route path="/settings/initial-balances" element={businessPage('settingsData', '期初余额', '录入科目和辅助核算期初余额，校验借贷平衡。')} />
             <Route path="/settings/tax-init" element={businessPage('settingsData', '申报初始化', '维护税种、申报周期、申报账号、税局 adapter 参数和申报口径。')} />
             <Route path="/settings/history-vouchers" element={businessPage('documentRegister', '历史凭证', '导入和查看历史凭证，支持断号检查、附件和科目映射。')} />
-            <Route path="/settings/history-balances" element={businessPage('taxReport', '历史科目余额表', '导入历史科目余额表，形成期初和对账依据。')} />
-            <Route path="/settings/history-general-ledger" element={businessPage('taxReport', '历史总账', '导入历史总账，支持科目映射和余额校验。')} />
-            <Route path="/settings/history-subsidiary-ledger" element={businessPage('taxReport', '历史明细账', '导入历史明细账，支持凭证和科目穿透。')} />
+            <Route path="/settings/history-balances" element={businessPage('ledgerReport', '历史科目余额表', '导入历史科目余额表，形成期初和对账依据。')} />
+            <Route path="/settings/history-general-ledger" element={businessPage('ledgerReport', '历史总账', '导入历史总账，支持科目映射和余额校验。')} />
+            <Route path="/settings/history-subsidiary-ledger" element={businessPage('ledgerReport', '历史明细账', '导入历史明细账，支持凭证和科目穿透。')} />
             <Route path="/settings/accounts" element={businessPage('settingsData', '账户登记', '维护银行账户、现金账户、第三方支付账户和默认科目。')} />
             <Route path="/settings/customers" element={businessPage('settingsData', '客户', '维护客户编码、名称、税号、开户行、银行账号和默认科目。')} />
             <Route path="/settings/customers-contracts" element={businessPage('settingsData', '客户与合同', '维护客户、合同和应税合同台账。')} />
@@ -168,7 +168,7 @@ function App() {
             path="/vouchers/new"
             element={
               <ProtectedRoute>
-                {businessPage('documentRegister', '新增会计凭证', '按竞品风格录入凭证表头、分录、辅助核算、附件和来源单据。')}
+                {businessPage('voucher', '新增会计凭证', '按竞品风格录入凭证表头、分录、辅助核算、附件和来源单据。')}
               </ProtectedRoute>
             }
           />
@@ -176,7 +176,7 @@ function App() {
             path="/vouchers/edit/:id"
             element={
               <ProtectedRoute>
-                {businessPage('documentRegister', '编辑会计凭证', '按竞品风格维护凭证分录、审核状态、附件和操作日志。')}
+                {businessPage('voucher', '编辑会计凭证', '按竞品风格维护凭证分录、审核状态、附件和操作日志。')}
               </ProtectedRoute>
             }
           />

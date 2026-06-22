@@ -20,10 +20,13 @@ import { Input } from '../../components/ui/Input'
 import { cn } from '../../lib/utils'
 
 type ModuleKind =
+  | 'outputInvoice'
+  | 'inputInvoice'
   | 'invoiceSelection'
   | 'billList'
   | 'receipt'
   | 'documentRegister'
+  | 'voucher'
   | 'transfer'
   | 'employee'
   | 'payroll'
@@ -33,6 +36,8 @@ type ModuleKind =
   | 'inventorySettings'
   | 'unitSettings'
   | 'riskCheck'
+  | 'ledgerReport'
+  | 'financialReport'
   | 'taxReport'
   | 'settingsData'
   | 'matchingRules'
@@ -69,6 +74,62 @@ interface ModuleConfig {
 }
 
 const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
+  outputInvoice: {
+    keywordPlaceholder: '搜索发票号码、购方名称、商品名称、备注',
+    primaryAction: '开具发票',
+    importLabel: '导入销项',
+    statusOptions: ['全部', '待匹配', '已生成凭证', '已作废', '异常'],
+    summary: [
+      { label: '发票张数', value: '58 张', tone: 'blue' },
+      { label: '不含税金额', value: '¥680,000.00', tone: 'green' },
+      { label: '销项税额', value: '¥54,210.00', tone: 'amber' },
+      { label: '异常发票', value: '2 张', tone: 'red' },
+    ],
+    columns: [
+      { key: 'date', label: '开票日期' },
+      { key: 'number', label: '发票号码' },
+      { key: 'buyer', label: '购方名称' },
+      { key: 'goods', label: '商品/服务名称' },
+      { key: 'amount', label: '不含税金额', align: 'right' },
+      { key: 'taxRate', label: '税率', align: 'center' },
+      { key: 'tax', label: '税额', align: 'right' },
+      { key: 'total', label: '价税合计', align: 'right' },
+    ],
+    rows: [
+      { id: 'out-001', status: '已生成凭证', voucher: '记-0051', attachment: 'PDF', values: { date: '2026-05-03', number: '310026000118', buyer: '上海辰光贸易有限公司', goods: '控制器 A-100', amount: '¥86,000.00', taxRate: '13%', tax: '¥11,180.00', total: '¥97,180.00' } },
+      { id: 'out-002', status: '待确认', voucher: '未生成', attachment: 'OFD', values: { date: '2026-05-08', number: '310026000126', buyer: '杭州辰星科技有限公司', goods: '技术服务费', amount: '¥120,000.00', taxRate: '6%', tax: '¥7,200.00', total: '¥127,200.00' } },
+      { id: 'out-003', status: '异常', voucher: '未生成', attachment: 'PDF', values: { date: '2026-05-16', number: '310026000188', buyer: '南京云杉贸易有限公司', goods: '配件', amount: '¥38,000.00', taxRate: '待核', tax: '¥4,940.00', total: '¥42,940.00' } },
+    ],
+    notes: ['销项发票页面应以发票清单为主，支持开票数据导入、作废红冲、凭证生成和税表取数。', '导出格式包含购方、商品行、金额税额、凭证号和附件状态。'],
+  },
+  inputInvoice: {
+    keywordPlaceholder: '搜索发票号码、销方名称、商品名称、勾选状态',
+    primaryAction: '生成凭证',
+    importLabel: '导入进项',
+    statusOptions: ['全部', '待勾选', '已勾选', '已生成凭证', '异常'],
+    summary: [
+      { label: '发票张数', value: '72 张', tone: 'blue' },
+      { label: '可抵扣税额', value: '¥42,860.00', tone: 'green' },
+      { label: '待勾选', value: '18 张', tone: 'amber' },
+      { label: '异常发票', value: '3 张', tone: 'red' },
+    ],
+    columns: [
+      { key: 'date', label: '开票日期' },
+      { key: 'number', label: '发票号码' },
+      { key: 'seller', label: '销方名称' },
+      { key: 'goods', label: '商品/服务名称' },
+      { key: 'amount', label: '不含税金额', align: 'right' },
+      { key: 'taxRate', label: '税率', align: 'center' },
+      { key: 'tax', label: '税额', align: 'right' },
+      { key: 'deduction', label: '勾选用途' },
+    ],
+    rows: [
+      { id: 'in-001', status: '待确认', voucher: '未生成', attachment: 'PDF', values: { date: '2026-05-06', number: '310026000142', seller: '上海云启科技有限公司', goods: '服务器租赁', amount: '¥38,000.00', taxRate: '13%', tax: '¥4,940.00', deduction: '待勾选' } },
+      { id: 'in-002', status: '已匹配', voucher: '记-0058', attachment: 'OFD', values: { date: '2026-05-09', number: '310026000186', seller: '苏州材料供应链有限公司', goods: '原材料', amount: '¥126,500.00', taxRate: '13%', tax: '¥16,445.00', deduction: '增值税抵扣' } },
+      { id: 'in-003', status: '异常', voucher: '未生成', attachment: 'PDF', values: { date: '2026-05-12', number: '310026000221', seller: '杭州设备服务有限公司', goods: '维修费', amount: '¥9,800.00', taxRate: '6%', tax: '¥588.00', deduction: '税率需复核' } },
+    ],
+    notes: ['进项发票页面必须区分认证勾选、抵扣用途、供应商匹配和凭证生成。', '后续与发票勾选、增值税申报主表和进项转出明细联动。'],
+  },
   invoiceSelection: {
     keywordPlaceholder: '搜索发票代码、号码、销方或购方名称',
     primaryAction: '勾选认证',
@@ -172,6 +233,36 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'doc-003', status: '异常', voucher: '未生成', attachment: '缺失', values: { date: '2026-05-11', code: 'DJ-202605-014', type: '差旅报销', partner: '销售部', amount: '¥6,120.00', owner: '赵会计' } },
     ],
     notes: ['单据登记用于覆盖非发票、非银行流水来源，统一进入凭证草稿池。'],
+  },
+  voucher: {
+    keywordPlaceholder: '搜索凭证号、摘要、科目、制单人、来源单据',
+    primaryAction: '新增凭证',
+    importLabel: '导入凭证',
+    statusOptions: ['全部', '草稿', '待审核', '已审核', '已过账', '异常'],
+    summary: [
+      { label: '本期凭证', value: '82 张', tone: 'blue' },
+      { label: '已审核', value: '73 张', tone: 'green' },
+      { label: '待审核', value: '9 张', tone: 'amber' },
+      { label: '断号/异常', value: '1 张', tone: 'red' },
+    ],
+    columns: [
+      { key: 'date', label: '凭证日期' },
+      { key: 'wordNo', label: '凭证字号' },
+      { key: 'summary', label: '摘要' },
+      { key: 'debitAccount', label: '借方科目' },
+      { key: 'creditAccount', label: '贷方科目' },
+      { key: 'debit', label: '借方金额', align: 'right' },
+      { key: 'credit', label: '贷方金额', align: 'right' },
+      { key: 'source', label: '来源' },
+      { key: 'maker', label: '制单人' },
+      { key: 'auditor', label: '审核人' },
+    ],
+    rows: [
+      { id: 'v-0051', status: '已生成凭证', voucher: '记-0051', attachment: '发票2', values: { date: '2026-05-03', wordNo: '记-0051', summary: '销售控制器', debitAccount: '应收账款', creditAccount: '主营业务收入/应交税费', debit: '¥97,180.00', credit: '¥97,180.00', source: '销项发票', maker: '王会计', auditor: '主管' } },
+      { id: 'v-0058', status: '已通过', voucher: '记-0058', attachment: '发票1', values: { date: '2026-05-09', wordNo: '记-0058', summary: '采购原材料', debitAccount: '原材料/应交税费', creditAccount: '应付账款', debit: '¥142,945.00', credit: '¥142,945.00', source: '进项发票', maker: '李会计', auditor: '主管' } },
+      { id: 'v-0062', status: '异常', voucher: '记-0062', attachment: '无', values: { date: '2026-05-15', wordNo: '记-0062', summary: '银行手续费', debitAccount: '财务费用', creditAccount: '银行存款', debit: '¥320.00', credit: '¥300.00', source: '银行账单', maker: '赵会计', auditor: '未审' } },
+    ],
+    notes: ['会计凭证页应支持新增、审核、反审核、复制、红冲、断号整理、打印、导出和来源穿透。', '凭证导出和打印模板需要按凭证纸格式单独设计。'],
   },
   transfer: {
     keywordPlaceholder: '搜索转出账户、转入账户、流水号',
@@ -406,6 +497,62 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'risk-003', status: '已通过', voucher: '记-0075', attachment: '工资表', values: { level: '低', module: '薪酬', rule: '社保工资差异', impact: '提示', owner: '赵会计', updated: '2026-05-20 10:20' } },
     ],
     notes: ['风险检查是只读校验和结账前校验入口，不自动修改凭证。'],
+  },
+  ledgerReport: {
+    keywordPlaceholder: '搜索科目编码、科目名称、辅助核算、摘要',
+    primaryAction: '重新计算',
+    importLabel: '导出账簿',
+    statusOptions: ['全部', '有发生', '无发生', '借方余额', '贷方余额'],
+    summary: [
+      { label: '科目数', value: '128 个', tone: 'blue' },
+      { label: '本期借方', value: '¥1,286,300.00', tone: 'green' },
+      { label: '本期贷方', value: '¥1,286,300.00', tone: 'green' },
+      { label: '不平项', value: '0', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'code', label: '科目编码' },
+      { key: 'name', label: '科目名称' },
+      { key: 'aux', label: '辅助核算' },
+      { key: 'openingDebit', label: '期初借方', align: 'right' },
+      { key: 'openingCredit', label: '期初贷方', align: 'right' },
+      { key: 'debit', label: '本期借方', align: 'right' },
+      { key: 'credit', label: '本期贷方', align: 'right' },
+      { key: 'direction', label: '方向', align: 'center' },
+      { key: 'balance', label: '期末余额', align: 'right' },
+    ],
+    rows: [
+      { id: '1002', status: '已通过', voucher: '可穿透', attachment: '账簿', values: { code: '1002', name: '银行存款', aux: '工行基本户', openingDebit: '¥220,000.00', openingCredit: '-', debit: '¥821,300.00', credit: '¥574,920.00', direction: '借', balance: '¥466,380.00' } },
+      { id: '1122', status: '已通过', voucher: '可穿透', attachment: '账簿', values: { code: '1122', name: '应收账款', aux: '客户', openingDebit: '¥410,000.00', openingCredit: '-', debit: '¥680,000.00', credit: '¥390,000.00', direction: '借', balance: '¥700,000.00' } },
+      { id: '2221', status: '已通过', voucher: '可穿透', attachment: '账簿', values: { code: '2221', name: '应交税费', aux: '税种', openingDebit: '-', openingCredit: '¥18,000.00', debit: '¥42,860.00', credit: '¥54,210.00', direction: '贷', balance: '¥29,350.00' } },
+    ],
+    notes: ['账簿页需要支持科目、辅助核算、期间、发生额/余额方向筛选，并可穿透凭证明细。', '科目余额表、科目汇总表、总账、明细账、多栏账应分别拥有独立导出模板。'],
+  },
+  financialReport: {
+    keywordPlaceholder: '搜索报表项目、行次、公式、取数科目',
+    primaryAction: '重新计算',
+    importLabel: '导出报表',
+    statusOptions: ['全部', '已平衡', '需重算', '公式异常'],
+    summary: [
+      { label: '报表项目', value: '64 行', tone: 'blue' },
+      { label: '资产合计', value: '¥2,186,300.00', tone: 'green' },
+      { label: '负债权益', value: '¥2,186,300.00', tone: 'green' },
+      { label: '校验差异', value: '¥0.00', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'line', label: '行次', align: 'center' },
+      { key: 'item', label: '报表项目' },
+      { key: 'formula', label: '取数公式/科目' },
+      { key: 'opening', label: '期初余额', align: 'right' },
+      { key: 'ending', label: '期末余额', align: 'right' },
+      { key: 'reclass', label: '重分类' },
+      { key: 'note', label: '说明' },
+    ],
+    rows: [
+      { id: 'bs-001', status: '已通过', voucher: '快照', attachment: 'PDF', values: { line: '1', item: '货币资金', formula: '1001+1002+1012', opening: '¥220,000.00', ending: '¥466,380.00', reclass: '否', note: '来自科目余额表' } },
+      { id: 'bs-002', status: '已通过', voucher: '快照', attachment: 'PDF', values: { line: '6', item: '应收账款', formula: '1122 重分类', opening: '¥410,000.00', ending: '¥700,000.00', reclass: '是', note: '按客户辅助重分类' } },
+      { id: 'bs-003', status: '待确认', voucher: '快照', attachment: 'PDF', values: { line: '32', item: '应交税费', formula: '2221', opening: '¥18,000.00', ending: '¥29,350.00', reclass: '否', note: '与税务申报联动复核' } },
+    ],
+    notes: ['会计报表页需要支持重算、公式说明、重分类设置、取数快照、Excel/PDF/打印。', '资产负债表、利润表、现金流量表、所有者权益变动表要分别做固定模板。'],
   },
   taxReport: {
     keywordPlaceholder: '搜索税种、申报表、取数来源',
