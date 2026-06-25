@@ -87,6 +87,13 @@ interface ModuleConfig {
 }
 
 type PrintTemplateKind = 'list' | 'voucher' | 'ledger' | 'financial' | 'tax'
+type SheetMerge = { s: { r: number; c: number }; e: { r: number; c: number } }
+type SheetColumnWidth = { wch: number }
+type ExcelTemplateData = {
+  sheetRows: string[][]
+  columnWidths: SheetColumnWidth[]
+  merges: SheetMerge[]
+}
 
 const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   outputInvoice: {
@@ -1100,7 +1107,7 @@ function escapeHtml(value: string) {
 }
 
 function printTemplateKind(kind: ModuleKind): PrintTemplateKind {
-  if (kind === 'voucher' || kind === 'voucherRecycle') return 'voucher'
+  if (kind === 'voucher') return 'voucher'
   if (kind === 'ledgerReport' || kind === 'initialBalance') return 'ledger'
   if (kind === 'financialReport') return 'financial'
   if (kind === 'taxReport' || kind === 'taxInit') return 'tax'
@@ -1226,6 +1233,202 @@ function buildPrintHtml(params: {
   })
 }
 
+function rowsToExcelCells(config: ModuleConfig, rows: ModuleRow[]) {
+  return rows.map((row) => [
+    ...config.columns.map((column) => row.values[column.key] || ''),
+    row.status,
+    row.voucher || '',
+    row.attachment || '',
+  ])
+}
+
+function excelMetaRows(params: {
+  title: string
+  exportedAt: string
+  status: string
+  keyword: string
+  rowCount: number
+}) {
+  return [
+    [`${params.title}导出表`],
+    ['公司', '科旋电气（上海）有限公司', '所属期', '2026-05', '导出时间', params.exportedAt],
+    ['筛选状态', params.status, '关键词', params.keyword || '全部', '记录数', `${params.rowCount} 条`],
+    [],
+  ]
+}
+
+function excelColumnWidths(headers: string[]): SheetColumnWidth[] {
+  return headers.map((header) => ({
+    wch: Math.max(10, Math.min(30, header.length * 2 + 8)),
+  }))
+}
+
+function excelMerges(sheetRows: string[][], columnCount: number): SheetMerge[] {
+  return [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(columnCount - 1, 0) } },
+    { s: { r: sheetRows.length - 1, c: 1 }, e: { r: sheetRows.length - 1, c: Math.max(columnCount - 1, 1) } },
+  ]
+}
+
+function buildVoucherExcelTemplate(params: {
+  title: string
+  rows: ModuleRow[]
+  exportedAt: string
+  status: string
+  keyword: string
+}): ExcelTemplateData {
+  const headers = ['凭证日期', '凭证字号', '摘要', '借方科目', '贷方科目', '借方金额', '贷方金额', '来源单据', '附件', '制单人', '审核人', '状态']
+  const rows = params.rows.map((row) => [
+    row.values.date || '',
+    row.values.wordNo || row.voucher || '',
+    row.values.summary || '',
+    row.values.debitAccount || '',
+    row.values.creditAccount || '',
+    row.values.debit || '',
+    row.values.credit || '',
+    row.values.source || '',
+    row.attachment || '',
+    row.values.maker || '',
+    row.values.auditor || '',
+    row.status,
+  ])
+  const sheetRows = [
+    ...excelMetaRows({ title: '记账凭证', exportedAt: params.exportedAt, status: params.status, keyword: params.keyword, rowCount: rows.length }),
+    headers,
+    ...rows,
+    [],
+    ['制表说明', '凭证导出按凭证纸字段生成，包含制单、审核、来源和附件状态；正式数据应写入导出日志。'],
+  ]
+
+  return { sheetRows, columnWidths: excelColumnWidths(headers), merges: excelMerges(sheetRows, headers.length) }
+}
+
+function buildLedgerExcelTemplate(params: {
+  title: string
+  config: ModuleConfig
+  rows: ModuleRow[]
+  exportedAt: string
+  status: string
+  keyword: string
+}): ExcelTemplateData {
+  const headers = [...params.config.columns.map((column) => column.label), '状态', '凭证', '附件']
+  const rows = rowsToExcelCells(params.config, params.rows)
+  const sheetRows = [
+    ...excelMetaRows({ title: params.title, exportedAt: params.exportedAt, status: params.status, keyword: params.keyword, rowCount: rows.length }),
+    ['单位', '科旋电气（上海）有限公司', '期间', '2026-05', '币别', '人民币'],
+    [],
+    headers,
+    ...rows,
+    [],
+    ['本页小计', `当前筛选 ${rows.length} 行，借贷平衡状态以系统试算结果为准。`],
+  ]
+
+  return { sheetRows, columnWidths: excelColumnWidths(headers), merges: excelMerges(sheetRows, headers.length) }
+}
+
+function buildFinancialExcelTemplate(params: {
+  title: string
+  rows: ModuleRow[]
+  exportedAt: string
+  status: string
+  keyword: string
+}): ExcelTemplateData {
+  const headers = ['行次', '报表项目', '取数公式/科目', '期初余额/本月数', '期末余额/本年累计', '重分类', '说明', '状态']
+  const rows = params.rows.map((row) => [
+    row.values.line || '',
+    row.values.item || '',
+    row.values.formula || '',
+    row.values.opening || '',
+    row.values.ending || '',
+    row.values.reclass || '',
+    row.values.note || '',
+    row.status,
+  ])
+  const sheetRows = [
+    [`${params.title}`],
+    ['编制单位', '科旋电气（上海）有限公司', '所属期', '2026-05', '单位', '元', '导出时间', params.exportedAt],
+    ['筛选状态', params.status, '关键词', params.keyword || '全部', '记录数', `${rows.length} 行`],
+    [],
+    headers,
+    ...rows,
+    [],
+    ['制表说明', '财务报表导出保留行次、公式、重分类和取数说明，后续需与固定报表模板逐表绑定。'],
+  ]
+
+  return { sheetRows, columnWidths: excelColumnWidths(headers), merges: excelMerges(sheetRows, headers.length) }
+}
+
+function buildTaxExcelTemplate(params: {
+  title: string
+  rows: ModuleRow[]
+  exportedAt: string
+  status: string
+  keyword: string
+}): ExcelTemplateData {
+  const headers = ['税种', '申报表/周期', '取数来源/计税方式', '本期金额', '税额', '校验', '状态', '凭证/快照', '附件']
+  const rows = params.rows.map((row) => [
+    row.values.taxType || '',
+    row.values.form || row.values.period || '',
+    row.values.source || row.values.method || '',
+    row.values.amount || '',
+    row.values.tax || '',
+    row.values.check || row.values.account || '',
+    row.status,
+    row.voucher || '',
+    row.attachment || '',
+  ])
+  const sheetRows = [
+    [`${params.title}申报预览`],
+    ['纳税人', '科旋电气（上海）有限公司', '纳税人识别号', '91310115MA1K3****X', '所属期', '2026-05', '导出时间', params.exportedAt],
+    ['申报口径', '系统取数', '状态', '待人工确认', '记录数', `${rows.length} 行`],
+    [],
+    headers,
+    ...rows,
+    [],
+    ['边界说明', '本文件为申报预览和留档材料，不代表已向电子税务局提交。真实申报需要 adapter 授权、提交回执和人工确认。'],
+  ]
+
+  return { sheetRows, columnWidths: excelColumnWidths(headers), merges: excelMerges(sheetRows, headers.length) }
+}
+
+function buildGenericExcelTemplate(params: {
+  title: string
+  config: ModuleConfig
+  rows: ModuleRow[]
+  exportedAt: string
+  status: string
+  keyword: string
+}): ExcelTemplateData {
+  const headers = [...params.config.columns.map((column) => column.label), '状态', '凭证', '附件']
+  const rows = rowsToExcelCells(params.config, params.rows)
+  const sheetRows = [
+    ...excelMetaRows({ title: params.title, exportedAt: params.exportedAt, status: params.status, keyword: params.keyword, rowCount: rows.length }),
+    headers,
+    ...rows,
+    [],
+    ['制表说明', '本文件按当前列表筛选条件、列顺序和账期生成；真实数据导出需写入操作日志、文件哈希和操作人。'],
+  ]
+
+  return { sheetRows, columnWidths: excelColumnWidths(headers), merges: excelMerges(sheetRows, headers.length) }
+}
+
+function buildExcelTemplate(params: {
+  kind: ModuleKind
+  title: string
+  config: ModuleConfig
+  rows: ModuleRow[]
+  exportedAt: string
+  status: string
+  keyword: string
+}): ExcelTemplateData {
+  const template = printTemplateKind(params.kind)
+  if (template === 'voucher') return buildVoucherExcelTemplate(params)
+  if (template === 'ledger') return buildLedgerExcelTemplate(params)
+  if (template === 'financial') return buildFinancialExcelTemplate(params)
+  if (template === 'tax') return buildTaxExcelTemplate(params)
+  return buildGenericExcelTemplate(params)
+}
+
 export function BusinessModulePage({ kind, title, description }: BusinessModulePageProps) {
   const config = moduleConfigs[kind]
   const [keyword, setKeyword] = useState('')
@@ -1243,32 +1446,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleExportExcel = async () => {
     const XLSX = await import('xlsx')
-    const headers = [...config.columns.map((column) => column.label), '状态', '凭证', '附件']
-    const rows = filteredRows.map((row) => [
-      ...config.columns.map((column) => row.values[column.key] || ''),
-      row.status,
-      row.voucher || '',
-      row.attachment || '',
-    ])
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const sheetRows = [
-      [`${title}导出表`],
-      ['公司', '科旋电气（上海）有限公司', '所属期', '2026-05', '导出时间', exportedAt],
-      ['筛选状态', status, '关键词', keyword.trim() || '全部', '记录数', `${filteredRows.length} 条`],
-      [],
-      headers,
-      ...rows,
-      [],
-      ['制表说明', '本文件按当前列表筛选条件、列顺序和账期生成；真实数据导出需写入操作日志、文件哈希和操作人。'],
-    ]
+    const { sheetRows, columnWidths, merges } = buildExcelTemplate({
+      kind,
+      title,
+      config,
+      rows: filteredRows,
+      exportedAt,
+      status,
+      keyword: keyword.trim(),
+    })
     const worksheet = XLSX.utils.aoa_to_sheet(sheetRows)
-    worksheet['!cols'] = headers.map((header) => ({
-      wch: Math.max(10, Math.min(28, header.length * 2 + 8)),
-    }))
-    worksheet['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(headers.length - 1, 0) } },
-      { s: { r: sheetRows.length - 1, c: 1 }, e: { r: sheetRows.length - 1, c: Math.max(headers.length - 1, 1) } },
-    ]
+    worksheet['!cols'] = columnWidths
+    worksheet['!merges'] = merges
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, title.slice(0, 28))
     XLSX.writeFile(workbook, `${title}-2026-05.xlsx`)
