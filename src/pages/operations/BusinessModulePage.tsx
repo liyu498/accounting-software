@@ -53,6 +53,11 @@ type ModuleKind =
   | 'invoiceMatchingRules'
   | 'billMatchingRules'
   | 'settlementRules'
+  | 'auxiliaryCategories'
+  | 'auxiliaryItems'
+  | 'commonDigests'
+  | 'currencySettings'
+  | 'roleSettings'
   | 'voucherRecycle'
 
 interface BusinessModulePageProps {
@@ -1018,6 +1023,136 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'br-003', status: '待确认', voucher: '-', attachment: '-', values: { name: '个人备用金', condition: '对方户名为个人', action: '其他应收', subject: '1221 其他应收款', priority: '60', hit: '6' } },
     ],
     notes: ['账单规则用于流水分类、收付款核销和回单凭证生成，需要保留命中明细。'],
+  },
+  auxiliaryCategories: {
+    keywordPlaceholder: '搜索类别编码、类别名称、适用科目、启用状态',
+    primaryAction: '新增类别',
+    importLabel: '导入类别',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '辅助类别', value: '9 类', tone: 'blue' },
+      { label: '启用', value: '8 类', tone: 'green' },
+      { label: '关联科目', value: '32 个', tone: 'amber' },
+      { label: '异常', value: '1 类', tone: 'red' },
+    ],
+    columns: [
+      { key: 'code', label: '类别编码' },
+      { key: 'name', label: '类别名称' },
+      { key: 'scope', label: '适用范围' },
+      { key: 'subjects', label: '关联科目' },
+      { key: 'required', label: '凭证必填', align: 'center' },
+      { key: 'source', label: '来源' },
+    ],
+    rows: [
+      { id: 'auxc-001', status: '启用', voucher: '-', attachment: '-', values: { code: 'AUX-CUSTOMER', name: '客户', scope: '应收/收入', subjects: '1122, 6001', required: '是', source: '系统预置' } },
+      { id: 'auxc-002', status: '启用', voucher: '-', attachment: '-', values: { code: 'AUX-SUPPLIER', name: '供应商', scope: '应付/采购', subjects: '2202, 1403', required: '是', source: '系统预置' } },
+      { id: 'auxc-003', status: '异常', voucher: '-', attachment: '-', values: { code: 'AUX-TAX', name: '税种', scope: '应交税费', subjects: '2221', required: '待确认', source: '申报初始化' } },
+    ],
+    notes: ['辅助核算类别决定科目是否需要客户、供应商、项目、部门、人员等维度。', '凭证录入、期初余额和账簿查询必须按此配置校验辅助项。'],
+  },
+  auxiliaryItems: {
+    keywordPlaceholder: '搜索辅助类别、项目编码、项目名称、默认科目',
+    primaryAction: '新增项目',
+    importLabel: '导入项目',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '辅助项目', value: '126 个', tone: 'blue' },
+      { label: '启用', value: '118 个', tone: 'green' },
+      { label: '待补资料', value: '11 个', tone: 'amber' },
+      { label: '异常', value: '3 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'category', label: '辅助类别' },
+      { key: 'code', label: '项目编码' },
+      { key: 'name', label: '项目名称' },
+      { key: 'alias', label: '别名/助记码' },
+      { key: 'subject', label: '默认科目' },
+      { key: 'lastUsed', label: '最近使用' },
+    ],
+    rows: [
+      { id: 'auxi-001', status: '启用', voucher: '-', attachment: '开票资料', values: { category: '客户', code: 'C001', name: '上海辰光贸易有限公司', alias: 'CGMY', subject: '1122 应收账款', lastUsed: '2026-05-18' } },
+      { id: 'auxi-002', status: '启用', voucher: '-', attachment: '合同', values: { category: '项目', code: 'P001', name: '研发项目A', alias: 'YFXMA', subject: '5301 研发支出', lastUsed: '2026-05-16' } },
+      { id: 'auxi-003', status: '异常', voucher: '-', attachment: '缺失', values: { category: '供应商', code: 'S009', name: '杭州设备服务有限公司', alias: 'HZSBFW', subject: '2202 应付账款', lastUsed: '资料待补' } },
+    ],
+    notes: ['辅助核算项目是客户、供应商、项目、部门、人员等基础档案的统一视图。', '导入时要校验类别、编码唯一性和关联科目启用状态。'],
+  },
+  commonDigests: {
+    keywordPlaceholder: '搜索摘要模板、适用模块、关键词、默认科目',
+    primaryAction: '新增摘要',
+    importLabel: '导入摘要',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '摘要模板', value: '42 条', tone: 'blue' },
+      { label: '启用', value: '38 条', tone: 'green' },
+      { label: 'AI 推荐', value: '9 条', tone: 'amber' },
+      { label: '冲突', value: '2 条', tone: 'red' },
+    ],
+    columns: [
+      { key: 'template', label: '摘要模板' },
+      { key: 'module', label: '适用模块' },
+      { key: 'keywords', label: '匹配关键词' },
+      { key: 'subject', label: '默认科目' },
+      { key: 'priority', label: '优先级', align: 'center' },
+      { key: 'usage', label: '本期使用', align: 'right' },
+    ],
+    rows: [
+      { id: 'dig-001', status: '启用', voucher: '-', attachment: '-', values: { template: '收到{客户}货款', module: '银行账单', keywords: '货款/回款', subject: '1122 应收账款', priority: '90', usage: '48' } },
+      { id: 'dig-002', status: '启用', voucher: '-', attachment: '-', values: { template: '支付{供应商}材料款', module: '进项发票/流水', keywords: '材料/采购', subject: '2202 应付账款', priority: '85', usage: '31' } },
+      { id: 'dig-003', status: '异常', voucher: '-', attachment: '-', values: { template: '报销办公费用', module: '单据登记', keywords: '办公/费用', subject: '6602 管理费用', priority: '冲突', usage: '12' } },
+    ],
+    notes: ['常用摘要要能用于凭证录入、AI 推荐摘要和流水自动分类。', 'AI 推荐摘要必须经过人工确认后才能成为启用模板。'],
+  },
+  currencySettings: {
+    keywordPlaceholder: '搜索币别编码、币别名称、汇率、折算方式',
+    primaryAction: '新增币别',
+    importLabel: '导入汇率',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '币别', value: '5 个', tone: 'blue' },
+      { label: '启用', value: '4 个', tone: 'green' },
+      { label: '待更新汇率', value: '1 个', tone: 'amber' },
+      { label: '异常', value: '1 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'code', label: '币别编码' },
+      { key: 'name', label: '币别名称' },
+      { key: 'symbol', label: '符号' },
+      { key: 'rate', label: '记账汇率', align: 'right' },
+      { key: 'method', label: '折算方式' },
+      { key: 'updatedAt', label: '更新时间' },
+    ],
+    rows: [
+      { id: 'cur-cny', status: '启用', voucher: '-', attachment: '-', values: { code: 'CNY', name: '人民币', symbol: '¥', rate: '1.0000', method: '本位币', updatedAt: '2026-05-01' } },
+      { id: 'cur-usd', status: '启用', voucher: '-', attachment: '汇率表', values: { code: 'USD', name: '美元', symbol: '$', rate: '7.1832', method: '月末汇率', updatedAt: '2026-05-31' } },
+      { id: 'cur-eur', status: '异常', voucher: '-', attachment: '缺失', values: { code: 'EUR', name: '欧元', symbol: '€', rate: '待更新', method: '月末汇率', updatedAt: '待维护' } },
+    ],
+    notes: ['币别管理影响外币发票、银行账户、期末汇兑损益和报表折算。', '汇率应保留来源、更新时间和期末调汇凭证。'],
+  },
+  roleSettings: {
+    keywordPlaceholder: '搜索角色名称、成员、菜单权限、操作权限',
+    primaryAction: '新增角色',
+    importLabel: '导出权限',
+    statusOptions: ['全部', '启用', '停用', '异常'],
+    summary: [
+      { label: '角色', value: '7 个', tone: 'blue' },
+      { label: '启用', value: '6 个', tone: 'green' },
+      { label: '成员', value: '18 人', tone: 'amber' },
+      { label: '异常授权', value: '1 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'role', label: '角色名称' },
+      { key: 'members', label: '成员数', align: 'right' },
+      { key: 'menus', label: '菜单权限' },
+      { key: 'actions', label: '操作权限' },
+      { key: 'dataScope', label: '数据范围' },
+      { key: 'audit', label: '审计要求' },
+    ],
+    rows: [
+      { id: 'role-admin', status: '启用', voucher: '-', attachment: '审计日志', values: { role: '机构管理员', members: '2', menus: '全部模块', actions: '新增/修改/删除/导出', dataScope: '全部客户', audit: '强制记录' } },
+      { id: 'role-accountant', status: '启用', voucher: '-', attachment: '审计日志', values: { role: '记账会计', members: '12', menus: '业务/财务/报表', actions: '新增/修改/生成凭证', dataScope: '分配客户', audit: '强制记录' } },
+      { id: 'role-tax', status: '异常', voucher: '-', attachment: '待复核', values: { role: '申报专员', members: '3', menus: '税务申报/报表', actions: '生成申报包/确认', dataScope: '分配客户', audit: '权限待复核' } },
+    ],
+    notes: ['权限管理需要区分菜单、按钮操作、客户数据范围和导出权限。', '凭证删除、反结账、真实申报提交等高风险动作必须进入审计日志。'],
   },
   settlementRules: {
     keywordPlaceholder: '搜索结转类型、执行顺序、取数来源、凭证模板',

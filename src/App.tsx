@@ -165,12 +165,12 @@ function App() {
             <Route path="/settings/invoice-rules" element={businessPage('invoiceMatchingRules', '发票自动匹配规则', '维护发票到科目、客户供应商、税率和凭证模板的自动匹配规则。')} />
             <Route path="/settings/bill-rules" element={businessPage('billMatchingRules', '账单自动匹配规则', '维护银行流水摘要、对方户名、金额区间和凭证模板规则。')} />
             <Route path="/settings/voucher-recycle" element={businessPage('voucherRecycle', '会计凭证回收箱', '查看已删除凭证、恢复、彻底删除和审计日志。')} />
-            <Route path="/settings/auxiliary-categories" element={businessPage('settingsData', '辅助核算类别', '维护客户、供应商、项目、部门、人员等辅助核算类别。')} />
-            <Route path="/settings/auxiliary-items" element={businessPage('settingsData', '辅助核算项目', '维护各类辅助核算明细资料。')} />
-            <Route path="/settings/common-digests" element={businessPage('settingsData', '常用摘要', '维护凭证摘要模板和 AI 摘要推荐词库。')} />
+            <Route path="/settings/auxiliary-categories" element={businessPage('auxiliaryCategories', '辅助核算类别', '维护客户、供应商、项目、部门、人员等辅助核算类别。')} />
+            <Route path="/settings/auxiliary-items" element={businessPage('auxiliaryItems', '辅助核算项目', '维护各类辅助核算明细资料。')} />
+            <Route path="/settings/common-digests" element={businessPage('commonDigests', '常用摘要', '维护凭证摘要模板和 AI 摘要推荐词库。')} />
             <Route path="/settings/settlement-rules" element={businessPage('settlementRules', '结转规则', '维护期末结转、损益结转、税费计提和折旧摊销规则。')} />
-            <Route path="/settings/currencies" element={businessPage('settingsData', '币别管理', '维护币别、汇率、外币核算和折算规则。')} />
-            <Route path="/settings/roles" element={businessPage('settingsData', '权限管理', '维护角色、菜单权限、操作权限和审计范围。')} />
+            <Route path="/settings/currencies" element={businessPage('currencySettings', '币别管理', '维护币别、汇率、外币核算和折算规则。')} />
+            <Route path="/settings/roles" element={businessPage('roleSettings', '权限管理', '维护角色、菜单权限、操作权限和审计范围。')} />
           </Route>
 
           {/* Voucher edit routes use the redesigned operating surface. */}
