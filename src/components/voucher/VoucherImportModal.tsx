@@ -126,21 +126,22 @@ export function VoucherImportModal({ companyId, periodId, onClose, onImported }:
       return
     }
 
+    if (file.name.endsWith('.xls') && !file.name.endsWith('.xlsx')) {
+      warningToast('浏览器预览仅支持 .xlsx，桌面端可导入 .xls/.xlsx')
+      return
+    }
+
     // Browser-side Excel parsing
-    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+    if (file.name.endsWith('.xlsx')) {
       await parseExcelBrowser(file)
     }
   }
 
   const parseExcelBrowser = async (file: File) => {
     try {
-      const XLSX = await import('xlsx')
-      const data = await file.arrayBuffer()
-      const wb = XLSX.read(data, { type: 'array' })
-      const ws = wb.Sheets[wb.SheetNames[0]]
-
-      // Read as 2D array to detect header row
-      const sheetData: string[][] = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, raw: false, defval: '' })
+      const { readSheet } = await import('read-excel-file/browser')
+      const rawSheetData = await readSheet(file)
+      const sheetData: string[][] = rawSheetData.map((row) => row.map((cell) => (cell === null || cell === undefined ? '' : String(cell))))
 
       // Find header row by scanning for known column names
       const headerKeywords = ['日期', '凭证号', '凭证字号', '摘要', '科目编码', '科目全称', '科目名称', '借方金额', '贷方金额']

@@ -27,6 +27,7 @@ test-results/
 playwright-report/
 tmp/
 output/pdf/
+output/excel/
 /*.png
 *.webm
 *.mp4

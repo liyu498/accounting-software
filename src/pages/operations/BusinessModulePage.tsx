@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
+import { exportRowsToXlsx } from '../../lib/xlsxExport'
 
 type ModuleKind =
   | 'outputInvoice'
@@ -1582,9 +1583,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [config.rows, keyword, status])
 
   const handleExportExcel = async () => {
-    const XLSX = await import('xlsx')
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const { sheetRows, columnWidths, merges } = buildExcelTemplate({
+    const { sheetRows, columnWidths } = buildExcelTemplate({
       kind,
       title,
       config,
@@ -1593,12 +1593,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       status,
       keyword: keyword.trim(),
     })
-    const worksheet = XLSX.utils.aoa_to_sheet(sheetRows)
-    worksheet['!cols'] = columnWidths
-    worksheet['!merges'] = merges
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, title.slice(0, 28))
-    XLSX.writeFile(workbook, `${title}-2026-05.xlsx`)
+    await exportRowsToXlsx({
+      sheetRows,
+      columnWidths,
+      sheetName: title,
+      fileName: `${title}-2026-05.xlsx`,
+    })
   }
 
   const handlePrint = () => {
