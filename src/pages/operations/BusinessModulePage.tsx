@@ -6,6 +6,7 @@ import {
   Download,
   FileDown,
   FilePlus2,
+  FileText,
   Filter,
   Paperclip,
   Printer,
@@ -15,6 +16,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { exportHtmlToPdf } from '../../lib/pdfExport'
 
 type ModuleKind =
   | 'outputInvoice'
@@ -1618,6 +1620,24 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     printWindow.print()
   }
 
+  const handleExportPdf = async () => {
+    const exportedAt = new Date().toLocaleString('zh-CN')
+    const html = buildPrintHtml({
+      kind,
+      title,
+      config,
+      rows: filteredRows,
+      exportedAt,
+      status,
+      keyword: keyword.trim(),
+    })
+    await exportHtmlToPdf({
+      html,
+      fileName: `${title}-2026-05.pdf`,
+      pageTitle: `${title} 2026-05`,
+    })
+  }
+
   const tabs = ['列表', '明细', '凭证草稿', '匹配规则', '附件', '操作日志']
 
   return (
@@ -1635,6 +1655,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" />
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="模板" />
             <ToolbarButton icon={<FileDown className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
+            <ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={handleExportPdf} />
             <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印" onClick={handlePrint} />
             <button className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">
               <FilePlus2 className="h-3.5 w-3.5" />

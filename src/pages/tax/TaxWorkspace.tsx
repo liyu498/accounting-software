@@ -16,6 +16,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { exportHtmlToPdf } from '../../lib/pdfExport'
 
 const declarationRows = [
   {
@@ -220,6 +221,14 @@ export function TaxWorkspace() {
     printWindow.print()
   }
 
+  const exportTaxPackagePdf = async () => {
+    await exportHtmlToPdf({
+      html: buildTaxDeclarationPackageHtml(new Date().toLocaleString('zh-CN')),
+      fileName: '税务申报包-2026-05.pdf',
+      pageTitle: '税务申报包 2026-05',
+    })
+  }
+
   return (
     <div className="h-full min-w-[1120px] bg-[#f3f6fa] text-slate-900">
       <div className="border border-slate-200 bg-white">
@@ -234,6 +243,7 @@ export function TaxWorkspace() {
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="重新取数" />
             <ToolbarButton icon={<ShieldAlert className="h-3.5 w-3.5" />} label="风险检查" />
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="导出申报包" onClick={exportTaxPackage} />
+            <ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={exportTaxPackagePdf} />
             <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印申报包" onClick={printTaxPackage} />
             <button className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">
               <Play className="h-3.5 w-3.5" />

@@ -25,6 +25,8 @@ Usersliyu498AppDataRoamingcom.accounting.agentaccounting.db
 # Test and automation artifacts
 test-results/
 playwright-report/
+tmp/
+output/pdf/
 /*.png
 *.webm
 *.mp4
