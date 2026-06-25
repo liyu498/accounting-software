@@ -1,484 +1,457 @@
-import { useState, useRef } from 'react'
-import { Card, CardContent, CardHeader } from '../components/ui/Card'
-import { Button } from '../components/ui/Button'
-import { Bot, Upload, FileText, Check, X, Edit2, Clock, Loader2, Sparkles, AlertCircle, Building2 } from 'lucide-react'
-import { cn } from '../lib/utils'
-import { formatCurrency, formatDate } from '../lib/utils'
-import { useCompanyStore } from '../stores/companyStore'
+import { useMemo, useRef, useState } from 'react'
+import {
+  AlertCircle,
+  Bot,
+  Check,
+  Clock,
+  Download,
+  Edit2,
+  Eye,
+  FileText,
+  Filter,
+  Loader2,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Upload,
+  X,
+} from 'lucide-react'
+import { cn, formatCurrency } from '../lib/utils'
 
-interface AIVoucherPreview {
+type AiTaskStatus = '待识别' | '待确认' | '已生成凭证' | '已修改' | '已拒绝' | '异常'
+
+interface AiVoucherTask {
   id: string
-  invoiceNumber?: string
+  sourceType: string
+  sourceNo: string
+  sourceName: string
   date: string
-  description: string
-  entries: {
-    accountCode: string
-    accountName: string
-    debit: number
-    credit: number
-  }[]
+  counterparty: string
+  amount: number
+  tax: number
+  summary: string
+  debitAccount: string
+  creditAccount: string
   confidence: number
-  status: 'pending' | 'approved' | 'modified' | 'rejected'
+  sourceEvidence: string
+  rule: string
+  status: AiTaskStatus
+  reviewer: string
+  voucherNo: string
   createdAt: string
 }
 
-const mockAIHistory: AIVoucherPreview[] = [
+const aiTasks: AiVoucherTask[] = [
   {
-    id: '1',
-    invoiceNumber: 'FP-2024-045',
-    date: '2024-01-15',
-    description: '收到客户货款',
-    entries: [
-      { accountCode: '1002', accountName: '银行存款', debit: 125000.00, credit: 0 },
-      { accountCode: '1122', accountName: '应收账款', debit: 0, credit: 125000.00 },
-    ],
-    confidence: 96,
-    status: 'approved',
-    createdAt: '2024-01-15 14:30:22',
-  },
-  {
-    id: '2',
-    invoiceNumber: 'FP-2024-044',
-    date: '2024-01-15',
-    description: '支付供应商货款',
-    entries: [
-      { accountCode: '2202', accountName: '应付账款', debit: 0, credit: 56800.00 },
-      { accountCode: '1002', accountName: '银行存款', debit: 56800.00, credit: 0 },
-    ],
+    id: 'ai-001',
+    sourceType: '销项发票',
+    sourceNo: '310026000126',
+    sourceName: '技术服务费',
+    date: '2026-05-08',
+    counterparty: '杭州辰星科技有限公司',
+    amount: 127200,
+    tax: 7200,
+    summary: '确认技术服务收入',
+    debitAccount: '1122 应收账款/杭州辰星',
+    creditAccount: '6001 主营业务收入/2221 销项税额',
     confidence: 94,
-    status: 'approved',
-    createdAt: '2024-01-15 14:25:10',
+    sourceEvidence: '发票 PDF + 销项清单第 18 行',
+    rule: '销项 6% 技术服务收入',
+    status: '待确认',
+    reviewer: '王会计',
+    voucherNo: '草稿-018',
+    createdAt: '2026-06-26 09:12',
   },
   {
-    id: '3',
-    invoiceNumber: 'FP-2024-043',
-    date: '2024-01-14',
-    description: '办公室租金支出',
-    entries: [
-      { accountCode: '6603', accountName: '管理费用', debit: 12000.00, credit: 0 },
-      { accountCode: '1002', accountName: '银行存款', debit: 0, credit: 12000.00 },
-    ],
+    id: 'ai-002',
+    sourceType: '银行流水',
+    sourceNo: 'ICBC-202605-083',
+    sourceName: '客户回款',
+    date: '2026-05-10',
+    counterparty: '上海辰光贸易有限公司',
+    amount: 97180,
+    tax: 0,
+    summary: '收到客户货款并核销应收',
+    debitAccount: '1002 银行存款/工行基本户',
+    creditAccount: '1122 应收账款/上海辰光',
     confidence: 91,
-    status: 'modified',
-    createdAt: '2024-01-14 16:45:33',
+    sourceEvidence: '银行流水 + 销项发票 310026000118',
+    rule: '客户户名+金额一致核销',
+    status: '已生成凭证',
+    reviewer: '张会计',
+    voucherNo: '记-0061',
+    createdAt: '2026-06-26 09:18',
   },
   {
-    id: '4',
-    invoiceNumber: 'FP-2024-042',
-    date: '2024-01-14',
-    description: '购买办公用品',
-    entries: [
-      { accountCode: '6603', accountName: '管理费用', debit: 1250.00, credit: 0 },
-      { accountCode: '1001', accountName: '库存现金', debit: 0, credit: 1250.00 },
-    ],
+    id: 'ai-003',
+    sourceType: '进项发票',
+    sourceNo: '310026000221',
+    sourceName: '维修费',
+    date: '2026-05-12',
+    counterparty: '杭州设备服务有限公司',
+    amount: 10388,
+    tax: 588,
+    summary: '设备维修费用',
+    debitAccount: '6602 管理费用/维修费',
+    creditAccount: '2202 应付账款/杭州设备',
+    confidence: 78,
+    sourceEvidence: '发票 OFD 识别 + 供应商档案待补',
+    rule: 'AI 建议规则，未启用',
+    status: '异常',
+    reviewer: '李会计',
+    voucherNo: '未生成',
+    createdAt: '2026-06-26 09:24',
+  },
+  {
+    id: 'ai-004',
+    sourceType: '工资表',
+    sourceNo: 'PAY-202605',
+    sourceName: '5 月工资',
+    date: '2026-05-31',
+    counterparty: '员工薪酬',
+    amount: 186420,
+    tax: 6420,
+    summary: '计提本月工资薪金',
+    debitAccount: '6602 管理费用/销售费用',
+    creditAccount: '2211 应付职工薪酬',
     confidence: 88,
-    status: 'rejected',
-    createdAt: '2024-01-14 11:20:05',
+    sourceEvidence: '薪酬表 + 人员档案 + 专项附加扣除',
+    rule: '工资计提模板',
+    status: '待确认',
+    reviewer: '王会计',
+    voucherNo: '草稿-019',
+    createdAt: '2026-06-26 09:31',
   },
 ]
 
-const mockGeneratedVoucher: AIVoucherPreview = {
-  id: 'new',
-  invoiceNumber: 'FP-2024-046',
-  date: '2024-01-16',
-  description: '收到客户预付款',
-  entries: [
-    { accountCode: '1002', accountName: '银行存款', debit: 50000.00, credit: 0 },
-    { accountCode: '2241', accountName: '其他应付款', debit: 0, credit: 50000.00 },
-  ],
-  confidence: 93,
-  status: 'pending',
-  createdAt: '2024-01-16 09:15:00',
-}
+const auditLogs = [
+  ['09:31:22', '生成草稿', '工资表 PAY-202605 生成凭证草稿，置信度 88%，待人工确认'],
+  ['09:24:18', '阻断入账', '进项发票 310026000221 供应商资料缺失，未生成凭证'],
+  ['09:18:03', '确认入账', '银行流水 ICBC-202605-083 经张会计确认生成记-0061'],
+  ['09:12:46', '识别完成', '销项发票 310026000126 识别完成，匹配技术服务收入模板'],
+]
 
-interface AIBookkeepingProps {
-  onNavigate?: (path: string) => void
-}
+const tabs = ['AI工作台', '待确认', '异常处理', '已生成凭证', '规则建议', '审计日志']
 
-export function AIBookkeeping(_props: AIBookkeepingProps) {
-  const { selectedCompanyId } = useCompanyStore()
+export function AIBookkeeping() {
+  const [activeTab, setActiveTab] = useState(tabs[0])
+  const [query, setQuery] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
-  const [generatedVoucher, setGeneratedVoucher] = useState<AIVoucherPreview | null>(null)
-  const [activeTab, setActiveTab] = useState<'upload' | 'history'>('upload')
+  const [previewTask, setPreviewTask] = useState<AiVoucherTask>(aiTasks[0])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }
+  const filteredTasks = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    return aiTasks.filter((task) => {
+      const matchesTab =
+        activeTab === 'AI工作台' ||
+        activeTab === '待确认' && task.status === '待确认' ||
+        activeTab === '异常处理' && task.status === '异常' ||
+        activeTab === '已生成凭证' && task.status === '已生成凭证' ||
+        activeTab === '规则建议' && task.rule.includes('AI')
+      if (!matchesTab) return false
+      if (!normalized) return true
+      return Object.values(task).some((value) => String(value).toLowerCase().includes(normalized))
+    })
+  }, [activeTab, query])
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-    const files = e.dataTransfer.files
-    if (files.length > 0 && files[0]) {
-      handleFileUpload(files[0])
-    }
-  }
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files && files.length > 0 && files[0]) {
-      handleFileUpload(files[0])
-    }
-  }
-
-  const handleFileUpload = (_file: File) => {
-    // Start processing animation
+  const handleFileUpload = () => {
     setIsProcessing(true)
-    setShowPreview(false)
-
-    // Simulate AI processing
-    setTimeout(() => {
+    window.setTimeout(() => {
       setIsProcessing(false)
-      setGeneratedVoucher(mockGeneratedVoucher)
-      setShowPreview(true)
-    }, 3000)
+      setPreviewTask(aiTasks[0])
+      setActiveTab('待确认')
+    }, 1200)
   }
 
   const handleApprove = () => {
-    console.log('Approved voucher:', generatedVoucher)
-    setShowPreview(false)
-    setGeneratedVoucher(null)
-    // Show success toast
     const toast = document.createElement('div')
-    toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in'
-    toast.textContent = '凭证已生成并保存'
+    toast.className = 'fixed bottom-4 right-4 z-50 rounded bg-green-600 px-4 py-2 text-sm text-white shadow-lg'
+    toast.textContent = '已确认 AI 凭证草稿，等待写入正式凭证'
     document.body.appendChild(toast)
-    setTimeout(() => toast.remove(), 3000)
-  }
-
-  const handleReject = () => {
-    console.log('Rejected voucher')
-    setShowPreview(false)
-    setGeneratedVoucher(null)
-  }
-
-  const getStatusBadge = (status: AIVoucherPreview['status']) => {
-    const badges = {
-      pending: 'bg-amber-100 text-amber-700',
-      approved: 'bg-green-100 text-green-700',
-      modified: 'bg-blue-100 text-blue-700',
-      rejected: 'bg-red-100 text-red-700',
-    }
-    const labels = {
-      pending: '待审核',
-      approved: '已确认',
-      modified: '已修改',
-      rejected: '已拒绝',
-    }
-    return (
-      <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', badges[status])}>
-        {labels[status]}
-      </span>
-    )
-  }
-
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 95) return 'text-green-600'
-    if (confidence >= 85) return 'text-blue-600'
-    if (confidence >= 70) return 'text-amber-600'
-    return 'text-red-600'
+    window.setTimeout(() => toast.remove(), 2600)
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">AI智能记账</h1>
-          <p className="text-gray-500 mt-1">上传发票单据，AI自动生成记账凭证</p>
+    <div className="h-full min-w-[1180px] bg-[#f3f6fa] text-slate-900">
+      <div className="border border-slate-200 bg-white">
+        <div className="flex h-12 items-center justify-between border-b border-slate-200 px-4">
+          <div>
+            <h1 className="text-base font-semibold">AI 做账工作台</h1>
+            <p className="text-xs text-slate-500">发票识别、流水匹配、凭证草稿、人工确认、申报取数前置和审计闭环</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <ToolButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" />
+            <ToolButton icon={<Download className="h-3.5 w-3.5" />} label="导出审计" />
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">
+              <Upload className="h-3.5 w-3.5" />
+              上传识别
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('upload')}
-          className={cn(
-            'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-            activeTab === 'upload'
-              ? 'border-primary-600 text-primary-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          )}
-        >
-          上传单据
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={cn(
-            'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-            activeTab === 'history'
-              ? 'border-primary-600 text-primary-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          )}
-        >
-          处理记录
-        </button>
-      </div>
+        <div className="flex h-10 items-center gap-1 border-b border-slate-200 bg-[#f8fbff] px-3">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                'h-7 rounded px-3 text-xs',
+                activeTab === tab ? 'bg-[#1f65a7] text-white' : 'text-slate-600 hover:bg-white hover:text-[#1f65a7]'
+              )}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
 
-      {activeTab === 'upload' ? (
-        <>
-          {/* Upload Area */}
-          <Card>
-            <CardContent className="p-6">
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
+        <div className="grid grid-cols-5 border-b border-slate-200">
+          <SummaryCard label="待确认草稿" value="19 条" tone="amber" />
+          <SummaryCard label="平均置信度" value="88.6%" tone="blue" />
+          <SummaryCard label="自动生成率" value="71.4%" tone="green" />
+          <SummaryCard label="异常阻断" value="6 条" tone="red" />
+          <SummaryCard label="可入税表" value="12 项" tone="blue" />
+        </div>
+
+        <div className="grid min-h-[570px] grid-cols-[300px_1fr_360px]">
+          <aside className="border-r border-slate-200 bg-[#fbfdff]">
+            <div className="border-b border-slate-200 px-3 py-2 text-sm font-semibold">采集入口</div>
+            <div className="p-3">
+              <input ref={fileInputRef} type="file" accept="image/*,.pdf,.ofd,.xlsx" className="hidden" onChange={handleFileUpload} />
+              <button
+                type="button"
+                onDragOver={(event) => {
+                  event.preventDefault()
+                  setIsDragging(true)
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(event) => {
+                  event.preventDefault()
+                  setIsDragging(false)
+                  handleFileUpload()
+                }}
+                onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                  'border-2 border-dashed rounded-xl p-12 text-center transition-colors',
-                  isDragging
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'
+                  'flex h-40 w-full flex-col items-center justify-center rounded border border-dashed text-center text-xs transition-colors',
+                  isDragging ? 'border-[#1f65a7] bg-[#eef6ff] text-[#1f65a7]' : 'border-slate-300 bg-white text-slate-500 hover:border-[#1f65a7]'
                 )}
               >
-                <div className="flex flex-col items-center">
-                  <div className={cn(
-                    'w-16 h-16 rounded-full flex items-center justify-center mb-4',
-                    isDragging ? 'bg-primary-100' : 'bg-gray-100'
-                  )}>
-                    <Upload className={cn('w-8 h-8', isDragging ? 'text-primary-600' : 'text-gray-400')} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    拖拽发票或单据到此处
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    支持 JPG、PNG、PDF 格式
-                  </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    选择文件
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Processing State */}
-          {isProcessing && (
-            <Card>
-              <CardContent className="p-12">
-                <div className="flex flex-col items-center">
-                  <div className="relative w-20 h-20 mb-6">
-                    <div className="absolute inset-0 border-4 border-primary-200 rounded-full"></div>
-                    <div className="absolute inset-0 border-4 border-primary-600 rounded-full border-t-transparent animate-spin"></div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Bot className="w-8 h-8 text-primary-600" />
-                    </div>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">AI正在分析...</h3>
-                  <p className="text-sm text-gray-500 mb-4">正在识别发票信息并生成凭证</p>
-                  <div className="flex items-center gap-2 text-sm text-primary-600">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>图像识别中</span>
-                  </div>
-                  <div className="w-64 h-2 bg-gray-200 rounded-full mt-4 overflow-hidden">
-                    <div className="h-full bg-primary-600 rounded-full animate-pulse" style={{ width: '60%' }}></div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Generated Preview */}
-          {showPreview && generatedVoucher && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
-                      <Sparkles className="w-5 h-5 text-primary-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-semibold text-gray-900">AI生成凭证预览</h2>
-                      <p className="text-sm text-gray-500">置信度：
-                        <span className={cn('font-medium', getConfidenceColor(generatedVoucher.confidence))}>
-                          {generatedVoucher.confidence}%
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                  {getStatusBadge(generatedVoucher.status)}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="text-xs font-medium text-gray-500">发票号</label>
-                      <p className="text-sm font-mono text-primary-600">{generatedVoucher.invoiceNumber}</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500">日期</label>
-                      <p className="text-sm text-gray-900">{formatDate(generatedVoucher.date)}</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500">摘要</label>
-                      <p className="text-sm text-gray-900">{generatedVoucher.description}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-gray-500 mb-2 block">凭证分录</label>
-                  <table className="w-full border border-gray-200 rounded-lg">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">科目编码</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">科目名称</th>
-                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">借方金额</th>
-                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">贷方金额</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {generatedVoucher.entries.map((entry, idx) => (
-                        <tr key={idx} className="border-t border-gray-100">
-                          <td className="px-4 py-2 text-sm font-mono">{entry.accountCode}</td>
-                          <td className="px-4 py-2 text-sm">{entry.accountName}</td>
-                          <td className="px-4 py-2 text-sm text-right font-mono text-blue-600">
-                            {entry.debit > 0 ? formatCurrency(entry.debit) : '-'}
-                          </td>
-                          <td className="px-4 py-2 text-sm text-right font-mono text-red-600">
-                            {entry.credit > 0 ? formatCurrency(entry.credit) : '-'}
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="border-t border-gray-200 bg-gray-50 font-medium">
-                        <td colSpan={2} className="px-4 py-2 text-sm">合计</td>
-                        <td className="px-4 py-2 text-sm text-right font-mono">{formatCurrency(generatedVoucher.entries.reduce((sum, e) => sum + e.debit, 0))}</td>
-                        <td className="px-4 py-2 text-sm text-right font-mono">{formatCurrency(generatedVoucher.entries.reduce((sum, e) => sum + e.credit, 0))}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5" />
-                    <div className="text-sm text-amber-800">
-                      <p className="font-medium">AI分析置信度 {generatedVoucher.confidence}%</p>
-                      <p className="text-amber-700">请仔细核对凭证信息，确保准确无误后再确认。</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
-                <Button variant="secondary" onClick={handleReject}>
-                  <X className="w-4 h-4 mr-2" />
-                  拒绝
-                </Button>
-                <Button variant="outline" onClick={() => console.log('Modify')}>
-                  <Edit2 className="w-4 h-4 mr-2" />
-                  修改
-                </Button>
-                <Button variant="primary" onClick={handleApprove}>
-                  <Check className="w-4 h-4 mr-2" />
-                  确认生成
-                </Button>
-              </div>
-            </Card>
-          )}
-
-          {/* Quick Stats */}
-          {!isProcessing && !showPreview && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-3xl font-bold text-primary-600 mb-1">89</div>
-                  <div className="text-sm text-gray-500">本月AI自动生成</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-3xl font-bold text-green-600 mb-1">96.5%</div>
-                  <div className="text-sm text-gray-500">平均置信度</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-3xl font-bold text-blue-600 mb-1">3.2s</div>
-                  <div className="text-sm text-gray-500">平均处理时间</div>
-                </CardContent>
-              </Card>
+                {isProcessing ? <Loader2 className="mb-2 h-7 w-7 animate-spin text-[#1f65a7]" /> : <Upload className="mb-2 h-7 w-7 text-[#1f65a7]" />}
+                <span className="font-medium text-slate-800">{isProcessing ? '识别处理中' : '拖拽或选择文件'}</span>
+                <span className="mt-1">PDF/OFD/图片/Excel</span>
+              </button>
             </div>
-          )}
-        </>
-      ) : (
-        /* History Tab */
-        <Card>
-          <CardHeader>
-            <h2 className="text-lg font-semibold text-gray-900">处理历史</h2>
-            <p className="text-sm text-gray-500 mt-1">最近20条AI处理记录</p>
-          </CardHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">发票号</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">摘要</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">置信度</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {mockAIHistory.map((record) => (
-                  <tr key={record.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">{record.createdAt}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-mono font-medium text-primary-600">
-                      {record.invoiceNumber}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {record.description}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={cn('font-medium', getConfidenceColor(record.confidence))}>
-                        {record.confidence}%
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {getStatusBadge(record.status)}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => console.log('View', record.id)}
-                        className="text-gray-500 hover:text-primary-600"
-                      >
-                        <FileText className="w-4 h-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+
+            <div className="border-y border-slate-200 px-3 py-2 text-sm font-semibold">识别流程</div>
+            <div className="space-y-2 p-3">
+              {['票据 OCR/版式解析', '客户供应商匹配', '科目和税率建议', '生成凭证草稿', '人工确认入账'].map((item, index) => (
+                <div key={item} className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-2 text-xs">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#e8eef6] text-[11px] text-[#1f65a7]">{index + 1}</span>
+                  {item}
+                </div>
+              ))}
+            </div>
+
+            <div className="border-y border-slate-200 px-3 py-2 text-sm font-semibold">控制边界</div>
+            <div className="space-y-2 p-3 text-xs leading-5 text-slate-600">
+              <p>AI 只生成建议、草稿和申报取数前置材料，凭证入账必须人工确认。</p>
+              <p>自动报税只推进到申报包和待提交状态，真实提交需合法税局 adapter 和回执。</p>
+            </div>
+          </aside>
+
+          <section className="min-w-0">
+            <div className="flex h-11 items-center gap-2 border-b border-slate-200 px-3">
+              <div className="relative w-80">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索来源编号、客户、摘要、规则" className="h-8 w-full rounded border border-slate-300 pl-8 pr-2 text-xs outline-none focus:border-[#1f65a7]" />
+              </div>
+              <ToolButton icon={<Filter className="h-3.5 w-3.5" />} label="筛选" />
+              <span className="ml-auto text-xs text-slate-500">当前视图: {activeTab} · 共 {filteredTasks.length} 条</span>
+            </div>
+
+            {activeTab === '审计日志' ? (
+              <AuditLog />
+            ) : (
+              <div className="overflow-auto">
+                <table className="w-full min-w-[980px] border-collapse text-xs">
+                  <thead className="sticky top-0 bg-[#e8eef6] text-slate-700">
+                    <tr>
+                      <th className="border-b border-r border-slate-300 px-2 py-2 text-left">状态</th>
+                      <th className="border-b border-r border-slate-300 px-2 py-2 text-left">来源</th>
+                      <th className="border-b border-r border-slate-300 px-2 py-2 text-left">编号</th>
+                      <th className="border-b border-r border-slate-300 px-2 py-2 text-left">往来方</th>
+                      <th className="border-b border-r border-slate-300 px-2 py-2 text-right">价税合计</th>
+                      <th className="border-b border-r border-slate-300 px-2 py-2 text-left">摘要</th>
+                      <th className="border-b border-r border-slate-300 px-2 py-2 text-left">建议分录</th>
+                      <th className="border-b border-r border-slate-300 px-2 py-2 text-center">置信度</th>
+                      <th className="border-b border-r border-slate-300 px-2 py-2 text-left">凭证</th>
+                      <th className="border-b border-slate-300 px-2 py-2 text-center">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTasks.map((task) => (
+                      <tr key={task.id} className="hover:bg-[#f8fbff]">
+                        <td className="border-b border-r border-slate-200 px-2 py-2"><StatusBadge value={task.status} /></td>
+                        <td className="border-b border-r border-slate-200 px-2 py-2">{task.sourceType}</td>
+                        <td className="border-b border-r border-slate-200 px-2 py-2 font-mono text-[#1f65a7]">{task.sourceNo}</td>
+                        <td className="border-b border-r border-slate-200 px-2 py-2">{task.counterparty}</td>
+                        <td className="border-b border-r border-slate-200 px-2 py-2 text-right font-mono">{formatCurrency(task.amount)}</td>
+                        <td className="border-b border-r border-slate-200 px-2 py-2">{task.summary}</td>
+                        <td className="border-b border-r border-slate-200 px-2 py-2">{task.debitAccount} / {task.creditAccount}</td>
+                        <td className="border-b border-r border-slate-200 px-2 py-2 text-center"><Confidence value={task.confidence} /></td>
+                        <td className="border-b border-r border-slate-200 px-2 py-2">{task.voucherNo}</td>
+                        <td className="border-b border-slate-200 px-2 py-2 text-center">
+                          <button type="button" onClick={() => setPreviewTask(task)} className="inline-flex h-7 items-center gap-1 rounded px-2 text-[#1f65a7] hover:bg-[#eef6ff]">
+                            <Eye className="h-3.5 w-3.5" />
+                            查看
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <aside className="border-l border-slate-200 bg-[#fbfdff]">
+            <div className="border-b border-slate-200 px-3 py-2 text-sm font-semibold">凭证草稿预览</div>
+            <div className="space-y-3 p-3">
+              <div className="rounded border border-slate-200 bg-white p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Sparkles className="h-4 w-4 text-[#1f65a7]" />
+                    {previewTask.voucherNo}
+                  </div>
+                  <Confidence value={previewTask.confidence} />
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                  <span>日期: {previewTask.date}</span>
+                  <span>税额: {formatCurrency(previewTask.tax)}</span>
+                  <span className="col-span-2">来源: {previewTask.sourceEvidence}</span>
+                  <span className="col-span-2">规则: {previewTask.rule}</span>
+                </div>
+              </div>
+
+              <div className="rounded border border-slate-200 bg-white">
+                <div className="border-b border-slate-200 px-3 py-2 text-xs font-semibold">建议分录</div>
+                <table className="w-full text-xs">
+                  <tbody>
+                    <tr className="border-b border-slate-100">
+                      <td className="px-3 py-2">借</td>
+                      <td className="px-3 py-2">{previewTask.debitAccount}</td>
+                      <td className="px-3 py-2 text-right font-mono">{formatCurrency(previewTask.amount - previewTask.tax)}</td>
+                    </tr>
+                    {previewTask.tax > 0 && (
+                      <tr className="border-b border-slate-100">
+                        <td className="px-3 py-2">借/贷</td>
+                        <td className="px-3 py-2">2221 应交税费</td>
+                        <td className="px-3 py-2 text-right font-mono">{formatCurrency(previewTask.tax)}</td>
+                      </tr>
+                    )}
+                    <tr>
+                      <td className="px-3 py-2">贷</td>
+                      <td className="px-3 py-2">{previewTask.creditAccount}</td>
+                      <td className="px-3 py-2 text-right font-mono">{formatCurrency(previewTask.amount)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="rounded border border-amber-200 bg-amber-50 p-2 text-xs leading-5 text-amber-800">
+                <div className="mb-1 flex items-center gap-1 font-semibold">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  人工确认要求
+                </div>
+                需核对来源、分录、辅助核算、税额和附件；确认后才允许写入正式凭证和税表取数。
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <button type="button" className="inline-flex h-8 items-center justify-center gap-1 rounded border border-slate-300 bg-white text-xs text-slate-700 hover:border-[#1f65a7]">
+                  <Edit2 className="h-3.5 w-3.5" />
+                  修改
+                </button>
+                <button type="button" className="inline-flex h-8 items-center justify-center gap-1 rounded border border-red-200 bg-white text-xs text-red-700 hover:bg-red-50">
+                  <X className="h-3.5 w-3.5" />
+                  拒绝
+                </button>
+                <button type="button" onClick={handleApprove} className="inline-flex h-8 items-center justify-center gap-1 rounded bg-[#1f65a7] text-xs text-white hover:bg-[#174f82]">
+                  <Check className="h-3.5 w-3.5" />
+                  确认
+                </button>
+              </div>
+
+              <div className="rounded border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600">
+                <div className="mb-1 flex items-center gap-1 font-semibold text-slate-900">
+                  <ShieldCheck className="h-3.5 w-3.5 text-green-700" />
+                  审计链
+                </div>
+                来源文件、识别结果、规则命中、修改记录、确认人和入账时间全部进入日志。
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
     </div>
   )
+}
+
+function AuditLog() {
+  return (
+    <div className="p-3">
+      <table className="w-full border-collapse text-xs">
+        <thead className="bg-[#e8eef6] text-slate-700">
+          <tr><th className="border border-slate-300 px-2 py-2 text-left">时间</th><th className="border border-slate-300 px-2 py-2 text-left">动作</th><th className="border border-slate-300 px-2 py-2 text-left">说明</th></tr>
+        </thead>
+        <tbody>
+          {auditLogs.map(([time, action, detail]) => (
+            <tr key={`${time}-${action}`}>
+              <td className="border border-slate-200 px-2 py-2 font-mono"><Clock className="mr-1 inline h-3.5 w-3.5 text-slate-400" />{time}</td>
+              <td className="border border-slate-200 px-2 py-2">{action}</td>
+              <td className="border border-slate-200 px-2 py-2">{detail}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function SummaryCard({ label, value, tone }: { label: string; value: string; tone: 'blue' | 'green' | 'amber' | 'red' }) {
+  const color = tone === 'green' ? 'text-green-700' : tone === 'amber' ? 'text-amber-700' : tone === 'red' ? 'text-red-700' : 'text-[#1f65a7]'
+  return (
+    <div className="border-r border-slate-200 px-4 py-3 last:border-r-0">
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className={cn('mt-1 text-xl font-semibold tabular-nums', color)}>{value}</div>
+    </div>
+  )
+}
+
+function ToolButton({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <button type="button" className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">
+      {icon}
+      {label}
+    </button>
+  )
+}
+
+function StatusBadge({ value }: { value: AiTaskStatus }) {
+  const className =
+    value === '已生成凭证'
+      ? 'bg-green-50 text-green-700'
+      : value === '异常' || value === '已拒绝'
+        ? 'bg-red-50 text-red-700'
+        : value === '已修改'
+          ? 'bg-blue-50 text-blue-700'
+          : 'bg-amber-50 text-amber-700'
+  return <span className={cn('inline-flex rounded px-2 py-0.5', className)}>{value}</span>
+}
+
+function Confidence({ value }: { value: number }) {
+  const className = value >= 90 ? 'text-green-700 bg-green-50' : value >= 80 ? 'text-[#1f65a7] bg-blue-50' : 'text-amber-700 bg-amber-50'
+  return <span className={cn('inline-flex rounded px-2 py-0.5 text-xs font-semibold tabular-nums', className)}>{value}%</span>
 }
