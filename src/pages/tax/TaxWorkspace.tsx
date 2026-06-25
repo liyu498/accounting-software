@@ -115,6 +115,72 @@ const logs = [
 
 const tabs = ['申报清单', '增值税', '企业所得税', '扣缴所得税', '印花税', '社保费', '财报报送', '回执缴款书']
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+function buildTaxDeclarationPackageHtml(exportedAt: string) {
+  const declarationBody = declarationRows.map((row) => `
+    <tr>
+      <td>${escapeHtml(row.category)}</td>
+      <td>${escapeHtml(row.form)}</td>
+      <td>${escapeHtml(row.period)}</td>
+      <td>${escapeHtml(row.collectStatus)}</td>
+      <td>${escapeHtml(row.checkStatus)}</td>
+      <td>${escapeHtml(row.declareStatus)}</td>
+      <td>${escapeHtml(row.source)}</td>
+      <td class="num">${escapeHtml(row.sales)}</td>
+      <td class="num">${escapeHtml(row.deduction)}</td>
+      <td class="num strong">${escapeHtml(row.payable)}</td>
+      <td>${escapeHtml(row.risk)}</td>
+      <td>${escapeHtml(row.owner)}</td>
+    </tr>
+  `).join('')
+  const riskBody = riskRows.map(([level, module, desc, link]) => `
+    <tr><td>${escapeHtml(level)}</td><td>${escapeHtml(module)}</td><td>${escapeHtml(desc)}</td><td>${escapeHtml(link)}</td></tr>
+  `).join('')
+  const logBody = logs.map(([time, action, detail]) => `
+    <tr><td>${escapeHtml(time)}</td><td>${escapeHtml(action)}</td><td>${escapeHtml(detail)}</td></tr>
+  `).join('')
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>税务申报包-2026-05</title><style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:22px;color:#111827}
+    h1{text-align:center;font-size:20px;margin:0 0 8px} h2{font-size:15px;margin:18px 0 8px}
+    .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 16px;margin:10px 0 14px;font-size:12px;color:#334155}
+    .meta span{border-bottom:1px solid #cbd5e1;padding-bottom:5px}
+    table{width:100%;border-collapse:collapse;font-size:11px} th,td{border:1px solid #64748b;padding:6px 7px;vertical-align:top}
+    th{background:#e8eef6;text-align:left}.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.strong{font-weight:700}
+    .notice{margin-top:14px;border:1px solid #cbd5e1;background:#f8fafc;padding:9px;font-size:11px;line-height:1.7;color:#475569}
+    .sign{display:flex;justify-content:space-between;margin-top:18px;font-size:12px;color:#334155}
+  </style></head><body>
+    <h1>税务申报包</h1>
+    <div class="meta">
+      <span>纳税人: 科旋电气（上海）有限公司</span><span>纳税人识别号: 91310115MA1K3****X</span><span>所属期: 2026-05</span>
+      <span>申报状态: 待人工确认</span><span>生成时间: ${escapeHtml(exportedAt)}</span><span>生成来源: 税务申报工作台</span>
+    </div>
+    <h2>一、申报清单</h2>
+    <table><thead><tr><th>税种</th><th>申报表</th><th>所属期</th><th>取数状态</th><th>校验状态</th><th>申报状态</th><th>取数来源</th><th>计税依据</th><th>抵扣/减免</th><th>应缴金额</th><th>风险</th><th>负责人</th></tr></thead><tbody>${declarationBody}</tbody></table>
+    <h2>二、风险与阻断</h2>
+    <table><thead><tr><th>级别</th><th>税种/模块</th><th>风险说明</th><th>处理入口</th></tr></thead><tbody>${riskBody}</tbody></table>
+    <h2>三、取数说明</h2>
+    <table><tbody>
+      <tr><td>销项税额</td><td>来自销项发票清单，按税率分组汇总。</td></tr>
+      <tr><td>进项抵扣</td><td>来自已认证进项发票，未勾选发票不进入申报主表。</td></tr>
+      <tr><td>企业所得税</td><td>来自利润表和纳税调整快照。</td></tr>
+      <tr><td>工资个税</td><td>来自薪酬表、人员登记和专项附加扣除资料。</td></tr>
+    </tbody></table>
+    <h2>四、操作日志</h2>
+    <table><thead><tr><th>时间</th><th>动作</th><th>说明</th></tr></thead><tbody>${logBody}</tbody></table>
+    <div class="notice">边界说明: 本申报包为系统取数、校验、人工确认和留档材料，不代表已向电子税务局提交，也不代表已完成扣款或回执收取。真实申报必须通过合法税局 adapter、授权登录、提交回执和人工确认闭环。</div>
+    <div class="sign"><span>制表: 系统</span><span>复核: 未签章</span><span>客户确认: 未签章</span></div>
+  </body></html>`
+}
+
 function statusBadge(value: string) {
   const className =
     value === '校验通过' || value === '待申报' || value === '已取数'
@@ -132,6 +198,28 @@ function riskBadge(value: string) {
 }
 
 export function TaxWorkspace() {
+  const exportTaxPackage = () => {
+    const html = buildTaxDeclarationPackageHtml(new Date().toLocaleString('zh-CN'))
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = '税务申报包-2026-05.html'
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const printTaxPackage = () => {
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+    printWindow.document.write(buildTaxDeclarationPackageHtml(new Date().toLocaleString('zh-CN')))
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+  }
+
   return (
     <div className="h-full min-w-[1120px] bg-[#f3f6fa] text-slate-900">
       <div className="border border-slate-200 bg-white">
@@ -145,8 +233,8 @@ export function TaxWorkspace() {
           <div className="flex items-center gap-1">
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="重新取数" />
             <ToolbarButton icon={<ShieldAlert className="h-3.5 w-3.5" />} label="风险检查" />
-            <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="导出" />
-            <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印" />
+            <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="导出申报包" onClick={exportTaxPackage} />
+            <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印申报包" onClick={printTaxPackage} />
             <button className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">
               <Play className="h-3.5 w-3.5" />
               确认申报
@@ -332,9 +420,13 @@ export function TaxWorkspace() {
   )
 }
 
-function ToolbarButton({ icon, label }: { icon: React.ReactNode; label: string }) {
+function ToolbarButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
   return (
-    <button className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]"
+    >
       {icon}
       {label}
     </button>
