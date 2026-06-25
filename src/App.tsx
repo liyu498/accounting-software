@@ -9,6 +9,7 @@ import { AppShell } from './components/layout/AppShell'
 import { ToastProvider } from './components/ui/Toast'
 import { BusinessModulePage } from './pages/operations/BusinessModulePage'
 import { TaxWorkspace } from './pages/tax/TaxWorkspace'
+import { AgencyModulePage, type AgencyModuleKind } from './pages/agency/AgencyModulePage'
 
 // Protected route wrapper
 interface ProtectedRouteProps {
@@ -48,6 +49,7 @@ function AppLayout() {
 const businessPage = (kind: ComponentProps<typeof BusinessModulePage>['kind'], title: string, description: string) => (
   <BusinessModulePage kind={kind} title={title} description={description} />
 )
+const agencyPage = (kind: AgencyModuleKind) => <AgencyModulePage kind={kind} />
 
 function App() {
   return (
@@ -85,6 +87,14 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/ai" element={<AIBookkeeping />} />
             <Route path="/settings" element={businessPage('settingsData', '设置总览', '维护企业资料、期初、历史账簿、基础档案、匹配规则和权限。')} />
+
+            {/* Agency-level workspace - 代理机构外层功能 */}
+            <Route path="/agency/clients" element={agencyPage('clients')} />
+            <Route path="/agency/batch-tax" element={agencyPage('batchTax')} />
+            <Route path="/agency/data-stats" element={agencyPage('dataStats')} />
+            <Route path="/agency/batch-ops" element={agencyPage('batchOps')} />
+            <Route path="/agency/health-check" element={agencyPage('healthCheck')} />
+            <Route path="/agency/automation" element={agencyPage('automation')} />
 
             {/* Business Processing - 业务处理 */}
             <Route path="/invoices/output" element={businessPage('outputInvoice', '销项发票', '管理销项发票、开票数据、税额汇总、凭证生成和导出。')} />
