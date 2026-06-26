@@ -105,6 +105,10 @@ function App() {
 
             {/* Agency-level workspace - 代理机构外层功能 */}
             <Route path="/agency/clients" element={agencyPage('clients')} />
+            <Route path="/agency/service-contracts" element={agencyPage('serviceContracts')} />
+            <Route path="/agency/fees" element={agencyPage('feeCollection')} />
+            <Route path="/agency/collaboration" element={agencyPage('customerCollaboration')} />
+            <Route path="/agency/tickets" element={agencyPage('deliveryTickets')} />
             <Route path="/agency/batch-tax" element={agencyPage('batchTax')} />
             <Route path="/agency/data-stats" element={agencyPage('dataStats')} />
             <Route path="/agency/batch-ops" element={agencyPage('batchOps')} />

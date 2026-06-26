@@ -7,16 +7,30 @@ import {
   CheckCircle2,
   Download,
   FileCheck2,
+  FileText,
   Filter,
   Play,
+  Printer,
   RefreshCw,
   Search,
   ShieldCheck,
   Upload,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { exportHtmlToPdf } from '../../lib/pdfExport'
+import { exportRowsToXlsx } from '../../lib/xlsxExport'
 
-export type AgencyModuleKind = 'clients' | 'batchTax' | 'dataStats' | 'batchOps' | 'healthCheck' | 'automation'
+export type AgencyModuleKind =
+  | 'clients'
+  | 'serviceContracts'
+  | 'feeCollection'
+  | 'customerCollaboration'
+  | 'deliveryTickets'
+  | 'batchTax'
+  | 'dataStats'
+  | 'batchOps'
+  | 'healthCheck'
+  | 'automation'
 
 interface AgencyModulePageProps {
   kind: AgencyModuleKind
@@ -74,6 +88,130 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     queueTitle: '待办队列',
     queue: ['杭州辰光贸易缺少 32 张销项票', '上海云启利润表需复核管理费用', '12 户客户增值税申报待确认'],
     notes: ['这里是机构层客户总览，不替代单账套内的业务处理页面。', '点击客户后进入单账套工作台，保持竞品同类“客户列表 -> 账套内页”的操作路径。'],
+  },
+  serviceContracts: {
+    title: '服务合同',
+    description: '维护代账服务合同、服务套餐、起止日期、续费状态和客户账套绑定关系。',
+    tabs: ['全部合同', '服务中', '待续费', '待签署', '已到期', '变更记录'],
+    primaryAction: '新增合同',
+    keywordPlaceholder: '搜索客户、合同编号、服务套餐、负责人',
+    summary: [
+      { label: '服务中合同', value: '118 份', tone: 'blue' },
+      { label: '本月续费', value: '16 份', tone: 'amber' },
+      { label: '待签署', value: '7 份', tone: 'red' },
+      { label: '已归档', value: '96 份', tone: 'green' },
+    ],
+    columns: [
+      { key: 'contractNo', label: '合同编号' },
+      { key: 'customer', label: '客户名称' },
+      { key: 'package', label: '服务套餐' },
+      { key: 'period', label: '服务期间' },
+      { key: 'fee', label: '月服务费', align: 'right' },
+      { key: 'renewal', label: '续费状态' },
+      { key: 'owner', label: '负责人' },
+      { key: 'archive', label: '归档' },
+    ],
+    rows: [
+      { id: 'sc-001', status: '进行中', values: { contractNo: 'FW-2026-0018', customer: '科旋电气（上海）有限公司', package: '一般纳税人标准包', period: '2026-01 至 2026-12', fee: '¥2,800.00', renewal: '正常', owner: '张会计', archive: '合同PDF' } },
+      { id: 'sc-002', status: '待确认', values: { contractNo: 'FW-2026-0042', customer: '上海云启科技有限公司', package: '小规模基础包', period: '2026-06 至 2027-05', fee: '¥1,200.00', renewal: '待签署', owner: '李会计', archive: '待上传' } },
+      { id: 'sc-003', status: '异常', values: { contractNo: 'FW-2025-0091', customer: '杭州辰光贸易有限公司', package: '一般纳税人含申报', period: '2025-07 至 2026-06', fee: '¥3,200.00', renewal: '30天内到期', owner: '王会计', archive: '缺附件' } },
+    ],
+    queueTitle: '续费提醒',
+    queue: ['杭州辰光贸易合同 30 天内到期', '上海云启新合同待客户签署', '7 份合同缺少盖章版 PDF'],
+    notes: ['服务合同是机构收费、客户权限、交付 SLA 和资料催办的基础。', '后续可与电子签、客户门户和发票开具模块联动。'],
+  },
+  feeCollection: {
+    title: '收费管理',
+    description: '按客户和账期管理代账服务费、开票、收款、欠费和催收记录。',
+    tabs: ['应收总览', '待开票', '待收款', '欠费客户', '已收款', '催收记录'],
+    primaryAction: '生成应收',
+    keywordPlaceholder: '搜索客户、账期、发票号、收款状态',
+    summary: [
+      { label: '本月应收', value: '¥386,800.00', tone: 'blue' },
+      { label: '已收款', value: '¥294,200.00', tone: 'green' },
+      { label: '待开票', value: '¥42,600.00', tone: 'amber' },
+      { label: '逾期欠费', value: '¥50,000.00', tone: 'red' },
+    ],
+    columns: [
+      { key: 'customer', label: '客户名称' },
+      { key: 'period', label: '账期', align: 'center' },
+      { key: 'receivable', label: '应收服务费', align: 'right' },
+      { key: 'received', label: '已收金额', align: 'right' },
+      { key: 'arrears', label: '欠费金额', align: 'right' },
+      { key: 'invoice', label: '服务费发票' },
+      { key: 'payStatus', label: '收款状态' },
+      { key: 'collector', label: '跟进人' },
+    ],
+    rows: [
+      { id: 'fee-001', status: '已完成', values: { customer: '科旋电气（上海）有限公司', period: '2026-05', receivable: '¥2,800.00', received: '¥2,800.00', arrears: '¥0.00', invoice: '已开票', payStatus: '已收款', collector: '张会计' } },
+      { id: 'fee-002', status: '待处理', values: { customer: '上海云启科技有限公司', period: '2026-05', receivable: '¥1,200.00', received: '¥0.00', arrears: '¥1,200.00', invoice: '待开票', payStatus: '待收款', collector: '李会计' } },
+      { id: 'fee-003', status: '异常', values: { customer: '杭州辰光贸易有限公司', period: '2026-04/05', receivable: '¥6,400.00', received: '¥0.00', arrears: '¥6,400.00', invoice: '未开票', payStatus: '逾期', collector: '王会计' } },
+    ],
+    queueTitle: '催收队列',
+    queue: ['杭州辰光贸易逾期 2 个月服务费', '上海云启待开具服务费发票', '本月 16 户客户需自动生成应收单'],
+    notes: ['收费管理只处理代账机构经营收入，不混入客户账套收入凭证。', '后续可关联合同、收款码、服务费发票和催收消息记录。'],
+  },
+  customerCollaboration: {
+    title: '客户协同',
+    description: '跟踪客户资料补传、问题确认、催办记录、消息状态和客户门户待办。',
+    tabs: ['协同待办', '资料补传', '问题确认', '催办记录', '客户消息', '门户日志'],
+    primaryAction: '发起催办',
+    keywordPlaceholder: '搜索客户、资料类型、联系人、回复状态',
+    summary: [
+      { label: '待客户处理', value: '42 项', tone: 'amber' },
+      { label: '今日已回复', value: '18 项', tone: 'green' },
+      { label: '超时未回', value: '9 项', tone: 'red' },
+      { label: '门户上传', value: '126 件', tone: 'blue' },
+    ],
+    columns: [
+      { key: 'customer', label: '客户名称' },
+      { key: 'todo', label: '协同事项' },
+      { key: 'material', label: '资料类型' },
+      { key: 'contact', label: '客户联系人' },
+      { key: 'reminders', label: '催办次数', align: 'right' },
+      { key: 'lastContact', label: '最近沟通' },
+      { key: 'reply', label: '回复状态' },
+      { key: 'owner', label: '负责人' },
+    ],
+    rows: [
+      { id: 'co-001', status: '待处理', values: { customer: '科旋电气（上海）有限公司', todo: '补传 5 月银行回单', material: '银行回单', contact: '陈经理', reminders: '2', lastContact: '06-26 10:30', reply: '待回复', owner: '张会计' } },
+      { id: 'co-002', status: '已完成', values: { customer: '上海云启科技有限公司', todo: '确认管理费用差异', material: '报表问题', contact: '刘总', reminders: '1', lastContact: '06-26 14:12', reply: '已确认', owner: '李会计' } },
+      { id: 'co-003', status: '异常', values: { customer: '杭州辰光贸易有限公司', todo: '补传销项发票', material: '发票影像', contact: '周会计', reminders: '4', lastContact: '06-24 09:00', reply: '超时', owner: '王会计' } },
+    ],
+    queueTitle: '沟通规则',
+    queue: ['超时 24 小时未回复自动进入二次催办', '客户上传文件先进入附件中心再流转识别', '所有催办记录保留时间、渠道和操作者'],
+    notes: ['客户协同承接资料采集和通知待办，避免关键资料只散落在聊天软件里。', '后续可以接短信、企业微信、客户门户和上传链接。'],
+  },
+  deliveryTickets: {
+    title: '服务工单',
+    description: '按客户账期拆解交付任务，跟踪收票、做账、报表、申报、归档和 SLA。',
+    tabs: ['工单看板', '待分派', '处理中', '待复核', '待客户确认', '已交付'],
+    primaryAction: '新建工单',
+    keywordPlaceholder: '搜索客户、任务、账期、负责人、交付状态',
+    summary: [
+      { label: '本月工单', value: '286 单', tone: 'blue' },
+      { label: '处理中', value: '64 单', tone: 'amber' },
+      { label: '已交付', value: '198 单', tone: 'green' },
+      { label: 'SLA超时', value: '12 单', tone: 'red' },
+    ],
+    columns: [
+      { key: 'ticketNo', label: '工单编号' },
+      { key: 'customer', label: '客户名称' },
+      { key: 'task', label: '服务任务' },
+      { key: 'period', label: '所属期', align: 'center' },
+      { key: 'stage', label: '当前环节' },
+      { key: 'sla', label: 'SLA' },
+      { key: 'owner', label: '负责人' },
+      { key: 'delivery', label: '交付状态' },
+    ],
+    rows: [
+      { id: 'tk-001', status: '进行中', values: { ticketNo: 'GD-202605-0188', customer: '科旋电气（上海）有限公司', task: '月度做账交付', period: '2026-05', stage: '凭证复核', sla: '剩余 12 小时', owner: '张会计', delivery: '处理中' } },
+      { id: 'tk-002', status: '待确认', values: { ticketNo: 'GD-202605-0206', customer: '上海云启科技有限公司', task: '财报报送', period: '2026-05', stage: '客户确认', sla: '剩余 1 天', owner: '李会计', delivery: '待确认' } },
+      { id: 'tk-003', status: '异常', values: { ticketNo: 'GD-202605-0217', customer: '杭州辰光贸易有限公司', task: '增值税申报', period: '2026-05', stage: '资料缺失', sla: '已超时', owner: '王会计', delivery: '阻断' } },
+    ],
+    queueTitle: '交付控制',
+    queue: ['申报类工单必须完成客户确认和风险检查', '资料缺失工单自动联动客户协同催办', '已交付工单需要归档报表、申报包和回执'],
+    notes: ['服务工单把机构外层的进度管理和单账套内的业务页面连接起来。', '后续可做负责人排班、SLA 预警和交付质量评分。'],
   },
   batchTax: {
     title: '批量申报',
@@ -252,6 +390,36 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     if (page > totalPages) setPage(totalPages)
   }, [page, totalPages])
 
+  const handleExportExcel = async () => {
+    const exportedAt = new Date().toLocaleString('zh-CN')
+    await exportRowsToXlsx({
+      sheetRows: buildAgencySheetRows(config, filteredRows, exportedAt, activeTab, query.trim()),
+      columnWidths: [{ wch: 18 }, { wch: 12 }, ...config.columns.map((column) => ({ wch: Math.max(14, column.label.length * 3) }))],
+      sheetName: config.title,
+      fileName: `${config.title}-2026-05.xlsx`,
+    })
+  }
+
+  const handlePrint = () => {
+    const exportedAt = new Date().toLocaleString('zh-CN')
+    const html = buildAgencyPrintHtml(config, filteredRows, exportedAt, activeTab, query.trim())
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+    printWindow.document.write(html)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+  }
+
+  const handleExportPdf = async () => {
+    const exportedAt = new Date().toLocaleString('zh-CN')
+    await exportHtmlToPdf({
+      html: buildAgencyPrintHtml(config, filteredRows, exportedAt, activeTab, query.trim()),
+      fileName: `${config.title}-2026-05.pdf`,
+      pageTitle: `${config.title} 2026-05`,
+    })
+  }
+
   return (
     <div className="h-full min-w-[1180px] bg-[#f3f6fa] text-slate-900">
       <div className="border border-slate-200 bg-white">
@@ -263,7 +431,9 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           <div className="flex items-center gap-1">
             <ToolButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" />
             <ToolButton icon={<Upload className="h-3.5 w-3.5" />} label="导入" />
-            <ToolButton icon={<Download className="h-3.5 w-3.5" />} label="导出" />
+            <ToolButton icon={<Download className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
+            <ToolButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={handleExportPdf} />
+            <ToolButton icon={<Printer className="h-3.5 w-3.5" />} label="打印" onClick={handlePrint} />
             <button className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">
               <Play className="h-3.5 w-3.5" />
               {config.primaryAction}
@@ -406,9 +576,9 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   )
 }
 
-function ToolButton({ icon, label }: { icon: React.ReactNode; label: string }) {
+function ToolButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
   return (
-    <button type="button" className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">
+    <button type="button" onClick={onClick} className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">
       {icon}
       {label}
     </button>
@@ -440,4 +610,76 @@ function alignClass(align: 'left' | 'right' | 'center' = 'left') {
   if (align === 'right') return 'text-right'
   if (align === 'center') return 'text-center'
   return 'text-left'
+}
+
+function buildAgencySheetRows(config: AgencyConfig, rows: AgencyRow[], exportedAt: string, activeTab: string, keyword: string) {
+  return [
+    [config.title],
+    ['机构', 'AI 代理记账', '所属期', '2026-05', '当前视图', activeTab],
+    ['导出时间', exportedAt, '筛选关键字', keyword || '全部', '记录数', `${rows.length}`],
+    [],
+    ['状态', ...config.columns.map((column) => column.label)],
+    ...rows.map((row) => [row.status, ...config.columns.map((column) => row.values[column.key] || '')]),
+    [],
+    ['制表说明', `${config.title} 按当前筛选全集导出，后续可与固定模板、签章和归档目录绑定。`],
+  ]
+}
+
+function buildAgencyPrintHtml(config: AgencyConfig, rows: AgencyRow[], exportedAt: string, activeTab: string, keyword: string) {
+  const headerCells = ['状态', ...config.columns.map((column) => column.label)]
+  const rowHtml = rows.map((row) => `
+    <tr>
+      <td>${escapeHtml(row.status)}</td>
+      ${config.columns.map((column) => `<td class="${column.align === 'right' ? 'right' : column.align === 'center' ? 'center' : ''}">${escapeHtml(row.values[column.key] || '')}</td>`).join('')}
+    </tr>
+  `).join('')
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(config.title)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 12mm; }
+    body { margin: 0; color: #111827; font-family: "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif; font-size: 12px; }
+    h1 { margin: 0 0 6px; text-align: center; font-size: 20px; }
+    .meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px 12px; margin-bottom: 10px; color: #475569; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th { background: #e8eef6; color: #1f2937; font-weight: 700; }
+    th, td { border: 1px solid #cbd5e1; padding: 6px; word-break: break-word; }
+    .right { text-align: right; }
+    .center { text-align: center; }
+    .notes { margin-top: 10px; color: #475569; }
+    .sign { display: flex; justify-content: space-between; margin-top: 18px; color: #334155; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(config.title)}</h1>
+  <div class="meta">
+    <span>机构: AI 代理记账</span>
+    <span>所属期: 2026-05</span>
+    <span>当前视图: ${escapeHtml(activeTab)}</span>
+    <span>导出时间: ${escapeHtml(exportedAt)}</span>
+    <span>筛选关键字: ${escapeHtml(keyword || '全部')}</span>
+    <span>记录数: ${rows.length}</span>
+    <span>模板: 机构运营台账</span>
+    <span>状态: 未签章</span>
+  </div>
+  <table>
+    <thead><tr>${headerCells.map((label) => `<th>${escapeHtml(label)}</th>`).join('')}</tr></thead>
+    <tbody>${rowHtml || `<tr><td colspan="${headerCells.length}" class="center">暂无数据</td></tr>`}</tbody>
+  </table>
+  <div class="notes">${escapeHtml(config.description)}</div>
+  <div class="sign"><span>制表: 系统</span><span>复核: 未签章</span><span>机构确认: 未签章</span></div>
+</body>
+</html>`
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }

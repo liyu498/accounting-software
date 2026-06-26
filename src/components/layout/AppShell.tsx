@@ -68,6 +68,10 @@ const topLevelItems: SidebarItem[] = [
 
 const agencyItems: SidebarItem[] = [
   { id: 'agency-clients', label: '客户总览', icon: <Building2 className="h-4 w-4" />, path: '/agency/clients' },
+  { id: 'agency-service-contracts', label: '服务合同', icon: <Notebook className="h-4 w-4" />, path: '/agency/service-contracts' },
+  { id: 'agency-fees', label: '收费管理', icon: <BadgeDollarSign className="h-4 w-4" />, path: '/agency/fees' },
+  { id: 'agency-collaboration', label: '客户协同', icon: <Users className="h-4 w-4" />, path: '/agency/collaboration' },
+  { id: 'agency-tickets', label: '服务工单', icon: <Monitor className="h-4 w-4" />, path: '/agency/tickets' },
   { id: 'agency-batch-tax', label: '批量申报', icon: <FileCheck2 className="h-4 w-4" />, path: '/agency/batch-tax' },
   { id: 'agency-data-stats', label: '数据统计', icon: <BarChart3 className="h-4 w-4" />, path: '/agency/data-stats' },
   { id: 'agency-batch-ops', label: '批量操作', icon: <CheckSquare className="h-4 w-4" />, path: '/agency/batch-ops' },
