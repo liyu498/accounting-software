@@ -118,6 +118,8 @@ const allSections: SidebarSection[] = [
       { id: 'special-deductions', label: '专项附加扣除', icon: <FileSpreadsheet className="h-4 w-4" />, path: '/special-deductions' },
       { id: 'depreciation', label: '折旧摊销', icon: <Calculator className="h-4 w-4" />, path: '/depreciation' },
       { id: 'inventory', label: '存货设置', icon: <Package className="h-4 w-4" />, path: '/inventory' },
+      { id: 'inventory-movements', label: '出入库单', icon: <Package className="h-4 w-4" />, path: '/inventory/movements' },
+      { id: 'cost-carryover', label: '成本结转', icon: <Calculator className="h-4 w-4" />, path: '/cost-carryover' },
       { id: 'units', label: '计量单位', icon: <Scale className="h-4 w-4" />, path: '/units' },
     ],
   },
@@ -127,6 +129,9 @@ const allSections: SidebarSection[] = [
     icon: <Coins className="h-4 w-4" />,
     items: [
       { id: 'vouchers', label: '会计凭证', icon: <FileText className="h-4 w-4" />, path: '/vouchers' },
+      { id: 'bank-reconciliation', label: '银行对账', icon: <Landmark className="h-4 w-4" />, path: '/bank/reconciliation' },
+      { id: 'aging', label: '往来账龄', icon: <BarChart3 className="h-4 w-4" />, path: '/aging' },
+      { id: 'matching', label: '票据凭证匹配', icon: <CheckSquare className="h-4 w-4" />, path: '/matching' },
       { id: 'period-closing', label: '期末结转', icon: <Calculator className="h-4 w-4" />, path: '/period-closing' },
       { id: 'risk-check', label: '风险检查', icon: <Shield className="h-4 w-4" />, path: '/risk-check' },
       { id: 'trial-balance', label: '科目余额表', icon: <Scale className="h-4 w-4" />, path: '/reports/trial-balance' },

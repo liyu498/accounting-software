@@ -126,11 +126,16 @@ function App() {
             <Route path="/special-deductions" element={businessPage('specialDeduction', '专项附加扣除', '管理员工专项附加扣除、个税测算来源和异常资料。')} />
             <Route path="/depreciation" element={businessPage('depreciation', '折旧摊销', '维护固定资产折旧、摊销、清理、凭证和明细表导出。')} />
             <Route path="/inventory" element={businessPage('inventorySettings', '存货设置', '维护存货档案、规格型号、税率、默认科目和成本结转基础资料。')} />
+            <Route path="/inventory/movements" element={businessPage('inventoryMovement', '出入库单', '登记采购入库、销售出库、其他出入库，联动发票、成本结转和凭证生成。')} />
+            <Route path="/cost-carryover" element={businessPage('costCarryover', '成本结转', '按出库、存货计价和结转规则生成成本结转明细与凭证。')} />
             <Route path="/units" element={businessPage('unitSettings', '计量单位', '维护计量单位、换算组、精度和存货数量口径。')} />
 
             {/* Finance - 财务 */}
             <Route path="/vouchers" element={businessPage('voucher', '会计凭证', '管理凭证新增、审核、反审核、打印、导出、红冲、断号整理和批量处理。')} />
             <Route path="/vouchers/detail/:id" element={businessPage('voucher', '会计凭证详情', '查看凭证来源、分录、附件、审核日志、打印和导出。')} />
+            <Route path="/bank/reconciliation" element={businessPage('bankReconciliation', '银行对账', '核对银行流水和账面凭证，管理未达账项、差异和对账回执。')} />
+            <Route path="/aging" element={businessPage('receivablePayableAging', '往来账龄', '按客户、供应商和往来科目计算账龄、逾期金额和风险提示。')} />
+            <Route path="/matching" element={businessPage('invoiceVoucherMatching', '票据凭证匹配', '核对发票、票据、流水与凭证之间的匹配关系、差异和置信度。')} />
             <Route path="/period-closing" element={businessPage('closingTasks', '期末结转', '执行增值税、附加税、折旧摊销、成本、所得税、损益和本年利润结转。')} />
             <Route path="/risk-check" element={businessPage('riskCheck', '风险检查', '执行凭证、发票、工资、报表、税表和结账前风险校验。')} />
             <Route path="/reports/trial-balance" element={businessPage('ledgerReport', '科目余额表', '按科目、辅助核算和期间展示期初、本期、累计和期末余额。')} />

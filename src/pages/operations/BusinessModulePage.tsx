@@ -46,7 +46,12 @@ type ModuleKind =
   | 'specialDeduction'
   | 'depreciation'
   | 'inventorySettings'
+  | 'inventoryMovement'
+  | 'costCarryover'
   | 'unitSettings'
+  | 'bankReconciliation'
+  | 'receivablePayableAging'
+  | 'invoiceVoucherMatching'
   | 'riskCheck'
   | 'closingTasks'
   | 'ledgerReport'
@@ -861,6 +866,145 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'unit-003', status: '停用', voucher: '-', attachment: '-', values: { name: '批', group: '临时', base: '批', rate: '1', precision: '0', remark: '不再使用' } },
     ],
     notes: ['计量单位用于发票商品、存货和成本表，必须支持换算和数量精度。'],
+  },
+  inventoryMovement: {
+    keywordPlaceholder: '搜索单据编号、存货、仓库、往来单位',
+    primaryAction: '新增出入库',
+    importLabel: '导入出入库',
+    statusOptions: ['全部', '待处理', '已匹配', '已生成凭证', '异常'],
+    summary: [
+      { label: '本月入库', value: '¥386,420.00', tone: 'blue' },
+      { label: '本月出库', value: '¥294,880.00', tone: 'amber' },
+      { label: '已匹配发票', value: '38 单', tone: 'green' },
+      { label: '异常单据', value: '4 单', tone: 'red' },
+    ],
+    columns: [
+      { key: 'billNo', label: '单据编号' },
+      { key: 'type', label: '出入类型' },
+      { key: 'inventory', label: '存货名称' },
+      { key: 'warehouse', label: '仓库' },
+      { key: 'counterparty', label: '往来单位' },
+      { key: 'quantity', label: '数量', align: 'right' },
+      { key: 'amount', label: '金额', align: 'right' },
+      { key: 'source', label: '来源' },
+    ],
+    rows: [
+      { id: 'im-001', status: '已匹配', voucher: '记-0088', attachment: '入库单', values: { billNo: 'RK-202605-001', type: '采购入库', inventory: '控制器 A-100', warehouse: '主仓', counterparty: '上海零件供应商', quantity: '120 台', amount: '¥168,000.00', source: '进项发票' } },
+      { id: 'im-002', status: '待确认', voucher: '未生成', attachment: '出库单', values: { billNo: 'CK-202605-018', type: '销售出库', inventory: '连接线 2m', warehouse: '主仓', counterparty: '杭州客户', quantity: '600 根', amount: '¥36,000.00', source: '销项发票' } },
+      { id: 'im-003', status: '异常', voucher: '未生成', attachment: '缺发票', values: { billNo: 'QT-202605-006', type: '其他出库', inventory: '配件包', warehouse: '备件仓', counterparty: '内部领用', quantity: '20 套', amount: '待核价', source: '手工登记' } },
+    ],
+    notes: ['出入库单用于还原竞品业务处理中的存货流转入口，并向成本结转、发票匹配和凭证生成提供来源。'],
+  },
+  costCarryover: {
+    keywordPlaceholder: '搜索结转批次、存货、科目、成本来源',
+    primaryAction: '执行结转',
+    importLabel: '导入成本',
+    statusOptions: ['全部', '待处理', '待确认', '已生成凭证', '异常'],
+    summary: [
+      { label: '结转批次', value: '5 批', tone: 'blue' },
+      { label: '结转成本', value: '¥294,880.00', tone: 'amber' },
+      { label: '已生成凭证', value: '3 张', tone: 'green' },
+      { label: '阻断项', value: '2 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'batch', label: '结转批次' },
+      { key: 'method', label: '计价方法' },
+      { key: 'source', label: '成本来源' },
+      { key: 'debit', label: '借方科目' },
+      { key: 'credit', label: '贷方科目' },
+      { key: 'cost', label: '结转成本', align: 'right' },
+      { key: 'difference', label: '差异金额', align: 'right' },
+    ],
+    rows: [
+      { id: 'cc-001', status: '已生成凭证', voucher: '记-0092', attachment: '成本表', values: { batch: 'CB-202605-01', method: '移动加权', source: '销售出库单', debit: '主营业务成本', credit: '库存商品', cost: '¥218,600.00', difference: '¥0.00' } },
+      { id: 'cc-002', status: '待确认', voucher: '未生成', attachment: '明细', values: { batch: 'CB-202605-02', method: '月末一次加权', source: '其他出库单', debit: '管理费用', credit: '库存商品', cost: '¥18,420.00', difference: '¥320.00' } },
+      { id: 'cc-003', status: '异常', voucher: '阻断', attachment: '差异表', values: { batch: 'CB-202605-03', method: '移动加权', source: '未核价出库', debit: '主营业务成本', credit: '库存商品', cost: '待算', difference: '未核价' } },
+    ],
+    notes: ['成本结转先保留人工确认和差异检查，不直接修改账簿；后续可接入存货计价引擎。'],
+  },
+  bankReconciliation: {
+    keywordPlaceholder: '搜索账户、流水号、凭证号、对账状态',
+    primaryAction: '开始对账',
+    importLabel: '导入对账单',
+    statusOptions: ['全部', '已匹配', '待处理', '异常'],
+    summary: [
+      { label: '银行余额', value: '¥1,428,650.72', tone: 'blue' },
+      { label: '账面余额', value: '¥1,426,930.72', tone: 'green' },
+      { label: '未达账项', value: '6 笔', tone: 'amber' },
+      { label: '差异金额', value: '¥1,720.00', tone: 'red' },
+    ],
+    columns: [
+      { key: 'account', label: '银行账户' },
+      { key: 'statementNo', label: '流水号' },
+      { key: 'date', label: '交易日期' },
+      { key: 'summary', label: '摘要' },
+      { key: 'bankAmount', label: '银行金额', align: 'right' },
+      { key: 'bookAmount', label: '账面金额', align: 'right' },
+      { key: 'difference', label: '差异金额', align: 'right' },
+      { key: 'matchStatus', label: '对账状态' },
+    ],
+    rows: [
+      { id: 'brc-001', status: '已匹配', voucher: '记-0068', attachment: '回单', values: { account: '招商银行 6688', statementNo: 'B20260518001', date: '2026-05-18', summary: '收到货款', bankAmount: '¥86,000.00', bookAmount: '¥86,000.00', difference: '¥0.00', matchStatus: '自动匹配' } },
+      { id: 'brc-002', status: '待处理', voucher: '未生成', attachment: '流水', values: { account: '招商银行 6688', statementNo: 'B20260519012', date: '2026-05-19', summary: '手续费', bankAmount: '¥320.00', bookAmount: '¥0.00', difference: '¥320.00', matchStatus: '未入账' } },
+      { id: 'brc-003', status: '异常', voucher: '记-0071', attachment: '回单', values: { account: '建设银行 1122', statementNo: 'B20260521008', date: '2026-05-21', summary: '付款', bankAmount: '¥45,600.00', bookAmount: '¥44,200.00', difference: '¥1,400.00', matchStatus: '金额不一致' } },
+    ],
+    notes: ['银行对账是账单一览之后的财务控制台，保留未达账项、差异和凭证穿透。'],
+  },
+  receivablePayableAging: {
+    keywordPlaceholder: '搜索客户、供应商、科目、账龄区间',
+    primaryAction: '重新计算',
+    importLabel: '导出账龄',
+    statusOptions: ['全部', '正常', '待确认', '异常'],
+    summary: [
+      { label: '应收余额', value: '¥642,300.00', tone: 'blue' },
+      { label: '应付余额', value: '¥388,920.00', tone: 'green' },
+      { label: '逾期金额', value: '¥96,800.00', tone: 'amber' },
+      { label: '高风险往来', value: '5 户', tone: 'red' },
+    ],
+    columns: [
+      { key: 'counterparty', label: '往来单位' },
+      { key: 'subject', label: '往来科目' },
+      { key: 'direction', label: '方向' },
+      { key: 'balance', label: '余额', align: 'right' },
+      { key: 'age', label: '账龄区间' },
+      { key: 'overdue', label: '逾期金额', align: 'right' },
+      { key: 'lastVoucher', label: '最近凭证' },
+      { key: 'owner', label: '负责人' },
+    ],
+    rows: [
+      { id: 'age-001', status: '待确认', voucher: '记-0041', attachment: '发票', values: { counterparty: '杭州客户', subject: '应收账款', direction: '借方', balance: '¥128,600.00', age: '31-60天', overdue: '¥28,600.00', lastVoucher: '记-0041', owner: '王会计' } },
+      { id: 'age-002', status: '已通过', voucher: '记-0035', attachment: '合同', values: { counterparty: '上海零件供应商', subject: '应付账款', direction: '贷方', balance: '¥86,300.00', age: '0-30天', overdue: '¥0.00', lastVoucher: '记-0035', owner: '李会计' } },
+      { id: 'age-003', status: '异常', voucher: '记-0018', attachment: '明细', values: { counterparty: '北京渠道商', subject: '应收账款', direction: '借方', balance: '¥68,200.00', age: '90天以上', overdue: '¥68,200.00', lastVoucher: '记-0018', owner: '赵会计' } },
+    ],
+    notes: ['往来账龄用于客户催收、供应商付款审核和期末坏账风险提示。'],
+  },
+  invoiceVoucherMatching: {
+    keywordPlaceholder: '搜索发票号、凭证号、客户供应商、差异金额',
+    primaryAction: '执行匹配',
+    importLabel: '导入匹配',
+    statusOptions: ['全部', '已匹配', '待处理', '异常'],
+    summary: [
+      { label: '待匹配票据', value: '58 张', tone: 'blue' },
+      { label: '自动匹配率', value: '82%', tone: 'green' },
+      { label: '待人工确认', value: '9 张', tone: 'amber' },
+      { label: '差异票据', value: '5 张', tone: 'red' },
+    ],
+    columns: [
+      { key: 'invoiceNo', label: '发票号码' },
+      { key: 'counterparty', label: '客户/供应商' },
+      { key: 'invoiceAmount', label: '发票金额', align: 'right' },
+      { key: 'voucherNo', label: '凭证字号' },
+      { key: 'voucherAmount', label: '凭证金额', align: 'right' },
+      { key: 'difference', label: '差异金额', align: 'right' },
+      { key: 'confidence', label: '匹配置信度' },
+      { key: 'matchStatus', label: '匹配状态' },
+    ],
+    rows: [
+      { id: 'ivm-001', status: '已匹配', voucher: '记-0058', attachment: '发票', values: { invoiceNo: '031002400111', counterparty: '杭州客户', invoiceAmount: '¥56,500.00', voucherNo: '记-0058', voucherAmount: '¥56,500.00', difference: '¥0.00', confidence: '96%', matchStatus: '自动匹配' } },
+      { id: 'ivm-002', status: '待确认', voucher: '记-0063', attachment: '发票', values: { invoiceNo: '031002400128', counterparty: '上海零件供应商', invoiceAmount: '¥18,300.00', voucherNo: '记-0063', voucherAmount: '¥18,000.00', difference: '¥300.00', confidence: '74%', matchStatus: '金额差异' } },
+      { id: 'ivm-003', status: '异常', voucher: '未生成', attachment: '缺凭证', values: { invoiceNo: '031002400139', counterparty: '北京服务商', invoiceAmount: '¥9,800.00', voucherNo: '未匹配', voucherAmount: '¥0.00', difference: '¥9,800.00', confidence: '41%', matchStatus: '缺少凭证' } },
+    ],
+    notes: ['票据凭证匹配是 AI 做账和人工复核之间的控制层，所有差异必须留痕确认。'],
   },
   riskCheck: {
     keywordPlaceholder: '搜索风险项、科目、来源模块',
