@@ -768,6 +768,103 @@ impl Database {
         .execute(pool)
         .await?;
 
+        // Agency service contracts (outer agency workspace)
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS agency_service_contracts (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                contract_no TEXT NOT NULL,
+                service_package TEXT NOT NULL,
+                service_start TEXT NOT NULL,
+                service_end TEXT NOT NULL,
+                monthly_fee REAL NOT NULL DEFAULT 0,
+                renewal_status TEXT NOT NULL DEFAULT 'normal',
+                owner TEXT,
+                archive_status TEXT NOT NULL DEFAULT 'pending',
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, contract_no)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
+        // Agency fee collection ledger
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS agency_fee_collections (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                period TEXT NOT NULL,
+                receivable_amount REAL NOT NULL DEFAULT 0,
+                received_amount REAL NOT NULL DEFAULT 0,
+                arrears_amount REAL NOT NULL DEFAULT 0,
+                invoice_status TEXT NOT NULL DEFAULT 'pending',
+                payment_status TEXT NOT NULL DEFAULT 'pending',
+                collector TEXT,
+                last_follow_up TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, period)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
+        // Agency customer collaboration tasks
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS agency_collaboration_items (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                todo_title TEXT NOT NULL,
+                material_type TEXT,
+                customer_contact TEXT,
+                reminder_count INTEGER NOT NULL DEFAULT 0,
+                last_contact_at TEXT,
+                reply_status TEXT NOT NULL DEFAULT 'pending',
+                owner TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
+        // Agency service delivery tickets
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS agency_delivery_tickets (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                ticket_no TEXT NOT NULL,
+                task_name TEXT NOT NULL,
+                period TEXT NOT NULL,
+                current_stage TEXT NOT NULL,
+                sla_status TEXT NOT NULL DEFAULT 'normal',
+                owner TEXT,
+                delivery_status TEXT NOT NULL DEFAULT 'processing',
+                status TEXT NOT NULL DEFAULT 'processing',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, ticket_no)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
         // === Additional indexes for performance ===
 
         // Voucher entries: direction for trial balance queries
@@ -814,6 +911,32 @@ impl Database {
 
         // User companies: user lookups
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_user_companies_user ON user_companies(user_id)")
+            .execute(pool)
+            .await?;
+
+        // Agency operations: company and status lookups
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_agency_contracts_company ON agency_service_contracts(company_id)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_agency_contracts_status ON agency_service_contracts(status, renewal_status)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_agency_fees_company_period ON agency_fee_collections(company_id, period)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_agency_fees_status ON agency_fee_collections(status, payment_status)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_agency_collaboration_company ON agency_collaboration_items(company_id)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_agency_collaboration_status ON agency_collaboration_items(status, reply_status)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_agency_tickets_company_period ON agency_delivery_tickets(company_id, period)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_agency_tickets_status ON agency_delivery_tickets(status, delivery_status)")
             .execute(pool)
             .await?;
 
@@ -988,6 +1111,8 @@ impl Database {
             Self::insert_default_companies(pool).await?;
             log::info!("Default companies created");
         }
+
+        Self::insert_default_agency_operations(pool).await?;
 
         log::info!("Database migrations completed successfully");
         Ok(())
@@ -1794,6 +1919,129 @@ impl Database {
 
         Ok(())
     }
+
+    async fn insert_default_agency_operations(pool: &DbPool) -> Result<(), DbError> {
+        let existing: (i64,) = sqlx::query_as(
+            r#"
+            SELECT
+                (SELECT COUNT(*) FROM agency_service_contracts) +
+                (SELECT COUNT(*) FROM agency_fee_collections) +
+                (SELECT COUNT(*) FROM agency_collaboration_items) +
+                (SELECT COUNT(*) FROM agency_delivery_tickets)
+            "#,
+        )
+        .fetch_one(pool)
+        .await?;
+
+        if existing.0 > 0 {
+            return Ok(());
+        }
+
+        let companies: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, name FROM companies WHERE is_deleted = 0 ORDER BY created_at LIMIT 3")
+                .fetch_all(pool)
+                .await?;
+
+        for (index, (company_id, company_name)) in companies.iter().enumerate() {
+            let suffix = index + 1;
+            let owner = match index {
+                0 => "张会计",
+                1 => "李会计",
+                _ => "王会计",
+            };
+            let package = if index == 1 { "小规模基础包" } else { "一般纳税人标准包" };
+            let monthly_fee = if index == 1 { 1200.0 } else { 2800.0 + index as f64 * 400.0 };
+            let contract_status = if index == 2 { "expiring" } else { "active" };
+            let renewal_status = if index == 2 { "30天内到期" } else { "正常" };
+            let payment_status = if index == 0 { "paid" } else if index == 1 { "pending" } else { "overdue" };
+            let received_amount = if index == 0 { monthly_fee } else { 0.0 };
+            let arrears_amount = monthly_fee - received_amount;
+            let collaboration_status = if index == 2 { "overdue" } else if index == 1 { "completed" } else { "pending" };
+            let ticket_status = if index == 2 { "blocked" } else if index == 1 { "waiting_customer" } else { "processing" };
+
+            sqlx::query(
+                r#"
+                INSERT OR IGNORE INTO agency_service_contracts
+                    (id, company_id, contract_no, service_package, service_start, service_end, monthly_fee, renewal_status, owner, archive_status, status)
+                VALUES (?, ?, ?, ?, '2026-01-01', '2026-12-31', ?, ?, ?, ?, ?)
+                "#,
+            )
+            .bind(&uuid::Uuid::new_v4().to_string())
+            .bind(company_id)
+            .bind(format!("FW-2026-{:04}", suffix))
+            .bind(package)
+            .bind(monthly_fee)
+            .bind(renewal_status)
+            .bind(owner)
+            .bind(if index == 1 { "待上传" } else { "合同PDF" })
+            .bind(contract_status)
+            .execute(pool)
+            .await?;
+
+            sqlx::query(
+                r#"
+                INSERT OR IGNORE INTO agency_fee_collections
+                    (id, company_id, period, receivable_amount, received_amount, arrears_amount, invoice_status, payment_status, collector, last_follow_up, status)
+                VALUES (?, ?, '2026-05', ?, ?, ?, ?, ?, ?, ?, ?)
+                "#,
+            )
+            .bind(&uuid::Uuid::new_v4().to_string())
+            .bind(company_id)
+            .bind(monthly_fee)
+            .bind(received_amount)
+            .bind(arrears_amount)
+            .bind(if index == 0 { "issued" } else { "pending" })
+            .bind(payment_status)
+            .bind(owner)
+            .bind(if index == 2 { "2026-06-24 09:00" } else { "2026-06-26 10:30" })
+            .bind(payment_status)
+            .execute(pool)
+            .await?;
+
+            sqlx::query(
+                r#"
+                INSERT INTO agency_collaboration_items
+                    (id, company_id, todo_title, material_type, customer_contact, reminder_count, last_contact_at, reply_status, owner, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                "#,
+            )
+            .bind(&uuid::Uuid::new_v4().to_string())
+            .bind(company_id)
+            .bind(if index == 2 { "补传销项发票" } else { "补传 5 月银行回单" })
+            .bind(if index == 2 { "发票影像" } else { "银行回单" })
+            .bind(if index == 0 { "陈经理" } else if index == 1 { "刘总" } else { "周会计" })
+            .bind(if index == 2 { 4 } else { 1 + index as i32 })
+            .bind(if index == 2 { "2026-06-24 09:00" } else { "2026-06-26 14:12" })
+            .bind(if index == 1 { "已确认" } else if index == 2 { "超时" } else { "待回复" })
+            .bind(owner)
+            .bind(collaboration_status)
+            .execute(pool)
+            .await?;
+
+            sqlx::query(
+                r#"
+                INSERT OR IGNORE INTO agency_delivery_tickets
+                    (id, company_id, ticket_no, task_name, period, current_stage, sla_status, owner, delivery_status, status)
+                VALUES (?, ?, ?, ?, '2026-05', ?, ?, ?, ?, ?)
+                "#,
+            )
+            .bind(&uuid::Uuid::new_v4().to_string())
+            .bind(company_id)
+            .bind(format!("GD-202605-{:04}", 180 + suffix))
+            .bind(if index == 2 { "增值税申报" } else { "月度做账交付" })
+            .bind(if index == 0 { "凭证复核" } else if index == 1 { "客户确认" } else { "资料缺失" })
+            .bind(if index == 2 { "已超时" } else { "正常" })
+            .bind(owner)
+            .bind(ticket_status)
+            .bind(ticket_status)
+            .execute(pool)
+            .await?;
+
+            log::info!("Seeded agency operation data for {}", company_name);
+        }
+
+        Ok(())
+    }
 }
 
 fn days_in_month(year: i32, month: i32) -> i32 {
@@ -2311,6 +2559,78 @@ pub struct CreateSettlementRuleInput {
     pub voucher_word_id: Option<String>,
     pub summary_template: Option<String>,
     pub priority: Option<i32>,
+}
+
+// ==================== Agency Operation Structs ====================
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct AgencyServiceContract {
+    pub id: String,
+    pub company_id: String,
+    pub company_name: Option<String>,
+    pub contract_no: String,
+    pub service_package: String,
+    pub service_start: String,
+    pub service_end: String,
+    pub monthly_fee: f64,
+    pub renewal_status: String,
+    pub owner: Option<String>,
+    pub archive_status: String,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct AgencyFeeCollection {
+    pub id: String,
+    pub company_id: String,
+    pub company_name: Option<String>,
+    pub period: String,
+    pub receivable_amount: f64,
+    pub received_amount: f64,
+    pub arrears_amount: f64,
+    pub invoice_status: String,
+    pub payment_status: String,
+    pub collector: Option<String>,
+    pub last_follow_up: Option<String>,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct AgencyCollaborationItem {
+    pub id: String,
+    pub company_id: String,
+    pub company_name: Option<String>,
+    pub todo_title: String,
+    pub material_type: Option<String>,
+    pub customer_contact: Option<String>,
+    pub reminder_count: i32,
+    pub last_contact_at: Option<String>,
+    pub reply_status: String,
+    pub owner: Option<String>,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct AgencyDeliveryTicket {
+    pub id: String,
+    pub company_id: String,
+    pub company_name: Option<String>,
+    pub ticket_no: String,
+    pub task_name: String,
+    pub period: String,
+    pub current_stage: String,
+    pub sla_status: String,
+    pub owner: Option<String>,
+    pub delivery_status: String,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 // ==================== Dashboard Structs ====================

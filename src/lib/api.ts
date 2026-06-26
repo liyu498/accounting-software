@@ -101,6 +101,83 @@ export interface Invoice {
   updatedAt: string
 }
 
+export interface AgencyServiceContract {
+  id: string
+  companyId: string
+  companyName: string | null
+  contractNo: string
+  servicePackage: string
+  serviceStart: string
+  serviceEnd: string
+  monthlyFee: number
+  renewalStatus: string
+  owner: string | null
+  archiveStatus: string
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AgencyFeeCollection {
+  id: string
+  companyId: string
+  companyName: string | null
+  period: string
+  receivableAmount: number
+  receivedAmount: number
+  arrearsAmount: number
+  invoiceStatus: string
+  paymentStatus: string
+  collector: string | null
+  lastFollowUp: string | null
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AgencyCollaborationItem {
+  id: string
+  companyId: string
+  companyName: string | null
+  todoTitle: string
+  materialType: string | null
+  customerContact: string | null
+  reminderCount: number
+  lastContactAt: string | null
+  replyStatus: string
+  owner: string | null
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AgencyDeliveryTicket {
+  id: string
+  companyId: string
+  companyName: string | null
+  ticketNo: string
+  taskName: string
+  period: string
+  currentStage: string
+  slaStatus: string
+  owner: string | null
+  deliveryStatus: string
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AgencyOperationOverview {
+  serviceContracts: number
+  expiringContracts: number
+  receivableAmount: number
+  arrearsAmount: number
+  pendingCollaboration: number
+  overdueCollaboration: number
+  openTickets: number
+  blockedTickets: number
+}
+
 // ============================================
 // Auth API
 // ============================================
@@ -573,6 +650,210 @@ export const invoiceApi = {
     try {
       const result = await invoke('get_invoices_by_voucher', { voucherId, companyId }) as Invoice[]
       return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
+
+type RawAgencyServiceContract = {
+  id: string
+  company_id: string
+  company_name: string | null
+  contract_no: string
+  service_package: string
+  service_start: string
+  service_end: string
+  monthly_fee: number
+  renewal_status: string
+  owner: string | null
+  archive_status: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+type RawAgencyFeeCollection = {
+  id: string
+  company_id: string
+  company_name: string | null
+  period: string
+  receivable_amount: number
+  received_amount: number
+  arrears_amount: number
+  invoice_status: string
+  payment_status: string
+  collector: string | null
+  last_follow_up: string | null
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+type RawAgencyCollaborationItem = {
+  id: string
+  company_id: string
+  company_name: string | null
+  todo_title: string
+  material_type: string | null
+  customer_contact: string | null
+  reminder_count: number
+  last_contact_at: string | null
+  reply_status: string
+  owner: string | null
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+type RawAgencyDeliveryTicket = {
+  id: string
+  company_id: string
+  company_name: string | null
+  ticket_no: string
+  task_name: string
+  period: string
+  current_stage: string
+  sla_status: string
+  owner: string | null
+  delivery_status: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+type RawAgencyOperationOverview = {
+  service_contracts: number
+  expiring_contracts: number
+  receivable_amount: number
+  arrears_amount: number
+  pending_collaboration: number
+  overdue_collaboration: number
+  open_tickets: number
+  blocked_tickets: number
+}
+
+const mapAgencyServiceContract = (item: RawAgencyServiceContract): AgencyServiceContract => ({
+  id: item.id,
+  companyId: item.company_id,
+  companyName: item.company_name,
+  contractNo: item.contract_no,
+  servicePackage: item.service_package,
+  serviceStart: item.service_start,
+  serviceEnd: item.service_end,
+  monthlyFee: item.monthly_fee,
+  renewalStatus: item.renewal_status,
+  owner: item.owner,
+  archiveStatus: item.archive_status,
+  status: item.status,
+  createdAt: item.created_at,
+  updatedAt: item.updated_at,
+})
+
+const mapAgencyFeeCollection = (item: RawAgencyFeeCollection): AgencyFeeCollection => ({
+  id: item.id,
+  companyId: item.company_id,
+  companyName: item.company_name,
+  period: item.period,
+  receivableAmount: item.receivable_amount,
+  receivedAmount: item.received_amount,
+  arrearsAmount: item.arrears_amount,
+  invoiceStatus: item.invoice_status,
+  paymentStatus: item.payment_status,
+  collector: item.collector,
+  lastFollowUp: item.last_follow_up,
+  status: item.status,
+  createdAt: item.created_at,
+  updatedAt: item.updated_at,
+})
+
+const mapAgencyCollaborationItem = (item: RawAgencyCollaborationItem): AgencyCollaborationItem => ({
+  id: item.id,
+  companyId: item.company_id,
+  companyName: item.company_name,
+  todoTitle: item.todo_title,
+  materialType: item.material_type,
+  customerContact: item.customer_contact,
+  reminderCount: item.reminder_count,
+  lastContactAt: item.last_contact_at,
+  replyStatus: item.reply_status,
+  owner: item.owner,
+  status: item.status,
+  createdAt: item.created_at,
+  updatedAt: item.updated_at,
+})
+
+const mapAgencyDeliveryTicket = (item: RawAgencyDeliveryTicket): AgencyDeliveryTicket => ({
+  id: item.id,
+  companyId: item.company_id,
+  companyName: item.company_name,
+  ticketNo: item.ticket_no,
+  taskName: item.task_name,
+  period: item.period,
+  currentStage: item.current_stage,
+  slaStatus: item.sla_status,
+  owner: item.owner,
+  deliveryStatus: item.delivery_status,
+  status: item.status,
+  createdAt: item.created_at,
+  updatedAt: item.updated_at,
+})
+
+const mapAgencyOperationOverview = (item: RawAgencyOperationOverview): AgencyOperationOverview => ({
+  serviceContracts: item.service_contracts,
+  expiringContracts: item.expiring_contracts,
+  receivableAmount: item.receivable_amount,
+  arrearsAmount: item.arrears_amount,
+  pendingCollaboration: item.pending_collaboration,
+  overdueCollaboration: item.overdue_collaboration,
+  openTickets: item.open_tickets,
+  blockedTickets: item.blocked_tickets,
+})
+
+// ============================================
+// Agency operation API (机构运营)
+// ============================================
+export const agencyApi = {
+  getServiceContracts: async (filters: { companyId?: string; status?: string } = {}): Promise<ApiResponse<AgencyServiceContract[]>> => {
+    try {
+      const result = await invoke('get_agency_service_contracts', filters) as RawAgencyServiceContract[]
+      return { success: true, data: result.map(mapAgencyServiceContract) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  getFeeCollections: async (filters: { companyId?: string; period?: string; status?: string } = {}): Promise<ApiResponse<AgencyFeeCollection[]>> => {
+    try {
+      const result = await invoke('get_agency_fee_collections', filters) as RawAgencyFeeCollection[]
+      return { success: true, data: result.map(mapAgencyFeeCollection) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  getCollaborationItems: async (filters: { companyId?: string; status?: string } = {}): Promise<ApiResponse<AgencyCollaborationItem[]>> => {
+    try {
+      const result = await invoke('get_agency_collaboration_items', filters) as RawAgencyCollaborationItem[]
+      return { success: true, data: result.map(mapAgencyCollaborationItem) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  getDeliveryTickets: async (filters: { companyId?: string; period?: string; status?: string } = {}): Promise<ApiResponse<AgencyDeliveryTicket[]>> => {
+    try {
+      const result = await invoke('get_agency_delivery_tickets', filters) as RawAgencyDeliveryTicket[]
+      return { success: true, data: result.map(mapAgencyDeliveryTicket) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  getOverview: async (period = '2026-05'): Promise<ApiResponse<AgencyOperationOverview>> => {
+    try {
+      const result = await invoke('get_agency_operation_overview', { period }) as RawAgencyOperationOverview
+      return { success: true, data: mapAgencyOperationOverview(result) }
     } catch (error) {
       return { success: false, error: String(error) }
     }

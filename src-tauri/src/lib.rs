@@ -47,6 +47,12 @@ pub fn run() {
             commands::auth::check,
             commands::auth::register,
             commands::auth::get_current_user,
+            // Agency operation commands
+            commands::agency::get_agency_service_contracts,
+            commands::agency::get_agency_fee_collections,
+            commands::agency::get_agency_collaboration_items,
+            commands::agency::get_agency_delivery_tickets,
+            commands::agency::get_agency_operation_overview,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,
