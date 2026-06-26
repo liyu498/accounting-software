@@ -144,6 +144,7 @@ function App() {
 
             {/* Tax Reports - 税务申报 */}
             <Route path="/tax/workspace" element={<TaxWorkspace />} />
+            <Route path="/tax/calendar" element={businessPage('declarationCalendar', '申报日历', '按税种和所属期跟踪截止日期、负责人、取数状态、风险和下一步动作。')} />
             <Route path="/tax/vat" element={businessPage('taxReport', '增值税及附加', '生成增值税、附加税申报表，展示发票取数、留抵、抵扣和差异。')} />
             <Route path="/tax/withholding" element={businessPage('taxReport', '扣缴所得税', '根据薪酬表和专项附加扣除生成个税扣缴申报数据。')} />
             <Route path="/tax/stamp" element={businessPage('taxReport', '印花税', '根据合同、单据和业务台账生成印花税应税明细。')} />
@@ -163,7 +164,8 @@ function App() {
             <Route path="/settings/history-subsidiary-ledger" element={businessPage('ledgerReport', '历史明细账', '导入历史明细账，支持凭证和科目穿透。')} />
             <Route path="/settings/accounts" element={businessPage('accountArchive', '账户登记', '维护银行账户、现金账户、第三方支付账户和默认科目。')} />
             <Route path="/settings/customers" element={businessPage('customerArchive', '客户', '维护客户编码、名称、税号、开户行、银行账号和默认科目。')} />
-            <Route path="/settings/customers-contracts" element={businessPage('customerArchive', '客户与合同', '维护客户、合同和应税合同台账。')} />
+            <Route path="/settings/contracts" element={businessPage('contractLedger', '合同台账', '维护客户和供应商合同、应税合同、发票关联、印花税取数和附件归档。')} />
+            <Route path="/settings/customers-contracts" element={businessPage('contractLedger', '客户与合同', '维护客户、合同和应税合同台账。')} />
             <Route path="/settings/suppliers" element={businessPage('supplierArchive', '供应商', '维护供应商编码、税号、银行账号、别名和默认科目。')} />
             <Route path="/settings/other-contacts" element={businessPage('otherContactArchive', '其他往来', '维护员工、股东、个人和其他往来辅助资料。')} />
             <Route path="/settings/projects" element={businessPage('projectArchive', '项目', '维护项目档案、项目辅助核算和默认科目。')} />
@@ -180,6 +182,9 @@ function App() {
             <Route path="/settings/settlement-rules" element={businessPage('settlementRules', '结转规则', '维护期末结转、损益结转、税费计提和折旧摊销规则。')} />
             <Route path="/settings/currencies" element={businessPage('currencySettings', '币别管理', '维护币别、汇率、外币核算和折算规则。')} />
             <Route path="/settings/roles" element={businessPage('roleSettings', '权限管理', '维护角色、菜单权限、操作权限和审计范围。')} />
+            <Route path="/settings/print-templates" element={businessPage('printTemplateSettings', '打印模板', '维护凭证纸、报表、申报包和附件归档的打印/PDF 模板版本。')} />
+            <Route path="/settings/tax-adapters" element={businessPage('taxAdapterSettings', '税局接口配置', '维护合法税局 adapter 的地区、税种、授权状态、回执能力和提交边界。')} />
+            <Route path="/settings/bank-adapters" element={businessPage('bankAdapterSettings', '银行接口配置', '维护银行流水采集、回单、对账能力和直连预留参数。')} />
           </Route>
 
           {/* Voucher edit routes use the redesigned operating surface. */}

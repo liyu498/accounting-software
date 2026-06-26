@@ -26,6 +26,7 @@ type ModuleKind =
   | 'attachmentCenter'
   | 'importCenter'
   | 'exportCenter'
+  | 'contractLedger'
   | 'outputInvoice'
   | 'inputInvoice'
   | 'invoiceSelection'
@@ -46,6 +47,7 @@ type ModuleKind =
   | 'ledgerReport'
   | 'financialReport'
   | 'taxReport'
+  | 'declarationCalendar'
   | 'settingsData'
   | 'matchingRules'
   | 'companyInfo'
@@ -68,6 +70,9 @@ type ModuleKind =
   | 'commonDigests'
   | 'currencySettings'
   | 'roleSettings'
+  | 'printTemplateSettings'
+  | 'taxAdapterSettings'
+  | 'bankAdapterSettings'
   | 'voucherRecycle'
   | 'declarationReceipt'
 
@@ -279,6 +284,34 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'exp-003', status: '异常', voucher: '-', attachment: '日志', values: { file: '附件归档包.zip', module: '附件中心', format: 'ZIP', scope: '全部附件', hash: '失败', operator: '赵会计', time: '06-26 22:18', expire: '待重试' } },
     ],
     notes: ['下载中心对应竞品常见的导出文件管理入口，后续所有 Excel/PDF/ZIP 都应在这里留痕。', '正式导出需要记录筛选条件、模板版本、文件哈希、操作人和下载状态。'],
+  },
+  contractLedger: {
+    keywordPlaceholder: '搜索合同编号、客户/供应商、合同类型、印花税状态',
+    primaryAction: '新增合同',
+    importLabel: '导入合同',
+    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
+    summary: [
+      { label: '合同数量', value: '46 份', tone: 'blue' },
+      { label: '已归档', value: '39 份', tone: 'green' },
+      { label: '待计税', value: '5 份', tone: 'amber' },
+      { label: '异常', value: '2 份', tone: 'red' },
+    ],
+    columns: [
+      { key: 'contractNo', label: '合同编号' },
+      { key: 'partner', label: '客户/供应商' },
+      { key: 'type', label: '合同类型' },
+      { key: 'signDate', label: '签订日期' },
+      { key: 'amount', label: '合同金额', align: 'right' },
+      { key: 'taxItem', label: '印花税税目' },
+      { key: 'invoice', label: '发票关联' },
+      { key: 'archive', label: '归档状态' },
+    ],
+    rows: [
+      { id: 'con-001', status: '已通过', voucher: '税表快照', attachment: 'PDF', values: { contractNo: 'HT-2026-001', partner: '上海辰光贸易有限公司', type: '销售合同', signDate: '2026-05-03', amount: '¥680,000.00', taxItem: '购销合同', invoice: '销项 12 张', archive: '已归档' } },
+      { id: 'con-002', status: '待确认', voucher: '待计税', attachment: '扫描件', values: { contractNo: 'HT-2026-008', partner: '杭州辰星科技有限公司', type: '服务合同', signDate: '2026-05-09', amount: '¥120,000.00', taxItem: '技术合同', invoice: '销项 1 张', archive: '待复核' } },
+      { id: 'con-003', status: '异常', voucher: '-', attachment: '缺签章', values: { contractNo: 'HT-2026-019', partner: '南京云杉贸易有限公司', type: '采购合同', signDate: '待补', amount: '¥98,000.00', taxItem: '购销合同', invoice: '未关联', archive: '需补资料' } },
+    ],
+    notes: ['合同台账影响客户资料、单据登记、印花税取数和附件归档，是税务申报闭环里的关键台账。', '当前先补合同编号、相对方、金额、税目、发票关联和归档状态框架。'],
   },
   outputInvoice: {
     keywordPlaceholder: '搜索发票号码、购方名称、商品名称、备注',
@@ -813,6 +846,34 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'taxr-003', status: '异常', voucher: '报表快照', attachment: 'PDF', values: { taxType: '印花税', form: '应税合同', source: '单据登记', amount: '¥980,000.00', tax: '差异', check: '需复核' } },
     ],
     notes: ['税务报表支持重新计算、取数说明、差异解释和 PDF/Excel 导出。'],
+  },
+  declarationCalendar: {
+    keywordPlaceholder: '搜索税种、申报期、截止日期、负责人',
+    primaryAction: '生成计划',
+    importLabel: '导入日历',
+    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
+    summary: [
+      { label: '本期待办', value: '12 项', tone: 'blue' },
+      { label: '已完成', value: '7 项', tone: 'green' },
+      { label: '临近截止', value: '4 项', tone: 'amber' },
+      { label: '逾期风险', value: '1 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'taxType', label: '税种/事项' },
+      { key: 'period', label: '申报期' },
+      { key: 'deadline', label: '截止日期', align: 'center' },
+      { key: 'stage', label: '当前阶段' },
+      { key: 'owner', label: '负责人' },
+      { key: 'source', label: '取数来源' },
+      { key: 'risk', label: '风险提示' },
+      { key: 'next', label: '下一步' },
+    ],
+    rows: [
+      { id: 'cal-001', status: '待确认', voucher: '申报包', attachment: '取数快照', values: { taxType: '增值税及附加', period: '2026-05', deadline: '06-30', stage: '待确认', owner: '王会计', source: '发票/凭证', risk: '2 张进项未勾选', next: '确认申报包' } },
+      { id: 'cal-002', status: '已通过', voucher: '回执', attachment: 'PDF', values: { taxType: '企业所得税', period: '2026-Q2', deadline: '07-15', stage: '已申报', owner: '李会计', source: '利润表', risk: '无', next: '归档回执' } },
+      { id: 'cal-003', status: '异常', voucher: '-', attachment: '合同台账', values: { taxType: '印花税', period: '2026-05', deadline: '06-30', stage: '资料缺失', owner: '赵会计', source: '合同台账', risk: '合同金额差异', next: '补齐合同' } },
+    ],
+    notes: ['申报日历用于跨税种跟踪截止日期、负责人、取数状态和申报风险。', '后续应和申报工作台、回执缴款书、批量申报联动。'],
   },
   settingsData: {
     keywordPlaceholder: '搜索编码、名称、助记码、税号',
@@ -1360,6 +1421,90 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'role-tax', status: '异常', voucher: '-', attachment: '待复核', values: { role: '申报专员', members: '3', menus: '税务申报/报表', actions: '生成申报包/确认', dataScope: '分配客户', audit: '权限待复核' } },
     ],
     notes: ['权限管理需要区分菜单、按钮操作、客户数据范围和导出权限。', '凭证删除、反结账、真实申报提交等高风险动作必须进入审计日志。'],
+  },
+  printTemplateSettings: {
+    keywordPlaceholder: '搜索模板名称、适用模块、纸张、启用状态',
+    primaryAction: '新增模板',
+    importLabel: '导入模板',
+    statusOptions: ['全部', '启用', '停用', '待确认', '异常'],
+    summary: [
+      { label: '打印模板', value: '18 套', tone: 'blue' },
+      { label: '已启用', value: '14 套', tone: 'green' },
+      { label: '待复核', value: '3 套', tone: 'amber' },
+      { label: '异常', value: '1 套', tone: 'red' },
+    ],
+    columns: [
+      { key: 'name', label: '模板名称' },
+      { key: 'module', label: '适用模块' },
+      { key: 'paper', label: '纸张规格' },
+      { key: 'orientation', label: '方向', align: 'center' },
+      { key: 'version', label: '版本' },
+      { key: 'default', label: '默认模板', align: 'center' },
+      { key: 'updatedBy', label: '维护人' },
+      { key: 'updatedAt', label: '更新时间' },
+    ],
+    rows: [
+      { id: 'pt-001', status: '启用', voucher: '-', attachment: '预览PDF', values: { name: '记账凭证A4', module: '会计凭证', paper: 'A4', orientation: '纵向', version: 'v1.2', default: '是', updatedBy: '王会计', updatedAt: '06-26 22:10' } },
+      { id: 'pt-002', status: '待确认', voucher: '-', attachment: '预览PDF', values: { name: '资产负债表A4', module: '财务报表', paper: 'A4', orientation: '横向', version: 'v1.0', default: '否', updatedBy: '李会计', updatedAt: '06-26 22:14' } },
+      { id: 'pt-003', status: '异常', voucher: '-', attachment: '渲染日志', values: { name: '申报包留档模板', module: '税务申报', paper: 'A4', orientation: '纵向', version: 'v0.9', default: '否', updatedBy: '赵会计', updatedAt: '待修复' } },
+    ],
+    notes: ['打印模板配置用于统一凭证纸、A4、A5、B5 和申报包版式，后续细化模板时不再散落到各页面。', '正式版本需要记录模板版本、默认状态、预览文件和渲染验证日志。'],
+  },
+  taxAdapterSettings: {
+    keywordPlaceholder: '搜索税局渠道、地区、税种、授权状态',
+    primaryAction: '新增税局渠道',
+    importLabel: '导入配置',
+    statusOptions: ['全部', '启用', '停用', '待确认', '异常'],
+    summary: [
+      { label: '税局渠道', value: '5 个', tone: 'blue' },
+      { label: '已配置', value: '3 个', tone: 'green' },
+      { label: '待授权', value: '1 个', tone: 'amber' },
+      { label: '异常', value: '1 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'region', label: '地区' },
+      { key: 'channel', label: '渠道名称' },
+      { key: 'taxTypes', label: '适用税种' },
+      { key: 'authMode', label: '授权方式' },
+      { key: 'account', label: '账号状态' },
+      { key: 'submitScope', label: '提交范围' },
+      { key: 'receipt', label: '回执能力' },
+      { key: 'lastCheck', label: '最近检测' },
+    ],
+    rows: [
+      { id: 'ta-001', status: '启用', voucher: '-', attachment: '授权记录', values: { region: '上海', channel: '电子税务局adapter', taxTypes: '增值税/所得税/印花税', authMode: '人工授权', account: '已配置', submitScope: '生成申报包', receipt: '人工导入', lastCheck: '06-26 09:30' } },
+      { id: 'ta-002', status: '待确认', voucher: '-', attachment: '参数表', values: { region: '浙江', channel: '电子税务局adapter', taxTypes: '个税/社保费', authMode: '待授权', account: '待配置', submitScope: '只读取数', receipt: '未启用', lastCheck: '待检测' } },
+      { id: 'ta-003', status: '异常', voucher: '-', attachment: '错误日志', values: { region: '江苏', channel: '电子税务局adapter', taxTypes: '财报报送', authMode: '人工授权', account: '失效', submitScope: '禁用提交', receipt: '失败', lastCheck: '授权过期' } },
+    ],
+    notes: ['税局接口配置只做合法 adapter 的参数和授权状态管理，不伪装真实提交。', '自动报税后续必须经过授权、人工确认、提交回执、缴款书和审计日志闭环。'],
+  },
+  bankAdapterSettings: {
+    keywordPlaceholder: '搜索银行、账户、采集方式、授权状态',
+    primaryAction: '新增银行渠道',
+    importLabel: '导入配置',
+    statusOptions: ['全部', '启用', '停用', '待确认', '异常'],
+    summary: [
+      { label: '银行渠道', value: '6 个', tone: 'blue' },
+      { label: '已启用', value: '4 个', tone: 'green' },
+      { label: '待授权', value: '1 个', tone: 'amber' },
+      { label: '异常', value: '1 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'bank', label: '银行/平台' },
+      { key: 'account', label: '账户名称' },
+      { key: 'collectMode', label: '采集方式' },
+      { key: 'fileFormat', label: '支持格式' },
+      { key: 'authStatus', label: '授权状态' },
+      { key: 'reconcile', label: '对账能力' },
+      { key: 'receipt', label: '回单能力' },
+      { key: 'lastSync', label: '最近同步' },
+    ],
+    rows: [
+      { id: 'ba-001', status: '启用', voucher: '-', attachment: '网银模板', values: { bank: '工商银行', account: '工行基本户', collectMode: 'Excel/CSV导入', fileFormat: 'xlsx/csv', authStatus: '无需直连', reconcile: '启用', receipt: '人工上传', lastSync: '06-26 10:12' } },
+      { id: 'ba-002', status: '待确认', voucher: '-', attachment: '授权申请', values: { bank: '招商银行', account: '招行一般户', collectMode: '直连预留', fileFormat: '待接口', authStatus: '待授权', reconcile: '预留', receipt: '预留', lastSync: '待开通' } },
+      { id: 'ba-003', status: '异常', voucher: '-', attachment: '错误日志', values: { bank: '支付宝企业账单', account: '支付宝企业户', collectMode: '账单导入', fileFormat: 'csv', authStatus: '模板变更', reconcile: '部分启用', receipt: '不支持', lastSync: '解析失败' } },
+    ],
+    notes: ['银行接口配置用于管理导入模板、直连预留、回单能力和对账能力。', '真实银行直连必须依赖合法接口和企业授权；当前默认以文件导入和人工回单为主。'],
   },
   settlementRules: {
     keywordPlaceholder: '搜索结转类型、执行顺序、取数来源、凭证模板',
