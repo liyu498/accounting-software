@@ -150,7 +150,7 @@ function buildTaxDeclarationPackageHtml(exportedAt: string) {
   `).join('')
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>税务申报包-2026-05</title><style>
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:22px;color:#111827}
+    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:22px;color:#111827}
     h1{text-align:center;font-size:20px;margin:0 0 8px} h2{font-size:15px;margin:18px 0 8px}
     .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 16px;margin:10px 0 14px;font-size:12px;color:#334155}
     .meta span{border-bottom:1px solid #cbd5e1;padding-bottom:5px}

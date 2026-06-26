@@ -4,7 +4,17 @@ interface ExportHtmlToPdfOptions {
   pageTitle: string
 }
 
-const chineseFontStack = '"PingFang SC","Microsoft YaHei","Noto Sans SC","Source Han Sans SC",Arial,sans-serif'
+const chineseFontStack = '"Noto Sans SC","PingFang SC","Microsoft YaHei","Source Han Sans SC",Arial,sans-serif'
+
+async function waitForChineseFonts() {
+  if (!('fonts' in document)) return
+  await Promise.all([
+    document.fonts.load('400 12px "Noto Sans SC"'),
+    document.fonts.load('500 12px "Noto Sans SC"'),
+    document.fonts.load('700 18px "Noto Sans SC"'),
+  ])
+  await document.fonts.ready
+}
 
 function extractPrintableHtml(html: string) {
   const documentHtml = new DOMParser().parseFromString(html, 'text/html')
@@ -36,6 +46,7 @@ export async function exportHtmlToPdf({ html, fileName, pageTitle }: ExportHtmlT
   document.body.appendChild(host)
 
   try {
+    await waitForChineseFonts()
     const target = host.querySelector('.pdf-render-root') as HTMLElement
     const canvas = await html2canvas(target, {
       backgroundColor: '#ffffff',
