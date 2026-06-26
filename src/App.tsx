@@ -86,7 +86,14 @@ function App() {
           >
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/ai" element={<AIBookkeeping />} />
+            <Route path="/notifications" element={businessPage('notificationCenter', '通知待办', '集中处理资料采集、AI确认、凭证异常、报表重算和申报截止提醒。')} />
             <Route path="/settings" element={businessPage('settingsData', '设置总览', '维护企业资料、期初、历史账簿、基础档案、匹配规则和权限。')} />
+
+            {/* AI automation - AI 自动化框架 */}
+            <Route path="/ai/jobs" element={businessPage('aiJobQueue', 'AI任务队列', '跟踪 OCR、流水分类、凭证建议、风险解释等 AI 异步任务状态。')} />
+            <Route path="/ai/recognition" element={businessPage('aiRecognitionResults', '识别结果', '复核发票、流水、单据和附件的 AI 结构化识别结果与置信度。')} />
+            <Route path="/ai/suggestions" element={businessPage('aiVoucherSuggestions', '凭证建议', '管理 AI 生成的凭证草稿、借贷分录、置信度、风险和人工确认状态。')} />
+            <Route path="/ai/rules" element={businessPage('aiRuleTraining', '规则训练', '维护 AI 推荐规则、训练样本、命中率、版本和人工审核状态。')} />
 
             {/* Collection and file centers - 资料采集与文件中心 */}
             <Route path="/collection" element={businessPage('dataCollection', '采集工作台', '集中跟踪客户资料收集、缺失项、负责人、截止日期和后续识别流转。')} />

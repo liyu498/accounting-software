@@ -26,6 +26,11 @@ type ModuleKind =
   | 'attachmentCenter'
   | 'importCenter'
   | 'exportCenter'
+  | 'aiJobQueue'
+  | 'aiRecognitionResults'
+  | 'aiVoucherSuggestions'
+  | 'aiRuleTraining'
+  | 'notificationCenter'
   | 'contractLedger'
   | 'outputInvoice'
   | 'inputInvoice'
@@ -290,6 +295,146 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'exp-003', status: '异常', voucher: '-', attachment: '日志', values: { file: '附件归档包.zip', module: '附件中心', format: 'ZIP', scope: '全部附件', hash: '失败', operator: '赵会计', time: '06-26 22:18', expire: '待重试' } },
     ],
     notes: ['下载中心对应竞品常见的导出文件管理入口，后续所有 Excel/PDF/ZIP 都应在这里留痕。', '正式导出需要记录筛选条件、模板版本、文件哈希、操作人和下载状态。'],
+  },
+  aiJobQueue: {
+    keywordPlaceholder: '搜索任务号、来源模块、文件、处理阶段、负责人',
+    primaryAction: '新建AI任务',
+    importLabel: '导入任务',
+    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
+    summary: [
+      { label: 'AI任务', value: '86 个', tone: 'blue' },
+      { label: '已完成', value: '62 个', tone: 'green' },
+      { label: '待确认', value: '18 个', tone: 'amber' },
+      { label: '异常', value: '6 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'jobNo', label: '任务号' },
+      { key: 'source', label: '来源模块' },
+      { key: 'file', label: '文件/批次' },
+      { key: 'stage', label: '处理阶段' },
+      { key: 'confidence', label: '平均置信度', align: 'right' },
+      { key: 'owner', label: '负责人' },
+      { key: 'startedAt', label: '开始时间' },
+      { key: 'next', label: '下一步' },
+    ],
+    rows: [
+      { id: 'aij-001', status: '待确认', voucher: '草稿12', attachment: 'OCR结果', values: { jobNo: 'AI-20260626-001', source: '发票采集', file: '销项发票批次0526', stage: '凭证建议完成', confidence: '92%', owner: '王会计', startedAt: '06-26 09:12', next: '人工确认分录' } },
+      { id: 'aij-002', status: '已通过', voucher: '记-0051', attachment: '日志', values: { jobNo: 'AI-20260626-002', source: '银行流水', file: 'BANK-0526-01', stage: '已生成凭证', confidence: '96%', owner: '李会计', startedAt: '06-26 10:03', next: '归档日志' } },
+      { id: 'aij-003', status: '异常', voucher: '-', attachment: '错误截图', values: { jobNo: 'AI-20260626-003', source: '单据登记', file: '费用报销图片', stage: '识别失败', confidence: '41%', owner: '赵会计', startedAt: '06-26 10:48', next: '人工处理' } },
+    ],
+    notes: ['AI 任务队列用于承载 OCR、流水分类、凭证建议和风险解释的异步处理状态。', 'AI 任务不能直接入账，必须进入待确认或异常处理流程。'],
+  },
+  aiRecognitionResults: {
+    keywordPlaceholder: '搜索识别对象、来源文件、字段、置信度、处理人',
+    primaryAction: '复核识别',
+    importLabel: '导入结果',
+    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
+    summary: [
+      { label: '识别结果', value: '248 条', tone: 'blue' },
+      { label: '自动通过', value: '196 条', tone: 'green' },
+      { label: '待复核', value: '39 条', tone: 'amber' },
+      { label: '异常字段', value: '13 条', tone: 'red' },
+    ],
+    columns: [
+      { key: 'object', label: '识别对象' },
+      { key: 'file', label: '来源文件' },
+      { key: 'fields', label: '关键字段' },
+      { key: 'matched', label: '档案匹配' },
+      { key: 'confidence', label: '置信度', align: 'right' },
+      { key: 'risk', label: '风险' },
+      { key: 'reviewer', label: '复核人' },
+      { key: 'target', label: '流向模块' },
+    ],
+    rows: [
+      { id: 'air-001', status: '已通过', voucher: '草稿', attachment: 'PDF', values: { object: '销项发票 310026000118', file: '310026000118.pdf', fields: '购方/税率/金额', matched: '客户已匹配', confidence: '98%', risk: '无', reviewer: '系统', target: '销项发票' } },
+      { id: 'air-002', status: '待确认', voucher: '草稿', attachment: 'OFD', values: { object: '进项发票 310026000221', file: 'input_0221.ofd', fields: '供应商/税额', matched: '供应商待确认', confidence: '84%', risk: '税率需复核', reviewer: '李会计', target: '进项发票' } },
+      { id: 'air-003', status: '异常', voucher: '-', attachment: '图片', values: { object: '费用报销单', file: 'expense_blur.jpg', fields: '金额/日期', matched: '未匹配', confidence: '43%', risk: '影像模糊', reviewer: '待处理', target: '异常队列' } },
+    ],
+    notes: ['识别结果必须保留来源文件、字段置信度、档案匹配和人工复核状态。', '后续可从这里回链到附件中心、发票采集和凭证建议。'],
+  },
+  aiVoucherSuggestions: {
+    keywordPlaceholder: '搜索建议号、来源、摘要、科目、置信度',
+    primaryAction: '批量确认',
+    importLabel: '导出建议',
+    statusOptions: ['全部', '待处理', '待确认', '已生成凭证', '异常'],
+    summary: [
+      { label: '凭证建议', value: '54 条', tone: 'blue' },
+      { label: '可确认', value: '38 条', tone: 'green' },
+      { label: '待修改', value: '12 条', tone: 'amber' },
+      { label: '高风险', value: '4 条', tone: 'red' },
+    ],
+    columns: [
+      { key: 'suggestNo', label: '建议号' },
+      { key: 'source', label: '来源单据' },
+      { key: 'summary', label: '摘要' },
+      { key: 'debit', label: '借方科目' },
+      { key: 'credit', label: '贷方科目' },
+      { key: 'amount', label: '金额', align: 'right' },
+      { key: 'confidence', label: '置信度', align: 'right' },
+      { key: 'risk', label: '风险提示' },
+    ],
+    rows: [
+      { id: 'ais-001', status: '待确认', voucher: '草稿', attachment: '发票', values: { suggestNo: 'SUG-001', source: '销项发票 310026000118', summary: '销售控制器', debit: '1122 应收账款', credit: '6001/2221', amount: '¥97,180.00', confidence: '95%', risk: '低' } },
+      { id: 'ais-002', status: '已生成凭证', voucher: '记-0058', attachment: '发票', values: { suggestNo: 'SUG-002', source: '进项发票 310026000221', summary: '采购原材料', debit: '1403/2221', credit: '2202 应付账款', amount: '¥142,945.00', confidence: '96%', risk: '已确认' } },
+      { id: 'ais-003', status: '异常', voucher: '-', attachment: '流水', values: { suggestNo: 'SUG-003', source: '银行流水 BANK-0526-88', summary: '银行手续费', debit: '6603 财务费用', credit: '1002 银行存款', amount: '差异', confidence: '67%', risk: '金额不平' } },
+    ],
+    notes: ['AI 凭证建议必须展示来源、借贷分录、金额、置信度和风险提示。', '生成正式凭证前必须人工确认，不能静默入账。'],
+  },
+  aiRuleTraining: {
+    keywordPlaceholder: '搜索规则、训练来源、命中率、审核状态',
+    primaryAction: '新增训练规则',
+    importLabel: '导入样本',
+    statusOptions: ['全部', '启用', '停用', '待确认', '异常'],
+    summary: [
+      { label: '训练规则', value: '28 条', tone: 'blue' },
+      { label: '已启用', value: '19 条', tone: 'green' },
+      { label: '待确认', value: '7 条', tone: 'amber' },
+      { label: '冲突', value: '2 条', tone: 'red' },
+    ],
+    columns: [
+      { key: 'name', label: '规则名称' },
+      { key: 'source', label: '训练来源' },
+      { key: 'sample', label: '样本数', align: 'right' },
+      { key: 'hitRate', label: '命中率', align: 'right' },
+      { key: 'target', label: '目标动作' },
+      { key: 'owner', label: '审核人' },
+      { key: 'version', label: '版本' },
+      { key: 'effect', label: '生效范围' },
+    ],
+    rows: [
+      { id: 'ait-001', status: '启用', voucher: '-', attachment: '样本', values: { name: '技术服务收入识别', source: '销项发票+历史凭证', sample: '126', hitRate: '94%', target: '生成收入凭证', owner: '王会计', version: 'v1.3', effect: '当前账套' } },
+      { id: 'ait-002', status: '待确认', voucher: '-', attachment: '样本', values: { name: '银行手续费分类', source: '银行流水', sample: '88', hitRate: '91%', target: '生成费用凭证', owner: '李会计', version: 'v1.0', effect: '全部客户' } },
+      { id: 'ait-003', status: '异常', voucher: '-', attachment: '冲突', values: { name: '办公采购费用', source: '进项发票+单据', sample: '42', hitRate: '68%', target: '费用科目建议', owner: '待复核', version: 'v0.8', effect: '禁用' } },
+    ],
+    notes: ['规则训练只产出建议和候选规则，必须人工审核后才能启用。', '规则版本、样本来源和命中率后续要进入审计日志。'],
+  },
+  notificationCenter: {
+    keywordPlaceholder: '搜索待办、客户、模块、负责人、截止日期',
+    primaryAction: '新建待办',
+    importLabel: '导出待办',
+    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
+    summary: [
+      { label: '待办事项', value: '64 条', tone: 'blue' },
+      { label: '今日到期', value: '18 条', tone: 'amber' },
+      { label: '已完成', value: '39 条', tone: 'green' },
+      { label: '逾期', value: '7 条', tone: 'red' },
+    ],
+    columns: [
+      { key: 'title', label: '待办标题' },
+      { key: 'customer', label: '客户/账套' },
+      { key: 'module', label: '来源模块' },
+      { key: 'level', label: '优先级', align: 'center' },
+      { key: 'owner', label: '负责人' },
+      { key: 'deadline', label: '截止日期' },
+      { key: 'link', label: '处理入口' },
+      { key: 'result', label: '处理结果' },
+    ],
+    rows: [
+      { id: 'nt-001', status: '待处理', voucher: '-', attachment: '资料', values: { title: '客户补传银行回单', customer: '科旋电气', module: '资料采集', level: '高', owner: '王会计', deadline: '今天', link: '采集工作台', result: '待处理' } },
+      { id: 'nt-002', status: '待确认', voucher: '申报包', attachment: '风险项', values: { title: '增值税申报包确认', customer: '科旋电气', module: '税务申报', level: '高', owner: '李会计', deadline: '06-30', link: '申报工作台', result: '待确认' } },
+      { id: 'nt-003', status: '异常', voucher: '记-0062', attachment: '检查结果', values: { title: '凭证借贷不平', customer: '科旋电气', module: '风险检查', level: '阻断', owner: '赵会计', deadline: '逾期', link: '风险检查', result: '待修复' } },
+    ],
+    notes: ['通知和待办中心用于串联资料采集、AI 确认、凭证异常、报表重算和申报截止日期。', '后续需要支持客户催办、内部分派、完成记录和消息审计。'],
   },
   contractLedger: {
     keywordPlaceholder: '搜索合同编号、客户/供应商、合同类型、印花税状态',
