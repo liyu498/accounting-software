@@ -76,6 +76,19 @@ const agencyItems: SidebarItem[] = [
 
 const allSections: SidebarSection[] = [
   {
+    id: 'collection',
+    label: '资料采集',
+    icon: <FileStack className="h-4 w-4" />,
+    items: [
+      { id: 'collection-workspace', label: '采集工作台', icon: <FileCheck2 className="h-4 w-4" />, path: '/collection' },
+      { id: 'collection-invoices', label: '发票采集', icon: <ReceiptText className="h-4 w-4" />, path: '/collection/invoices' },
+      { id: 'collection-bank', label: '流水采集', icon: <Landmark className="h-4 w-4" />, path: '/collection/bank' },
+      { id: 'attachment-center', label: '附件中心', icon: <FileStack className="h-4 w-4" />, path: '/attachments' },
+      { id: 'import-center', label: '导入历史', icon: <FileSpreadsheet className="h-4 w-4" />, path: '/imports' },
+      { id: 'export-center', label: '下载中心', icon: <FileBarChart className="h-4 w-4" />, path: '/downloads' },
+    ],
+  },
+  {
     id: 'business',
     label: '业务处理',
     icon: <Briefcase className="h-4 w-4" />,
@@ -139,6 +152,7 @@ const allSections: SidebarSection[] = [
       { id: 'social-security-tax', label: '社保费', icon: <Shield className="h-4 w-4" />, path: '/tax/social-security' },
       { id: 'tax-finance-report', label: '财报报送', icon: <FileBarChart className="h-4 w-4" />, path: '/tax/finance-report' },
       { id: 'non-tax-revenue', label: '非税收入', icon: <PiggyBank className="h-4 w-4" />, path: '/tax/non-tax' },
+      { id: 'tax-receipts', label: '回执缴款书', icon: <FileText className="h-4 w-4" />, path: '/tax/receipts' },
     ],
   },
   {

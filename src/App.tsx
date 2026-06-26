@@ -88,6 +88,14 @@ function App() {
             <Route path="/ai" element={<AIBookkeeping />} />
             <Route path="/settings" element={businessPage('settingsData', '设置总览', '维护企业资料、期初、历史账簿、基础档案、匹配规则和权限。')} />
 
+            {/* Collection and file centers - 资料采集与文件中心 */}
+            <Route path="/collection" element={businessPage('dataCollection', '采集工作台', '集中跟踪客户资料收集、缺失项、负责人、截止日期和后续识别流转。')} />
+            <Route path="/collection/invoices" element={businessPage('invoiceCollection', '发票采集', '导入或同步发票影像，进行 OCR 识别、匹配、异常处理和发票模块流转。')} />
+            <Route path="/collection/bank" element={businessPage('bankCollection', '流水采集', '采集银行流水、第三方账单和回单，进入规则匹配和凭证草稿流程。')} />
+            <Route path="/attachments" element={businessPage('attachmentCenter', '附件中心', '管理发票、回单、合同、申报回执和导出归档文件的关联与留痕。')} />
+            <Route path="/imports" element={businessPage('importCenter', '导入历史', '统一查看 Excel、CSV、OFD、PDF 等导入批次、错误清单和处理结果。')} />
+            <Route path="/downloads" element={businessPage('exportCenter', '下载中心', '统一管理 Excel、PDF、ZIP 导出任务、文件哈希、下载状态和归档期限。')} />
+
             {/* Agency-level workspace - 代理机构外层功能 */}
             <Route path="/agency/clients" element={agencyPage('clients')} />
             <Route path="/agency/batch-tax" element={agencyPage('batchTax')} />
@@ -116,7 +124,7 @@ function App() {
             {/* Finance - 财务 */}
             <Route path="/vouchers" element={businessPage('voucher', '会计凭证', '管理凭证新增、审核、反审核、打印、导出、红冲、断号整理和批量处理。')} />
             <Route path="/vouchers/detail/:id" element={businessPage('voucher', '会计凭证详情', '查看凭证来源、分录、附件、审核日志、打印和导出。')} />
-            <Route path="/period-closing" element={businessPage('riskCheck', '期末结转', '执行增值税、附加税、折旧摊销、成本、所得税、损益和本年利润结转。')} />
+            <Route path="/period-closing" element={businessPage('closingTasks', '期末结转', '执行增值税、附加税、折旧摊销、成本、所得税、损益和本年利润结转。')} />
             <Route path="/risk-check" element={businessPage('riskCheck', '风险检查', '执行凭证、发票、工资、报表、税表和结账前风险校验。')} />
             <Route path="/reports/trial-balance" element={businessPage('ledgerReport', '科目余额表', '按科目、辅助核算和期间展示期初、本期、累计和期末余额。')} />
             <Route path="/reports/account-summary" element={businessPage('ledgerReport', '科目汇总表', '按科目汇总本期借贷发生额，支持凭证穿透、导出和打印。')} />
@@ -143,6 +151,7 @@ function App() {
             <Route path="/tax/social-security" element={businessPage('taxReport', '社保费', '生成社保费申报清单，核对人员、基数、单位和个人部分。')} />
             <Route path="/tax/finance-report" element={businessPage('taxReport', '财报报送', '生成财报报送清单、取数快照、PDF/Excel 和申报附件。')} />
             <Route path="/tax/non-tax" element={businessPage('taxReport', '非税收入', '维护非税收入申报事项、缴费状态和回执归档。')} />
+            <Route path="/tax/receipts" element={businessPage('declarationReceipt', '回执缴款书', '管理申报回执、缴款书、扣款状态、附件归档和异常留痕。')} />
 
             {/* Settings Sub-pages - 设置子页面 */}
             <Route path="/settings/company-info" element={businessPage('companyInfo', '企业信息', '维护纳税人识别号、税种认定、开户行、联系人和申报基础资料。')} />

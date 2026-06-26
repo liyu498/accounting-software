@@ -20,6 +20,12 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 
 type ModuleKind =
+  | 'dataCollection'
+  | 'invoiceCollection'
+  | 'bankCollection'
+  | 'attachmentCenter'
+  | 'importCenter'
+  | 'exportCenter'
   | 'outputInvoice'
   | 'inputInvoice'
   | 'invoiceSelection'
@@ -36,6 +42,7 @@ type ModuleKind =
   | 'inventorySettings'
   | 'unitSettings'
   | 'riskCheck'
+  | 'closingTasks'
   | 'ledgerReport'
   | 'financialReport'
   | 'taxReport'
@@ -62,6 +69,7 @@ type ModuleKind =
   | 'currencySettings'
   | 'roleSettings'
   | 'voucherRecycle'
+  | 'declarationReceipt'
 
 interface BusinessModulePageProps {
   kind: ModuleKind
@@ -104,6 +112,174 @@ type ExcelTemplateData = {
 }
 
 const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
+  dataCollection: {
+    keywordPlaceholder: '搜索客户、资料类型、负责人、截止日期',
+    primaryAction: '发起采集',
+    importLabel: '导入清单',
+    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
+    summary: [
+      { label: '采集任务', value: '42 项', tone: 'blue' },
+      { label: '已收资料', value: '31 项', tone: 'green' },
+      { label: '待客户补充', value: '8 项', tone: 'amber' },
+      { label: '逾期/异常', value: '3 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'customer', label: '客户名称' },
+      { key: 'module', label: '资料类型' },
+      { key: 'period', label: '所属期' },
+      { key: 'required', label: '应收资料' },
+      { key: 'received', label: '已收资料', align: 'right' },
+      { key: 'owner', label: '负责人' },
+      { key: 'deadline', label: '截止日期', align: 'center' },
+      { key: 'next', label: '下一步' },
+    ],
+    rows: [
+      { id: 'dc-001', status: '待确认', voucher: '-', attachment: '资料包', values: { customer: '科旋电气（上海）有限公司', module: '发票/流水', period: '2026-05', required: '销项、进项、银行回单', received: '18/22', owner: '王会计', deadline: '06-27', next: '客户补传回单' } },
+      { id: 'dc-002', status: '已通过', voucher: '-', attachment: 'ZIP', values: { customer: '杭州辰光贸易有限公司', module: '工资社保', period: '2026-05', required: '薪酬表、社保明细', received: '6/6', owner: '李会计', deadline: '06-25', next: '进入AI识别' } },
+      { id: 'dc-003', status: '异常', voucher: '-', attachment: '缺失', values: { customer: '上海启明技术服务部', module: '申报资料', period: '2026-05', required: '合同台账、扣款授权', received: '3/7', owner: '赵会计', deadline: '06-24', next: '催办客户' } },
+    ],
+    notes: ['资料采集是竞品外层工作流的入口，后续要连接客户通知、上传记录、AI 识别和凭证生成。', '当前先建立采集任务、资料包、负责人、截止日期和异常状态框架。'],
+  },
+  invoiceCollection: {
+    keywordPlaceholder: '搜索票池来源、发票类型、识别状态、风险',
+    primaryAction: '采集发票',
+    importLabel: '导入票池',
+    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
+    summary: [
+      { label: '采集发票', value: '130 张', tone: 'blue' },
+      { label: 'OCR完成', value: '118 张', tone: 'green' },
+      { label: '待确认', value: '9 张', tone: 'amber' },
+      { label: '识别异常', value: '3 张', tone: 'red' },
+    ],
+    columns: [
+      { key: 'source', label: '采集来源' },
+      { key: 'type', label: '发票类型' },
+      { key: 'period', label: '所属期' },
+      { key: 'count', label: '张数', align: 'right' },
+      { key: 'ocr', label: '识别状态', align: 'center' },
+      { key: 'matched', label: '匹配结果' },
+      { key: 'risk', label: '风险提示' },
+      { key: 'target', label: '流向' },
+    ],
+    rows: [
+      { id: 'ic-001', status: '已通过', voucher: '草稿12', attachment: 'OFD/PDF', values: { source: '本地导入', type: '销项发票', period: '2026-05', count: '58', ocr: '完成', matched: '客户匹配 56/58', risk: '2 张税率待复核', target: '销项发票' } },
+      { id: 'ic-002', status: '待确认', voucher: '草稿18', attachment: '票池快照', values: { source: '税局票池预留', type: '进项发票', period: '2026-05', count: '72', ocr: '完成', matched: '供应商匹配 68/72', risk: '4 张用途待确认', target: '进项发票/勾选' } },
+      { id: 'ic-003', status: '异常', voucher: '-', attachment: '图片', values: { source: '客户上传', type: '普票/图片', period: '2026-05', count: '6', ocr: '失败 2', matched: '待人工处理', risk: '影像模糊', target: '异常处理' } },
+    ],
+    notes: ['发票云票池同步需要合法税务接口；当前先保留本地导入、识别、人工确认和流转框架。', '后续 OCR 结果要落库并可追溯到发票、凭证草稿和税表取数。'],
+  },
+  bankCollection: {
+    keywordPlaceholder: '搜索银行账户、流水来源、匹配状态、导入批次',
+    primaryAction: '采集流水',
+    importLabel: '导入流水',
+    statusOptions: ['全部', '待处理', '已匹配', '待确认', '异常'],
+    summary: [
+      { label: '流水笔数', value: '426 笔', tone: 'blue' },
+      { label: '自动匹配', value: '338 笔', tone: 'green' },
+      { label: '待确认', value: '71 笔', tone: 'amber' },
+      { label: '异常', value: '17 笔', tone: 'red' },
+    ],
+    columns: [
+      { key: 'account', label: '银行账户' },
+      { key: 'source', label: '采集方式' },
+      { key: 'period', label: '所属期' },
+      { key: 'rows', label: '流水笔数', align: 'right' },
+      { key: 'matched', label: '已匹配', align: 'right' },
+      { key: 'unmatched', label: '未匹配', align: 'right' },
+      { key: 'rule', label: '主要规则' },
+      { key: 'batch', label: '导入批次' },
+    ],
+    rows: [
+      { id: 'bc-001', status: '已匹配', voucher: '草稿28', attachment: '回单', values: { account: '工行基本户', source: 'Excel导入', period: '2026-05', rows: '188', matched: '162', unmatched: '26', rule: '客户+金额核销', batch: 'BANK-0526-01' } },
+      { id: 'bc-002', status: '待确认', voucher: '草稿9', attachment: 'CSV', values: { account: '招行一般户', source: '网银导出', period: '2026-05', rows: '96', matched: '71', unmatched: '25', rule: '摘要分类', batch: 'BANK-0526-02' } },
+      { id: 'bc-003', status: '异常', voucher: '-', attachment: '缺回单', values: { account: '支付宝企业户', source: '第三方账单', period: '2026-05', rows: '142', matched: '105', unmatched: '37', rule: '手续费/收款', batch: 'PAY-0526-01' } },
+    ],
+    notes: ['银行直连需要合法接口和授权；当前框架先支持导入批次、规则匹配、回单附件和凭证草稿流转。', '后续要把流水与发票、往来、凭证、银行余额调节表联动。'],
+  },
+  attachmentCenter: {
+    keywordPlaceholder: '搜索附件名称、来源模块、关联单据、上传人',
+    primaryAction: '上传附件',
+    importLabel: '批量上传',
+    statusOptions: ['全部', '待处理', '已匹配', '待确认', '异常'],
+    summary: [
+      { label: '附件总数', value: '286 个', tone: 'blue' },
+      { label: '已关联', value: '241 个', tone: 'green' },
+      { label: '待归档', value: '33 个', tone: 'amber' },
+      { label: '异常文件', value: '12 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'name', label: '附件名称' },
+      { key: 'type', label: '文件类型' },
+      { key: 'module', label: '来源模块' },
+      { key: 'related', label: '关联单据' },
+      { key: 'hash', label: '文件哈希' },
+      { key: 'uploader', label: '上传人' },
+      { key: 'time', label: '上传时间' },
+      { key: 'archive', label: '归档状态' },
+    ],
+    rows: [
+      { id: 'att-001', status: '已匹配', voucher: '记-0051', attachment: 'PDF', values: { name: '310026000118.pdf', type: '发票PDF', module: '销项发票', related: '310026000118', hash: 'a84f...9c2', uploader: '王会计', time: '06-26 09:12', archive: '已归档' } },
+      { id: 'att-002', status: '待确认', voucher: '未生成', attachment: 'OFD', values: { name: 'bank-receipt-0526.zip', type: '银行回单', module: '银行流水', related: 'BANK-0526-01', hash: 'f20a...71d', uploader: '客户上传', time: '06-26 10:03', archive: '待关联' } },
+      { id: 'att-003', status: '异常', voucher: '-', attachment: '图片', values: { name: 'invoice-blur.jpg', type: '发票影像', module: '资料采集', related: 'IC-003', hash: '校验失败', uploader: '客户上传', time: '06-26 10:48', archive: '需重传' } },
+    ],
+    notes: ['附件中心是后续审计和导出归档的基础，必须保留来源模块、关联单据、哈希和上传日志。', '当前先建立统一附件台账，后续与本地文件存储、Tauri 文件目录和导出包联动。'],
+  },
+  importCenter: {
+    keywordPlaceholder: '搜索导入模板、模块、文件名、操作人',
+    primaryAction: '新建导入',
+    importLabel: '上传文件',
+    statusOptions: ['全部', '待处理', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '导入批次', value: '24 批', tone: 'blue' },
+      { label: '成功', value: '19 批', tone: 'green' },
+      { label: '待确认', value: '3 批', tone: 'amber' },
+      { label: '失败', value: '2 批', tone: 'red' },
+    ],
+    columns: [
+      { key: 'template', label: '导入模板' },
+      { key: 'module', label: '目标模块' },
+      { key: 'file', label: '文件名' },
+      { key: 'rows', label: '记录数', align: 'right' },
+      { key: 'success', label: '成功数', align: 'right' },
+      { key: 'failed', label: '失败数', align: 'right' },
+      { key: 'operator', label: '操作人' },
+      { key: 'time', label: '导入时间' },
+    ],
+    rows: [
+      { id: 'imp-001', status: '已通过', voucher: '-', attachment: '模板', values: { template: '进项发票导入模板', module: '进项发票', file: 'input_invoice_0526.xlsx', rows: '72', success: '70', failed: '2', operator: '李会计', time: '06-26 09:40' } },
+      { id: 'imp-002', status: '待确认', voucher: '草稿', attachment: '日志', values: { template: '银行流水导入模板', module: '银行账单', file: 'bank_icbc_0526.csv', rows: '188', success: '188', failed: '0', operator: '王会计', time: '06-26 10:12' } },
+      { id: 'imp-003', status: '异常', voucher: '-', attachment: '错误清单', values: { template: '期初余额导入模板', module: '期初余额', file: 'initial_balance.xlsx', rows: '156', success: '149', failed: '7', operator: '赵会计', time: '06-26 10:38' } },
+    ],
+    notes: ['导入中心统一承载 Excel/CSV/OFD/PDF 批次、错误清单、模板版本和回滚记录。', '后续需要把导入批次写入 export/import jobs 表，并支持错误定位到原始行。'],
+  },
+  exportCenter: {
+    keywordPlaceholder: '搜索导出文件、模块、格式、操作人',
+    primaryAction: '新建导出',
+    importLabel: '导出日志',
+    statusOptions: ['全部', '待处理', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '导出任务', value: '36 个', tone: 'blue' },
+      { label: '已完成', value: '31 个', tone: 'green' },
+      { label: '待下载', value: '4 个', tone: 'amber' },
+      { label: '失败', value: '1 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'file', label: '文件名称' },
+      { key: 'module', label: '来源模块' },
+      { key: 'format', label: '格式', align: 'center' },
+      { key: 'scope', label: '导出范围' },
+      { key: 'hash', label: '文件哈希' },
+      { key: 'operator', label: '操作人' },
+      { key: 'time', label: '生成时间' },
+      { key: 'expire', label: '保留期限' },
+    ],
+    rows: [
+      { id: 'exp-001', status: '已通过', voucher: '-', attachment: 'PDF', values: { file: '会计凭证-2026-05.pdf', module: '会计凭证', format: 'PDF', scope: '当前筛选', hash: 'd91b...3ac', operator: '王会计', time: '06-26 22:12', expire: '永久归档' } },
+      { id: 'exp-002', status: '待确认', voucher: '-', attachment: 'XLSX', values: { file: '税务申报包-2026-05.xlsx', module: '税务申报', format: 'Excel', scope: '申报包', hash: '生成中', operator: '李会计', time: '06-26 22:14', expire: '30 天' } },
+      { id: 'exp-003', status: '异常', voucher: '-', attachment: '日志', values: { file: '附件归档包.zip', module: '附件中心', format: 'ZIP', scope: '全部附件', hash: '失败', operator: '赵会计', time: '06-26 22:18', expire: '待重试' } },
+    ],
+    notes: ['下载中心对应竞品常见的导出文件管理入口，后续所有 Excel/PDF/ZIP 都应在这里留痕。', '正式导出需要记录筛选条件、模板版本、文件哈希、操作人和下载状态。'],
+  },
   outputInvoice: {
     keywordPlaceholder: '搜索发票号码、购方名称、商品名称、备注',
     primaryAction: '开具发票',
@@ -527,6 +703,34 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'risk-003', status: '已通过', voucher: '记-0075', attachment: '工资表', values: { level: '低', module: '薪酬', rule: '社保工资差异', impact: '提示', owner: '赵会计', updated: '2026-05-20 10:20' } },
     ],
     notes: ['风险检查是只读校验和结账前校验入口，不自动修改凭证。'],
+  },
+  closingTasks: {
+    keywordPlaceholder: '搜索结转项目、取数来源、凭证模板、阻断原因',
+    primaryAction: '执行结转',
+    importLabel: '导入规则',
+    statusOptions: ['全部', '待处理', '待确认', '已生成凭证', '异常'],
+    summary: [
+      { label: '结转任务', value: '9 项', tone: 'blue' },
+      { label: '已生成凭证', value: '5 项', tone: 'green' },
+      { label: '待确认', value: '3 项', tone: 'amber' },
+      { label: '阻断', value: '1 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'order', label: '顺序', align: 'center' },
+      { key: 'name', label: '结转项目' },
+      { key: 'source', label: '取数来源' },
+      { key: 'template', label: '凭证模板' },
+      { key: 'amount', label: '结转金额', align: 'right' },
+      { key: 'condition', label: '执行条件' },
+      { key: 'lastRun', label: '最近执行' },
+      { key: 'blocker', label: '阻断/提示' },
+    ],
+    rows: [
+      { id: 'ct-001', status: '已生成凭证', voucher: '记-0081', attachment: '取数快照', values: { order: '1', name: '计提折旧', source: '折旧摊销', template: '借费用 贷累计折旧', amount: '¥12,860.00', condition: '资产折旧已确认', lastRun: '06-26 09:10', blocker: '无' } },
+      { id: 'ct-002', status: '待确认', voucher: '草稿', attachment: '税表', values: { order: '2', name: '税费计提', source: '税务报表', template: '借税金及附加 贷应交税费', amount: '¥54,210.00', condition: '税表待确认', lastRun: '06-26 09:22', blocker: '进项勾选未完成' } },
+      { id: 'ct-003', status: '异常', voucher: '-', attachment: '检查结果', values: { order: '8', name: '损益结转', source: '利润表', template: '收入/费用转本年利润', amount: '差异', condition: '凭证全部审核', lastRun: '待执行', blocker: '记-0062 借贷不平' } },
+    ],
+    notes: ['期末结转要按固定顺序执行，并在每一步保留取数快照、凭证草稿和阻断原因。', '后续需要接入真实凭证生成和结账锁定，当前先补齐任务框架。'],
   },
   ledgerReport: {
     keywordPlaceholder: '搜索科目编码、科目名称、辅助核算、摘要',
@@ -1209,6 +1413,34 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'vr-003', status: '异常', voucher: '记-0041', attachment: '无', values: { date: '2026-05-10', wordNo: '记-0041', summary: '银行手续费', amount: '¥320.00', deletedBy: '赵会计', deletedAt: '2026-05-19 15:44', reason: '关联结账检查' } },
     ],
     notes: ['凭证回收箱需要保留删除、恢复和彻底删除审计日志，避免凭证断号不可追溯。'],
+  },
+  declarationReceipt: {
+    keywordPlaceholder: '搜索税种、申报表、回执号、缴款书号、状态',
+    primaryAction: '收取回执',
+    importLabel: '导入回执',
+    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
+    summary: [
+      { label: '申报事项', value: '8 项', tone: 'blue' },
+      { label: '已收回执', value: '5 项', tone: 'green' },
+      { label: '待缴款', value: '2 项', tone: 'amber' },
+      { label: '异常', value: '1 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'taxType', label: '税种' },
+      { key: 'form', label: '申报表' },
+      { key: 'period', label: '所属期' },
+      { key: 'declareStatus', label: '申报状态' },
+      { key: 'receiptNo', label: '回执号' },
+      { key: 'paymentStatus', label: '缴款状态' },
+      { key: 'paymentNo', label: '缴款书号' },
+      { key: 'receivedAt', label: '收取时间' },
+    ],
+    rows: [
+      { id: 'dr-001', status: '已通过', voucher: '申报包', attachment: '回执PDF', values: { taxType: '企业所得税', form: '季度预缴申报表', period: '2026-Q2', declareStatus: '已申报', receiptNo: 'RCPT-20260626-001', paymentStatus: '无需缴款', paymentNo: '-', receivedAt: '06-26 10:42' } },
+      { id: 'dr-002', status: '待确认', voucher: '申报包', attachment: '缴款书', values: { taxType: '增值税及附加', form: '增值税主表', period: '2026-05', declareStatus: '待提交', receiptNo: '待收取', paymentStatus: '待缴款', paymentNo: '待生成', receivedAt: '-' } },
+      { id: 'dr-003', status: '异常', voucher: '申报包', attachment: '错误截图', values: { taxType: '印花税', form: '财产和行为税', period: '2026-05', declareStatus: '提交失败', receiptNo: '-', paymentStatus: '未缴款', paymentNo: '-', receivedAt: '错误待处理' } },
+    ],
+    notes: ['真实回执和缴款书收取必须通过合法税局 adapter 或人工导入，不能伪造真实提交结果。', '当前先补齐回执号、缴款书、状态和附件留档框架。'],
   },
 }
 
