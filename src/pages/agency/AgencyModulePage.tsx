@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   AlertTriangle,
@@ -232,11 +232,25 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const config = configs[kind]
   const [activeTab, setActiveTab] = useState(config.tabs[0])
   const [query, setQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return config.rows
     return config.rows.filter((row) => Object.values(row.values).some((value) => value.toLowerCase().includes(q)))
   }, [config.rows, query])
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize))
+  const pageStart = filteredRows.length === 0 ? 0 : (page - 1) * pageSize + 1
+  const pageEnd = Math.min(page * pageSize, filteredRows.length)
+  const pagedRows = useMemo(() => filteredRows.slice((page - 1) * pageSize, page * pageSize), [filteredRows, page, pageSize])
+
+  useEffect(() => {
+    setPage(1)
+  }, [kind, activeTab, query, pageSize])
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
 
   return (
     <div className="h-full min-w-[1180px] bg-[#f3f6fa] text-slate-900">
@@ -293,35 +307,76 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
             />
           </div>
           <ToolButton icon={<Filter className="h-3.5 w-3.5" />} label="筛选" />
-          <span className="ml-auto text-xs text-slate-500">当前视图: {activeTab} · 共 {filteredRows.length} 条</span>
+          <span className="ml-auto text-xs text-slate-500">当前视图: {activeTab} · 显示 {pageStart}-{pageEnd} / {filteredRows.length} 条</span>
         </div>
 
         <div className="grid min-h-[440px] grid-cols-[1fr_300px]">
-          <div className="overflow-auto">
-            <table className="w-full min-w-[840px] border-collapse text-xs">
-              <thead className="sticky top-0 bg-[#e8eef6] text-slate-700">
-                <tr>
-                  <th className="w-10 border-b border-r border-slate-300 px-2 py-2 text-left">选</th>
-                  <th className="w-20 border-b border-r border-slate-300 px-2 py-2 text-left">状态</th>
-                  {config.columns.map((column) => (
-                    <th key={column.key} className={cn('border-b border-r border-slate-300 px-2 py-2', alignClass(column.align))}>{column.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((row) => (
-                  <tr key={row.id} className="hover:bg-[#f8fbff]">
-                    <td className="border-b border-r border-slate-200 px-2 py-2"><input type="checkbox" /></td>
-                    <td className="border-b border-r border-slate-200 px-2 py-2"><StatusBadge value={row.status} /></td>
+          <div className="flex min-w-0 flex-col">
+            <div className="overflow-auto">
+              <table className="w-full min-w-[840px] border-collapse text-xs">
+                <thead className="sticky top-0 bg-[#e8eef6] text-slate-700">
+                  <tr>
+                    <th className="w-10 border-b border-r border-slate-300 px-2 py-2 text-left">选</th>
+                    <th className="w-20 border-b border-r border-slate-300 px-2 py-2 text-left">状态</th>
                     {config.columns.map((column) => (
-                      <td key={column.key} className={cn('border-b border-r border-slate-200 px-2 py-2', alignClass(column.align))}>
-                        {row.values[column.key]}
-                      </td>
+                      <th key={column.key} className={cn('border-b border-r border-slate-300 px-2 py-2', alignClass(column.align))}>{column.label}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {pagedRows.map((row) => (
+                    <tr key={row.id} className="hover:bg-[#f8fbff]">
+                      <td className="border-b border-r border-slate-200 px-2 py-2"><input type="checkbox" /></td>
+                      <td className="border-b border-r border-slate-200 px-2 py-2"><StatusBadge value={row.status} /></td>
+                      {config.columns.map((column) => (
+                        <td key={column.key} className={cn('border-b border-r border-slate-200 px-2 py-2', alignClass(column.align))}>
+                          {row.values[column.key]}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-[#f8fafc]">
+                  <tr>
+                    <td className="border-t border-r border-slate-200 px-2 py-2" />
+                    <td className="border-t border-r border-slate-200 px-2 py-2 font-semibold" colSpan={Math.max(config.columns.length, 1)}>本页小计</td>
+                    <td className="border-t border-slate-200 px-2 py-2 text-right text-slate-500">当前页 {pagedRows.length} 条</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div className="flex h-10 items-center justify-between border-t border-slate-200 px-3 text-xs text-slate-500">
+              <span>机构级批量页面按当前筛选分页展示，导出按筛选全集生成。</span>
+              <div className="flex items-center gap-2">
+                <span>第 {page} / {totalPages} 页</span>
+                <select
+                  value={pageSize}
+                  onChange={(event) => setPageSize(Number(event.target.value))}
+                  className="h-7 rounded border border-slate-300 bg-white px-2 text-xs text-slate-700"
+                  aria-label="每页条数"
+                >
+                  {[10, 20, 50].map((size) => (
+                    <option key={size} value={size}>每页 {size} 条</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  className="h-7 rounded border border-slate-300 bg-white px-2 text-xs text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
+                >
+                  上一页
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  className="h-7 rounded border border-slate-300 bg-white px-2 text-xs text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
+                >
+                  下一页
+                </button>
+              </div>
+            </div>
           </div>
 
           <aside className="border-l border-slate-200 bg-[#fbfdff]">

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -1571,6 +1571,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const config = moduleConfigs[kind]
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
 
   const filteredRows = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
@@ -1581,6 +1583,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return Object.values(row.values).some((value) => value.toLowerCase().includes(normalized)) || row.id.toLowerCase().includes(normalized)
     })
   }, [config.rows, keyword, status])
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize))
+  const pageStart = filteredRows.length === 0 ? 0 : (page - 1) * pageSize + 1
+  const pageEnd = Math.min(page * pageSize, filteredRows.length)
+  const pagedRows = useMemo(() => filteredRows.slice((page - 1) * pageSize, page * pageSize), [filteredRows, page, pageSize])
+
+  useEffect(() => {
+    setPage(1)
+  }, [kind, keyword, status, pageSize])
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
 
   const handleExportExcel = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
@@ -1724,7 +1739,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         <section className="border border-slate-200 bg-white">
           <div className="flex h-9 items-center justify-between border-b border-slate-200 bg-[#f8fafc] px-3">
             <div className="text-sm font-semibold text-slate-900">{title}列表</div>
-            <div className="text-xs text-slate-500">显示 {filteredRows.length} / {config.rows.length} 条，支持导出和打印</div>
+            <div className="text-xs text-slate-500">显示 {pageStart}-{pageEnd} / {filteredRows.length} 条，支持导出和打印</div>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-[1120px] w-full border-collapse text-left text-xs">
@@ -1745,7 +1760,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 </tr>
               </thead>
               <tbody>
-                {filteredRows.map((row) => (
+                {pagedRows.map((row) => (
                   <tr key={row.id} className="hover:bg-[#f8fbff]">
                     <td className="border-b border-slate-100 px-2 py-2">
                       <input type="checkbox" aria-label={`选择 ${row.id}`} />
@@ -1774,14 +1789,42 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 <tr>
                   <td className="px-2 py-2" />
                   <td className="px-2 py-2 font-semibold" colSpan={Math.max(config.columns.length - 1, 1)}>合计/小计</td>
-                  <td className="px-2 py-2 text-right text-xs text-slate-500" colSpan={4}>当前筛选结果 {filteredRows.length} 条</td>
+                  <td className="px-2 py-2 text-right text-xs text-slate-500" colSpan={4}>当前页 {pagedRows.length} 条，筛选结果 {filteredRows.length} 条</td>
                 </tr>
               </tfoot>
             </table>
           </div>
           <div className="flex h-10 items-center justify-between border-t border-slate-200 px-3 text-xs text-slate-500">
             <div>导出文件按当前筛选、列顺序和金额格式生成；PDF 打印使用同一表格模板。</div>
-            <div>第 1 / 1 页，每页 50 条</div>
+            <div className="flex items-center gap-2">
+              <span>第 {page} / {totalPages} 页</span>
+              <select
+                value={pageSize}
+                onChange={(event) => setPageSize(Number(event.target.value))}
+                className="h-7 rounded border border-slate-300 bg-white px-2 text-xs text-slate-700"
+                aria-label="每页条数"
+              >
+                {[10, 20, 50].map((size) => (
+                  <option key={size} value={size}>每页 {size} 条</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                className="h-7 rounded border border-slate-300 bg-white px-2 text-xs text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
+              >
+                上一页
+              </button>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                className="h-7 rounded border border-slate-300 bg-white px-2 text-xs text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
+              >
+                下一页
+              </button>
+            </div>
           </div>
         </section>
 
