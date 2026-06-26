@@ -179,12 +179,18 @@ function App() {
             <Route path="/settings/auxiliary-categories" element={businessPage('auxiliaryCategories', '辅助核算类别', '维护客户、供应商、项目、部门、人员等辅助核算类别。')} />
             <Route path="/settings/auxiliary-items" element={businessPage('auxiliaryItems', '辅助核算项目', '维护各类辅助核算明细资料。')} />
             <Route path="/settings/common-digests" element={businessPage('commonDigests', '常用摘要', '维护凭证摘要模板和 AI 摘要推荐词库。')} />
+            <Route path="/settings/voucher-templates" element={businessPage('voucherTemplateSettings', '凭证模板', '维护发票、流水、单据和 AI 建议生成凭证时使用的借贷科目模板。')} />
+            <Route path="/settings/report-formulas" element={businessPage('reportFormulaSettings', '报表公式', '维护财务报表取数公式、重分类规则、公式版本和校验说明。')} />
+            <Route path="/settings/cash-flow-mapping" element={businessPage('cashFlowMapping', '现金流量映射', '维护银行流水、凭证科目和现金流量表项目之间的映射规则。')} />
             <Route path="/settings/settlement-rules" element={businessPage('settlementRules', '结转规则', '维护期末结转、损益结转、税费计提和折旧摊销规则。')} />
             <Route path="/settings/currencies" element={businessPage('currencySettings', '币别管理', '维护币别、汇率、外币核算和折算规则。')} />
             <Route path="/settings/roles" element={businessPage('roleSettings', '权限管理', '维护角色、菜单权限、操作权限和审计范围。')} />
             <Route path="/settings/print-templates" element={businessPage('printTemplateSettings', '打印模板', '维护凭证纸、报表、申报包和附件归档的打印/PDF 模板版本。')} />
             <Route path="/settings/tax-adapters" element={businessPage('taxAdapterSettings', '税局接口配置', '维护合法税局 adapter 的地区、税种、授权状态、回执能力和提交边界。')} />
             <Route path="/settings/bank-adapters" element={businessPage('bankAdapterSettings', '银行接口配置', '维护银行流水采集、回单、对账能力和直连预留参数。')} />
+            <Route path="/settings/period-management" element={businessPage('periodManagement', '结账管理', '管理账期结账、锁定、反结账申请、归档状态和高风险审批。')} />
+            <Route path="/settings/audit-log" element={businessPage('auditLog', '审计日志', '集中查看导入导出、凭证、结账、申报和高风险操作留痕。')} />
+            <Route path="/settings/backup-restore" element={businessPage('backupRestore', '备份恢复', '管理账套数据库、附件目录和迁移包的备份、校验和恢复记录。')} />
           </Route>
 
           {/* Voucher edit routes use the redesigned operating surface. */}

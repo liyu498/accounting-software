@@ -68,11 +68,17 @@ type ModuleKind =
   | 'auxiliaryCategories'
   | 'auxiliaryItems'
   | 'commonDigests'
+  | 'voucherTemplateSettings'
+  | 'reportFormulaSettings'
+  | 'cashFlowMapping'
   | 'currencySettings'
   | 'roleSettings'
   | 'printTemplateSettings'
   | 'taxAdapterSettings'
   | 'bankAdapterSettings'
+  | 'periodManagement'
+  | 'auditLog'
+  | 'backupRestore'
   | 'voucherRecycle'
   | 'declarationReceipt'
 
@@ -1370,6 +1376,90 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     ],
     notes: ['常用摘要要能用于凭证录入、AI 推荐摘要和流水自动分类。', 'AI 推荐摘要必须经过人工确认后才能成为启用模板。'],
   },
+  voucherTemplateSettings: {
+    keywordPlaceholder: '搜索模板名称、来源模块、借贷科目、辅助核算',
+    primaryAction: '新增凭证模板',
+    importLabel: '导入模板',
+    statusOptions: ['全部', '启用', '停用', '待确认', '异常'],
+    summary: [
+      { label: '凭证模板', value: '36 套', tone: 'blue' },
+      { label: '启用', value: '31 套', tone: 'green' },
+      { label: 'AI建议', value: '7 套', tone: 'amber' },
+      { label: '冲突', value: '2 套', tone: 'red' },
+    ],
+    columns: [
+      { key: 'name', label: '模板名称' },
+      { key: 'source', label: '适用来源' },
+      { key: 'summary', label: '摘要规则' },
+      { key: 'debit', label: '借方科目' },
+      { key: 'credit', label: '贷方科目' },
+      { key: 'aux', label: '辅助核算' },
+      { key: 'priority', label: '优先级', align: 'center' },
+      { key: 'usage', label: '本期使用', align: 'right' },
+    ],
+    rows: [
+      { id: 'vt-001', status: '启用', voucher: '-', attachment: '规则', values: { name: '销售商品收入', source: '销项发票', summary: '销售{商品}', debit: '1122 应收账款', credit: '6001/2221', aux: '客户/项目', priority: '95', usage: '42' } },
+      { id: 'vt-002', status: '启用', voucher: '-', attachment: '规则', values: { name: '银行手续费', source: '银行流水', summary: '支付银行手续费', debit: '6603 财务费用', credit: '1002 银行存款', aux: '账户', priority: '90', usage: '18' } },
+      { id: 'vt-003', status: '异常', voucher: '-', attachment: '冲突日志', values: { name: '办公采购', source: '进项发票/单据', summary: '购买办公用品', debit: '6602 管理费用', credit: '2202/1002', aux: '部门/供应商', priority: '冲突', usage: '9' } },
+    ],
+    notes: ['凭证模板是发票、流水、单据和 AI 建议生成凭证的核心配置，必须记录来源、科目、辅助核算和优先级。', 'AI 推荐模板必须人工确认后启用。'],
+  },
+  reportFormulaSettings: {
+    keywordPlaceholder: '搜索报表、项目、行次、取数科目、重分类',
+    primaryAction: '新增公式',
+    importLabel: '导入公式',
+    statusOptions: ['全部', '启用', '停用', '待确认', '异常'],
+    summary: [
+      { label: '报表公式', value: '128 条', tone: 'blue' },
+      { label: '启用', value: '121 条', tone: 'green' },
+      { label: '待复核', value: '5 条', tone: 'amber' },
+      { label: '异常', value: '2 条', tone: 'red' },
+    ],
+    columns: [
+      { key: 'report', label: '报表' },
+      { key: 'line', label: '行次', align: 'center' },
+      { key: 'item', label: '报表项目' },
+      { key: 'formula', label: '取数公式/科目' },
+      { key: 'direction', label: '余额方向', align: 'center' },
+      { key: 'reclass', label: '重分类' },
+      { key: 'version', label: '版本' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'rf-001', status: '启用', voucher: '快照', attachment: '说明', values: { report: '资产负债表', line: '1', item: '货币资金', formula: '1001+1002+1012', direction: '借', reclass: '否', version: '2026.05', check: '通过' } },
+      { id: 'rf-002', status: '启用', voucher: '快照', attachment: '说明', values: { report: '利润表', line: '1', item: '营业收入', formula: '6001+6051', direction: '贷', reclass: '否', version: '2026.05', check: '通过' } },
+      { id: 'rf-003', status: '异常', voucher: '-', attachment: '差异', values: { report: '现金流量表', line: '5', item: '销售商品收到的现金', formula: '现金流项目 CF-01', direction: '借', reclass: '需映射', version: '2026.05', check: '缺少科目映射' } },
+    ],
+    notes: ['报表公式配置用于资产负债表、利润表、现金流量表和所有者权益变动表的取数说明与重分类。', '后续报表重算和导出模板都应引用这里的版本。'],
+  },
+  cashFlowMapping: {
+    keywordPlaceholder: '搜索现金流项目、科目、摘要关键词、方向',
+    primaryAction: '新增映射',
+    importLabel: '导入映射',
+    statusOptions: ['全部', '启用', '停用', '待确认', '异常'],
+    summary: [
+      { label: '映射规则', value: '64 条', tone: 'blue' },
+      { label: '启用', value: '58 条', tone: 'green' },
+      { label: '待确认', value: '4 条', tone: 'amber' },
+      { label: '异常', value: '2 条', tone: 'red' },
+    ],
+    columns: [
+      { key: 'projectCode', label: '项目编码' },
+      { key: 'projectName', label: '现金流量项目' },
+      { key: 'subject', label: '关联科目' },
+      { key: 'keywords', label: '摘要/对方户名' },
+      { key: 'direction', label: '方向', align: 'center' },
+      { key: 'source', label: '来源模块' },
+      { key: 'priority', label: '优先级', align: 'center' },
+      { key: 'hit', label: '本期命中', align: 'right' },
+    ],
+    rows: [
+      { id: 'cf-001', status: '启用', voucher: '-', attachment: '规则', values: { projectCode: 'CF-01', projectName: '销售商品收到的现金', subject: '1002/1122', keywords: '货款/回款', direction: '流入', source: '银行流水', priority: '95', hit: '48' } },
+      { id: 'cf-002', status: '启用', voucher: '-', attachment: '规则', values: { projectCode: 'CF-12', projectName: '购买商品支付的现金', subject: '1002/2202', keywords: '材料/采购', direction: '流出', source: '进项发票+流水', priority: '90', hit: '31' } },
+      { id: 'cf-003', status: '异常', voucher: '-', attachment: '冲突', values: { projectCode: 'CF-21', projectName: '支付其他经营活动现金', subject: '1002/6602', keywords: '办公/费用', direction: '流出', source: '单据登记', priority: '冲突', hit: '12' } },
+    ],
+    notes: ['现金流量映射连接银行流水、凭证、科目和现金流量表，是报表重算前必须补齐的框架。', '冲突规则需要人工确认，不能直接影响报表。'],
+  },
   currencySettings: {
     keywordPlaceholder: '搜索币别编码、币别名称、汇率、折算方式',
     primaryAction: '新增币别',
@@ -1505,6 +1595,90 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'ba-003', status: '异常', voucher: '-', attachment: '错误日志', values: { bank: '支付宝企业账单', account: '支付宝企业户', collectMode: '账单导入', fileFormat: 'csv', authStatus: '模板变更', reconcile: '部分启用', receipt: '不支持', lastSync: '解析失败' } },
     ],
     notes: ['银行接口配置用于管理导入模板、直连预留、回单能力和对账能力。', '真实银行直连必须依赖合法接口和企业授权；当前默认以文件导入和人工回单为主。'],
+  },
+  periodManagement: {
+    keywordPlaceholder: '搜索账期、结账状态、锁定人、反结账原因',
+    primaryAction: '执行结账',
+    importLabel: '导出日志',
+    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
+    summary: [
+      { label: '账期', value: '12 期', tone: 'blue' },
+      { label: '已结账', value: '5 期', tone: 'green' },
+      { label: '待结账', value: '1 期', tone: 'amber' },
+      { label: '阻断', value: '1 期', tone: 'red' },
+    ],
+    columns: [
+      { key: 'period', label: '账期' },
+      { key: 'status', label: '结账状态' },
+      { key: 'voucher', label: '凭证状态' },
+      { key: 'report', label: '报表状态' },
+      { key: 'tax', label: '申报状态' },
+      { key: 'lockedBy', label: '锁定人' },
+      { key: 'closedAt', label: '结账时间' },
+      { key: 'action', label: '可执行动作' },
+    ],
+    rows: [
+      { id: 'pm-202605', status: '待确认', voucher: '检查通过', attachment: '结账报告', values: { period: '2026-05', status: '待结账', voucher: '82/83 已审核', report: '已重算', tax: '待确认', lockedBy: '-', closedAt: '-', action: '确认结账' } },
+      { id: 'pm-202604', status: '已通过', voucher: '已锁定', attachment: '归档包', values: { period: '2026-04', status: '已结账', voucher: '已锁定', report: '已归档', tax: '已申报', lockedBy: '王会计', closedAt: '2026-05-15 18:20', action: '申请反结账' } },
+      { id: 'pm-202603', status: '异常', voucher: '阻断', attachment: '风险项', values: { period: '2026-03', status: '反结账申请', voucher: '凭证断号', report: '需重算', tax: '已申报', lockedBy: '主管', closedAt: '待审批', action: '审批中' } },
+    ],
+    notes: ['结账管理负责账期锁定、反结账申请、只读限制和归档状态，是桌面端正式做账的边界控制。', '高风险动作必须二次确认并进入审计日志。'],
+  },
+  auditLog: {
+    keywordPlaceholder: '搜索操作人、模块、动作、单据号、风险级别',
+    primaryAction: '导出审计',
+    importLabel: '刷新日志',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '日志条数', value: '1,286 条', tone: 'blue' },
+      { label: '普通操作', value: '1,214 条', tone: 'green' },
+      { label: '需复核', value: '58 条', tone: 'amber' },
+      { label: '高风险', value: '14 条', tone: 'red' },
+    ],
+    columns: [
+      { key: 'time', label: '操作时间' },
+      { key: 'operator', label: '操作人' },
+      { key: 'module', label: '模块' },
+      { key: 'action', label: '动作' },
+      { key: 'object', label: '对象' },
+      { key: 'level', label: '风险级别' },
+      { key: 'result', label: '结果' },
+      { key: 'ip', label: '终端/IP' },
+    ],
+    rows: [
+      { id: 'log-001', status: '已通过', voucher: '记-0051', attachment: '快照', values: { time: '06-26 22:18:12', operator: '王会计', module: '会计凭证', action: '导出PDF', object: '记账凭证-2026-05', level: '普通', result: '成功', ip: 'local-desktop' } },
+      { id: 'log-002', status: '待确认', voucher: '2026-05', attachment: '审批单', values: { time: '06-26 21:42:08', operator: '李会计', module: '结账管理', action: '申请反结账', object: '2026-04', level: '高', result: '待审批', ip: 'local-desktop' } },
+      { id: 'log-003', status: '异常', voucher: '申报包', attachment: '错误日志', values: { time: '06-26 20:31:44', operator: '赵会计', module: '税务申报', action: '导入回执', object: '印花税', level: '中', result: '失败', ip: 'local-desktop' } },
+    ],
+    notes: ['审计日志统一记录导入、导出、生成凭证、删除、反结账、申报包确认等关键动作。', '后续 Rust/SQLite 持久化时应由后端命令写日志，前端只展示和筛选。'],
+  },
+  backupRestore: {
+    keywordPlaceholder: '搜索备份名称、账套、类型、状态、操作人',
+    primaryAction: '立即备份',
+    importLabel: '导入备份',
+    statusOptions: ['全部', '待处理', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '备份文件', value: '18 个', tone: 'blue' },
+      { label: '自动备份', value: '12 个', tone: 'green' },
+      { label: '待验证', value: '4 个', tone: 'amber' },
+      { label: '异常', value: '2 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'name', label: '备份名称' },
+      { key: 'company', label: '账套' },
+      { key: 'type', label: '类型' },
+      { key: 'size', label: '大小', align: 'right' },
+      { key: 'hash', label: '文件哈希' },
+      { key: 'operator', label: '操作人' },
+      { key: 'time', label: '备份时间' },
+      { key: 'restore', label: '恢复状态' },
+    ],
+    rows: [
+      { id: 'bk-001', status: '已通过', voucher: '-', attachment: 'db', values: { name: '科旋电气-202605-自动备份', company: '科旋电气（上海）有限公司', type: '自动备份', size: '128 MB', hash: 'a8f1...9c2d', operator: '系统', time: '06-26 23:00', restore: '已验证' } },
+      { id: 'bk-002', status: '待确认', voucher: '-', attachment: 'zip', values: { name: '申报前手工备份', company: '科旋电气（上海）有限公司', type: '手工备份', size: '136 MB', hash: '生成中', operator: '王会计', time: '06-26 21:30', restore: '待验证' } },
+      { id: 'bk-003', status: '异常', voucher: '-', attachment: '错误日志', values: { name: '历史账套迁移备份', company: '杭州辰光贸易有限公司', type: '迁移备份', size: '失败', hash: '校验失败', operator: '李会计', time: '06-26 19:12', restore: '不可恢复' } },
+    ],
+    notes: ['备份恢复是桌面端交付的基础能力，后续需要接 Tauri app data 目录、SQLite 文件、附件目录和恢复前二次确认。', '恢复操作必须进入审计日志，避免覆盖现有账套数据。'],
   },
   settlementRules: {
     keywordPlaceholder: '搜索结转类型、执行顺序、取数来源、凭证模板',
