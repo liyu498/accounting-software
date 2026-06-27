@@ -25,7 +25,7 @@ import { useCompanyStore, type Company } from '../stores/companyStore'
 import { usePeriodStore } from '../stores/periodStore'
 import { TaxpayerType, AccountingSystem } from '../lib/constants'
 import { cn } from '../lib/utils'
-import { agencyNavItems } from './agency/AgencyLayout'
+import { agencyNavItems } from './agency/agencyNav'
 
 interface SummaryMetric {
   label: string
