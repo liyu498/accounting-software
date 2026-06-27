@@ -297,6 +297,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2 text-sm">
+            <ThemeToggle />
             <button type="button" className="hidden h-8 items-center gap-1 rounded border border-white/25 px-3 font-medium text-white hover:bg-white/10 lg:inline-flex">
               常办事项
               <ChevronDown className="h-4 w-4" />
@@ -362,7 +363,7 @@ function ThemeToggle() {
       <button
         type="button"
         onClick={() => setShowMenu(!showMenu)}
-        className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 hover:bg-slate-100"
+        className="inline-flex h-8 w-8 items-center justify-center rounded text-white hover:bg-white/10"
         title="主题设置"
       >
         {currentIcon}
@@ -370,7 +371,7 @@ function ThemeToggle() {
       {showMenu && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-          <div className="absolute right-0 top-full z-50 mt-1 min-w-[120px] rounded border border-slate-200 bg-white py-1 shadow-lg">
+          <div className="absolute right-0 top-full z-50 mt-1 min-w-[120px] rounded border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
             {themeOptions.map((option) => (
               <button
                 key={option.value}
@@ -381,7 +382,7 @@ function ThemeToggle() {
                 }}
                 className={cn(
                   'flex w-full items-center gap-2 px-3 py-2 text-left text-xs',
-                  mode === option.value ? 'bg-[#eef6ff] text-[#1f65a7]' : 'text-slate-600 hover:bg-slate-50'
+                  mode === option.value ? 'bg-[#eef6ff] text-[#1f65a7] dark:bg-slate-800 dark:text-blue-200' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'
                 )}
               >
                 {option.icon}

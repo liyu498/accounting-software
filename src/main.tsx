@@ -5,6 +5,7 @@ import "@fontsource/noto-sans-sc/chinese-simplified-400.css";
 import "@fontsource/noto-sans-sc/chinese-simplified-500.css";
 import "@fontsource/noto-sans-sc/chinese-simplified-700.css";
 import "./styles.css";
+import "./stores/themeStore";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
