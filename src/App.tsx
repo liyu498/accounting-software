@@ -107,7 +107,9 @@ function App() {
             <Route path="/agency/clients" element={agencyPage('clients')} />
             <Route path="/agency/service-contracts" element={agencyPage('serviceContracts')} />
             <Route path="/agency/fees" element={agencyPage('feeCollection')} />
+            <Route path="/agency/fee-collection" element={agencyPage('feeCollection')} />
             <Route path="/agency/collaboration" element={agencyPage('customerCollaboration')} />
+            <Route path="/agency/customer-collaboration" element={agencyPage('customerCollaboration')} />
             <Route path="/agency/tickets" element={agencyPage('deliveryTickets')} />
             <Route path="/agency/batch-tax" element={agencyPage('batchTax')} />
             <Route path="/agency/data-stats" element={agencyPage('dataStats')} />

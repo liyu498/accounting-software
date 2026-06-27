@@ -17,6 +17,13 @@ import {
   Upload,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import {
+  agencyApi,
+  type AgencyCollaborationItem,
+  type AgencyDeliveryTicket,
+  type AgencyFeeCollection,
+  type AgencyServiceContract,
+} from '../../lib/api'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 
@@ -368,15 +375,18 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
 
 export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const config = configs[kind]
+  const [remoteRows, setRemoteRows] = useState<AgencyRow[] | null>(null)
+  const [isLoadingRows, setIsLoadingRows] = useState(false)
   const [activeTab, setActiveTab] = useState(config.tabs[0])
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const rows = remoteRows && remoteRows.length > 0 ? remoteRows : config.rows
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return config.rows
-    return config.rows.filter((row) => Object.values(row.values).some((value) => value.toLowerCase().includes(q)))
-  }, [config.rows, query])
+    if (!q) return rows
+    return rows.filter((row) => Object.values(row.values).some((value) => value.toLowerCase().includes(q)))
+  }, [rows, query])
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize))
   const pageStart = filteredRows.length === 0 ? 0 : (page - 1) * pageSize + 1
   const pageEnd = Math.min(page * pageSize, filteredRows.length)
@@ -387,8 +397,29 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }, [kind, activeTab, query, pageSize])
 
   useEffect(() => {
+    setActiveTab(config.tabs[0])
+  }, [kind, config.tabs])
+
+  useEffect(() => {
     if (page > totalPages) setPage(totalPages)
   }, [page, totalPages])
+
+  const loadRemoteRows = async () => {
+    setIsLoadingRows(true)
+    try {
+      const nextRows = await fetchAgencyRows(kind)
+      setRemoteRows(nextRows.length > 0 ? nextRows : null)
+    } catch {
+      setRemoteRows(null)
+    } finally {
+      setIsLoadingRows(false)
+    }
+  }
+
+  useEffect(() => {
+    setRemoteRows(null)
+    void loadRemoteRows()
+  }, [kind])
 
   const handleExportExcel = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
@@ -429,7 +460,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
             <p className="text-xs text-slate-500">{config.description}</p>
           </div>
           <div className="flex items-center gap-1">
-            <ToolButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" />
+            <ToolButton icon={<RefreshCw className={cn('h-3.5 w-3.5', isLoadingRows && 'animate-spin')} />} label="刷新" onClick={loadRemoteRows} />
             <ToolButton icon={<Upload className="h-3.5 w-3.5" />} label="导入" />
             <ToolButton icon={<Download className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
             <ToolButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={handleExportPdf} />
@@ -574,6 +605,128 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       </div>
     </div>
   )
+}
+
+async function fetchAgencyRows(kind: AgencyModuleKind): Promise<AgencyRow[]> {
+  if (kind === 'serviceContracts') {
+    const response = await agencyApi.getServiceContracts()
+    return response.data?.map(mapServiceContractRow) ?? []
+  }
+  if (kind === 'feeCollection') {
+    const response = await agencyApi.getFeeCollections({ period: '2026-05' })
+    return response.data?.map(mapFeeCollectionRow) ?? []
+  }
+  if (kind === 'customerCollaboration') {
+    const response = await agencyApi.getCollaborationItems()
+    return response.data?.map(mapCollaborationRow) ?? []
+  }
+  if (kind === 'deliveryTickets') {
+    const response = await agencyApi.getDeliveryTickets({ period: '2026-05' })
+    return response.data?.map(mapDeliveryTicketRow) ?? []
+  }
+  return []
+}
+
+function mapServiceContractRow(item: AgencyServiceContract): AgencyRow {
+  return {
+    id: item.id,
+    status: mapAgencyStatus(item.status, item.renewalStatus),
+    values: {
+      contractNo: item.contractNo,
+      customer: item.companyName || item.companyId,
+      package: item.servicePackage,
+      period: `${item.serviceStart} 至 ${item.serviceEnd}`,
+      fee: formatMoney(item.monthlyFee),
+      renewal: item.renewalStatus,
+      owner: item.owner || '-',
+      archive: item.archiveStatus,
+    },
+  }
+}
+
+function mapFeeCollectionRow(item: AgencyFeeCollection): AgencyRow {
+  return {
+    id: item.id,
+    status: mapAgencyStatus(item.status, item.paymentStatus),
+    values: {
+      customer: item.companyName || item.companyId,
+      period: item.period,
+      receivable: formatMoney(item.receivableAmount),
+      received: formatMoney(item.receivedAmount),
+      arrears: formatMoney(item.arrearsAmount),
+      invoice: mapInvoiceStatus(item.invoiceStatus),
+      payStatus: mapPaymentStatus(item.paymentStatus),
+      collector: item.collector || '-',
+    },
+  }
+}
+
+function mapCollaborationRow(item: AgencyCollaborationItem): AgencyRow {
+  return {
+    id: item.id,
+    status: mapAgencyStatus(item.status, item.replyStatus),
+    values: {
+      customer: item.companyName || item.companyId,
+      todo: item.todoTitle,
+      material: item.materialType || '-',
+      contact: item.customerContact || '-',
+      reminders: `${item.reminderCount}`,
+      lastContact: item.lastContactAt || '-',
+      reply: item.replyStatus,
+      owner: item.owner || '-',
+    },
+  }
+}
+
+function mapDeliveryTicketRow(item: AgencyDeliveryTicket): AgencyRow {
+  return {
+    id: item.id,
+    status: mapAgencyStatus(item.status, item.deliveryStatus),
+    values: {
+      ticketNo: item.ticketNo,
+      customer: item.companyName || item.companyId,
+      task: item.taskName,
+      period: item.period,
+      stage: item.currentStage,
+      sla: item.slaStatus,
+      owner: item.owner || '-',
+      delivery: mapDeliveryStatus(item.deliveryStatus),
+    },
+  }
+}
+
+function mapAgencyStatus(primary: string, secondary = ''): AgencyRow['status'] {
+  const value = `${primary} ${secondary}`.toLowerCase()
+  if (value.includes('paid') || value.includes('completed') || value.includes('已确认')) return '已完成'
+  if (value.includes('blocked') || value.includes('overdue') || value.includes('expiring') || value.includes('超时')) return '异常'
+  if (value.includes('waiting') || value.includes('pending') || value.includes('待')) return '待确认'
+  if (value.includes('active') || value.includes('processing')) return '进行中'
+  return '待处理'
+}
+
+function mapInvoiceStatus(value: string) {
+  if (value === 'issued') return '已开票'
+  if (value === 'pending') return '待开票'
+  return value || '-'
+}
+
+function mapPaymentStatus(value: string) {
+  if (value === 'paid') return '已收款'
+  if (value === 'overdue') return '逾期'
+  if (value === 'pending') return '待收款'
+  return value || '-'
+}
+
+function mapDeliveryStatus(value: string) {
+  if (value === 'processing') return '处理中'
+  if (value === 'waiting_customer') return '待确认'
+  if (value === 'blocked') return '阻断'
+  if (value === 'completed') return '已交付'
+  return value || '-'
+}
+
+function formatMoney(value: number) {
+  return `¥${value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function ToolButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
