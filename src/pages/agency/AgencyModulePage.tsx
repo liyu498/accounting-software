@@ -283,8 +283,8 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   },
   batchOps: {
     title: '批量操作',
-    description: '集中执行批量导入、生成凭证、结转、结账、反结账和资料归档。',
-    tabs: ['操作任务', '批量导入', '批量生成', '批量结转', '批量归档', '执行日志'],
+    description: '集中执行批量采集发票、采集银行流水、生成凭证、结转、结账、反结账和资料归档。',
+    tabs: ['操作任务', '批量采集', '批量生成', '批量结转', '批量结账', '批量归档', '执行日志'],
     primaryAction: '新建任务',
     keywordPlaceholder: '搜索任务、客户、操作人、执行状态',
     summary: [
@@ -303,12 +303,14 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { key: 'result', label: '结果' },
     ],
     rows: [
-      { id: 'op-001', status: '进行中', values: { task: '批量生成银行流水凭证', scope: '23 户', period: '2026-05', progress: '16/23', operator: '张会计', started: '06-26 09:10', result: '执行中' } },
-      { id: 'op-002', status: '待处理', values: { task: '批量导入销项发票', scope: '12 户', period: '2026-05', progress: '0/12', operator: '李会计', started: '待执行', result: '排队' } },
-      { id: 'op-003', status: '异常', values: { task: '批量期末结转', scope: '8 户', period: '2026-05', progress: '5/8', operator: '王会计', started: '06-25 18:30', result: '3 户失败' } },
+      { id: 'op-001', status: '进行中', values: { task: '批量采集发票', scope: '36 户', period: '2026-05', progress: '28/36', operator: '张会计', started: '06-26 08:30', result: '8 户待授权' } },
+      { id: 'op-002', status: '进行中', values: { task: '批量采集银行流水', scope: '23 户', period: '2026-05', progress: '16/23', operator: '张会计', started: '06-26 09:10', result: '执行中' } },
+      { id: 'op-003', status: '待处理', values: { task: '批量生成银行流水凭证', scope: '23 户', period: '2026-05', progress: '0/23', operator: '李会计', started: '待执行', result: '排队' } },
+      { id: 'op-004', status: '待处理', values: { task: '批量结账', scope: '18 户', period: '2026-05', progress: '0/18', operator: '王会计', started: '待执行', result: '需先完成风险检查' } },
+      { id: 'op-005', status: '异常', values: { task: '批量期末结转', scope: '8 户', period: '2026-05', progress: '5/8', operator: '王会计', started: '06-25 18:30', result: '3 户失败' } },
     ],
     queueTitle: '执行控制',
-    queue: ['批量任务需先选择客户范围和账期', '高风险客户自动跳过并进入复核队列', '所有任务保留执行日志和回滚说明'],
+    queue: ['批量采集需读取客户维护的税局和银行授权状态', '批量结账前必须完成凭证断号、报表平衡和税务风险检查', '高风险客户自动跳过并进入复核队列', '所有任务保留执行日志和回滚说明'],
     notes: ['批量操作用于机构级效率提升，单账套页面仍保留逐户处理入口。', '涉及提交、删除、反结账等高风险动作必须二次确认。'],
   },
   healthCheck: {

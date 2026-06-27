@@ -28,7 +28,7 @@ export const agencyNavItems: AgencyNavItem[] = [
   { id: 'agency-tickets', label: '服务工单', icon: <Monitor className="h-4 w-4" />, path: '/agency/tickets', description: '机构交付工单、SLA、复核和归档。' },
   { id: 'agency-batch-tax', label: '批量申报', icon: <FileCheck2 className="h-4 w-4" />, path: '/agency/batch-tax', description: '多客户申报取数、校验、确认和回执。' },
   { id: 'agency-data-stats', label: '数据统计', icon: <BarChart3 className="h-4 w-4" />, path: '/agency/data-stats', description: '机构经营、产能、自动化率和风险分布。' },
-  { id: 'agency-batch-ops', label: '批量操作', icon: <CheckSquare className="h-4 w-4" />, path: '/agency/batch-ops', description: '多账套批量导入、生成、结转和归档。' },
+  { id: 'agency-batch-ops', label: '批量操作', icon: <CheckSquare className="h-4 w-4" />, path: '/agency/batch-ops', description: '多账套批量采集发票、银行流水、结账、生成和归档。' },
   { id: 'agency-health', label: '健康体检', icon: <Shield className="h-4 w-4" />, path: '/agency/health-check', description: '跨客户发票、凭证、报表和税务风险扫描。' },
   { id: 'agency-automation', label: '财税自动化', icon: <Bot className="h-4 w-4" />, path: '/agency/automation', description: '机构自动采票、识别、匹配和申报前置任务。' },
 ]

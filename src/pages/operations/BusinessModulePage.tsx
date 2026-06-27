@@ -20,8 +20,6 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 
 type ModuleKind =
-  | 'invoiceCollection'
-  | 'bankCollection'
   | 'attachmentCenter'
   | 'importCenter'
   | 'exportCenter'
@@ -33,7 +31,6 @@ type ModuleKind =
   | 'contractLedger'
   | 'outputInvoice'
   | 'inputInvoice'
-  | 'invoiceSelection'
   | 'billList'
   | 'receipt'
   | 'documentRegister'
@@ -132,62 +129,6 @@ type ExcelTemplateData = {
 }
 
 const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
-  invoiceCollection: {
-    keywordPlaceholder: '搜索票池来源、发票类型、识别状态、风险',
-    primaryAction: '采集发票',
-    importLabel: '导入票池',
-    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
-    summary: [
-      { label: '采集发票', value: '130 张', tone: 'blue' },
-      { label: 'OCR完成', value: '118 张', tone: 'green' },
-      { label: '待确认', value: '9 张', tone: 'amber' },
-      { label: '识别异常', value: '3 张', tone: 'red' },
-    ],
-    columns: [
-      { key: 'source', label: '采集来源' },
-      { key: 'type', label: '发票类型' },
-      { key: 'period', label: '所属期' },
-      { key: 'count', label: '张数', align: 'right' },
-      { key: 'ocr', label: '识别状态', align: 'center' },
-      { key: 'matched', label: '匹配结果' },
-      { key: 'risk', label: '风险提示' },
-      { key: 'target', label: '流向' },
-    ],
-    rows: [
-      { id: 'ic-001', status: '已通过', voucher: '草稿12', attachment: 'OFD/PDF', values: { source: '本地导入', type: '销项发票', period: '2026-05', count: '58', ocr: '完成', matched: '客户匹配 56/58', risk: '2 张税率待复核', target: '销项发票' } },
-      { id: 'ic-002', status: '待确认', voucher: '草稿18', attachment: '票池快照', values: { source: '税局票池预留', type: '进项发票', period: '2026-05', count: '72', ocr: '完成', matched: '供应商匹配 68/72', risk: '4 张用途待确认', target: '进项发票/勾选' } },
-      { id: 'ic-003', status: '异常', voucher: '-', attachment: '图片', values: { source: '客户上传', type: '普票/图片', period: '2026-05', count: '6', ocr: '失败 2', matched: '待人工处理', risk: '影像模糊', target: '异常处理' } },
-    ],
-    notes: ['发票云票池同步需要合法税务接口；当前先保留本地导入、识别、人工确认和流转框架。', '后续 OCR 结果要落库并可追溯到发票、凭证草稿和税表取数。'],
-  },
-  bankCollection: {
-    keywordPlaceholder: '搜索银行账户、流水来源、匹配状态、导入批次',
-    primaryAction: '采集流水',
-    importLabel: '导入流水',
-    statusOptions: ['全部', '待处理', '已匹配', '待确认', '异常'],
-    summary: [
-      { label: '流水笔数', value: '426 笔', tone: 'blue' },
-      { label: '自动匹配', value: '338 笔', tone: 'green' },
-      { label: '待确认', value: '71 笔', tone: 'amber' },
-      { label: '异常', value: '17 笔', tone: 'red' },
-    ],
-    columns: [
-      { key: 'account', label: '银行账户' },
-      { key: 'source', label: '采集方式' },
-      { key: 'period', label: '所属期' },
-      { key: 'rows', label: '流水笔数', align: 'right' },
-      { key: 'matched', label: '已匹配', align: 'right' },
-      { key: 'unmatched', label: '未匹配', align: 'right' },
-      { key: 'rule', label: '主要规则' },
-      { key: 'batch', label: '导入批次' },
-    ],
-    rows: [
-      { id: 'bc-001', status: '已匹配', voucher: '草稿28', attachment: '回单', values: { account: '工行基本户', source: 'Excel导入', period: '2026-05', rows: '188', matched: '162', unmatched: '26', rule: '客户+金额核销', batch: 'BANK-0526-01' } },
-      { id: 'bc-002', status: '待确认', voucher: '草稿9', attachment: 'CSV', values: { account: '招行一般户', source: '网银导出', period: '2026-05', rows: '96', matched: '71', unmatched: '25', rule: '摘要分类', batch: 'BANK-0526-02' } },
-      { id: 'bc-003', status: '异常', voucher: '-', attachment: '缺回单', values: { account: '支付宝企业户', source: '第三方账单', period: '2026-05', rows: '142', matched: '105', unmatched: '37', rule: '手续费/收款', batch: 'PAY-0526-01' } },
-    ],
-    notes: ['银行直连需要合法接口和授权；当前框架先支持导入批次、规则匹配、回单附件和凭证草稿流转。', '后续要把流水与发票、往来、凭证、银行余额调节表联动。'],
-  },
   attachmentCenter: {
     keywordPlaceholder: '搜索附件名称、来源模块、关联单据、上传人',
     primaryAction: '上传附件',
@@ -294,7 +235,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'next', label: '下一步' },
     ],
     rows: [
-      { id: 'aij-001', status: '待确认', voucher: '草稿12', attachment: 'OCR结果', values: { jobNo: 'AI-20260626-001', source: '发票采集', file: '销项发票批次0526', stage: '凭证建议完成', confidence: '92%', owner: '王会计', startedAt: '06-26 09:12', next: '人工确认分录' } },
+      { id: 'aij-001', status: '待确认', voucher: '草稿12', attachment: 'OCR结果', values: { jobNo: 'AI-20260626-001', source: '销项发票', file: '销项发票批次0526', stage: '凭证建议完成', confidence: '92%', owner: '王会计', startedAt: '06-26 09:12', next: '人工确认分录' } },
       { id: 'aij-002', status: '已通过', voucher: '记-0051', attachment: '日志', values: { jobNo: 'AI-20260626-002', source: '银行流水', file: 'BANK-0526-01', stage: '已生成凭证', confidence: '96%', owner: '李会计', startedAt: '06-26 10:03', next: '归档日志' } },
       { id: 'aij-003', status: '异常', voucher: '-', attachment: '错误截图', values: { jobNo: 'AI-20260626-003', source: '单据登记', file: '费用报销图片', stage: '识别失败', confidence: '41%', owner: '赵会计', startedAt: '06-26 10:48', next: '人工处理' } },
     ],
@@ -326,7 +267,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'air-002', status: '待确认', voucher: '草稿', attachment: 'OFD', values: { object: '进项发票 310026000221', file: 'input_0221.ofd', fields: '供应商/税额', matched: '供应商待确认', confidence: '84%', risk: '税率需复核', reviewer: '李会计', target: '进项发票' } },
       { id: 'air-003', status: '异常', voucher: '-', attachment: '图片', values: { object: '费用报销单', file: 'expense_blur.jpg', fields: '金额/日期', matched: '未匹配', confidence: '43%', risk: '影像模糊', reviewer: '待处理', target: '异常队列' } },
     ],
-    notes: ['识别结果必须保留来源文件、字段置信度、档案匹配和人工复核状态。', '后续可从这里回链到附件中心、发票采集和凭证建议。'],
+    notes: ['识别结果必须保留来源文件、字段置信度、档案匹配和人工复核状态。', '后续可从这里回链到附件中心、销项发票、进项发票和凭证建议。'],
   },
   aiVoucherSuggestions: {
     keywordPlaceholder: '搜索建议号、来源、摘要、科目、置信度',
@@ -441,9 +382,9 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     notes: ['合同台账影响客户资料、单据登记、印花税取数和附件归档，是税务申报闭环里的关键台账。', '当前先补合同编号、相对方、金额、税目、发票关联和归档状态框架。'],
   },
   outputInvoice: {
-    keywordPlaceholder: '搜索发票号码、购方名称、商品名称、备注',
+    keywordPlaceholder: '搜索采集来源、发票号码、购方名称、商品名称、备注',
     primaryAction: '开具发票',
-    importLabel: '导入销项',
+    importLabel: '采集/导入销项',
     statusOptions: ['全部', '待匹配', '已生成凭证', '已作废', '异常'],
     summary: [
       { label: '发票张数', value: '58 张', tone: 'blue' },
@@ -452,6 +393,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { label: '异常发票', value: '2 张', tone: 'red' },
     ],
     columns: [
+      { key: 'source', label: '采集来源' },
       { key: 'date', label: '开票日期' },
       { key: 'number', label: '发票号码' },
       { key: 'buyer', label: '购方名称' },
@@ -462,16 +404,16 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'total', label: '价税合计', align: 'right' },
     ],
     rows: [
-      { id: 'out-001', status: '已生成凭证', voucher: '记-0051', attachment: 'PDF', values: { date: '2026-05-03', number: '310026000118', buyer: '上海辰光贸易有限公司', goods: '控制器 A-100', amount: '¥86,000.00', taxRate: '13%', tax: '¥11,180.00', total: '¥97,180.00' } },
-      { id: 'out-002', status: '待确认', voucher: '未生成', attachment: 'OFD', values: { date: '2026-05-08', number: '310026000126', buyer: '杭州辰星科技有限公司', goods: '技术服务费', amount: '¥120,000.00', taxRate: '6%', tax: '¥7,200.00', total: '¥127,200.00' } },
-      { id: 'out-003', status: '异常', voucher: '未生成', attachment: 'PDF', values: { date: '2026-05-16', number: '310026000188', buyer: '南京云杉贸易有限公司', goods: '配件', amount: '¥38,000.00', taxRate: '待核', tax: '¥4,940.00', total: '¥42,940.00' } },
+      { id: 'out-001', status: '已生成凭证', voucher: '记-0051', attachment: 'PDF', values: { source: '税局采集', date: '2026-05-03', number: '310026000118', buyer: '上海辰光贸易有限公司', goods: '控制器 A-100', amount: '¥86,000.00', taxRate: '13%', tax: '¥11,180.00', total: '¥97,180.00' } },
+      { id: 'out-002', status: '待确认', voucher: '未生成', attachment: 'OFD', values: { source: '本地导入', date: '2026-05-08', number: '310026000126', buyer: '杭州辰星科技有限公司', goods: '技术服务费', amount: '¥120,000.00', taxRate: '6%', tax: '¥7,200.00', total: '¥127,200.00' } },
+      { id: 'out-003', status: '异常', voucher: '未生成', attachment: 'PDF', values: { source: '客户上传', date: '2026-05-16', number: '310026000188', buyer: '南京云杉贸易有限公司', goods: '配件', amount: '¥38,000.00', taxRate: '待核', tax: '¥4,940.00', total: '¥42,940.00' } },
     ],
-    notes: ['销项发票页面应以发票清单为主，支持开票数据导入、作废红冲、凭证生成和税表取数。', '导出格式包含购方、商品行、金额税额、凭证号和附件状态。'],
+    notes: ['销项发票页面内置采集能力，支持税局采集、本地导入、客户上传和 OCR 流转。', '导出格式包含采集来源、购方、商品行、金额税额、凭证号和附件状态。'],
   },
   inputInvoice: {
-    keywordPlaceholder: '搜索发票号码、销方名称、商品名称、勾选状态',
-    primaryAction: '生成凭证',
-    importLabel: '导入进项',
+    keywordPlaceholder: '搜索采集来源、发票号码、销方名称、商品名称、勾选状态',
+    primaryAction: '勾选并生成凭证',
+    importLabel: '采集/导入进项',
     statusOptions: ['全部', '待勾选', '已勾选', '已生成凭证', '异常'],
     summary: [
       { label: '发票张数', value: '72 张', tone: 'blue' },
@@ -480,6 +422,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { label: '异常发票', value: '3 张', tone: 'red' },
     ],
     columns: [
+      { key: 'source', label: '采集来源' },
       { key: 'date', label: '开票日期' },
       { key: 'number', label: '发票号码' },
       { key: 'seller', label: '销方名称' },
@@ -488,44 +431,19 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'taxRate', label: '税率', align: 'center' },
       { key: 'tax', label: '税额', align: 'right' },
       { key: 'deduction', label: '勾选用途' },
+      { key: 'selectionStatus', label: '认证状态', align: 'center' },
     ],
     rows: [
-      { id: 'in-001', status: '待确认', voucher: '未生成', attachment: 'PDF', values: { date: '2026-05-06', number: '310026000142', seller: '上海云启科技有限公司', goods: '服务器租赁', amount: '¥38,000.00', taxRate: '13%', tax: '¥4,940.00', deduction: '待勾选' } },
-      { id: 'in-002', status: '已匹配', voucher: '记-0058', attachment: 'OFD', values: { date: '2026-05-09', number: '310026000186', seller: '苏州材料供应链有限公司', goods: '原材料', amount: '¥126,500.00', taxRate: '13%', tax: '¥16,445.00', deduction: '增值税抵扣' } },
-      { id: 'in-003', status: '异常', voucher: '未生成', attachment: 'PDF', values: { date: '2026-05-12', number: '310026000221', seller: '杭州设备服务有限公司', goods: '维修费', amount: '¥9,800.00', taxRate: '6%', tax: '¥588.00', deduction: '税率需复核' } },
+      { id: 'in-001', status: '待确认', voucher: '未生成', attachment: 'PDF', values: { source: '税局票池', date: '2026-05-06', number: '310026000142', seller: '上海云启科技有限公司', goods: '服务器租赁', amount: '¥38,000.00', taxRate: '13%', tax: '¥4,940.00', deduction: '待勾选', selectionStatus: '待认证' } },
+      { id: 'in-002', status: '已匹配', voucher: '记-0058', attachment: 'OFD', values: { source: '本地导入', date: '2026-05-09', number: '310026000186', seller: '苏州材料供应链有限公司', goods: '原材料', amount: '¥126,500.00', taxRate: '13%', tax: '¥16,445.00', deduction: '增值税抵扣', selectionStatus: '已认证' } },
+      { id: 'in-003', status: '异常', voucher: '未生成', attachment: 'PDF', values: { source: '客户上传', date: '2026-05-12', number: '310026000221', seller: '杭州设备服务有限公司', goods: '维修费', amount: '¥9,800.00', taxRate: '6%', tax: '¥588.00', deduction: '税率需复核', selectionStatus: '阻断' } },
     ],
-    notes: ['进项发票页面必须区分认证勾选、抵扣用途、供应商匹配和凭证生成。', '后续与发票勾选、增值税申报主表和进项转出明细联动。'],
-  },
-  invoiceSelection: {
-    keywordPlaceholder: '搜索发票代码、号码、销方或购方名称',
-    primaryAction: '勾选认证',
-    importLabel: '同步票池',
-    statusOptions: ['全部', '待勾选', '已勾选', '异常'],
-    summary: [
-      { label: '待勾选', value: '18 张', tone: 'amber' },
-      { label: '可抵扣税额', value: '¥42,860.00', tone: 'blue' },
-      { label: '已匹配凭证', value: '12 张', tone: 'green' },
-      { label: '异常票据', value: '2 张', tone: 'red' },
-    ],
-    columns: [
-      { key: 'date', label: '开票日期' },
-      { key: 'number', label: '发票号码' },
-      { key: 'seller', label: '销方名称' },
-      { key: 'amount', label: '金额', align: 'right' },
-      { key: 'tax', label: '税额', align: 'right' },
-      { key: 'deduction', label: '勾选用途' },
-    ],
-    rows: [
-      { id: 'fx-001', status: '待确认', voucher: '未生成', attachment: 'PDF', values: { date: '2026-05-06', number: '310026000142', seller: '上海云启科技有限公司', amount: '¥38,000.00', tax: '¥4,940.00', deduction: '增值税抵扣' } },
-      { id: 'fx-002', status: '已匹配', voucher: '记-0058', attachment: 'OFD', values: { date: '2026-05-09', number: '310026000186', seller: '苏州材料供应链有限公司', amount: '¥126,500.00', tax: '¥16,445.00', deduction: '增值税抵扣' } },
-      { id: 'fx-003', status: '异常', voucher: '未生成', attachment: 'PDF', values: { date: '2026-05-12', number: '310026000221', seller: '杭州设备服务有限公司', amount: '¥9,800.00', tax: '¥588.00', deduction: '税率需复核' } },
-    ],
-    notes: ['真实发票云票池同步需要合法税务接口；当前先保留同步入口和勾选状态。', '后续与进项发票、凭证草稿、税表取数联动。'],
+    notes: ['进项发票页面内置采集和勾选认证能力，统一处理票池同步、OCR、抵扣用途和供应商匹配。', '后续与增值税申报主表、进项转出明细和凭证草稿联动。'],
   },
   billList: {
     keywordPlaceholder: '搜索账单摘要、对方户名、银行账号',
     primaryAction: '生成凭证',
-    importLabel: '导入流水',
+    importLabel: '采集/导入流水',
     statusOptions: ['全部', '未匹配', '已匹配', '异常'],
     summary: [
       { label: '本期流水', value: '96 笔', tone: 'blue' },
@@ -534,6 +452,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { label: '待匹配', value: '21 笔', tone: 'red' },
     ],
     columns: [
+      { key: 'source', label: '采集来源' },
       { key: 'date', label: '交易日期' },
       { key: 'account', label: '银行账户' },
       { key: 'counterparty', label: '对方户名' },
@@ -542,11 +461,11 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'expense', label: '支出', align: 'right' },
     ],
     rows: [
-      { id: 'bill-001', status: '待处理', voucher: '未生成', attachment: '回单', values: { date: '2026-05-03', account: '工行基本户', counterparty: '上海辰光贸易有限公司', summary: '货款', income: '¥86,000.00', expense: '-' } },
-      { id: 'bill-002', status: '已生成凭证', voucher: '记-0042', attachment: '回单', values: { date: '2026-05-08', account: '招行一般户', counterparty: '上海办公服务有限公司', summary: '房租', income: '-', expense: '¥18,000.00' } },
-      { id: 'bill-003', status: '异常', voucher: '未生成', attachment: '无', values: { date: '2026-05-13', account: '工行基本户', counterparty: '个人转账', summary: '备用金', income: '-', expense: '¥5,000.00' } },
+      { id: 'bill-001', status: '待处理', voucher: '未生成', attachment: '回单', values: { source: '银行采集', date: '2026-05-03', account: '工行基本户', counterparty: '上海辰光贸易有限公司', summary: '货款', income: '¥86,000.00', expense: '-' } },
+      { id: 'bill-002', status: '已生成凭证', voucher: '记-0042', attachment: '回单', values: { source: '网银导入', date: '2026-05-08', account: '招行一般户', counterparty: '上海办公服务有限公司', summary: '房租', income: '-', expense: '¥18,000.00' } },
+      { id: 'bill-003', status: '异常', voucher: '未生成', attachment: '无', values: { source: '客户上传', date: '2026-05-13', account: '工行基本户', counterparty: '个人转账', summary: '备用金', income: '-', expense: '¥5,000.00' } },
     ],
-    notes: ['银行直连采集后续通过 adapter 接入；当前支持 Excel/CSV 导入与规则匹配。', 'AI 可基于摘要、对方户名、金额区间推荐科目和辅助核算。'],
+    notes: ['账单一览内置银行流水处理能力，支持银行采集、网银导入、客户上传、回单归档与规则匹配。', 'AI 可基于摘要、对方户名、金额区间推荐科目和辅助核算。'],
   },
   receipt: {
     keywordPlaceholder: '搜索票据号码、出票方、用途',

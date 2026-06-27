@@ -118,19 +118,19 @@ function App() {
             <Route path="/ai/rules" element={businessPage('aiRuleTraining', '规则训练', '维护 AI 推荐规则、训练样本、命中率、版本和人工审核状态。')} />
 
             {/* Collection and file centers - 资料采集与文件中心 */}
-            <Route path="/collection" element={<Navigate to="/collection/invoices" replace />} />
-            <Route path="/collection/invoices" element={businessPage('invoiceCollection', '发票采集', '导入或同步发票影像，进行 OCR 识别、匹配、异常处理和发票模块流转。')} />
-            <Route path="/collection/bank" element={businessPage('bankCollection', '流水采集', '采集银行流水、第三方账单和回单，进入规则匹配和凭证草稿流程。')} />
+            <Route path="/collection" element={<Navigate to="/invoices/output" replace />} />
+            <Route path="/collection/invoices" element={<Navigate to="/invoices/output" replace />} />
+            <Route path="/collection/bank" element={<Navigate to="/bills" replace />} />
             <Route path="/attachments" element={businessPage('attachmentCenter', '附件中心', '管理发票、回单、合同、申报回执和导出归档文件的关联与留痕。')} />
             <Route path="/imports" element={businessPage('importCenter', '导入历史', '统一查看 Excel、CSV、OFD、PDF 等导入批次、错误清单和处理结果。')} />
             <Route path="/downloads" element={businessPage('exportCenter', '下载中心', '统一管理 Excel、PDF、ZIP 导出任务、文件哈希、下载状态和归档期限。')} />
 
             {/* Business Processing - 业务处理 */}
             <Route path="/invoices/output" element={businessPage('outputInvoice', '销项发票', '管理销项发票、开票数据、税额汇总、凭证生成和导出。')} />
-            <Route path="/invoices/selection" element={businessPage('invoiceSelection', '发票勾选', '维护进项发票勾选认证、抵扣用途、异常税率和凭证匹配。')} />
+            <Route path="/invoices/selection" element={<Navigate to="/invoices/input" replace />} />
             <Route path="/invoices/input" element={businessPage('inputInvoice', '进项发票', '管理进项发票、税额抵扣、发票影像、供应商匹配和凭证草稿。')} />
             <Route path="/bills" element={businessPage('billList', '账单一览', '导入和匹配银行流水、回单、摘要分类、凭证草稿和附件。')} />
-            <Route path="/bank" element={businessPage('billList', '银行账单', '处理银行流水采集、对账、回单归档、AI 分类和凭证生成。')} />
+            <Route path="/bank" element={businessPage('billList', '银行账单', '处理银行流水、对账、回单归档、AI 分类和凭证生成。')} />
             <Route path="/receipts" element={businessPage('receipt', '票据', '登记承兑汇票、到期、背书、贴现和凭证联动。')} />
             <Route path="/documents" element={businessPage('documentRegister', '单据登记', '登记非发票业务单据、费用报销、采购入库和附件来源。')} />
             <Route path="/transfers" element={businessPage('transfer', '账户转账', '登记内部账户转账、手续费、回单和转账凭证。')} />
