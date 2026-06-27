@@ -135,6 +135,9 @@ function App() {
             <Route path="/bank" element={businessPage('billList', '银行账单', '处理银行流水、对账、回单归档、AI 分类和凭证生成。')} />
             <Route path="/receipts" element={businessPage('receipt', '票据', '登记承兑汇票、到期、背书、贴现和凭证联动。')} />
             <Route path="/documents" element={businessPage('documentRegister', '单据登记', '登记非发票业务单据、费用报销、采购入库和附件来源。')} />
+            <Route path="/expenses/reimbursements" element={businessPage('expenseReimbursement', '费用报销', '管理员工报销、费用附件、审批状态、付款和凭证生成。')} />
+            <Route path="/purchase" element={businessPage('purchaseManagement', '采购管理', '维护采购订单、入库状态、进项发票匹配、付款和凭证来源。')} />
+            <Route path="/sales" element={businessPage('salesManagement', '销售管理', '维护销售订单、出库状态、销项开票、收款和凭证来源。')} />
             <Route path="/transfers" element={businessPage('transfer', '账户转账', '登记内部账户转账、手续费、回单和转账凭证。')} />
             <Route path="/employees" element={businessPage('employee', '人员登记', '维护员工档案、证件、部门、岗位和个税社保基础信息。')} />
             <Route path="/payroll" element={businessPage('payroll', '薪酬表', '导入和计算工资、个税、实发金额、工资凭证和申报数据。')} />
@@ -150,6 +153,8 @@ function App() {
             <Route path="/vouchers" element={businessPage('voucher', '会计凭证', '管理凭证新增、审核、反审核、打印、导出、红冲、断号整理和批量处理。')} />
             <Route path="/vouchers/detail/:id" element={businessPage('voucher', '会计凭证详情', '查看凭证来源、分录、附件、审核日志、打印和导出。')} />
             <Route path="/bank/reconciliation" element={businessPage('bankReconciliation', '银行对账', '核对银行流水和账面凭证，管理未达账项、差异和对账回执。')} />
+            <Route path="/settlement/receivable" element={businessPage('receivableSettlement', '应收核销', '核对客户销项发票、收款流水、应收余额和核销凭证。')} />
+            <Route path="/settlement/payable" element={businessPage('payableSettlement', '应付核销', '核对供应商进项发票、付款流水、应付余额和核销凭证。')} />
             <Route path="/aging" element={businessPage('receivablePayableAging', '往来账龄', '按客户、供应商和往来科目计算账龄、逾期金额和风险提示。')} />
             <Route path="/matching" element={businessPage('invoiceVoucherMatching', '票据凭证匹配', '核对发票、票据、流水与凭证之间的匹配关系、差异和置信度。')} />
             <Route path="/period-closing" element={businessPage('closingTasks', '期末结转', '执行增值税、附加税、折旧摊销、成本、所得税、损益和本年利润结转。')} />

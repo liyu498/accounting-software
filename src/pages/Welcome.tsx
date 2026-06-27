@@ -4,7 +4,6 @@ import {
   Archive,
   Ban,
   Building2,
-  CalendarDays,
   CircleAlert,
   CloudDownload,
   Download,
@@ -117,12 +116,6 @@ const demoCompanies: AccountRow[] = [
     risk: '8',
     real: false,
   },
-]
-
-const taxCalendar = [
-  { date: '06-24', name: '增值税及附加', count: 12 },
-  { date: '06-25', name: '个税扣缴', count: 18 },
-  { date: '06-28', name: '社保费', count: 9 },
 ]
 
 const currentYear = new Date().getFullYear()
@@ -365,22 +358,6 @@ export function Welcome() {
           </div>
 
           <div className="rounded border border-slate-200 bg-white">
-            <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-3">
-              <div className="mr-2 font-semibold">税务日历</div>
-              {taxCalendar.map((item) => (
-                <div key={item.name} className="flex min-w-44 items-center justify-between rounded bg-slate-50 px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4 text-[#2d6fa8]" />
-                    <div>
-                      <div className="text-sm font-medium">{item.name}</div>
-                      <div className="text-xs text-slate-500">截止 {item.date}</div>
-                    </div>
-                  </div>
-                  <span className="ml-4 text-sm font-semibold">{item.count}</span>
-                </div>
-              ))}
-            </div>
-
             <div className="border-b border-slate-200 px-4 py-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -417,48 +394,65 @@ export function Welcome() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-[1520px] w-full text-left text-sm">
+            <div className="overflow-hidden">
+              <table className="w-full table-fixed text-left text-xs">
+                <colgroup>
+                  <col className="w-[3%]" />
+                  <col className="w-[4%]" />
+                  <col className="w-[5%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[4%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[5%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[5%]" />
+                  <col className="w-[5%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[7%]" />
+                </colgroup>
                 <thead className="bg-[#f3f7fb] text-xs font-semibold text-slate-600">
                   <tr>
-                    <th className="w-10 px-3 py-3">
+                    <th className="px-2 py-2">
                       <input type="checkbox" checked={allChecked} onChange={toggleAllRows} />
                     </th>
-                    <th className="px-3 py-3">企业标签</th>
-                    <th className="px-3 py-3">编码</th>
-                    <th className="px-3 py-3">企业名称</th>
-                    <th className="px-3 py-3">企业类型</th>
-                    <th className="px-3 py-3">纳税人资格</th>
-                    <th className="px-3 py-3">采集状态</th>
-                    <th className="px-3 py-3">信用等级</th>
-                    <th className="px-3 py-3">客户导入时间</th>
-                    <th className="px-3 py-3">主办会计</th>
-                    <th className="px-3 py-3">服务期限</th>
-                    <th className="px-3 py-3">部门主管</th>
-                    <th className="px-3 py-3">账期</th>
-                    <th className="px-3 py-3">主管税务机关</th>
-                    <th className="px-3 py-3 text-center">操作</th>
+                    <th className="px-2 py-2">企业标签</th>
+                    <th className="px-2 py-2">编码</th>
+                    <th className="px-2 py-2">企业名称</th>
+                    <th className="px-2 py-2">企业类型</th>
+                    <th className="px-2 py-2">纳税人资格</th>
+                    <th className="px-2 py-2">采集状态</th>
+                    <th className="px-2 py-2">信用等级</th>
+                    <th className="px-2 py-2">客户导入时间</th>
+                    <th className="px-2 py-2">主办会计</th>
+                    <th className="px-2 py-2">服务期限</th>
+                    <th className="px-2 py-2">部门主管</th>
+                    <th className="px-2 py-2">账期</th>
+                    <th className="px-2 py-2">主管税务机关</th>
+                    <th className="px-2 py-2 text-center">操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {rows.map((company) => (
                     <tr key={company.id} className="hover:bg-[#f8fbff]">
-                      <td className="px-3 py-3"><input type="checkbox" checked={selectedRows.has(company.id)} onChange={() => toggleRow(company.id)} /></td>
-                      <td className="px-3 py-3 text-[#1f65a7]">✎</td>
-                      <td className="px-3 py-3 font-mono text-xs text-slate-500">{company.code}</td>
-                      <td className="px-3 py-3 font-medium">{company.name}</td>
-                      <td className="px-3 py-3">{company.enterpriseType}</td>
-                      <td className="px-3 py-3">{company.taxType}</td>
-                      <td className="px-3 py-3"><CollectStatus value={company.collectStatus} /></td>
-                      <td className="px-3 py-3">{company.credit}</td>
-                      <td className="px-3 py-3">{company.importedAt}</td>
-                      <td className="px-3 py-3">{company.accountant}</td>
-                      <td className="px-3 py-3">{company.servicePeriod}</td>
-                      <td className="px-3 py-3">{company.supervisor}</td>
-                      <td className="px-3 py-3">{company.period}</td>
-                      <td className="px-3 py-3">{company.taxOffice}</td>
-                      <td className="px-3 py-3">
-                        <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[#1f65a7]">
+                      <td className="px-2 py-2 align-top"><input type="checkbox" checked={selectedRows.has(company.id)} onChange={() => toggleRow(company.id)} /></td>
+                      <td className="break-words px-2 py-2 align-top text-[#1f65a7]">✎</td>
+                      <td className="break-words px-2 py-2 align-top font-mono text-xs text-slate-500">{company.code}</td>
+                      <td className="break-words px-2 py-2 align-top font-medium">{company.name}</td>
+                      <td className="break-words px-2 py-2 align-top">{company.enterpriseType}</td>
+                      <td className="break-words px-2 py-2 align-top">{company.taxType}</td>
+                      <td className="break-words px-2 py-2 align-top"><CollectStatus value={company.collectStatus} /></td>
+                      <td className="break-words px-2 py-2 align-top">{company.credit}</td>
+                      <td className="break-words px-2 py-2 align-top">{company.importedAt}</td>
+                      <td className="break-words px-2 py-2 align-top">{company.accountant}</td>
+                      <td className="break-words px-2 py-2 align-top">{company.servicePeriod}</td>
+                      <td className="break-words px-2 py-2 align-top">{company.supervisor}</td>
+                      <td className="break-words px-2 py-2 align-top">{company.period}</td>
+                      <td className="break-words px-2 py-2 align-top">{company.taxOffice}</td>
+                      <td className="px-2 py-2 align-top">
+                        <div className="flex flex-wrap justify-center gap-x-1 gap-y-1 text-[#1f65a7]">
                           <button type="button">编辑</button>
                           <button type="button">删除</button>
                           <button type="button">停用</button>

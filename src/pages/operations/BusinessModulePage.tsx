@@ -34,6 +34,9 @@ type ModuleKind =
   | 'billList'
   | 'receipt'
   | 'documentRegister'
+  | 'expenseReimbursement'
+  | 'purchaseManagement'
+  | 'salesManagement'
   | 'voucher'
   | 'transfer'
   | 'employee'
@@ -46,6 +49,8 @@ type ModuleKind =
   | 'costCarryover'
   | 'unitSettings'
   | 'bankReconciliation'
+  | 'receivableSettlement'
+  | 'payableSettlement'
   | 'receivablePayableAging'
   | 'invoiceVoucherMatching'
   | 'riskCheck'
@@ -519,6 +524,90 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     ],
     notes: ['单据登记用于覆盖非发票、非银行流水来源，统一进入凭证草稿池。'],
   },
+  expenseReimbursement: {
+    keywordPlaceholder: '搜索报销单号、员工、部门、费用类型、审批状态',
+    primaryAction: '新增报销',
+    importLabel: '导入报销单',
+    statusOptions: ['全部', '待审批', '已审批', '待付款', '已生成凭证', '异常'],
+    summary: [
+      { label: '报销单', value: '29 张', tone: 'blue' },
+      { label: '已审批', value: '18 张', tone: 'green' },
+      { label: '待付款', value: '7 张', tone: 'amber' },
+      { label: '附件异常', value: '2 张', tone: 'red' },
+    ],
+    columns: [
+      { key: 'date', label: '申请日期' },
+      { key: 'code', label: '报销单号' },
+      { key: 'employee', label: '报销人' },
+      { key: 'department', label: '部门' },
+      { key: 'expenseType', label: '费用类型' },
+      { key: 'amount', label: '报销金额', align: 'right' },
+      { key: 'payStatus', label: '付款状态' },
+      { key: 'approval', label: '审批状态' },
+    ],
+    rows: [
+      { id: 'er-001', status: '待确认', voucher: '未生成', attachment: '发票2', values: { date: '2026-05-06', code: 'BX-202605-001', employee: '张三', department: '销售部', expenseType: '差旅费', amount: '¥2,860.00', payStatus: '待付款', approval: '主管已批' } },
+      { id: 'er-002', status: '已生成凭证', voucher: '记-0048', attachment: '发票1', values: { date: '2026-05-09', code: 'BX-202605-006', employee: '李四', department: '行政部', expenseType: '办公费', amount: '¥860.00', payStatus: '已付款', approval: '已归档' } },
+      { id: 'er-003', status: '异常', voucher: '未生成', attachment: '缺票', values: { date: '2026-05-16', code: 'BX-202605-012', employee: '王五', department: '研发部', expenseType: '交通费', amount: '¥420.00', payStatus: '待补票', approval: '退回' } },
+    ],
+    notes: ['费用报销承接员工报销、附件票据、付款状态和费用凭证生成。'],
+  },
+  purchaseManagement: {
+    keywordPlaceholder: '搜索采购单号、供应商、入库状态、发票状态',
+    primaryAction: '新增采购',
+    importLabel: '导入采购单',
+    statusOptions: ['全部', '待入库', '待收票', '待付款', '已完成', '异常'],
+    summary: [
+      { label: '采购单', value: '42 单', tone: 'blue' },
+      { label: '已入库', value: '31 单', tone: 'green' },
+      { label: '待收票', value: '8 单', tone: 'amber' },
+      { label: '三方差异', value: '3 单', tone: 'red' },
+    ],
+    columns: [
+      { key: 'date', label: '采购日期' },
+      { key: 'orderNo', label: '采购单号' },
+      { key: 'supplier', label: '供应商' },
+      { key: 'goods', label: '商品/服务' },
+      { key: 'amount', label: '采购金额', align: 'right' },
+      { key: 'stock', label: '入库状态' },
+      { key: 'invoice', label: '发票状态' },
+      { key: 'payment', label: '付款状态' },
+    ],
+    rows: [
+      { id: 'pm-001', status: '已匹配', voucher: '草稿18', attachment: '入库单', values: { date: '2026-05-05', orderNo: 'CG-202605-001', supplier: '上海零件供应商', goods: '控制器 A-100', amount: '¥168,000.00', stock: '已入库', invoice: '进项已匹配', payment: '待付款' } },
+      { id: 'pm-002', status: '待确认', voucher: '未生成', attachment: '合同', values: { date: '2026-05-10', orderNo: 'CG-202605-009', supplier: '苏州材料供应商', goods: '原材料', amount: '¥96,000.00', stock: '待入库', invoice: '待收票', payment: '未付款' } },
+      { id: 'pm-003', status: '异常', voucher: '-', attachment: '差异', values: { date: '2026-05-18', orderNo: 'CG-202605-018', supplier: '杭州设备公司', goods: '设备维护', amount: '¥18,600.00', stock: '不适用', invoice: '税额差异', payment: '已付款' } },
+    ],
+    notes: ['采购管理用于采购订单、入库、进项发票和付款核销的前置台账。'],
+  },
+  salesManagement: {
+    keywordPlaceholder: '搜索销售单号、客户、出库状态、开票状态',
+    primaryAction: '新增销售',
+    importLabel: '导入销售单',
+    statusOptions: ['全部', '待出库', '待开票', '待收款', '已完成', '异常'],
+    summary: [
+      { label: '销售单', value: '56 单', tone: 'blue' },
+      { label: '已开票', value: '43 单', tone: 'green' },
+      { label: '待收款', value: '11 单', tone: 'amber' },
+      { label: '出库异常', value: '2 单', tone: 'red' },
+    ],
+    columns: [
+      { key: 'date', label: '销售日期' },
+      { key: 'orderNo', label: '销售单号' },
+      { key: 'customer', label: '客户' },
+      { key: 'goods', label: '商品/服务' },
+      { key: 'amount', label: '销售金额', align: 'right' },
+      { key: 'delivery', label: '出库状态' },
+      { key: 'invoice', label: '开票状态' },
+      { key: 'receipt', label: '收款状态' },
+    ],
+    rows: [
+      { id: 'sm-001', status: '已生成凭证', voucher: '记-0068', attachment: '出库单', values: { date: '2026-05-03', orderNo: 'XS-202605-001', customer: '上海辰光贸易有限公司', goods: '控制器 A-100', amount: '¥97,180.00', delivery: '已出库', invoice: '销项已开', receipt: '待核销' } },
+      { id: 'sm-002', status: '待确认', voucher: '未生成', attachment: '订单', values: { date: '2026-05-12', orderNo: 'XS-202605-014', customer: '杭州客户', goods: '技术服务', amount: '¥127,200.00', delivery: '不适用', invoice: '待开票', receipt: '未收款' } },
+      { id: 'sm-003', status: '异常', voucher: '-', attachment: '差异', values: { date: '2026-05-20', orderNo: 'XS-202605-022', customer: '南京云杉贸易有限公司', goods: '配件', amount: '¥42,940.00', delivery: '少出库', invoice: '已开票', receipt: '部分收款' } },
+    ],
+    notes: ['销售管理用于销售订单、出库、销项发票和收款核销的前置台账。'],
+  },
   voucher: {
     keywordPlaceholder: '搜索凭证号、摘要、科目、制单人、来源单据',
     primaryAction: '新增凭证',
@@ -839,6 +928,62 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'brc-003', status: '异常', voucher: '记-0071', attachment: '回单', values: { account: '建设银行 1122', statementNo: 'B20260521008', date: '2026-05-21', summary: '付款', bankAmount: '¥45,600.00', bookAmount: '¥44,200.00', difference: '¥1,400.00', matchStatus: '金额不一致' } },
     ],
     notes: ['银行对账是账单一览之后的财务控制台，保留未达账项、差异和凭证穿透。'],
+  },
+  receivableSettlement: {
+    keywordPlaceholder: '搜索客户、发票号、收款流水、核销状态',
+    primaryAction: '新增应收核销',
+    importLabel: '导入核销',
+    statusOptions: ['全部', '待核销', '部分核销', '已核销', '异常'],
+    summary: [
+      { label: '应收余额', value: '¥386,200.00', tone: 'blue' },
+      { label: '已核销', value: '¥294,800.00', tone: 'green' },
+      { label: '待核销', value: '¥71,400.00', tone: 'amber' },
+      { label: '差异', value: '¥20,000.00', tone: 'red' },
+    ],
+    columns: [
+      { key: 'customer', label: '客户' },
+      { key: 'invoiceNo', label: '销项发票' },
+      { key: 'receivable', label: '应收金额', align: 'right' },
+      { key: 'receipt', label: '收款流水' },
+      { key: 'settled', label: '已核销', align: 'right' },
+      { key: 'balance', label: '未核销', align: 'right' },
+      { key: 'method', label: '核销方式' },
+      { key: 'owner', label: '经办人' },
+    ],
+    rows: [
+      { id: 'rs-001', status: '已匹配', voucher: '记-0072', attachment: '回单', values: { customer: '上海辰光贸易有限公司', invoiceNo: '310026000118', receivable: '¥97,180.00', receipt: 'BANK-0526-018', settled: '¥97,180.00', balance: '¥0.00', method: '发票+流水自动匹配', owner: '王会计' } },
+      { id: 'rs-002', status: '待确认', voucher: '草稿', attachment: '回单', values: { customer: '杭州辰光贸易有限公司', invoiceNo: '310026000126', receivable: '¥127,200.00', receipt: 'BANK-0526-041', settled: '¥80,000.00', balance: '¥47,200.00', method: '部分核销', owner: '李会计' } },
+      { id: 'rs-003', status: '异常', voucher: '-', attachment: '差异', values: { customer: '南京云杉贸易有限公司', invoiceNo: '310026000188', receivable: '¥42,940.00', receipt: '未匹配', settled: '¥0.00', balance: '¥42,940.00', method: '待客户确认', owner: '赵会计' } },
+    ],
+    notes: ['应收核销连接销项发票、销售订单、银行流水和应收账款余额。'],
+  },
+  payableSettlement: {
+    keywordPlaceholder: '搜索供应商、进项发票、付款流水、核销状态',
+    primaryAction: '新增应付核销',
+    importLabel: '导入核销',
+    statusOptions: ['全部', '待核销', '部分核销', '已核销', '异常'],
+    summary: [
+      { label: '应付余额', value: '¥428,600.00', tone: 'blue' },
+      { label: '已核销', value: '¥216,800.00', tone: 'green' },
+      { label: '待核销', value: '¥181,800.00', tone: 'amber' },
+      { label: '差异', value: '¥30,000.00', tone: 'red' },
+    ],
+    columns: [
+      { key: 'supplier', label: '供应商' },
+      { key: 'invoiceNo', label: '进项发票' },
+      { key: 'payable', label: '应付金额', align: 'right' },
+      { key: 'payment', label: '付款流水' },
+      { key: 'settled', label: '已核销', align: 'right' },
+      { key: 'balance', label: '未核销', align: 'right' },
+      { key: 'method', label: '核销方式' },
+      { key: 'owner', label: '经办人' },
+    ],
+    rows: [
+      { id: 'ps-001', status: '已匹配', voucher: '记-0078', attachment: '回单', values: { supplier: '上海零件供应商', invoiceNo: '310026000221', payable: '¥142,945.00', payment: 'BANK-0526-031', settled: '¥142,945.00', balance: '¥0.00', method: '发票+流水自动匹配', owner: '李会计' } },
+      { id: 'ps-002', status: '待确认', voucher: '草稿', attachment: '合同', values: { supplier: '苏州材料供应商', invoiceNo: '待收票', payable: '¥96,000.00', payment: 'BANK-0526-045', settled: '¥60,000.00', balance: '¥36,000.00', method: '预付款挂账', owner: '王会计' } },
+      { id: 'ps-003', status: '异常', voucher: '-', attachment: '差异', values: { supplier: '杭州设备公司', invoiceNo: '310026000333', payable: '¥18,600.00', payment: '金额不一致', settled: '¥0.00', balance: '¥18,600.00', method: '待人工处理', owner: '赵会计' } },
+    ],
+    notes: ['应付核销连接进项发票、采购订单、银行流水和应付账款余额。'],
   },
   receivablePayableAging: {
     keywordPlaceholder: '搜索客户、供应商、科目、账龄区间',
