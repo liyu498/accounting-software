@@ -38,7 +38,6 @@ interface AccountRow {
   enterpriseType: string
   taxType: string
   collectStatus: string
-  socialStatus: string
   credit: string
   importedAt: string
   accountant: string
@@ -62,7 +61,6 @@ const demoCompanies: AccountRow[] = [
     enterpriseType: '私营有限责任公司',
     taxType: '一般纳税人',
     collectStatus: '采集成功 2026-06-26 18:09:49',
-    socialStatus: '采集成功 2026-06-26 18:06:34',
     credit: 'M',
     importedAt: '2026-06-26 17:40:08',
     accountant: '李喻',
@@ -84,7 +82,6 @@ const demoCompanies: AccountRow[] = [
     enterpriseType: '私营有限责任公司',
     taxType: '小规模纳税人',
     collectStatus: '采集警告 2026-06-26 18:00:10',
-    socialStatus: '采集成功 2026-06-26 17:58:25',
     credit: 'M',
     importedAt: '2026-06-26 17:26:07',
     accountant: '李喻',
@@ -106,7 +103,6 @@ const demoCompanies: AccountRow[] = [
     enterpriseType: '内资企业',
     taxType: '一般纳税人',
     collectStatus: '采集失败 2026-06-26 17:54:16',
-    socialStatus: '采集失败 2026-06-26 18:02:48',
     credit: 'M',
     importedAt: '2026-06-26 17:10:59',
     accountant: '王会计',
@@ -184,7 +180,6 @@ export function Welcome() {
         enterpriseType: '私营有限责任公司',
         taxType: company.tax_type === 'general' ? '一般纳税人' : '小规模纳税人',
         collectStatus: '待采集',
-        socialStatus: '待采集',
         credit: 'M',
         importedAt: company.created_at?.slice(0, 16).replace('T', ' ') || '-',
         accountant: '未分配',
@@ -297,6 +292,7 @@ export function Welcome() {
   }
 
   const allChecked = rows.length > 0 && rows.every((row) => selectedRows.has(row.id))
+  const homeAgencyItems = agencyNavItems.filter((item) => item.id !== 'agency-accounts')
 
   const toggleAllRows = () => {
     if (allChecked) {
@@ -333,18 +329,18 @@ export function Welcome() {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-[1440px] grid-cols-1 gap-4 px-6 py-4 xl:grid-cols-[1fr_320px]">
-        <section className="space-y-4">
+      <main className="mx-auto max-w-[1440px] space-y-4 px-6 py-4">
+        <section className="min-w-0 space-y-4">
           <div className="rounded border border-slate-200 bg-white">
             <div className="flex flex-col gap-2 border-b border-slate-200 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h1 className="text-lg font-semibold">机构级批量工作</h1>
-                <p className="text-xs text-slate-500">这些功能面向全部客户账套，处理合同、收费、协同、工单、批量申报、统计和自动化。</p>
+                <p className="text-xs text-slate-500">这些功能面向全部客户账套，处理合同、批量申报、统计和自动化。</p>
               </div>
               <span className="inline-flex w-fit rounded bg-[#eef6ff] px-2 py-1 text-xs font-medium text-[#1f65a7]">不进入单公司账套</span>
             </div>
-            <div className="grid gap-2 p-4 md:grid-cols-2 xl:grid-cols-5">
-              {agencyNavItems.map((item) => (
+            <div className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-4">
+              {homeAgencyItems.map((item) => (
                 <Link key={item.id} to={item.path} className="group rounded border border-slate-200 bg-white p-3 hover:border-[#2d6fa8] hover:bg-[#f8fbff]">
                   <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 group-hover:text-[#1f65a7]">
                     <span className="inline-flex h-7 w-7 items-center justify-center rounded bg-[#eef6ff] text-[#1f65a7]">{item.icon}</span>
@@ -369,6 +365,22 @@ export function Welcome() {
           </div>
 
           <div className="rounded border border-slate-200 bg-white">
+            <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-3">
+              <div className="mr-2 font-semibold">税务日历</div>
+              {taxCalendar.map((item) => (
+                <div key={item.name} className="flex min-w-44 items-center justify-between rounded bg-slate-50 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-[#2d6fa8]" />
+                    <div>
+                      <div className="text-sm font-medium">{item.name}</div>
+                      <div className="text-xs text-slate-500">截止 {item.date}</div>
+                    </div>
+                  </div>
+                  <span className="ml-4 text-sm font-semibold">{item.count}</span>
+                </div>
+              ))}
+            </div>
+
             <div className="border-b border-slate-200 px-4 py-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -389,7 +401,6 @@ export function Welcome() {
                 <FilterField label="企业类型" value="全部" />
                 <FilterField label="纳税人资格" value="全部" />
                 <FilterField label="采集状态" value="全部" />
-                <FilterField label="社保采集状态" value="全部" />
                 <FilterField label="角色" value="全部" />
                 <FilterField label="人员" value="全部" />
                 <FilterField label="账期" placeholder="2026-05" />
@@ -407,7 +418,7 @@ export function Welcome() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="min-w-[1680px] w-full text-left text-sm">
+              <table className="min-w-[1520px] w-full text-left text-sm">
                 <thead className="bg-[#f3f7fb] text-xs font-semibold text-slate-600">
                   <tr>
                     <th className="w-10 px-3 py-3">
@@ -419,7 +430,6 @@ export function Welcome() {
                     <th className="px-3 py-3">企业类型</th>
                     <th className="px-3 py-3">纳税人资格</th>
                     <th className="px-3 py-3">采集状态</th>
-                    <th className="px-3 py-3">社保采集状态</th>
                     <th className="px-3 py-3">信用等级</th>
                     <th className="px-3 py-3">客户导入时间</th>
                     <th className="px-3 py-3">主办会计</th>
@@ -440,7 +450,6 @@ export function Welcome() {
                       <td className="px-3 py-3">{company.enterpriseType}</td>
                       <td className="px-3 py-3">{company.taxType}</td>
                       <td className="px-3 py-3"><CollectStatus value={company.collectStatus} /></td>
-                      <td className="px-3 py-3"><CollectStatus value={company.socialStatus} /></td>
                       <td className="px-3 py-3">{company.credit}</td>
                       <td className="px-3 py-3">{company.importedAt}</td>
                       <td className="px-3 py-3">{company.accountant}</td>
@@ -465,26 +474,6 @@ export function Welcome() {
             </div>
           </div>
         </section>
-
-        <aside className="space-y-4">
-          <div className="rounded border border-slate-200 bg-white">
-            <div className="border-b border-slate-200 px-4 py-3 font-semibold">税务日历</div>
-            <div className="space-y-2 p-4">
-              {taxCalendar.map((item) => (
-                <div key={item.name} className="flex items-center justify-between rounded bg-slate-50 px-3 py-2">
-                  <div className="flex items-center gap-3">
-                    <CalendarDays className="h-4 w-4 text-[#2d6fa8]" />
-                    <div>
-                      <div className="text-sm font-medium">{item.name}</div>
-                      <div className="text-xs text-slate-500">截止 {item.date}</div>
-                    </div>
-                  </div>
-                  <span className="text-sm font-semibold">{item.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
       </main>
 
       {showAddModal && (

@@ -19,9 +19,6 @@ import {
 import { cn } from '../../lib/utils'
 import {
   agencyApi,
-  type AgencyCollaborationItem,
-  type AgencyDeliveryTicket,
-  type AgencyFeeCollection,
   type AgencyServiceContract,
 } from '../../lib/api'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
@@ -31,9 +28,6 @@ export type AgencyModuleKind =
   | 'clients'
   | 'accountManagement'
   | 'serviceContracts'
-  | 'feeCollection'
-  | 'customerCollaboration'
-  | 'deliveryTickets'
   | 'batchTax'
   | 'dataStats'
   | 'batchOps'
@@ -118,7 +112,6 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { key: 'type', label: '企业类型' },
       { key: 'taxType', label: '纳税人资格' },
       { key: 'collect', label: '采集状态' },
-      { key: 'socialCollect', label: '社保采集状态' },
       { key: 'credit', label: '信用等级', align: 'center' },
       { key: 'importedAt', label: '客户导入时间' },
       { key: 'owner', label: '主办会计' },
@@ -128,9 +121,9 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { key: 'taxOffice', label: '主管税务机关' },
     ],
     rows: [
-      { id: 'am-001', status: '已完成', values: { tag: '重点客户', code: '20258497', name: '上海王家德餐饮管理有限公司', type: '私营有限责任公司', taxType: '小规模纳税人', collect: '采集成功 06-26 18:09', socialCollect: '采集成功 06-26 18:06', credit: 'M', importedAt: '2026-06-26 17:40', owner: '李喻', serviceEnd: '2026-12', manager: '李喻', period: '2026-06', taxOffice: '普陀区税务局第十六税务所' } },
-      { id: 'am-002', status: '待确认', values: { tag: '新签', code: '20258493', name: '上海蓝雀元智能科技有限公司', type: '私营有限责任公司', taxType: '小规模纳税人', collect: '采集成功 06-26 17:57', socialCollect: '采集成功 06-26 17:54', credit: 'M', importedAt: '2026-06-26 17:26', owner: '李喻', serviceEnd: '2027-05', manager: '李喻', period: '2026-06', taxOffice: '宝山区税务局第十六税务所' } },
-      { id: 'am-003', status: '异常', values: { tag: '需回执', code: '20258486', name: '上海爱恩客工业科技有限公司', type: '内资企业', taxType: '一般纳税人', collect: '采集失败 06-26 17:54', socialCollect: '采集成功 06-26 17:52', credit: '-', importedAt: '2026-06-26 17:09', owner: '李喻', serviceEnd: '2026-06', manager: '李喻', period: '2026-06', taxOffice: '嘉定区税务局第十三税务所' } },
+      { id: 'am-001', status: '已完成', values: { tag: '重点客户', code: '20258497', name: '上海王家德餐饮管理有限公司', type: '私营有限责任公司', taxType: '小规模纳税人', collect: '采集成功 06-26 18:09', credit: 'M', importedAt: '2026-06-26 17:40', owner: '李喻', serviceEnd: '2026-12', manager: '李喻', period: '2026-06', taxOffice: '普陀区税务局第十六税务所' } },
+      { id: 'am-002', status: '待确认', values: { tag: '新签', code: '20258493', name: '上海蓝雀元智能科技有限公司', type: '私营有限责任公司', taxType: '小规模纳税人', collect: '采集成功 06-26 17:57', credit: 'M', importedAt: '2026-06-26 17:26', owner: '李喻', serviceEnd: '2027-05', manager: '李喻', period: '2026-06', taxOffice: '宝山区税务局第十六税务所' } },
+      { id: 'am-003', status: '异常', values: { tag: '需回执', code: '20258486', name: '上海爱恩客工业科技有限公司', type: '内资企业', taxType: '一般纳税人', collect: '采集失败 06-26 17:54', credit: '-', importedAt: '2026-06-26 17:09', owner: '李喻', serviceEnd: '2026-06', manager: '李喻', period: '2026-06', taxOffice: '嘉定区税务局第十三税务所' } },
     ],
     queueTitle: '批量动作',
     queue: ['新增企业、导入、导出、采集、批量删除、批量停用只在机构层出现', '采集通过维护的税务登录方式获取客户基础资料、税种、主管税务机关和企业类型', '操作列保留编辑、删除、停用、备忘录、进入账套、登录税务局'],
@@ -138,14 +131,14 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   },
   serviceContracts: {
     title: '服务合同',
-    description: '维护代账服务合同、服务套餐、起止日期、续费状态和客户账套绑定关系。',
-    tabs: ['全部合同', '服务中', '待续费', '待签署', '已到期', '变更记录'],
+    description: '维护代账服务合同、服务套餐、收费收款、客户协同、续费状态和归档。',
+    tabs: ['服务合同', '收费管理', '客户协同', '待续费', '待签署', '归档记录'],
     primaryAction: '新增合同',
-    keywordPlaceholder: '搜索客户、合同编号、服务套餐、负责人',
+    keywordPlaceholder: '搜索客户、合同编号、收费状态、协同事项、负责人',
     summary: [
       { label: '服务中合同', value: '118 份', tone: 'blue' },
-      { label: '本月续费', value: '16 份', tone: 'amber' },
-      { label: '待签署', value: '7 份', tone: 'red' },
+      { label: '待收服务费', value: '¥92,600', tone: 'amber' },
+      { label: '待客户协同', value: '42 项', tone: 'red' },
       { label: '已归档', value: '96 份', tone: 'green' },
     ],
     columns: [
@@ -154,111 +147,20 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { key: 'package', label: '服务套餐' },
       { key: 'period', label: '服务期间' },
       { key: 'fee', label: '月服务费', align: 'right' },
+      { key: 'payment', label: '收费状态' },
+      { key: 'collaboration', label: '客户协同' },
       { key: 'renewal', label: '续费状态' },
       { key: 'owner', label: '负责人' },
       { key: 'archive', label: '归档' },
     ],
     rows: [
-      { id: 'sc-001', status: '进行中', values: { contractNo: 'FW-2026-0018', customer: '科旋电气（上海）有限公司', package: '一般纳税人标准包', period: '2026-01 至 2026-12', fee: '¥2,800.00', renewal: '正常', owner: '张会计', archive: '合同PDF' } },
-      { id: 'sc-002', status: '待确认', values: { contractNo: 'FW-2026-0042', customer: '上海云启科技有限公司', package: '小规模基础包', period: '2026-06 至 2027-05', fee: '¥1,200.00', renewal: '待签署', owner: '李会计', archive: '待上传' } },
-      { id: 'sc-003', status: '异常', values: { contractNo: 'FW-2025-0091', customer: '杭州辰光贸易有限公司', package: '一般纳税人含申报', period: '2025-07 至 2026-06', fee: '¥3,200.00', renewal: '30天内到期', owner: '王会计', archive: '缺附件' } },
+      { id: 'sc-001', status: '进行中', values: { contractNo: 'FW-2026-0018', customer: '科旋电气（上海）有限公司', package: '一般纳税人标准包', period: '2026-01 至 2026-12', fee: '¥2,800.00', payment: '已收款/已开票', collaboration: '无待办', renewal: '正常', owner: '张会计', archive: '合同PDF' } },
+      { id: 'sc-002', status: '待确认', values: { contractNo: 'FW-2026-0042', customer: '上海云启科技有限公司', package: '小规模基础包', period: '2026-06 至 2027-05', fee: '¥1,200.00', payment: '待开票/待收款', collaboration: '确认管理费用差异', renewal: '待签署', owner: '李会计', archive: '待上传' } },
+      { id: 'sc-003', status: '异常', values: { contractNo: 'FW-2025-0091', customer: '杭州辰光贸易有限公司', package: '一般纳税人含申报', period: '2025-07 至 2026-06', fee: '¥3,200.00', payment: '逾期欠费 ¥6,400', collaboration: '补传销项发票', renewal: '30天内到期', owner: '王会计', archive: '缺附件' } },
     ],
-    queueTitle: '续费提醒',
-    queue: ['杭州辰光贸易合同 30 天内到期', '上海云启新合同待客户签署', '7 份合同缺少盖章版 PDF'],
-    notes: ['服务合同是机构收费、客户权限、交付 SLA 和资料催办的基础。', '后续可与电子签、客户门户和发票开具模块联动。'],
-  },
-  feeCollection: {
-    title: '收费管理',
-    description: '按客户和账期管理代账服务费、开票、收款、欠费和催收记录。',
-    tabs: ['应收总览', '待开票', '待收款', '欠费客户', '已收款', '催收记录'],
-    primaryAction: '生成应收',
-    keywordPlaceholder: '搜索客户、账期、发票号、收款状态',
-    summary: [
-      { label: '本月应收', value: '¥386,800.00', tone: 'blue' },
-      { label: '已收款', value: '¥294,200.00', tone: 'green' },
-      { label: '待开票', value: '¥42,600.00', tone: 'amber' },
-      { label: '逾期欠费', value: '¥50,000.00', tone: 'red' },
-    ],
-    columns: [
-      { key: 'customer', label: '客户名称' },
-      { key: 'period', label: '账期', align: 'center' },
-      { key: 'receivable', label: '应收服务费', align: 'right' },
-      { key: 'received', label: '已收金额', align: 'right' },
-      { key: 'arrears', label: '欠费金额', align: 'right' },
-      { key: 'invoice', label: '服务费发票' },
-      { key: 'payStatus', label: '收款状态' },
-      { key: 'collector', label: '跟进人' },
-    ],
-    rows: [
-      { id: 'fee-001', status: '已完成', values: { customer: '科旋电气（上海）有限公司', period: '2026-05', receivable: '¥2,800.00', received: '¥2,800.00', arrears: '¥0.00', invoice: '已开票', payStatus: '已收款', collector: '张会计' } },
-      { id: 'fee-002', status: '待处理', values: { customer: '上海云启科技有限公司', period: '2026-05', receivable: '¥1,200.00', received: '¥0.00', arrears: '¥1,200.00', invoice: '待开票', payStatus: '待收款', collector: '李会计' } },
-      { id: 'fee-003', status: '异常', values: { customer: '杭州辰光贸易有限公司', period: '2026-04/05', receivable: '¥6,400.00', received: '¥0.00', arrears: '¥6,400.00', invoice: '未开票', payStatus: '逾期', collector: '王会计' } },
-    ],
-    queueTitle: '催收队列',
-    queue: ['杭州辰光贸易逾期 2 个月服务费', '上海云启待开具服务费发票', '本月 16 户客户需自动生成应收单'],
-    notes: ['收费管理只处理代账机构经营收入，不混入客户账套收入凭证。', '后续可关联合同、收款码、服务费发票和催收消息记录。'],
-  },
-  customerCollaboration: {
-    title: '客户协同',
-    description: '跟踪客户资料补传、问题确认、催办记录、消息状态和客户门户待办。',
-    tabs: ['协同待办', '资料补传', '问题确认', '催办记录', '客户消息', '门户日志'],
-    primaryAction: '发起催办',
-    keywordPlaceholder: '搜索客户、资料类型、联系人、回复状态',
-    summary: [
-      { label: '待客户处理', value: '42 项', tone: 'amber' },
-      { label: '今日已回复', value: '18 项', tone: 'green' },
-      { label: '超时未回', value: '9 项', tone: 'red' },
-      { label: '门户上传', value: '126 件', tone: 'blue' },
-    ],
-    columns: [
-      { key: 'customer', label: '客户名称' },
-      { key: 'todo', label: '协同事项' },
-      { key: 'material', label: '资料类型' },
-      { key: 'contact', label: '客户联系人' },
-      { key: 'reminders', label: '催办次数', align: 'right' },
-      { key: 'lastContact', label: '最近沟通' },
-      { key: 'reply', label: '回复状态' },
-      { key: 'owner', label: '负责人' },
-    ],
-    rows: [
-      { id: 'co-001', status: '待处理', values: { customer: '科旋电气（上海）有限公司', todo: '补传 5 月银行回单', material: '银行回单', contact: '陈经理', reminders: '2', lastContact: '06-26 10:30', reply: '待回复', owner: '张会计' } },
-      { id: 'co-002', status: '已完成', values: { customer: '上海云启科技有限公司', todo: '确认管理费用差异', material: '报表问题', contact: '刘总', reminders: '1', lastContact: '06-26 14:12', reply: '已确认', owner: '李会计' } },
-      { id: 'co-003', status: '异常', values: { customer: '杭州辰光贸易有限公司', todo: '补传销项发票', material: '发票影像', contact: '周会计', reminders: '4', lastContact: '06-24 09:00', reply: '超时', owner: '王会计' } },
-    ],
-    queueTitle: '沟通规则',
-    queue: ['超时 24 小时未回复自动进入二次催办', '客户上传文件先进入附件中心再流转识别', '所有催办记录保留时间、渠道和操作者'],
-    notes: ['客户协同承接资料采集和通知待办，避免关键资料只散落在聊天软件里。', '后续可以接短信、企业微信、客户门户和上传链接。'],
-  },
-  deliveryTickets: {
-    title: '服务工单',
-    description: '按客户账期拆解交付任务，跟踪收票、做账、报表、申报、归档和 SLA。',
-    tabs: ['工单看板', '待分派', '处理中', '待复核', '待客户确认', '已交付'],
-    primaryAction: '新建工单',
-    keywordPlaceholder: '搜索客户、任务、账期、负责人、交付状态',
-    summary: [
-      { label: '本月工单', value: '286 单', tone: 'blue' },
-      { label: '处理中', value: '64 单', tone: 'amber' },
-      { label: '已交付', value: '198 单', tone: 'green' },
-      { label: 'SLA超时', value: '12 单', tone: 'red' },
-    ],
-    columns: [
-      { key: 'ticketNo', label: '工单编号' },
-      { key: 'customer', label: '客户名称' },
-      { key: 'task', label: '服务任务' },
-      { key: 'period', label: '所属期', align: 'center' },
-      { key: 'stage', label: '当前环节' },
-      { key: 'sla', label: 'SLA' },
-      { key: 'owner', label: '负责人' },
-      { key: 'delivery', label: '交付状态' },
-    ],
-    rows: [
-      { id: 'tk-001', status: '进行中', values: { ticketNo: 'GD-202605-0188', customer: '科旋电气（上海）有限公司', task: '月度做账交付', period: '2026-05', stage: '凭证复核', sla: '剩余 12 小时', owner: '张会计', delivery: '处理中' } },
-      { id: 'tk-002', status: '待确认', values: { ticketNo: 'GD-202605-0206', customer: '上海云启科技有限公司', task: '财报报送', period: '2026-05', stage: '客户确认', sla: '剩余 1 天', owner: '李会计', delivery: '待确认' } },
-      { id: 'tk-003', status: '异常', values: { ticketNo: 'GD-202605-0217', customer: '杭州辰光贸易有限公司', task: '增值税申报', period: '2026-05', stage: '资料缺失', sla: '已超时', owner: '王会计', delivery: '阻断' } },
-    ],
-    queueTitle: '交付控制',
-    queue: ['申报类工单必须完成客户确认和风险检查', '资料缺失工单自动联动客户协同催办', '已交付工单需要归档报表、申报包和回执'],
-    notes: ['服务工单把机构外层的进度管理和单账套内的业务页面连接起来。', '后续可做负责人排班、SLA 预警和交付质量评分。'],
+    queueTitle: '合同待办',
+    queue: ['杭州辰光贸易合同 30 天内到期且欠费 2 个月', '上海云启新合同待签署，服务费发票待开具', '42 项客户协同待办统一在合同客户视图处理'],
+    notes: ['服务合同承接收费管理和客户协同，避免机构首页入口过散。', '合同、收费、催办和归档同属代理服务交付闭环；客户资料上传仍会流转到具体账套业务模块。'],
   },
   batchTax: {
     title: '批量申报',
@@ -715,18 +617,6 @@ async function fetchAgencyRows(kind: AgencyModuleKind): Promise<AgencyRow[]> {
     const response = await agencyApi.getServiceContracts()
     return response.data?.map(mapServiceContractRow) ?? []
   }
-  if (kind === 'feeCollection') {
-    const response = await agencyApi.getFeeCollections({ period: '2026-05' })
-    return response.data?.map(mapFeeCollectionRow) ?? []
-  }
-  if (kind === 'customerCollaboration') {
-    const response = await agencyApi.getCollaborationItems()
-    return response.data?.map(mapCollaborationRow) ?? []
-  }
-  if (kind === 'deliveryTickets') {
-    const response = await agencyApi.getDeliveryTickets({ period: '2026-05' })
-    return response.data?.map(mapDeliveryTicketRow) ?? []
-  }
   return []
 }
 
@@ -740,60 +630,11 @@ function mapServiceContractRow(item: AgencyServiceContract): AgencyRow {
       package: item.servicePackage,
       period: `${item.serviceStart} 至 ${item.serviceEnd}`,
       fee: formatMoney(item.monthlyFee),
+      payment: item.renewalStatus === 'overdue' ? '待收款/待催收' : '合同收费正常',
+      collaboration: item.archiveStatus === 'missing' ? '待补合同附件' : '无待办',
       renewal: item.renewalStatus,
       owner: item.owner || '-',
       archive: item.archiveStatus,
-    },
-  }
-}
-
-function mapFeeCollectionRow(item: AgencyFeeCollection): AgencyRow {
-  return {
-    id: item.id,
-    status: mapAgencyStatus(item.status, item.paymentStatus),
-    values: {
-      customer: item.companyName || item.companyId,
-      period: item.period,
-      receivable: formatMoney(item.receivableAmount),
-      received: formatMoney(item.receivedAmount),
-      arrears: formatMoney(item.arrearsAmount),
-      invoice: mapInvoiceStatus(item.invoiceStatus),
-      payStatus: mapPaymentStatus(item.paymentStatus),
-      collector: item.collector || '-',
-    },
-  }
-}
-
-function mapCollaborationRow(item: AgencyCollaborationItem): AgencyRow {
-  return {
-    id: item.id,
-    status: mapAgencyStatus(item.status, item.replyStatus),
-    values: {
-      customer: item.companyName || item.companyId,
-      todo: item.todoTitle,
-      material: item.materialType || '-',
-      contact: item.customerContact || '-',
-      reminders: `${item.reminderCount}`,
-      lastContact: item.lastContactAt || '-',
-      reply: item.replyStatus,
-      owner: item.owner || '-',
-    },
-  }
-}
-
-function mapDeliveryTicketRow(item: AgencyDeliveryTicket): AgencyRow {
-  return {
-    id: item.id,
-    status: mapAgencyStatus(item.status, item.deliveryStatus),
-    values: {
-      ticketNo: item.ticketNo,
-      customer: item.companyName || item.companyId,
-      task: item.taskName,
-      period: item.period,
-      stage: item.currentStage,
-      sla: item.slaStatus,
-      owner: item.owner || '-',
-      delivery: mapDeliveryStatus(item.deliveryStatus),
     },
   }
 }
@@ -805,27 +646,6 @@ function mapAgencyStatus(primary: string, secondary = ''): AgencyRow['status'] {
   if (value.includes('waiting') || value.includes('pending') || value.includes('待')) return '待确认'
   if (value.includes('active') || value.includes('processing')) return '进行中'
   return '待处理'
-}
-
-function mapInvoiceStatus(value: string) {
-  if (value === 'issued') return '已开票'
-  if (value === 'pending') return '待开票'
-  return value || '-'
-}
-
-function mapPaymentStatus(value: string) {
-  if (value === 'paid') return '已收款'
-  if (value === 'overdue') return '逾期'
-  if (value === 'pending') return '待收款'
-  return value || '-'
-}
-
-function mapDeliveryStatus(value: string) {
-  if (value === 'processing') return '处理中'
-  if (value === 'waiting_customer') return '待确认'
-  if (value === 'blocked') return '阻断'
-  if (value === 'completed') return '已交付'
-  return value || '-'
 }
 
 function formatMoney(value: number) {
