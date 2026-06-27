@@ -5,6 +5,11 @@ import { cn } from '../../lib/utils'
 import { useCompanyStore } from '../../stores/companyStore'
 import { usePeriodStore } from '../../stores/periodStore'
 
+const DEMO_COMPANY = {
+  code: '20258497',
+  name: '科旋电气（上海）有限公司',
+}
+
 export function CompanySelector() {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -52,6 +57,10 @@ export function CompanySelector() {
 
   const currentCompany = companies.find((c) => c.id === selectedCompanyId)
   const currentPeriod = periods.find((p) => p.id === currentPeriodId)
+  const companyLabel = currentCompany ? `${currentCompany.code} | ${currentCompany.name}` : `${DEMO_COMPANY.code} | ${DEMO_COMPANY.name}`
+  const periodLabel = currentPeriod
+    ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}`
+    : '2026-05'
 
   const companyPeriods = periods.filter(p => p.company_id === selectedCompanyId)
   const periodYears = [...new Set(companyPeriods.map(p => p.period_year))].sort((a, b) => b - a)
@@ -88,37 +97,38 @@ export function CompanySelector() {
   }
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative flex items-center gap-2" ref={dropdownRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors',
-          'hover:bg-gray-50 border-gray-200',
-          isOpen && 'bg-gray-50 border-primary-300 ring-2 ring-primary-100',
+          'inline-flex h-8 min-w-[96px] items-center justify-between gap-2 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 transition-colors',
+          isOpen && 'border-white ring-2 ring-white/30',
         )}
       >
-        <Building2 className="w-4 h-4 text-primary-600" />
-        <div className="text-left">
-          <p className="text-sm font-medium text-gray-900">
-            {currentCompany ? currentCompany.name : '选择公司'}
-          </p>
-          {currentPeriod && (
-            <p className="text-xs text-gray-500">
-              {currentPeriod.period_year}年{String(currentPeriod.period_month).padStart(2, '0')}月
-            </p>
-          )}
-        </div>
+        <span>{periodLabel}</span>
+        <ChevronDown className={cn('h-4 w-4 text-slate-400 transition-transform', isOpen && 'rotate-180')} />
+      </button>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          'inline-flex h-8 min-w-[300px] items-center justify-between gap-2 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 transition-colors',
+          isOpen && 'border-white ring-2 ring-white/30',
+        )}
+      >
+        <Building2 className="h-4 w-4 text-[#1f65a7]" />
+        <span className="min-w-0 flex-1 truncate text-left">{companyLabel}</span>
         <ChevronDown
           className={cn(
-            'w-4 h-4 text-gray-400 transition-transform',
+            'w-4 h-4 text-slate-400 transition-transform',
             isOpen && 'rotate-180',
           )}
         />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 animate-fade-in">
+        <div className="absolute top-full left-0 z-50 mt-2 w-80 rounded-xl border border-gray-200 bg-white py-2 shadow-lg animate-fade-in">
           <div className="px-3 py-2 border-b border-gray-100">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
               切换公司

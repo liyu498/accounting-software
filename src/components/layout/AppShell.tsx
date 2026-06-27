@@ -12,6 +12,7 @@ import {
   CheckSquare,
   ChevronDown,
   Coins,
+  Download,
   FileBarChart,
   FileCheck2,
   FileSpreadsheet,
@@ -39,6 +40,7 @@ import {
   User,
   Users,
   Wallet,
+  Mail,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../../lib/utils'
@@ -291,31 +293,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 items-center justify-between border-b border-slate-200 bg-[#f8fbff] px-4">
+        <header className="flex h-12 items-center justify-between border-b border-[#1f66c7] bg-[#2d79e6] px-4 text-white">
           <div className="flex min-w-0 items-center gap-3">
             <CompanySelector />
-            <div className="hidden h-5 w-px bg-slate-200 sm:block" />
-            <div className="hidden items-center gap-2 text-xs text-slate-600 md:flex">
-              <span className="rounded border border-slate-200 bg-white px-2 py-1">账期 2026-05</span>
-              <span className="rounded bg-green-50 px-2 py-1 text-green-700">已结账</span>
-              <span className="rounded bg-amber-50 px-2 py-1 text-amber-700">风险 5</span>
+            <div className="hidden h-5 w-px bg-white/30 sm:block" />
+            <div className="hidden items-center gap-2 text-xs md:flex">
+              <span className="rounded border border-white/25 bg-white/10 px-2 py-1 text-white">已结账</span>
+              <span className="rounded border border-white/25 bg-white/10 px-2 py-1 text-white">风险 5</span>
             </div>
-            <h1 className="truncate text-sm font-semibold text-slate-900">{activeItem?.label || '工作台'}</h1>
           </div>
 
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <div className="hidden items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 sm:flex">
-              <User className="h-3.5 w-3.5 text-[#1f65a7]" />
+          <div className="flex items-center gap-2 text-sm">
+            <button type="button" className="hidden h-8 items-center gap-1 rounded border border-white/25 px-3 font-medium text-white hover:bg-white/10 lg:inline-flex">
+              常办事项
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            <Link to="/downloads" className="hidden h-8 items-center gap-1 rounded px-2 font-medium text-white hover:bg-white/10 md:inline-flex">
+              <Download className="h-4 w-4" />
+              下载中心
+            </Link>
+            <button type="button" className="hidden h-8 items-center gap-1 rounded px-2 font-medium text-white hover:bg-white/10 md:inline-flex">
+              <Mail className="h-4 w-4" />
+              短信
+            </button>
+            <div className="hidden items-center gap-1 rounded px-2 py-1 font-medium text-white sm:flex">
+              <User className="h-4 w-4" />
               {user?.username || 'admin'}
+              <ChevronDown className="h-4 w-4" />
             </div>
             <button
               type="button"
               onClick={logout}
-              className="inline-flex h-8 items-center gap-1 rounded px-2 text-xs text-slate-600 hover:bg-slate-100"
+              className="inline-flex h-8 items-center gap-1 rounded bg-white/15 px-4 text-sm font-medium text-white hover:bg-white/25"
             >
               <LogOut className="h-4 w-4" />
-              退出
+              返回
             </button>
           </div>
         </header>

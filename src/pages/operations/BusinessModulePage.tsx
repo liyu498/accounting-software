@@ -2501,9 +2501,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         <div className="flex h-11 items-center justify-between border-b border-slate-200 px-3">
           <div className="flex min-w-0 items-center gap-3">
             <h1 className="text-base font-semibold">{title}</h1>
-            <span className="rounded bg-[#e9f2fb] px-2 py-1 text-xs text-[#1f65a7]">科旋电气（上海）有限公司</span>
-            <span className="rounded bg-white px-2 py-1 text-xs text-slate-500 ring-1 ring-slate-200">所属期 2026-05</span>
-            <span className="max-w-[520px] truncate text-xs text-slate-500">{description}</span>
+            <span className="max-w-[720px] truncate text-xs text-slate-500">{description}</span>
           </div>
           <div className="flex items-center gap-1">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} />

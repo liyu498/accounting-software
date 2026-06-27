@@ -235,8 +235,6 @@ export function TaxWorkspace() {
         <div className="flex h-11 items-center justify-between border-b border-slate-200 px-3">
           <div className="flex items-center gap-3">
             <h1 className="text-base font-semibold">税务申报</h1>
-            <span className="rounded bg-[#e9f2fb] px-2 py-1 text-xs text-[#1f65a7]">科旋电气（上海）有限公司</span>
-            <span className="rounded bg-white px-2 py-1 text-xs text-slate-500 ring-1 ring-slate-200">所属期 2026-05</span>
             <span className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-green-100">已结账</span>
           </div>
           <div className="flex items-center gap-1">
@@ -290,7 +288,6 @@ export function TaxWorkspace() {
             </div>
             <SelectLike label="申报状态" value="全部" />
             <SelectLike label="校验状态" value="全部" />
-            <SelectLike label="所属期" value="2026-05" />
           </div>
           <div className="flex items-center gap-1 text-xs">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label="导入初始化" />
