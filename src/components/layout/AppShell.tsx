@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import {
   Activity,
+  ArrowLeft,
   ArrowLeftRight,
   BadgeDollarSign,
   BarChart3,
@@ -21,7 +22,6 @@ import {
   HandCoins,
   Landmark,
   LayoutDashboard,
-  LogOut,
   Menu,
   Monitor,
   Moon,
@@ -213,7 +213,7 @@ const allSections: SidebarSection[] = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
-  const { user, logout } = useAuthStore()
+  const { user } = useAuthStore()
   const location = useLocation()
 
   const allItems = useMemo(() => [...topLevelItems, ...allSections.flatMap((section) => section.items)], [])
@@ -321,14 +321,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {user?.username || 'admin'}
               <ChevronDown className="h-4 w-4" />
             </div>
-            <button
-              type="button"
-              onClick={logout}
+            <Link
+              to="/"
               className="inline-flex h-8 items-center gap-1 rounded bg-white/15 px-4 text-sm font-medium text-white hover:bg-white/25"
             >
-              <LogOut className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
               返回
-            </button>
+            </Link>
           </div>
         </header>
 
