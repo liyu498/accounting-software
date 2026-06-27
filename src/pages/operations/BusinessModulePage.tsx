@@ -20,7 +20,6 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 
 type ModuleKind =
-  | 'dataCollection'
   | 'invoiceCollection'
   | 'bankCollection'
   | 'attachmentCenter'
@@ -133,34 +132,6 @@ type ExcelTemplateData = {
 }
 
 const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
-  dataCollection: {
-    keywordPlaceholder: '搜索客户、资料类型、负责人、截止日期',
-    primaryAction: '发起采集',
-    importLabel: '导入清单',
-    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
-    summary: [
-      { label: '采集任务', value: '42 项', tone: 'blue' },
-      { label: '已收资料', value: '31 项', tone: 'green' },
-      { label: '待客户补充', value: '8 项', tone: 'amber' },
-      { label: '逾期/异常', value: '3 项', tone: 'red' },
-    ],
-    columns: [
-      { key: 'customer', label: '客户名称' },
-      { key: 'module', label: '资料类型' },
-      { key: 'period', label: '所属期' },
-      { key: 'required', label: '应收资料' },
-      { key: 'received', label: '已收资料', align: 'right' },
-      { key: 'owner', label: '负责人' },
-      { key: 'deadline', label: '截止日期', align: 'center' },
-      { key: 'next', label: '下一步' },
-    ],
-    rows: [
-      { id: 'dc-001', status: '待确认', voucher: '-', attachment: '资料包', values: { customer: '科旋电气（上海）有限公司', module: '发票/流水', period: '2026-05', required: '销项、进项、银行回单', received: '18/22', owner: '王会计', deadline: '06-27', next: '客户补传回单' } },
-      { id: 'dc-002', status: '已通过', voucher: '-', attachment: 'ZIP', values: { customer: '杭州辰光贸易有限公司', module: '工资社保', period: '2026-05', required: '薪酬表、社保明细', received: '6/6', owner: '李会计', deadline: '06-25', next: '进入AI识别' } },
-      { id: 'dc-003', status: '异常', voucher: '-', attachment: '缺失', values: { customer: '上海启明技术服务部', module: '申报资料', period: '2026-05', required: '合同台账、扣款授权', received: '3/7', owner: '赵会计', deadline: '06-24', next: '催办客户' } },
-    ],
-    notes: ['资料采集是竞品外层工作流的入口，后续要连接客户通知、上传记录、AI 识别和凭证生成。', '当前先建立采集任务、资料包、负责人、截止日期和异常状态框架。'],
-  },
   invoiceCollection: {
     keywordPlaceholder: '搜索票池来源、发票类型、识别状态、风险',
     primaryAction: '采集发票',
@@ -408,7 +379,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     ],
     rows: [
       { id: 'ait-001', status: '启用', voucher: '-', attachment: '样本', values: { name: '技术服务收入识别', source: '销项发票+历史凭证', sample: '126', hitRate: '94%', target: '生成收入凭证', owner: '王会计', version: 'v1.3', effect: '当前账套' } },
-      { id: 'ait-002', status: '待确认', voucher: '-', attachment: '样本', values: { name: '银行手续费分类', source: '银行流水', sample: '88', hitRate: '91%', target: '生成费用凭证', owner: '李会计', version: 'v1.0', effect: '全部客户' } },
+      { id: 'ait-002', status: '待确认', voucher: '-', attachment: '样本', values: { name: '银行手续费分类', source: '银行流水', sample: '88', hitRate: '91%', target: '生成费用凭证', owner: '李会计', version: 'v1.0', effect: '当前账套' } },
       { id: 'ait-003', status: '异常', voucher: '-', attachment: '冲突', values: { name: '办公采购费用', source: '进项发票+单据', sample: '42', hitRate: '68%', target: '费用科目建议', owner: '待复核', version: 'v0.8', effect: '禁用' } },
     ],
     notes: ['规则训练只产出建议和候选规则，必须人工审核后才能启用。', '规则版本、样本来源和命中率后续要进入审计日志。'],
@@ -435,7 +406,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'result', label: '处理结果' },
     ],
     rows: [
-      { id: 'nt-001', status: '待处理', voucher: '-', attachment: '资料', values: { title: '客户补传银行回单', customer: '科旋电气', module: '资料采集', level: '高', owner: '王会计', deadline: '今天', link: '采集工作台', result: '待处理' } },
+      { id: 'nt-001', status: '待处理', voucher: '-', attachment: '资料', values: { title: '客户补传银行回单', customer: '科旋电气', module: '附件资料', level: '高', owner: '王会计', deadline: '今天', link: '附件中心', result: '待处理' } },
       { id: 'nt-002', status: '待确认', voucher: '申报包', attachment: '风险项', values: { title: '增值税申报包确认', customer: '科旋电气', module: '税务申报', level: '高', owner: '李会计', deadline: '06-30', link: '申报工作台', result: '待确认' } },
       { id: 'nt-003', status: '异常', voucher: '记-0062', attachment: '检查结果', values: { title: '凭证借贷不平', customer: '科旋电气', module: '风险检查', level: '阻断', owner: '赵会计', deadline: '逾期', link: '风险检查', result: '待修复' } },
     ],
@@ -1795,7 +1766,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'audit', label: '审计要求' },
     ],
     rows: [
-      { id: 'role-admin', status: '启用', voucher: '-', attachment: '审计日志', values: { role: '机构管理员', members: '2', menus: '全部模块', actions: '新增/修改/删除/导出', dataScope: '全部客户', audit: '强制记录' } },
+      { id: 'role-admin', status: '启用', voucher: '-', attachment: '审计日志', values: { role: '账套管理员', members: '2', menus: '全部模块', actions: '新增/修改/删除/导出', dataScope: '当前账套', audit: '强制记录' } },
       { id: 'role-accountant', status: '启用', voucher: '-', attachment: '审计日志', values: { role: '记账会计', members: '12', menus: '业务/财务/报表', actions: '新增/修改/生成凭证', dataScope: '分配客户', audit: '强制记录' } },
       { id: 'role-tax', status: '异常', voucher: '-', attachment: '待复核', values: { role: '申报专员', members: '3', menus: '税务申报/报表', actions: '生成申报包/确认', dataScope: '分配客户', audit: '权限待复核' } },
     ],

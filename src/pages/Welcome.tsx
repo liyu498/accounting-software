@@ -484,15 +484,6 @@ export function Welcome() {
               ))}
             </div>
           </div>
-
-          <div className="rounded border border-slate-200 bg-white">
-            <div className="border-b border-slate-200 px-4 py-3 font-semibold">批量处理</div>
-            <div className="grid grid-cols-2 gap-2 p-4 text-sm">
-              {agencyNavItems.slice(5).map((item) => (
-                <Link key={item.id} to={item.path} className="rounded border border-slate-200 bg-white px-3 py-2 text-left hover:border-[#2d6fa8] hover:text-[#1f65a7]">{item.label}</Link>
-              ))}
-            </div>
-          </div>
         </aside>
       </main>
 

@@ -118,7 +118,7 @@ function App() {
             <Route path="/ai/rules" element={businessPage('aiRuleTraining', '规则训练', '维护 AI 推荐规则、训练样本、命中率、版本和人工审核状态。')} />
 
             {/* Collection and file centers - 资料采集与文件中心 */}
-            <Route path="/collection" element={businessPage('dataCollection', '采集工作台', '集中跟踪客户资料收集、缺失项、负责人、截止日期和后续识别流转。')} />
+            <Route path="/collection" element={<Navigate to="/collection/invoices" replace />} />
             <Route path="/collection/invoices" element={businessPage('invoiceCollection', '发票采集', '导入或同步发票影像，进行 OCR 识别、匹配、异常处理和发票模块流转。')} />
             <Route path="/collection/bank" element={businessPage('bankCollection', '流水采集', '采集银行流水、第三方账单和回单，进入规则匹配和凭证草稿流程。')} />
             <Route path="/attachments" element={businessPage('attachmentCenter', '附件中心', '管理发票、回单、合同、申报回执和导出归档文件的关联与留痕。')} />

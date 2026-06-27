@@ -85,12 +85,10 @@ const allSections: SidebarSection[] = [
     label: '资料采集',
     icon: <FileStack className="h-4 w-4" />,
     items: [
-      { id: 'collection-workspace', label: '采集工作台', icon: <FileCheck2 className="h-4 w-4" />, path: '/collection' },
       { id: 'collection-invoices', label: '发票采集', icon: <ReceiptText className="h-4 w-4" />, path: '/collection/invoices' },
       { id: 'collection-bank', label: '流水采集', icon: <Landmark className="h-4 w-4" />, path: '/collection/bank' },
       { id: 'attachment-center', label: '附件中心', icon: <FileStack className="h-4 w-4" />, path: '/attachments' },
       { id: 'import-center', label: '导入历史', icon: <FileSpreadsheet className="h-4 w-4" />, path: '/imports' },
-      { id: 'export-center', label: '下载中心', icon: <FileBarChart className="h-4 w-4" />, path: '/downloads' },
     ],
   },
   {
