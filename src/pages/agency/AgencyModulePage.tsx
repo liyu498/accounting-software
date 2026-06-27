@@ -29,6 +29,7 @@ import { exportRowsToXlsx } from '../../lib/xlsxExport'
 
 export type AgencyModuleKind =
   | 'clients'
+  | 'accountManagement'
   | 'serviceContracts'
   | 'feeCollection'
   | 'customerCollaboration'
@@ -36,8 +37,10 @@ export type AgencyModuleKind =
   | 'batchTax'
   | 'dataStats'
   | 'batchOps'
+  | 'invoiceManagement'
   | 'healthCheck'
   | 'automation'
+  | 'agencySettings'
 
 interface AgencyModulePageProps {
   kind: AgencyModuleKind
@@ -95,6 +98,43 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     queueTitle: '待办队列',
     queue: ['杭州辰光贸易缺少 32 张销项票', '上海云启利润表需复核管理费用', '12 户客户增值税申报待确认'],
     notes: ['这里是机构层客户总览，不替代单账套内的业务处理页面。', '点击客户后进入单账套工作台，保持竞品同类“客户列表 -> 账套内页”的操作路径。'],
+  },
+  accountManagement: {
+    title: '账套管理',
+    description: '按竞品账套管理方式维护多客户企业档案、采集状态、税务登录信息、服务期限、主办会计和进入账套入口。',
+    tabs: ['正常', '停用', '采集异常', '待授权', '服务到期', '异常原因'],
+    primaryAction: '新增企业',
+    keywordPlaceholder: '搜索企业名称、编码、纳税人识别号、登录人员',
+    summary: [
+      { label: '正常账套', value: '128 户', tone: 'blue' },
+      { label: '采集成功', value: '102 户', tone: 'green' },
+      { label: '采集警告', value: '18 户', tone: 'amber' },
+      { label: '采集失败', value: '8 户', tone: 'red' },
+    ],
+    columns: [
+      { key: 'tag', label: '企业标签' },
+      { key: 'code', label: '编码' },
+      { key: 'name', label: '企业名称' },
+      { key: 'type', label: '企业类型' },
+      { key: 'taxType', label: '纳税人资格' },
+      { key: 'collect', label: '采集状态' },
+      { key: 'socialCollect', label: '社保采集状态' },
+      { key: 'credit', label: '信用等级', align: 'center' },
+      { key: 'importedAt', label: '客户导入时间' },
+      { key: 'owner', label: '主办会计' },
+      { key: 'serviceEnd', label: '服务期限' },
+      { key: 'manager', label: '部门主管' },
+      { key: 'period', label: '账期', align: 'center' },
+      { key: 'taxOffice', label: '主管税务机关' },
+    ],
+    rows: [
+      { id: 'am-001', status: '已完成', values: { tag: '重点客户', code: '20258497', name: '上海王家德餐饮管理有限公司', type: '私营有限责任公司', taxType: '小规模纳税人', collect: '采集成功 06-26 18:09', socialCollect: '采集成功 06-26 18:06', credit: 'M', importedAt: '2026-06-26 17:40', owner: '李喻', serviceEnd: '2026-12', manager: '李喻', period: '2026-06', taxOffice: '普陀区税务局第十六税务所' } },
+      { id: 'am-002', status: '待确认', values: { tag: '新签', code: '20258493', name: '上海蓝雀元智能科技有限公司', type: '私营有限责任公司', taxType: '小规模纳税人', collect: '采集成功 06-26 17:57', socialCollect: '采集成功 06-26 17:54', credit: 'M', importedAt: '2026-06-26 17:26', owner: '李喻', serviceEnd: '2027-05', manager: '李喻', period: '2026-06', taxOffice: '宝山区税务局第十六税务所' } },
+      { id: 'am-003', status: '异常', values: { tag: '需回执', code: '20258486', name: '上海爱恩客工业科技有限公司', type: '内资企业', taxType: '一般纳税人', collect: '采集失败 06-26 17:54', socialCollect: '采集成功 06-26 17:52', credit: '-', importedAt: '2026-06-26 17:09', owner: '李喻', serviceEnd: '2026-06', manager: '李喻', period: '2026-06', taxOffice: '嘉定区税务局第十三税务所' } },
+    ],
+    queueTitle: '批量动作',
+    queue: ['新增企业、导入、导出、采集、批量删除、批量停用只在机构层出现', '采集通过维护的税务登录方式获取客户基础资料、税种、主管税务机关和企业类型', '操作列保留编辑、删除、停用、备忘录、进入账套、登录税务局'],
+    notes: ['账套管理负责多家公司档案和授权状态；进入单账套后只保留该公司的业务处理。', '采集、登录税务局等能力后续通过合法 adapter 接入，不在前端伪造真实提交。'],
   },
   serviceContracts: {
     title: '服务合同',
@@ -313,6 +353,37 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     queue: ['批量采集需读取客户维护的税局和银行授权状态', '批量结账前必须完成凭证断号、报表平衡和税务风险检查', '高风险客户自动跳过并进入复核队列', '所有任务保留执行日志和回滚说明'],
     notes: ['批量操作用于机构级效率提升，单账套页面仍保留逐户处理入口。', '涉及提交、删除、反结账等高风险动作必须二次确认。'],
   },
+  invoiceManagement: {
+    title: '开票管理',
+    description: '机构维度管理服务费开票、客户开票授权、发票抬头、开票申请、红冲作废和开票归档。',
+    tabs: ['开票申请', '待开票', '已开票', '红冲作废', '抬头管理', '开票记录'],
+    primaryAction: '新建开票申请',
+    keywordPlaceholder: '搜索客户、合同、发票抬头、开票状态',
+    summary: [
+      { label: '待开票', value: '26 张', tone: 'amber' },
+      { label: '本月已开', value: '108 张', tone: 'green' },
+      { label: '待确认抬头', value: '9 户', tone: 'blue' },
+      { label: '异常/红冲', value: '3 张', tone: 'red' },
+    ],
+    columns: [
+      { key: 'customer', label: '客户名称' },
+      { key: 'contract', label: '关联合同' },
+      { key: 'invoiceTitle', label: '发票抬头' },
+      { key: 'taxId', label: '税号' },
+      { key: 'amount', label: '开票金额', align: 'right' },
+      { key: 'type', label: '发票类型' },
+      { key: 'status', label: '开票状态' },
+      { key: 'owner', label: '负责人' },
+    ],
+    rows: [
+      { id: 'im-001', status: '待确认', values: { customer: '科旋电气（上海）有限公司', contract: 'FW-2026-0018', invoiceTitle: '科旋电气（上海）有限公司', taxId: '91310115MA1K3****X', amount: '¥2,800.00', type: '数电专票', status: '待客户确认抬头', owner: '张会计' } },
+      { id: 'im-002', status: '进行中', values: { customer: '上海云启科技有限公司', contract: 'FW-2026-0042', invoiceTitle: '上海云启科技有限公司', taxId: '91310113MA1G****2Q', amount: '¥1,200.00', type: '数电普票', status: '待开票', owner: '李会计' } },
+      { id: 'im-003', status: '异常', values: { customer: '杭州辰光贸易有限公司', contract: 'FW-2025-0091', invoiceTitle: '杭州辰光贸易有限公司', taxId: '91330106MA2H****8P', amount: '¥3,200.00', type: '数电专票', status: '红冲申请待复核', owner: '王会计' } },
+    ],
+    queueTitle: '开票控制',
+    queue: ['服务费开票只处理机构自身收入，不混入客户账套经营发票', '开票前校验合同、收费、抬头和税号', '红冲作废必须保留原票、申请原因和审核日志'],
+    notes: ['开票管理是机构层模块，服务合同和收费管理产生开票申请。', '客户账套内经营发票仍在单账套的销项发票模块处理。'],
+  },
   healthCheck: {
     title: '健康体检',
     description: '跨客户扫描发票、凭证、科目、报表、税表和结账风险。',
@@ -372,6 +443,36 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     queueTitle: 'AI控制边界',
     queue: ['AI 只能生成建议和草稿，凭证入账前需确认', '自动申报只到申报包和待提交状态', '每条建议保留来源、置信度和人工处理日志'],
     notes: ['AI 是额外增强功能，必须解释来源和置信度，不能黑箱直接入账或报税。', '后续可接入 OCR、票据解析、规则引擎和税表取数 adapter。'],
+  },
+  agencySettings: {
+    title: '机构设置',
+    description: '维护机构资料、人员角色、部门权限、服务套餐、消息模板、税局/银行授权策略和自动化边界。',
+    tabs: ['机构资料', '人员权限', '服务套餐', '消息模板', '授权策略', '审计日志'],
+    primaryAction: '新增配置',
+    keywordPlaceholder: '搜索配置项、角色、套餐、模板、授权策略',
+    summary: [
+      { label: '启用人员', value: '18 人', tone: 'blue' },
+      { label: '服务套餐', value: '6 套', tone: 'green' },
+      { label: '待复核授权', value: '11 项', tone: 'amber' },
+      { label: '高风险配置', value: '2 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'item', label: '配置项' },
+      { key: 'category', label: '类别' },
+      { key: 'scope', label: '适用范围' },
+      { key: 'owner', label: '负责人' },
+      { key: 'statusText', label: '状态' },
+      { key: 'updatedAt', label: '更新时间' },
+      { key: 'audit', label: '审计要求' },
+    ],
+    rows: [
+      { id: 'as-001', status: '已完成', values: { item: '一般纳税人标准包', category: '服务套餐', scope: '全部客户', owner: '机构管理员', statusText: '启用', updatedAt: '06-26 10:20', audit: '版本留痕' } },
+      { id: 'as-002', status: '待确认', values: { item: '批量申报短信模板', category: '消息模板', scope: '待申报客户', owner: '李会计', statusText: '待复核', updatedAt: '06-25 18:40', audit: '发送留痕' } },
+      { id: 'as-003', status: '异常', values: { item: '自动提交申报', category: '授权策略', scope: '禁用', owner: '机构管理员', statusText: '阻断', updatedAt: '06-24 09:10', audit: '必须人工确认' } },
+    ],
+    queueTitle: '设置边界',
+    queue: ['机构设置不替代单账套内企业信息和科目设置', '税局和银行授权只保存授权状态和 adapter 参数，不保存明文敏感信息', '高风险自动化策略默认关闭'],
+    notes: ['机构设置承接竞品顶层设置入口，处理跨客户的人员、套餐、模板和策略。', '单公司账套设置仍保留在账套内左侧设置模块。'],
   },
 }
 

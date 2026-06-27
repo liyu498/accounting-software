@@ -86,6 +86,7 @@ function App() {
             }
           >
             <Route path="/agency/clients" element={agencyPage('clients')} />
+            <Route path="/agency/accounts" element={agencyPage('accountManagement')} />
             <Route path="/agency/service-contracts" element={agencyPage('serviceContracts')} />
             <Route path="/agency/fees" element={agencyPage('feeCollection')} />
             <Route path="/agency/fee-collection" element={agencyPage('feeCollection')} />
@@ -95,8 +96,10 @@ function App() {
             <Route path="/agency/batch-tax" element={agencyPage('batchTax')} />
             <Route path="/agency/data-stats" element={agencyPage('dataStats')} />
             <Route path="/agency/batch-ops" element={agencyPage('batchOps')} />
+            <Route path="/agency/invoice-management" element={agencyPage('invoiceManagement')} />
             <Route path="/agency/health-check" element={agencyPage('healthCheck')} />
             <Route path="/agency/automation" element={agencyPage('automation')} />
+            <Route path="/agency/settings" element={agencyPage('agencySettings')} />
           </Route>
 
           <Route
