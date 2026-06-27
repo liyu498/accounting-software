@@ -66,19 +66,6 @@ const topLevelItems: SidebarItem[] = [
   { id: 'notifications', label: '通知待办', icon: <FileCheck2 className="h-4 w-4" />, path: '/notifications' },
 ]
 
-const agencyItems: SidebarItem[] = [
-  { id: 'agency-clients', label: '客户总览', icon: <Building2 className="h-4 w-4" />, path: '/agency/clients' },
-  { id: 'agency-service-contracts', label: '服务合同', icon: <Notebook className="h-4 w-4" />, path: '/agency/service-contracts' },
-  { id: 'agency-fees', label: '收费管理', icon: <BadgeDollarSign className="h-4 w-4" />, path: '/agency/fees' },
-  { id: 'agency-collaboration', label: '客户协同', icon: <Users className="h-4 w-4" />, path: '/agency/collaboration' },
-  { id: 'agency-tickets', label: '服务工单', icon: <Monitor className="h-4 w-4" />, path: '/agency/tickets' },
-  { id: 'agency-batch-tax', label: '批量申报', icon: <FileCheck2 className="h-4 w-4" />, path: '/agency/batch-tax' },
-  { id: 'agency-data-stats', label: '数据统计', icon: <BarChart3 className="h-4 w-4" />, path: '/agency/data-stats' },
-  { id: 'agency-batch-ops', label: '批量操作', icon: <CheckSquare className="h-4 w-4" />, path: '/agency/batch-ops' },
-  { id: 'agency-health', label: '健康体检', icon: <Shield className="h-4 w-4" />, path: '/agency/health-check' },
-  { id: 'agency-automation', label: '财税自动化', icon: <Bot className="h-4 w-4" />, path: '/agency/automation' },
-]
-
 const allSections: SidebarSection[] = [
   {
     id: 'ai-modules',
@@ -227,7 +214,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuthStore()
   const location = useLocation()
 
-  const allItems = useMemo(() => [...topLevelItems, ...agencyItems, ...allSections.flatMap((section) => section.items)], [])
+  const allItems = useMemo(() => [...topLevelItems, ...allSections.flatMap((section) => section.items)], [])
   const activeItem = allItems.find((item) => item.path === location.pathname)
 
   const toggleSection = (sectionId: string) => {
@@ -332,23 +319,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </header>
-
-        <div className="flex h-9 items-center gap-1 border-b border-slate-200 bg-white px-3">
-          {agencyItems.map((item) => (
-            <Link
-              key={item.id}
-              to={item.path}
-              className={cn(
-                'inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-xs transition-colors',
-                activeItem?.id === item.id ? 'bg-[#1f65a7] text-white' : 'text-slate-600 hover:bg-[#eef6ff] hover:text-[#1f65a7]'
-              )}
-            >
-              {item.icon}
-              {item.label}
-            </Link>
-          ))}
-          <span className="ml-auto hidden text-xs text-slate-400 xl:inline">机构级批量处理 / 单账套明细处理并行</span>
-        </div>
 
         <main className="min-h-0 flex-1 overflow-auto p-4">{children}</main>
       </div>

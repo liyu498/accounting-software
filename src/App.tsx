@@ -10,6 +10,7 @@ import { ToastProvider } from './components/ui/Toast'
 import { BusinessModulePage } from './pages/operations/BusinessModulePage'
 import { TaxWorkspace } from './pages/tax/TaxWorkspace'
 import { AgencyModulePage, type AgencyModuleKind } from './pages/agency/AgencyModulePage'
+import { AgencyLayout } from './pages/agency/AgencyLayout'
 
 // Protected route wrapper
 interface ProtectedRouteProps {
@@ -80,6 +81,27 @@ function App() {
           <Route
             element={
               <ProtectedRoute>
+                <AgencyLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/agency/clients" element={agencyPage('clients')} />
+            <Route path="/agency/service-contracts" element={agencyPage('serviceContracts')} />
+            <Route path="/agency/fees" element={agencyPage('feeCollection')} />
+            <Route path="/agency/fee-collection" element={agencyPage('feeCollection')} />
+            <Route path="/agency/collaboration" element={agencyPage('customerCollaboration')} />
+            <Route path="/agency/customer-collaboration" element={agencyPage('customerCollaboration')} />
+            <Route path="/agency/tickets" element={agencyPage('deliveryTickets')} />
+            <Route path="/agency/batch-tax" element={agencyPage('batchTax')} />
+            <Route path="/agency/data-stats" element={agencyPage('dataStats')} />
+            <Route path="/agency/batch-ops" element={agencyPage('batchOps')} />
+            <Route path="/agency/health-check" element={agencyPage('healthCheck')} />
+            <Route path="/agency/automation" element={agencyPage('automation')} />
+          </Route>
+
+          <Route
+            element={
+              <ProtectedRoute>
                 <AppLayout />
               </ProtectedRoute>
             }
@@ -102,20 +124,6 @@ function App() {
             <Route path="/attachments" element={businessPage('attachmentCenter', '附件中心', '管理发票、回单、合同、申报回执和导出归档文件的关联与留痕。')} />
             <Route path="/imports" element={businessPage('importCenter', '导入历史', '统一查看 Excel、CSV、OFD、PDF 等导入批次、错误清单和处理结果。')} />
             <Route path="/downloads" element={businessPage('exportCenter', '下载中心', '统一管理 Excel、PDF、ZIP 导出任务、文件哈希、下载状态和归档期限。')} />
-
-            {/* Agency-level workspace - 代理机构外层功能 */}
-            <Route path="/agency/clients" element={agencyPage('clients')} />
-            <Route path="/agency/service-contracts" element={agencyPage('serviceContracts')} />
-            <Route path="/agency/fees" element={agencyPage('feeCollection')} />
-            <Route path="/agency/fee-collection" element={agencyPage('feeCollection')} />
-            <Route path="/agency/collaboration" element={agencyPage('customerCollaboration')} />
-            <Route path="/agency/customer-collaboration" element={agencyPage('customerCollaboration')} />
-            <Route path="/agency/tickets" element={agencyPage('deliveryTickets')} />
-            <Route path="/agency/batch-tax" element={agencyPage('batchTax')} />
-            <Route path="/agency/data-stats" element={agencyPage('dataStats')} />
-            <Route path="/agency/batch-ops" element={agencyPage('batchOps')} />
-            <Route path="/agency/health-check" element={agencyPage('healthCheck')} />
-            <Route path="/agency/automation" element={agencyPage('automation')} />
 
             {/* Business Processing - 业务处理 */}
             <Route path="/invoices/output" element={businessPage('outputInvoice', '销项发票', '管理销项发票、开票数据、税额汇总、凭证生成和导出。')} />

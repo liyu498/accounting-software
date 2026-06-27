@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Archive,
   Building2,
@@ -25,6 +25,7 @@ import { useCompanyStore, type Company } from '../stores/companyStore'
 import { usePeriodStore } from '../stores/periodStore'
 import { TaxpayerType, AccountingSystem } from '../lib/constants'
 import { cn } from '../lib/utils'
+import { agencyNavItems } from './agency/AgencyLayout'
 
 interface SummaryMetric {
   label: string
@@ -153,6 +154,27 @@ export function Welcome() {
 
       <main className="mx-auto grid max-w-[1440px] grid-cols-1 gap-4 px-6 py-4 xl:grid-cols-[1fr_320px]">
         <section className="space-y-4">
+          <div className="rounded border border-slate-200 bg-white">
+            <div className="flex flex-col gap-2 border-b border-slate-200 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h1 className="text-lg font-semibold">机构级批量工作</h1>
+                <p className="text-xs text-slate-500">这些功能面向全部客户账套，处理合同、收费、协同、工单、批量申报、统计和自动化。</p>
+              </div>
+              <span className="inline-flex w-fit rounded bg-[#eef6ff] px-2 py-1 text-xs font-medium text-[#1f65a7]">不进入单公司账套</span>
+            </div>
+            <div className="grid gap-2 p-4 md:grid-cols-2 xl:grid-cols-5">
+              {agencyNavItems.map((item) => (
+                <Link key={item.id} to={item.path} className="group rounded border border-slate-200 bg-white p-3 hover:border-[#2d6fa8] hover:bg-[#f8fbff]">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 group-hover:text-[#1f65a7]">
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded bg-[#eef6ff] text-[#1f65a7]">{item.icon}</span>
+                    {item.label}
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">{item.description}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
             {summaryMetrics.map(({ label, value, icon: Icon }) => (
               <div key={label} className="rounded border border-slate-200 bg-white px-4 py-3">
@@ -243,8 +265,8 @@ export function Welcome() {
           <div className="rounded border border-slate-200 bg-white">
             <div className="border-b border-slate-200 px-4 py-3 font-semibold">批量处理</div>
             <div className="grid grid-cols-2 gap-2 p-4 text-sm">
-              {['采集发票', '导入流水', '生成凭证', '风险检查', '报表重算', '申报取数'].map((action) => (
-                <button key={action} className="rounded border border-slate-200 bg-white px-3 py-2 text-left hover:border-[#2d6fa8] hover:text-[#1f65a7]">{action}</button>
+              {agencyNavItems.slice(5).map((item) => (
+                <Link key={item.id} to={item.path} className="rounded border border-slate-200 bg-white px-3 py-2 text-left hover:border-[#2d6fa8] hover:text-[#1f65a7]">{item.label}</Link>
               ))}
             </div>
           </div>
