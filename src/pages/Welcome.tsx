@@ -22,6 +22,7 @@ import { usePeriodStore } from '../stores/periodStore'
 import { TaxpayerType, AccountingSystem, accountingSystemLabels } from '../lib/constants'
 import { cn } from '../lib/utils'
 import { agencyNavItems } from './agency/agencyNav'
+import { recordAuditLog } from '../lib/exportJobs'
 
 interface SummaryMetric {
   label: string
@@ -33,6 +34,7 @@ interface AccountRow {
   id: string
   code: string
   name: string
+  taxId: string
   enterpriseType: string
   taxType: string
   collectStatus: string
@@ -56,6 +58,7 @@ const demoCompanies: AccountRow[] = [
     id: '01460',
     code: '01460',
     name: '科旋电气（上海）有限公司',
+    taxId: '91310115MA1K3****X',
     enterpriseType: '私营有限责任公司',
     taxType: '一般纳税人',
     collectStatus: '采集成功 2026-06-26 18:09:49',
@@ -77,6 +80,7 @@ const demoCompanies: AccountRow[] = [
     id: '02018',
     code: '02018',
     name: '上海云启科技有限公司',
+    taxId: '91310113MA1G****2Q',
     enterpriseType: '私营有限责任公司',
     taxType: '小规模纳税人',
     collectStatus: '采集警告 2026-06-26 18:00:10',
@@ -98,6 +102,7 @@ const demoCompanies: AccountRow[] = [
     id: '03009',
     code: '03009',
     name: '杭州辰光贸易有限公司',
+    taxId: '91330106MA2H****8P',
     enterpriseType: '内资企业',
     taxType: '一般纳税人',
     collectStatus: '采集失败 2026-06-26 17:54:16',
@@ -151,13 +156,15 @@ type CompanyForm = typeof emptyCompanyForm
 export function Welcome() {
   const navigate = useNavigate()
   const warningToast = useWarningToast()
-  const { companies, selectCompany, fetchCompanies, createCompany, deactivateCompany, deleteCompany } = useCompanyStore()
+  const { companies, selectCompany, fetchCompanies, createCompany, updateCompany, deactivateCompany, deleteCompany } = useCompanyStore()
   const { fetchPeriods, fetchVoucherWords } = usePeriodStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'normal' | 'disabled'>('normal')
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
   const [showAddModal, setShowAddModal] = useState(false)
   const [newCompany, setNewCompany] = useState<CompanyForm>(emptyCompanyForm)
+  const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
+  const [operationNotice, setOperationNotice] = useState<string | null>(null)
 
   useEffect(() => {
     fetchCompanies().catch((err) => console.error('[Welcome] fetchCompanies failed:', err))
@@ -169,6 +176,7 @@ export function Welcome() {
         id: company.id,
         code: company.code,
         name: company.name,
+        taxId: company.tax_id || '',
         enterpriseType: '私营有限责任公司',
         taxType: company.tax_type === 'general' ? '一般纳税人' : '小规模纳税人',
         collectStatus: '待采集',
@@ -196,7 +204,7 @@ export function Welcome() {
       const statusMatch = statusFilter === 'disabled' ? row.status === '停用' : row.status !== '停用'
       if (!statusMatch) return false
       if (!q) return true
-      return [row.name, row.code, row.taxType, row.taxOffice, row.accountant].some((value) => value.toLowerCase().includes(q))
+      return [row.name, row.code, row.taxId, row.taxType, row.taxOffice, row.accountant].some((value) => value.toLowerCase().includes(q))
     })
   }, [allRows, searchQuery, statusFilter])
 
@@ -209,11 +217,26 @@ export function Welcome() {
     { label: '自动化任务', value: 36, icon: ShieldCheck },
   ]
 
+  const recordWelcomeAudit = (action: string, object: string, level: '普通' | '中' | '高' = '普通', result: '成功' | '待审批' | '失败' = '成功') => {
+    recordAuditLog({
+      module: '机构-账套管理',
+      action,
+      object,
+      level,
+      result,
+      status: result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过',
+      voucher: `${statusFilter}/${searchQuery.trim() || '全部'}`,
+      attachment: '操作快照',
+    })
+  }
+
   const handleSelectCompany = async (companyId: string, isReal: boolean) => {
     if (!isReal) {
+      recordWelcomeAudit('进入账套', `演示账套-${companyId}`)
       navigate('/dashboard')
       return
     }
+    recordWelcomeAudit('进入账套', `真实账套-${companyId}`)
     selectCompany(companyId)
     await fetchPeriods(companyId)
     await fetchVoucherWords(companyId)
@@ -223,6 +246,33 @@ export function Welcome() {
   const handleCreateCompany = async (shouldContinue = false) => {
     if (!newCompany.name.trim() || !newCompany.taxId.trim()) {
       warningToast('请填写企业名称和纳税人识别号')
+      return
+    }
+
+    if (editingCompanyId?.startsWith('demo:')) {
+      recordWelcomeAudit('编辑企业预览', newCompany.name, '中', '待审批')
+      warningToast('演示账套只展示编辑样式，不会写入数据库')
+      return
+    }
+
+    if (editingCompanyId) {
+      await updateCompany(editingCompanyId, {
+        code: newCompany.code.trim() || `KH${Date.now().toString().slice(-6)}`,
+        name: newCompany.name,
+        tax_id: newCompany.taxId,
+        tax_type: newCompany.taxpayerType,
+        industry: newCompany.industry,
+        accounting_system: newCompany.accountingSystem,
+        province: newCompany.province,
+        city: newCompany.city,
+        enable_year: newCompany.enableYear,
+        enable_month: newCompany.enableMonth,
+      })
+      recordWelcomeAudit('保存企业档案', newCompany.name, '中')
+      warningToast('企业档案已保存')
+      setShowAddModal(false)
+      setEditingCompanyId(null)
+      setNewCompany(emptyCompanyForm)
       return
     }
 
@@ -238,6 +288,7 @@ export function Welcome() {
       enable_year: newCompany.enableYear,
       enable_month: newCompany.enableMonth,
     })
+    recordWelcomeAudit('新增企业', newCompany.name, '中')
 
     if (shouldContinue) {
       setNewCompany(emptyCompanyForm)
@@ -257,10 +308,12 @@ export function Welcome() {
     }
     const realIds = ids.filter((id) => realRows.some((row) => row.id === id))
     if (realIds.length === 0) {
+      recordWelcomeAudit('批量停用', `${ids.length} 户演示账套`, '高', '待审批')
       warningToast('演示数据不可停用，真实账套会调用停用接口')
       return
     }
     await Promise.all(realIds.map((id) => deactivateCompany(id)))
+    recordWelcomeAudit('批量停用', `${realIds.length} 户真实账套`, '高')
     setSelectedRows(new Set())
   }
 
@@ -272,15 +325,66 @@ export function Welcome() {
     }
     const realIds = ids.filter((id) => realRows.some((row) => row.id === id))
     if (realIds.length === 0) {
+      recordWelcomeAudit('批量删除申请', `${ids.length} 户演示账套`, '高', '待审批')
       warningToast('演示数据不可删除，真实账套会进入回收站')
       return
     }
     await Promise.all(realIds.map((id) => deleteCompany(id)))
+    recordWelcomeAudit('批量删除', `${realIds.length} 户真实账套`, '高')
     setSelectedRows(new Set())
   }
 
-  const handleCollect = () => {
+  const handleCollect = (company?: AccountRow) => {
+    const target = company ? `${company.code}-${company.name}` : `${selectedRows.size || '当前筛选'}户客户`
+    recordWelcomeAudit('采集税务资料', target, '高', '待审批')
+    setOperationNotice(`${target} 的采集任务已进入待审批队列；正式接入时只通过合法 adapter 采集税务登记、税种认定、主管税务机关和办税人员信息。`)
     warningToast('采集入口已预留：正式接入时将按维护的办税登录方式采集税务登记、税种认定、主管税务机关和办税人员信息')
+  }
+
+  const handleEditCompany = (company: AccountRow) => {
+    setEditingCompanyId(company.real ? company.id : `demo:${company.id}`)
+    setNewCompany({
+      ...emptyCompanyForm,
+      name: company.name,
+      code: company.code,
+      taxId: company.taxId,
+      taxpayerType: company.taxType.includes('小规模') ? 'small' : 'general',
+      enterpriseType: company.enterpriseType,
+      enableYear: Number(company.period.slice(0, 4)) || currentYear,
+      enableMonth: Number(company.period.slice(5, 7)) || 1,
+      serviceStart: '',
+      serviceEnd: '',
+    })
+    setShowAddModal(true)
+    recordWelcomeAudit('编辑企业', `${company.code}-${company.name}`, '中')
+  }
+
+  const handleDeleteCompany = (company: AccountRow) => {
+    recordWelcomeAudit('删除企业申请', `${company.code}-${company.name}`, '高', '待审批')
+    setOperationNotice(`${company.name} 的删除动作已进入高风险待审批；当前不会直接删除账套数据。`)
+    warningToast('删除属于高风险操作，已记录到审计日志并等待审批')
+  }
+
+  const handleDeactivateCompany = async (company: AccountRow) => {
+    if (!company.real) {
+      recordWelcomeAudit('停用企业申请', `${company.code}-${company.name}`, '高', '待审批')
+      warningToast('演示账套不可停用，已记录停用申请')
+      return
+    }
+    await deactivateCompany(company.id)
+    recordWelcomeAudit('停用企业', `${company.code}-${company.name}`, '高')
+    warningToast('账套已停用')
+  }
+
+  const handleMemoCompany = (company: AccountRow) => {
+    recordWelcomeAudit('新增备忘录', `${company.code}-${company.name}`)
+    setOperationNotice(`${company.name} 已记录备忘录操作；后续将接入可编辑备注、附件和提醒日期。`)
+  }
+
+  const handleTaxLogin = (company: AccountRow) => {
+    recordWelcomeAudit('登录税务局申请', `${company.code}-${company.name}`, '高', '待审批')
+    setOperationNotice(`${company.name} 的税务局登录已进入授权检查；当前不会打开或提交任何真实外部系统。`)
+    warningToast('登录税务局需要先校验授权和办税人信息，当前仅记录申请')
   }
 
   const allChecked = rows.length > 0 && rows.every((row) => selectedRows.has(row.id))
@@ -380,14 +484,20 @@ export function Welcome() {
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                <Button size="sm" onClick={() => setShowAddModal(true)}><Plus className="h-4 w-4" />新增</Button>
+                <Button size="sm" onClick={() => { setEditingCompanyId(null); setNewCompany(emptyCompanyForm); setShowAddModal(true) }}><Plus className="h-4 w-4" />新增</Button>
                 <Button size="sm" variant="outline"><UploadCloud className="h-4 w-4" />导入</Button>
                 <Button size="sm" variant="outline"><Download className="h-4 w-4" />导出</Button>
-                <Button size="sm" variant="outline" onClick={handleCollect}><CloudDownload className="h-4 w-4" />采集</Button>
+                <Button size="sm" variant="outline" onClick={() => handleCollect()}><CloudDownload className="h-4 w-4" />采集</Button>
                 <Button size="sm" variant="outline" onClick={handleBatchDelete}><Trash2 className="h-4 w-4" />批量删除</Button>
                 <Button size="sm" variant="outline" onClick={handleBatchDeactivate}><Ban className="h-4 w-4" />批量停用</Button>
               </div>
             </div>
+
+            {operationNotice && (
+              <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs leading-5 text-amber-800">
+                {operationNotice}
+              </div>
+            )}
 
             <div className="overflow-hidden">
               <table className="w-full table-fixed text-left text-xs">
@@ -448,12 +558,12 @@ export function Welcome() {
                       <td className="break-words px-2 py-2 align-top">{company.taxOffice}</td>
                       <td className="px-2 py-2 align-top">
                         <div className="flex flex-wrap justify-center gap-x-1 gap-y-1 text-[#1f65a7]">
-                          <button type="button">编辑</button>
-                          <button type="button">删除</button>
-                          <button type="button">停用</button>
-                          <button type="button">备忘录</button>
+                          <button type="button" onClick={() => handleEditCompany(company)}>编辑</button>
+                          <button type="button" onClick={() => handleDeleteCompany(company)}>删除</button>
+                          <button type="button" onClick={() => handleDeactivateCompany(company)}>停用</button>
+                          <button type="button" onClick={() => handleMemoCompany(company)}>备忘录</button>
                           <button type="button" onClick={() => handleSelectCompany(company.id, company.real)}>进入账套</button>
-                          <button type="button" onClick={handleCollect}>登录税务局</button>
+                          <button type="button" onClick={() => handleTaxLogin(company)}>登录税务局</button>
                         </div>
                       </td>
                     </tr>
@@ -469,8 +579,8 @@ export function Welcome() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <div className="flex max-h-[92vh] w-full max-w-[1180px] flex-col rounded border border-slate-200 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <h2 className="text-2xl font-semibold">新增企业</h2>
-              <button type="button" onClick={() => setShowAddModal(false)} className="text-2xl text-slate-400 hover:text-slate-600">×</button>
+              <h2 className="text-2xl font-semibold">{editingCompanyId ? '编辑企业' : '新增企业'}</h2>
+              <button type="button" onClick={() => { setShowAddModal(false); setEditingCompanyId(null); setNewCompany(emptyCompanyForm) }} className="text-2xl text-slate-400 hover:text-slate-600">×</button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto px-8 py-6">
               <FormSection title="企业基本信息">
@@ -566,8 +676,8 @@ export function Welcome() {
             </div>
             <div className="flex justify-end gap-3 border-t border-slate-200 bg-white px-5 py-4">
               <Button onClick={() => handleCreateCompany(false)}>保存</Button>
-              <Button onClick={() => handleCreateCompany(true)}>保存并新增</Button>
-              <Button variant="secondary" onClick={() => setShowAddModal(false)}>取消</Button>
+              {!editingCompanyId && <Button onClick={() => handleCreateCompany(true)}>保存并新增</Button>}
+              <Button variant="secondary" onClick={() => { setShowAddModal(false); setEditingCompanyId(null); setNewCompany(emptyCompanyForm) }}>取消</Button>
             </div>
           </div>
         </div>

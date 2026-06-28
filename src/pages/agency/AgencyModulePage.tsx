@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Activity,
   AlertTriangle,
@@ -404,6 +405,7 @@ function exportJobToAgencyRow(job: ExportJob): AgencyRow {
 }
 
 export function AgencyModulePage({ kind }: AgencyModulePageProps) {
+  const navigate = useNavigate()
   const baseConfig = configs[kind]
   const exportJobs = useExportJobs()
   const config = useMemo(() => {
@@ -480,6 +482,33 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       voucher: `${activeTab}/${query.trim() || '全部'}`,
       attachment: '操作快照',
     })
+  }
+
+  const rowObjectLabel = (row: AgencyRow) => {
+    return row.values.name || row.values.customer || row.values.fileName || row.values.task || row.values.contractNo || row.values.code || row.id
+  }
+
+  const handleViewRow = (row: AgencyRow) => {
+    const object = rowObjectLabel(row)
+    writeAgencyAudit('查看明细', `${config.title}-${object}`)
+    setOperationNotice(`已打开 ${object} 的机构级明细留痕；后续会接入附件、来源任务和操作快照。`)
+  }
+
+  const handleProcessRow = (row: AgencyRow) => {
+    const object = rowObjectLabel(row)
+    const isRisky = row.status === '异常' || kind === 'batchOps' || kind === 'authorizationCenter' || kind === 'healthCheck'
+    writeAgencyAudit('处理行任务', `${config.title}-${object}`, isRisky ? '高' : '中', isRisky ? '待审批' : '成功')
+    setOperationNotice(
+      isRisky
+        ? `${object} 已进入机构级待审批队列；批量采集、授权、申报和高风险处理不会自动提交外部系统。`
+        : `${object} 已记录处理动作，后续将接入具体表单、附件和审批流。`
+    )
+  }
+
+  const handleEnterAccount = (row: AgencyRow) => {
+    const object = rowObjectLabel(row)
+    writeAgencyAudit('进入账套', `${config.title}-${object}`)
+    navigate('/dashboard')
   }
 
   const handleRefresh = () => {
@@ -651,6 +680,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                     {config.columns.map((column) => (
                       <th key={column.key} className={cn('border-b border-r border-slate-300 px-2 py-2', alignClass(column.align))}>{column.label}</th>
                     ))}
+                    <th className="w-36 border-b border-slate-300 px-2 py-2 text-right">操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -663,13 +693,26 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                           {row.values[column.key]}
                         </td>
                       ))}
+                      <td className="whitespace-nowrap border-b border-slate-200 px-2 py-2 text-right">
+                        <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
+                          查看
+                        </button>
+                        <button type="button" onClick={() => handleProcessRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
+                          处理
+                        </button>
+                        {(kind === 'clients' || kind === 'accountManagement') && (
+                          <button type="button" onClick={() => handleEnterAccount(row)} className="text-[#1f65a7] hover:underline">
+                            进入账套
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-[#f8fafc]">
                   <tr>
                     <td className="border-t border-r border-slate-200 px-2 py-2" />
-                    <td className="border-t border-r border-slate-200 px-2 py-2 font-semibold" colSpan={Math.max(config.columns.length, 1)}>本页小计</td>
+                    <td className="border-t border-r border-slate-200 px-2 py-2 font-semibold" colSpan={Math.max(config.columns.length + 1, 1)}>本页小计</td>
                     <td className="border-t border-slate-200 px-2 py-2 text-right text-slate-500">当前页 {pagedRows.length} 条</td>
                   </tr>
                 </tfoot>
