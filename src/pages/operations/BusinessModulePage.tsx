@@ -30,15 +30,20 @@ type ModuleKind =
   | 'aiRuleTraining'
   | 'notificationCenter'
   | 'contractLedger'
+  | 'customerContractLedger'
   | 'outputInvoice'
   | 'inputInvoice'
   | 'billList'
+  | 'bankStatement'
   | 'receipt'
   | 'documentRegister'
   | 'expenseReimbursement'
   | 'purchaseManagement'
   | 'salesManagement'
   | 'voucher'
+  | 'voucherCreate'
+  | 'voucherEdit'
+  | 'voucherDetail'
   | 'transfer'
   | 'employee'
   | 'payroll'
@@ -411,6 +416,34 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     ],
     notes: ['合同台账影响客户资料、单据登记、印花税取数和附件归档，是税务申报闭环里的关键台账。', '当前先补合同编号、相对方、金额、税目、发票关联和归档状态框架。'],
   },
+  customerContractLedger: {
+    keywordPlaceholder: '搜索客户、合同编号、服务套餐、收费状态、协同事项',
+    primaryAction: '新增客户合同',
+    importLabel: '导入客户合同',
+    statusOptions: ['全部', '启用', '停用', '待确认', '异常'],
+    summary: [
+      { label: '服务客户', value: '126 户', tone: 'blue' },
+      { label: '有效合同', value: '118 份', tone: 'green' },
+      { label: '待续费', value: '9 份', tone: 'amber' },
+      { label: '异常授权', value: '3 户', tone: 'red' },
+    ],
+    columns: [
+      { key: 'customerCode', label: '客户编码' },
+      { key: 'customerName', label: '客户名称' },
+      { key: 'contractNo', label: '合同编号' },
+      { key: 'servicePackage', label: '服务套餐' },
+      { key: 'period', label: '服务期限' },
+      { key: 'fee', label: '服务费', align: 'right' },
+      { key: 'billingStatus', label: '收费状态' },
+      { key: 'collaboration', label: '协同/授权' },
+    ],
+    rows: [
+      { id: 'ccl-001', status: '启用', voucher: '收款计划', attachment: '合同PDF', values: { customerCode: '01460', customerName: '科旋电气（上海）有限公司', contractNo: 'DL-2026-01460', servicePackage: '代理记账+申报', period: '2026-01 至 2026-12', fee: '¥18,000.00', billingStatus: '已收 6 期', collaboration: '税务授权有效' } },
+      { id: 'ccl-002', status: '待确认', voucher: '待开票', attachment: '续费单', values: { customerCode: '02018', customerName: '上海云启科技有限公司', contractNo: 'DL-2026-02018', servicePackage: '记账+工资社保', period: '2026-05 至 2027-04', fee: '¥24,000.00', billingStatus: '待续费', collaboration: '资料待补' } },
+      { id: 'ccl-003', status: '异常', voucher: '-', attachment: '授权截图', values: { customerCode: '03009', customerName: '杭州辰光贸易有限公司', contractNo: 'DL-2026-03009', servicePackage: '小规模基础包', period: '2025-07 至 2026-06', fee: '¥9,600.00', billingStatus: '欠费 1 期', collaboration: '税务授权失效' } },
+    ],
+    notes: ['客户与合同承载机构级客户服务关系，收费、授权、协同事项放在同一条合同链路里。', '服务套餐、客户协同和收费状态不再作为首页重复入口，统一从客户合同穿透。'],
+  },
   outputInvoice: {
     keywordPlaceholder: '搜索采集来源、发票号码、购方名称、商品名称、备注',
     primaryAction: '开具发票',
@@ -496,6 +529,36 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'bill-003', status: '异常', voucher: '未生成', attachment: '无', values: { source: '客户上传', date: '2026-05-13', account: '工行基本户', counterparty: '个人转账', summary: '备用金', income: '-', expense: '¥5,000.00' } },
     ],
     notes: ['账单一览内置银行流水处理能力，支持银行采集、网银导入、客户上传、回单归档与规则匹配。', 'AI 可基于摘要、对方户名、金额区间推荐科目和辅助核算。'],
+  },
+  bankStatement: {
+    keywordPlaceholder: '搜索银行账户、流水号、对方户名、摘要、回单状态',
+    primaryAction: '生成银行凭证',
+    importLabel: '采集/导入银行流水',
+    statusOptions: ['全部', '待处理', '已匹配', '已生成凭证', '异常'],
+    summary: [
+      { label: '银行流水', value: '188 笔', tone: 'blue' },
+      { label: '已匹配', value: '151 笔', tone: 'green' },
+      { label: '待回单', value: '24 笔', tone: 'amber' },
+      { label: '对账差异', value: '5 笔', tone: 'red' },
+    ],
+    columns: [
+      { key: 'account', label: '银行账户' },
+      { key: 'serialNo', label: '流水号' },
+      { key: 'date', label: '交易日期' },
+      { key: 'counterparty', label: '对方户名' },
+      { key: 'summary', label: '摘要' },
+      { key: 'income', label: '收入', align: 'right' },
+      { key: 'expense', label: '支出', align: 'right' },
+      { key: 'balance', label: '余额', align: 'right' },
+      { key: 'receiptStatus', label: '回单状态' },
+      { key: 'matchResult', label: '匹配结果' },
+    ],
+    rows: [
+      { id: 'bank-001', status: '已匹配', voucher: '草稿31', attachment: '回单PDF', values: { account: '工行基本户', serialNo: 'ICBC-20260503-0018', date: '2026-05-03', counterparty: '上海辰光贸易有限公司', summary: '货款', income: '¥86,000.00', expense: '-', balance: '¥1,286,300.00', receiptStatus: '已归档', matchResult: '销项发票 310026000118' } },
+      { id: 'bank-002', status: '已生成凭证', voucher: '记-0042', attachment: '电子回单', values: { account: '招行一般户', serialNo: 'CMB-20260508-0091', date: '2026-05-08', counterparty: '上海办公服务有限公司', summary: '房租', income: '-', expense: '¥18,000.00', balance: '¥526,800.00', receiptStatus: '已归档', matchResult: '费用凭证已生成' } },
+      { id: 'bank-003', status: '异常', voucher: '-', attachment: '缺失', values: { account: '工行基本户', serialNo: 'ICBC-20260513-0042', date: '2026-05-13', counterparty: '个人转账', summary: '备用金', income: '-', expense: '¥5,000.00', balance: '¥1,188,240.00', receiptStatus: '待上传', matchResult: '对方户名需确认' } },
+    ],
+    notes: ['银行账单页聚焦单账套银行流水、回单、余额、对账和凭证生成，不承担机构级批量采集入口。', '直连银行能力仅作为 adapter 配置和授权状态预留，当前表格以导入/采集批次和人工确认闭环为准。'],
   },
   receipt: {
     keywordPlaceholder: '搜索票据号码、出票方、用途',
@@ -662,6 +725,84 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'v-0062', status: '异常', voucher: '记-0062', attachment: '无', values: { date: '2026-05-15', wordNo: '记-0062', summary: '银行手续费', debitAccount: '财务费用', creditAccount: '银行存款', debit: '¥320.00', credit: '¥300.00', source: '银行账单', maker: '赵会计', auditor: '未审' } },
     ],
     notes: ['会计凭证页应支持新增、审核、反审核、复制、红冲、断号整理、打印、导出和来源穿透。', '凭证导出和打印模板需要按凭证纸格式单独设计。'],
+  },
+  voucherCreate: {
+    keywordPlaceholder: '搜索来源单据、摘要模板、借贷科目、辅助核算',
+    primaryAction: '保存凭证草稿',
+    importLabel: '导入分录',
+    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
+    summary: [
+      { label: '制单日期', value: '2026-05-31', tone: 'blue' },
+      { label: '借方合计', value: '¥97,180.00', tone: 'green' },
+      { label: '贷方合计', value: '¥97,180.00', tone: 'green' },
+      { label: '校验异常', value: '0 项', tone: 'amber' },
+    ],
+    columns: [
+      { key: 'field', label: '录入项' },
+      { key: 'value', label: '当前值' },
+      { key: 'source', label: '来源/模板' },
+      { key: 'required', label: '必填' },
+      { key: 'check', label: '校验结果' },
+      { key: 'remark', label: '说明' },
+    ],
+    rows: [
+      { id: 'vc-001', status: '已通过', voucher: '草稿', attachment: '发票PDF', values: { field: '凭证日期/字号', value: '2026-05-31 / 记-0083', source: '账期自动生成', required: '是', check: '通过', remark: '断号检查通过' } },
+      { id: 'vc-002', status: '待确认', voucher: '草稿', attachment: '来源单据', values: { field: '摘要', value: '销售控制器 A-100', source: '销项发票模板', required: '是', check: '待确认', remark: '可套用常用摘要' } },
+      { id: 'vc-003', status: '已通过', voucher: '草稿', attachment: '分录2行', values: { field: '借贷分录', value: '借: 应收账款 97,180.00 / 贷: 主营业务收入, 应交税费', source: '凭证模板', required: '是', check: '借贷平衡', remark: '辅助核算客户已匹配' } },
+    ],
+    notes: ['新增凭证页以录入项、来源、必填和校验为主，避免复用凭证列表表格。', '保存草稿和生成正式凭证前需要完成借贷平衡、科目、辅助核算、附件和断号校验。'],
+  },
+  voucherEdit: {
+    keywordPlaceholder: '搜索凭证字段、修改原因、审核状态、附件',
+    primaryAction: '保存修改',
+    importLabel: '导出修改记录',
+    statusOptions: ['全部', '待确认', '已通过', '异常'],
+    summary: [
+      { label: '凭证字号', value: '记-0062', tone: 'blue' },
+      { label: '当前状态', value: '待审核', tone: 'amber' },
+      { label: '修改项', value: '3 项', tone: 'green' },
+      { label: '阻断项', value: '1 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'field', label: '修改字段' },
+      { key: 'before', label: '原值' },
+      { key: 'after', label: '修改后' },
+      { key: 'reason', label: '修改原因' },
+      { key: 'check', label: '校验结果' },
+      { key: 'audit', label: '审计留痕' },
+    ],
+    rows: [
+      { id: 've-001', status: '待确认', voucher: '记-0062', attachment: '附件1', values: { field: '摘要', before: '银行手续费', after: '支付银行手续费', reason: '补充业务描述', check: '待复核', audit: '记录操作人和时间' } },
+      { id: 've-002', status: '已通过', voucher: '记-0062', attachment: '回单', values: { field: '贷方金额', before: '¥300.00', after: '¥320.00', reason: '按银行回单修正', check: '借贷平衡', audit: '保留原值快照' } },
+      { id: 've-003', status: '异常', voucher: '记-0062', attachment: '风险项', values: { field: '审核状态', before: '未审', after: '提交审核', reason: '凭证修正后送审', check: '附件缺失', audit: '阻断直接审核' } },
+    ],
+    notes: ['编辑凭证需要展示原值、修改后、原因、校验和审计记录。', '已审核或已结账期间的修改必须进入反审核/反结账或高风险审批流程。'],
+  },
+  voucherDetail: {
+    keywordPlaceholder: '搜索凭证来源、分录、附件、审核日志',
+    primaryAction: '打印凭证',
+    importLabel: '导出凭证',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '凭证字号', value: '记-0051', tone: 'blue' },
+      { label: '借贷合计', value: '¥97,180.00', tone: 'green' },
+      { label: '附件', value: '2 个', tone: 'amber' },
+      { label: '风险', value: '0 项', tone: 'green' },
+    ],
+    columns: [
+      { key: 'section', label: '查看项' },
+      { key: 'content', label: '内容' },
+      { key: 'source', label: '来源链路' },
+      { key: 'amount', label: '金额', align: 'right' },
+      { key: 'operator', label: '操作人' },
+      { key: 'result', label: '结果' },
+    ],
+    rows: [
+      { id: 'vd-001', status: '已通过', voucher: '记-0051', attachment: '销项发票', values: { section: '表头', content: '2026-05-03 / 销售控制器', source: '销项发票 310026000118', amount: '¥97,180.00', operator: '王会计', result: '已审核' } },
+      { id: 'vd-002', status: '已通过', voucher: '记-0051', attachment: '分录', values: { section: '借贷分录', content: '借: 应收账款 / 贷: 主营业务收入、应交税费', source: '发票模板', amount: '¥97,180.00', operator: '系统建议', result: '借贷平衡' } },
+      { id: 'vd-003', status: '待确认', voucher: '记-0051', attachment: '操作日志', values: { section: '审核与打印', content: '审核、导出PDF、打印记录', source: '审计日志', amount: '-', operator: '主管', result: '可追溯' } },
+    ],
+    notes: ['凭证详情页重点展示凭证来源、分录、附件、审核和打印导出记录。', '详情页导出和打印沿用凭证固定模板，后续继续精细化纸张、分页和中文字体。'],
   },
   transfer: {
     keywordPlaceholder: '搜索转出账户、转入账户、流水号',
@@ -2810,7 +2951,7 @@ function escapeHtml(value: string) {
 }
 
 function printTemplateKind(kind: ModuleKind): PrintTemplateKind {
-  if (kind === 'voucher') return 'voucher'
+  if (kind === 'voucher' || kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') return 'voucher'
   if (
     kind === 'ledgerReport' ||
     kind === 'trialBalanceReport' ||

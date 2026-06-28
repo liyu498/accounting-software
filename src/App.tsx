@@ -136,7 +136,7 @@ function App() {
             <Route path="/invoices/selection" element={<Navigate to="/invoices/input" replace />} />
             <Route path="/invoices/input" element={businessPage('inputInvoice', '进项发票', '管理进项发票、税额抵扣、发票影像、供应商匹配和凭证草稿。')} />
             <Route path="/bills" element={businessPage('billList', '账单一览', '导入和匹配银行流水、回单、摘要分类、凭证草稿和附件。')} />
-            <Route path="/bank" element={businessPage('billList', '银行账单', '处理银行流水、对账、回单归档、AI 分类和凭证生成。')} />
+            <Route path="/bank" element={businessPage('bankStatement', '银行账单', '处理银行流水、对账、回单归档、AI 分类和凭证生成。')} />
             <Route path="/receipts" element={businessPage('receipt', '票据', '登记承兑汇票、到期、背书、贴现和凭证联动。')} />
             <Route path="/documents" element={businessPage('documentRegister', '单据登记', '登记非发票业务单据、费用报销、采购入库和附件来源。')} />
             <Route path="/expenses/reimbursements" element={businessPage('expenseReimbursement', '费用报销', '管理员工报销、费用附件、审批状态、付款和凭证生成。')} />
@@ -155,7 +155,7 @@ function App() {
 
             {/* Finance - 财务 */}
             <Route path="/vouchers" element={businessPage('voucher', '会计凭证', '管理凭证新增、审核、反审核、打印、导出、红冲、断号整理和批量处理。')} />
-            <Route path="/vouchers/detail/:id" element={businessPage('voucher', '会计凭证详情', '查看凭证来源、分录、附件、审核日志、打印和导出。')} />
+            <Route path="/vouchers/detail/:id" element={businessPage('voucherDetail', '会计凭证详情', '查看凭证来源、分录、附件、审核日志、打印和导出。')} />
             <Route path="/bank/reconciliation" element={businessPage('bankReconciliation', '银行对账', '核对银行流水和账面凭证，管理未达账项、差异和对账回执。')} />
             <Route path="/settlement/receivable" element={businessPage('receivableSettlement', '应收核销', '核对客户销项发票、收款流水、应收余额和核销凭证。')} />
             <Route path="/settlement/payable" element={businessPage('payableSettlement', '应付核销', '核对供应商进项发票、付款流水、应付余额和核销凭证。')} />
@@ -205,7 +205,7 @@ function App() {
             <Route path="/settings/accounts" element={businessPage('accountArchive', '账户登记', '维护银行账户、现金账户、第三方支付账户和默认科目。')} />
             <Route path="/settings/customers" element={businessPage('customerArchive', '客户', '维护客户编码、名称、税号、开户行、银行账号和默认科目。')} />
             <Route path="/settings/contracts" element={businessPage('contractLedger', '合同台账', '维护客户和供应商合同、应税合同、发票关联、印花税取数和附件归档。')} />
-            <Route path="/settings/customers-contracts" element={businessPage('contractLedger', '客户与合同', '维护客户、合同和应税合同台账。')} />
+            <Route path="/settings/customers-contracts" element={businessPage('customerContractLedger', '客户与合同', '维护客户、合同和应税合同台账。')} />
             <Route path="/settings/suppliers" element={businessPage('supplierArchive', '供应商', '维护供应商编码、税号、银行账号、别名和默认科目。')} />
             <Route path="/settings/other-contacts" element={businessPage('otherContactArchive', '其他往来', '维护员工、股东、个人和其他往来辅助资料。')} />
             <Route path="/settings/projects" element={businessPage('projectArchive', '项目', '维护项目档案、项目辅助核算和默认科目。')} />
@@ -238,7 +238,7 @@ function App() {
             path="/vouchers/new"
             element={
               <ProtectedRoute>
-                {businessPage('voucher', '新增会计凭证', '按竞品风格录入凭证表头、分录、辅助核算、附件和来源单据。')}
+                {businessPage('voucherCreate', '新增会计凭证', '按竞品风格录入凭证表头、分录、辅助核算、附件和来源单据。')}
               </ProtectedRoute>
             }
           />
@@ -246,7 +246,7 @@ function App() {
             path="/vouchers/edit/:id"
             element={
               <ProtectedRoute>
-                {businessPage('voucher', '编辑会计凭证', '按竞品风格维护凭证分录、审核状态、附件和操作日志。')}
+                {businessPage('voucherEdit', '编辑会计凭证', '按竞品风格维护凭证分录、审核状态、附件和操作日志。')}
               </ProtectedRoute>
             }
           />
