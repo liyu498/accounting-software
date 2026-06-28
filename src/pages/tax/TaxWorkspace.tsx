@@ -15,7 +15,7 @@ import {
 import { useState } from 'react'
 import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
-import { recordExportJob } from '../../lib/exportJobs'
+import { recordAuditLog, recordExportJob } from '../../lib/exportJobs'
 
 const declarationRows = [
   {
@@ -199,6 +199,51 @@ function riskBadge(value: string) {
 
 export function TaxWorkspace() {
   const [showRulesLog, setShowRulesLog] = useState(false)
+  const [operationNotice, setOperationNotice] = useState<string | null>(null)
+
+  const writeTaxAudit = (input: Omit<Parameters<typeof recordAuditLog>[0], 'module' | 'voucher'>) => {
+    recordAuditLog({
+      module: '税务申报工作台',
+      voucher: '2026-05/全部税种',
+      ...input,
+    })
+  }
+
+  const refreshDeclarationSnapshot = () => {
+    writeTaxAudit({
+      action: '重新取数',
+      object: '2026-05申报取数快照',
+      level: '普通',
+      result: '成功',
+      status: '已通过',
+      attachment: '取数快照',
+    })
+    setOperationNotice('已重新生成本期申报取数快照，真实税局取数仍需合法 adapter 和授权。')
+  }
+
+  const runRiskCheck = () => {
+    writeTaxAudit({
+      action: '风险检查',
+      object: '1条阻断/2条需复核',
+      level: '中',
+      result: '成功',
+      status: '已通过',
+      attachment: '风险清单',
+    })
+    setOperationNotice('风险检查已记录：1 条阻断、2 条需复核，阻断项处理前不能提交。')
+  }
+
+  const confirmDeclaration = () => {
+    writeTaxAudit({
+      action: '确认申报',
+      object: '税务申报包-2026-05',
+      level: '高',
+      result: '待审批',
+      status: '待确认',
+      attachment: '待提交',
+    })
+    setOperationNotice('确认申报已进入待审批留痕；当前未向电子税务局提交，也未发起扣款。')
+  }
 
   const exportTaxPackage = () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
@@ -269,17 +314,26 @@ export function TaxWorkspace() {
             <span className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-green-100">已结账</span>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
-            <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="重新取数" />
-            <ToolbarButton icon={<ShieldAlert className="h-3.5 w-3.5" />} label="风险检查" />
+            <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="重新取数" onClick={refreshDeclarationSnapshot} />
+            <ToolbarButton icon={<ShieldAlert className="h-3.5 w-3.5" />} label="风险检查" onClick={runRiskCheck} />
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="导出申报包" onClick={exportTaxPackage} />
             <ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={exportTaxPackagePdf} />
             <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印申报包" onClick={printTaxPackage} />
-            <button className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">
+            <button
+              type="button"
+              onClick={confirmDeclaration}
+              className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]"
+            >
               <Play className="h-3.5 w-3.5" />
               确认申报
             </button>
           </div>
         </div>
+        {operationNotice && (
+          <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+            {operationNotice}
+          </div>
+        )}
 
         <div className="flex overflow-x-auto border-b border-slate-200 bg-[#f8fafc] px-2">
           {tabs.map((tab, index) => (
