@@ -65,6 +65,13 @@ type ModuleKind =
   | 'cashFlowQuarterReport'
   | 'equityChangeReport'
   | 'taxReport'
+  | 'vatTaxReport'
+  | 'withholdingTaxReport'
+  | 'stampTaxReport'
+  | 'incomeTaxReport'
+  | 'socialSecurityTaxReport'
+  | 'financeTaxReport'
+  | 'nonTaxRevenueReport'
   | 'declarationCalendar'
   | 'settingsData'
   | 'matchingRules'
@@ -1350,6 +1357,201 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     ],
     notes: ['税务报表支持重新计算、取数说明、差异解释和 PDF/Excel 导出。'],
   },
+  vatTaxReport: {
+    keywordPlaceholder: '搜索增值税栏次、发票来源、留抵、抵扣、附加税',
+    primaryAction: '重取增值税数据',
+    importLabel: '导出税表',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '销项税额', value: '¥54,210.00', tone: 'blue' },
+      { label: '进项抵扣', value: '¥42,860.00', tone: 'green' },
+      { label: '留抵税额', value: '¥0.00', tone: 'gray' },
+      { label: '阻断项', value: '2 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'line', label: '栏次', align: 'center' },
+      { key: 'item', label: '申报项目' },
+      { key: 'source', label: '取数来源' },
+      { key: 'salesAmount', label: '销售额', align: 'right' },
+      { key: 'outputTax', label: '销项/应纳税额', align: 'right' },
+      { key: 'deduction', label: '抵扣/减免', align: 'right' },
+      { key: 'payable', label: '应缴金额', align: 'right' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'vat-001', status: '已通过', voucher: '增值税主表', attachment: '发票汇总', values: { line: '1', item: '按适用税率计税销售额', source: '销项发票 58 张', salesAmount: '¥680,000.00', outputTax: '¥54,210.00', deduction: '-', payable: '¥54,210.00', check: '通过' } },
+      { id: 'vat-002', status: '待确认', voucher: '进项附表', attachment: '勾选清单', values: { line: '12', item: '本期认证相符且本期申报抵扣', source: '进项发票 72 张', salesAmount: '-', outputTax: '-', deduction: '¥42,860.00', payable: '-', check: '2 张未勾选' } },
+      { id: 'vat-003', status: '异常', voucher: '附加税表', attachment: '风险项', values: { line: '附加', item: '城市维护建设税/教育费附加', source: '应纳增值税', salesAmount: '-', outputTax: '-', deduction: '¥0.00', payable: '待算', check: '进项勾选阻断' } },
+    ],
+    notes: ['增值税及附加页按主表、进项附表、附加税表组织取数，发票勾选未完成时阻断申报确认。', '自动报税只能生成申报包和校验结果，真实提交必须由合法税局 adapter 和人工确认触发。'],
+  },
+  withholdingTaxReport: {
+    keywordPlaceholder: '搜索员工、工资、专项附加扣除、应纳税所得额',
+    primaryAction: '重取个税数据',
+    importLabel: '导出扣缴表',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '申报人数', value: '42 人', tone: 'blue' },
+      { label: '工资薪金', value: '¥386,200.00', tone: 'green' },
+      { label: '专项扣除', value: '¥52,000.00', tone: 'amber' },
+      { label: '异常人员', value: '1 人', tone: 'red' },
+    ],
+    columns: [
+      { key: 'employee', label: '员工' },
+      { key: 'idNo', label: '证件号' },
+      { key: 'income', label: '收入额', align: 'right' },
+      { key: 'social', label: '社保公积金', align: 'right' },
+      { key: 'special', label: '专项附加扣除', align: 'right' },
+      { key: 'taxable', label: '应纳税所得额', align: 'right' },
+      { key: 'tax', label: '应扣税额', align: 'right' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'wh-001', status: '已通过', voucher: '个税扣缴', attachment: '工资表', values: { employee: '张三', idNo: '3101********0018', income: '¥12,000.00', social: '¥1,860.00', special: '¥2,000.00', taxable: '¥3,140.00', tax: '¥94.20', check: '通过' } },
+      { id: 'wh-002', status: '已通过', voucher: '个税扣缴', attachment: '专项扣除', values: { employee: '李四', idNo: '3205********8892', income: '¥15,000.00', social: '¥2,150.00', special: '¥3,000.00', taxable: '¥4,850.00', tax: '¥145.50', check: '通过' } },
+      { id: 'wh-003', status: '异常', voucher: '个税扣缴', attachment: '缺资料', values: { employee: '王五', idNo: '待补', income: '¥8,000.00', social: '待确认', special: '¥2,000.00', taxable: '待算', tax: '待算', check: '证件资料缺失' } },
+    ],
+    notes: ['扣缴所得税页从薪酬表、人员登记、社保公积金和专项附加扣除取数。', '证件、专项扣除或工资异常时只能生成待确认清单，不能进入申报包确认。'],
+  },
+  stampTaxReport: {
+    keywordPlaceholder: '搜索合同编号、应税凭证、税目、计税金额',
+    primaryAction: '重取印花税数据',
+    importLabel: '导出明细',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '应税凭证', value: '18 份', tone: 'blue' },
+      { label: '计税金额', value: '¥980,000.00', tone: 'green' },
+      { label: '应纳税额', value: '¥490.00', tone: 'amber' },
+      { label: '待补合同', value: '1 份', tone: 'red' },
+    ],
+    columns: [
+      { key: 'contractNo', label: '合同编号' },
+      { key: 'partner', label: '相对方' },
+      { key: 'taxItem', label: '税目' },
+      { key: 'signDate', label: '签订日期' },
+      { key: 'amount', label: '计税金额', align: 'right' },
+      { key: 'rate', label: '税率', align: 'center' },
+      { key: 'tax', label: '应纳税额', align: 'right' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'st-001', status: '已通过', voucher: '印花税', attachment: '合同PDF', values: { contractNo: 'HT-2026-001', partner: '上海辰光贸易有限公司', taxItem: '购销合同', signDate: '2026-05-03', amount: '¥680,000.00', rate: '0.03%', tax: '¥204.00', check: '通过' } },
+      { id: 'st-002', status: '待确认', voucher: '印花税', attachment: '扫描件', values: { contractNo: 'HT-2026-008', partner: '杭州辰星科技有限公司', taxItem: '技术合同', signDate: '2026-05-09', amount: '¥120,000.00', rate: '0.03%', tax: '¥36.00', check: '税目待确认' } },
+      { id: 'st-003', status: '异常', voucher: '印花税', attachment: '缺签章', values: { contractNo: 'HT-2026-019', partner: '南京云杉贸易有限公司', taxItem: '购销合同', signDate: '待补', amount: '¥98,000.00', rate: '0.03%', tax: '待算', check: '合同资料缺失' } },
+    ],
+    notes: ['印花税页从合同台账、单据登记和发票关联取数，重点保留税目、计税金额和合同附件。', '合同未归档或税目不确定时必须阻断申报确认。'],
+  },
+  incomeTaxReport: {
+    keywordPlaceholder: '搜索所得税项目、利润表、纳税调整、弥补亏损',
+    primaryAction: '重取所得税数据',
+    importLabel: '导出所得税表',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '利润总额', value: '¥126,000.00', tone: 'blue' },
+      { label: '纳税调整', value: '¥18,600.00', tone: 'amber' },
+      { label: '应纳税所得额', value: '¥144,600.00', tone: 'green' },
+      { label: '待复核', value: '2 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'line', label: '行次', align: 'center' },
+      { key: 'item', label: '申报项目' },
+      { key: 'source', label: '取数来源' },
+      { key: 'bookAmount', label: '账载金额', align: 'right' },
+      { key: 'taxAmount', label: '税收金额', align: 'right' },
+      { key: 'adjustment', label: '纳税调整', align: 'right' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'it-001', status: '已通过', voucher: '所得税季报', attachment: '利润表', values: { line: '1', item: '营业收入', source: '利润表季报', bookAmount: '¥1,920,000.00', taxAmount: '¥1,920,000.00', adjustment: '¥0.00', check: '通过' } },
+      { id: 'it-002', status: '待确认', voucher: '所得税季报', attachment: '费用明细', values: { line: '7', item: '业务招待费', source: '管理费用明细', bookAmount: '¥31,000.00', taxAmount: '¥18,600.00', adjustment: '¥12,400.00', check: '纳调待确认' } },
+      { id: 'it-003', status: '异常', voucher: '所得税季报', attachment: '风险项', values: { line: '13', item: '利润总额', source: '利润表', bookAmount: '¥126,000.00', taxAmount: '差异', adjustment: '待算', check: '利润表未确认' } },
+    ],
+    notes: ['企业所得税页从利润表季报、费用明细、资产折旧和纳税调整项目取数。', '纳税调整必须有来源说明和人工确认，不能只按账面利润自动申报。'],
+  },
+  socialSecurityTaxReport: {
+    keywordPlaceholder: '搜索员工、缴费基数、单位部分、个人部分、社保费申报',
+    primaryAction: '重取社保费数据',
+    importLabel: '导出社保费表',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '缴费人数', value: '42 人', tone: 'blue' },
+      { label: '单位部分', value: '¥68,240.00', tone: 'green' },
+      { label: '个人部分', value: '¥35,630.00', tone: 'amber' },
+      { label: '基数异常', value: '1 人', tone: 'red' },
+    ],
+    columns: [
+      { key: 'employee', label: '员工' },
+      { key: 'city', label: '缴费城市' },
+      { key: 'base', label: '缴费基数', align: 'right' },
+      { key: 'company', label: '单位部分', align: 'right' },
+      { key: 'personal', label: '个人部分', align: 'right' },
+      { key: 'fund', label: '公积金', align: 'right' },
+      { key: 'source', label: '来源' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'sst-001', status: '已通过', voucher: '社保费', attachment: '社保明细', values: { employee: '张三', city: '上海', base: '¥12,000.00', company: '¥3,280.00', personal: '¥1,320.00', fund: '¥1,680.00', source: '社保公积金', check: '通过' } },
+      { id: 'sst-002', status: '待确认', voucher: '社保费', attachment: '工资表', values: { employee: '李四', city: '上海', base: '¥15,000.00', company: '¥4,100.00', personal: '¥1,650.00', fund: '¥2,100.00', source: '工资表', check: '基数待确认' } },
+      { id: 'sst-003', status: '异常', voucher: '社保费', attachment: '缺资料', values: { employee: '王五', city: '上海', base: '待确认', company: '待算', personal: '待算', fund: '待算', source: '人员登记', check: '入职资料缺失' } },
+    ],
+    notes: ['社保费页从人员登记、薪酬表、社保公积金模块取数。', '基数异常、入离职资料缺失时必须进入待确认或异常清单。'],
+  },
+  financeTaxReport: {
+    keywordPlaceholder: '搜索财报报送表、报表来源、报送附件、申报状态',
+    primaryAction: '生成财报报送包',
+    importLabel: '导出报送包',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '报送表', value: '4 张', tone: 'blue' },
+      { label: '已取数', value: '3 张', tone: 'green' },
+      { label: '待确认', value: '1 张', tone: 'amber' },
+      { label: '差异', value: '0 项', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'form', label: '报送表' },
+      { key: 'period', label: '所属期' },
+      { key: 'source', label: '来源报表' },
+      { key: 'amount', label: '关键金额', align: 'right' },
+      { key: 'snapshot', label: '取数快照' },
+      { key: 'attachment', label: '报送附件' },
+      { key: 'owner', label: '负责人' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'ftr-001', status: '已通过', voucher: '财报报送', attachment: 'PDF', values: { form: '资产负债表', period: '2026-05', source: '资产负债表', amount: '¥2,186,300.00', snapshot: '已冻结', attachment: 'PDF/Excel', owner: '王会计', check: '通过' } },
+      { id: 'ftr-002', status: '已通过', voucher: '财报报送', attachment: 'PDF', values: { form: '利润表', period: '2026-05', source: '利润表', amount: '¥126,000.00', snapshot: '已冻结', attachment: 'PDF/Excel', owner: '李会计', check: '通过' } },
+      { id: 'ftr-003', status: '待确认', voucher: '财报报送', attachment: '现金流', values: { form: '现金流量表', period: '2026-05', source: '现金流量表', amount: '¥246,380.00', snapshot: '待确认', attachment: '待生成', owner: '赵会计', check: '未映射项待确认' } },
+    ],
+    notes: ['财报报送页汇总资产负债表、利润表、现金流量表和权益表的报送包状态。', '报送包生成后仍需人工确认并进入下载中心，不直接提交外部系统。'],
+  },
+  nonTaxRevenueReport: {
+    keywordPlaceholder: '搜索非税项目、缴费事项、计费依据、缴款书',
+    primaryAction: '生成非税缴费清单',
+    importLabel: '导出非税清单',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '非税事项', value: '3 项', tone: 'blue' },
+      { label: '待缴金额', value: '¥12,600.00', tone: 'amber' },
+      { label: '已归档', value: '1 项', tone: 'green' },
+      { label: '异常', value: '1 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'item', label: '非税事项' },
+      { key: 'period', label: '所属期' },
+      { key: 'basis', label: '计费依据' },
+      { key: 'amount', label: '计费金额', align: 'right' },
+      { key: 'payable', label: '应缴金额', align: 'right' },
+      { key: 'receipt', label: '缴款书' },
+      { key: 'archive', label: '归档状态' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'ntx-001', status: '已通过', voucher: '缴款书', attachment: 'PDF', values: { item: '工会经费', period: '2026-05', basis: '工资总额', amount: '¥386,200.00', payable: '¥7,724.00', receipt: '已生成', archive: '已归档', check: '通过' } },
+      { id: 'ntx-002', status: '待确认', voucher: '缴款书', attachment: '说明', values: { item: '残保金', period: '2026', basis: '在职人数/工资', amount: '待确认', payable: '待算', receipt: '未生成', archive: '待确认', check: '人数口径待核' } },
+      { id: 'ntx-003', status: '异常', voucher: '缴款书', attachment: '缺资料', values: { item: '水利建设基金', period: '2026-05', basis: '营业收入', amount: '¥680,000.00', payable: '待算', receipt: '未生成', archive: '异常', check: '地区政策未配置' } },
+    ],
+    notes: ['非税收入页维护工会经费、残保金、水利建设基金等缴费事项。', '地区政策或计费依据缺失时只生成异常清单，不自动生成缴款书。'],
+  },
   declarationCalendar: {
     keywordPlaceholder: '搜索税种、申报期、截止日期、负责人',
     primaryAction: '生成计划',
@@ -2416,7 +2618,17 @@ function printTemplateKind(kind: ModuleKind): PrintTemplateKind {
     kind === 'cashFlowQuarterReport' ||
     kind === 'equityChangeReport'
   ) return 'financial'
-  if (kind === 'taxReport' || kind === 'taxInit') return 'tax'
+  if (
+    kind === 'taxReport' ||
+    kind === 'vatTaxReport' ||
+    kind === 'withholdingTaxReport' ||
+    kind === 'stampTaxReport' ||
+    kind === 'incomeTaxReport' ||
+    kind === 'socialSecurityTaxReport' ||
+    kind === 'financeTaxReport' ||
+    kind === 'nonTaxRevenueReport' ||
+    kind === 'taxInit'
+  ) return 'tax'
   return 'list'
 }
 
@@ -2836,7 +3048,23 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [page, totalPages])
 
   const auditScope = `${status}/${keyword.trim() || '全部'}`
-  const isHighRiskAction = ['closingTasks', 'periodManagement', 'taxAdapterSettings', 'bankAdapterSettings', 'voucherRecycle', 'backupRestore', 'taxReport', 'declarationReceipt'].includes(kind)
+  const isHighRiskAction = [
+    'closingTasks',
+    'periodManagement',
+    'taxAdapterSettings',
+    'bankAdapterSettings',
+    'voucherRecycle',
+    'backupRestore',
+    'taxReport',
+    'vatTaxReport',
+    'withholdingTaxReport',
+    'stampTaxReport',
+    'incomeTaxReport',
+    'socialSecurityTaxReport',
+    'financeTaxReport',
+    'nonTaxRevenueReport',
+    'declarationReceipt',
+  ].includes(kind)
 
   const writeModuleAudit = (action: string, object: string, level: '普通' | '中' | '高' = '普通', result: '成功' | '待审批' | '失败' = '成功') => {
     recordAuditLog({

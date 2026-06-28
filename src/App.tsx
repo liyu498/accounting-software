@@ -183,13 +183,14 @@ function App() {
             {/* Tax Reports - 税务申报 */}
             <Route path="/tax/workspace" element={<TaxWorkspace />} />
             <Route path="/tax/calendar" element={businessPage('declarationCalendar', '申报日历', '按税种和所属期跟踪截止日期、负责人、取数状态、风险和下一步动作。')} />
-            <Route path="/tax/vat" element={businessPage('taxReport', '增值税及附加', '生成增值税、附加税申报表，展示发票取数、留抵、抵扣和差异。')} />
-            <Route path="/tax/withholding" element={businessPage('taxReport', '扣缴所得税', '根据薪酬表和专项附加扣除生成个税扣缴申报数据。')} />
-            <Route path="/tax/stamp" element={businessPage('taxReport', '印花税', '根据合同、单据和业务台账生成印花税应税明细。')} />
-            <Route path="/tax/income" element={businessPage('taxReport', '企业所得税', '生成企业所得税预缴、汇算取数和纳税调整说明。')} />
-            <Route path="/tax/social-security" element={businessPage('taxReport', '社保费', '生成社保费申报清单，核对人员、基数、单位和个人部分。')} />
-            <Route path="/tax/finance-report" element={businessPage('taxReport', '财报报送', '生成财报报送清单、取数快照、PDF/Excel 和申报附件。')} />
-            <Route path="/tax/non-tax" element={businessPage('taxReport', '非税收入', '维护非税收入申报事项、缴费状态和回执归档。')} />
+            <Route path="/tax/reports" element={businessPage('taxReport', '税务报表总览', '集中查看各税种申报表、取数来源、校验状态、申报包和回执风险。')} />
+            <Route path="/tax/vat" element={businessPage('vatTaxReport', '增值税及附加', '生成增值税、附加税申报表，展示发票取数、留抵、抵扣和差异。')} />
+            <Route path="/tax/withholding" element={businessPage('withholdingTaxReport', '扣缴所得税', '根据薪酬表和专项附加扣除生成个税扣缴申报数据。')} />
+            <Route path="/tax/stamp" element={businessPage('stampTaxReport', '印花税', '根据合同、单据和业务台账生成印花税应税明细。')} />
+            <Route path="/tax/income" element={businessPage('incomeTaxReport', '企业所得税', '生成企业所得税预缴、汇算取数和纳税调整说明。')} />
+            <Route path="/tax/social-security" element={businessPage('socialSecurityTaxReport', '社保费', '生成社保费申报清单，核对人员、基数、单位和个人部分。')} />
+            <Route path="/tax/finance-report" element={businessPage('financeTaxReport', '财报报送', '生成财报报送清单、取数快照、PDF/Excel 和申报附件。')} />
+            <Route path="/tax/non-tax" element={businessPage('nonTaxRevenueReport', '非税收入', '维护非税收入申报事项、缴费状态和回执归档。')} />
             <Route path="/tax/receipts" element={businessPage('declarationReceipt', '回执缴款书', '管理申报回执、缴款书、扣款状态、附件归档和异常留痕。')} />
 
             {/* Settings Sub-pages - 设置子页面 */}
