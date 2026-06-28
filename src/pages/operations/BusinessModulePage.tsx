@@ -57,6 +57,13 @@ type ModuleKind =
   | 'riskCheck'
   | 'closingTasks'
   | 'ledgerReport'
+  | 'trialBalanceReport'
+  | 'accountSummaryReport'
+  | 'generalLedgerReport'
+  | 'subsidiaryLedgerReport'
+  | 'auxiliaryLedgerReport'
+  | 'auxiliaryBalanceReport'
+  | 'multiColumnLedgerReport'
   | 'financialReport'
   | 'balanceSheetReport'
   | 'incomeStatementReport'
@@ -1141,6 +1148,202 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: '2221', status: '已通过', voucher: '可穿透', attachment: '账簿', values: { code: '2221', name: '应交税费', aux: '税种', openingDebit: '-', openingCredit: '¥18,000.00', debit: '¥42,860.00', credit: '¥54,210.00', direction: '贷', balance: '¥29,350.00' } },
     ],
     notes: ['账簿页需要支持科目、辅助核算、期间、发生额/余额方向筛选，并可穿透凭证明细。', '科目余额表、科目汇总表、总账、明细账、多栏账应分别拥有独立导出模板。'],
+  },
+  trialBalanceReport: {
+    keywordPlaceholder: '搜索科目编码、科目名称、辅助核算、余额方向',
+    primaryAction: '重算余额表',
+    importLabel: '导出余额表',
+    statusOptions: ['全部', '有余额', '有发生', '借方余额', '贷方余额'],
+    summary: [
+      { label: '科目行数', value: '128 行', tone: 'blue' },
+      { label: '本期借方', value: '¥1,286,300.00', tone: 'green' },
+      { label: '本期贷方', value: '¥1,286,300.00', tone: 'green' },
+      { label: '试算差异', value: '¥0.00', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'code', label: '科目编码' },
+      { key: 'name', label: '科目名称' },
+      { key: 'aux', label: '辅助核算' },
+      { key: 'openingDebit', label: '期初借方', align: 'right' },
+      { key: 'openingCredit', label: '期初贷方', align: 'right' },
+      { key: 'currentDebit', label: '本期借方', align: 'right' },
+      { key: 'currentCredit', label: '本期贷方', align: 'right' },
+      { key: 'endingBalance', label: '期末余额', align: 'right' },
+    ],
+    rows: [
+      { id: 'tb-1002', status: '已通过', voucher: '可穿透', attachment: '账簿', values: { code: '1002', name: '银行存款', aux: '工行基本户', openingDebit: '¥220,000.00', openingCredit: '-', currentDebit: '¥821,300.00', currentCredit: '¥574,920.00', endingBalance: '借 ¥466,380.00' } },
+      { id: 'tb-1122', status: '已通过', voucher: '可穿透', attachment: '客户辅助', values: { code: '1122', name: '应收账款', aux: '客户', openingDebit: '¥410,000.00', openingCredit: '-', currentDebit: '¥680,000.00', currentCredit: '¥390,000.00', endingBalance: '借 ¥700,000.00' } },
+      { id: 'tb-2221', status: '待确认', voucher: '可穿透', attachment: '税种辅助', values: { code: '2221', name: '应交税费', aux: '税种', openingDebit: '-', openingCredit: '¥18,000.00', currentDebit: '¥42,860.00', currentCredit: '¥54,210.00', endingBalance: '贷 ¥29,350.00' } },
+    ],
+    notes: ['科目余额表固定展示期初、本期发生、期末余额和试算差异，是报表和结账前校验基础。', '辅助核算余额需要和科目余额同步校验，差异进入规则与日志。'],
+  },
+  accountSummaryReport: {
+    keywordPlaceholder: '搜索科目编码、科目名称、凭证范围、发生额',
+    primaryAction: '重算汇总表',
+    importLabel: '导出汇总表',
+    statusOptions: ['全部', '有发生', '无发生', '借方发生', '贷方发生'],
+    summary: [
+      { label: '凭证张数', value: '82 张', tone: 'blue' },
+      { label: '借方合计', value: '¥1,286,300.00', tone: 'green' },
+      { label: '贷方合计', value: '¥1,286,300.00', tone: 'green' },
+      { label: '不平凭证', value: '0 张', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'code', label: '科目编码' },
+      { key: 'name', label: '科目名称' },
+      { key: 'voucherCount', label: '凭证张数', align: 'right' },
+      { key: 'debitCount', label: '借方笔数', align: 'right' },
+      { key: 'creditCount', label: '贷方笔数', align: 'right' },
+      { key: 'debit', label: '借方发生额', align: 'right' },
+      { key: 'credit', label: '贷方发生额', align: 'right' },
+      { key: 'check', label: '借贷校验' },
+    ],
+    rows: [
+      { id: 'as-1002', status: '已通过', voucher: '82张', attachment: '凭证汇总', values: { code: '1002', name: '银行存款', voucherCount: '48', debitCount: '21', creditCount: '27', debit: '¥821,300.00', credit: '¥574,920.00', check: '通过' } },
+      { id: 'as-6001', status: '已通过', voucher: '12张', attachment: '销项来源', values: { code: '6001', name: '主营业务收入', voucherCount: '12', debitCount: '0', creditCount: '12', debit: '-', credit: '¥680,000.00', check: '通过' } },
+      { id: 'as-6602', status: '待确认', voucher: '19张', attachment: '费用明细', values: { code: '6602', name: '管理费用', voucherCount: '19', debitCount: '19', creditCount: '0', debit: '¥58,200.00', credit: '-', check: '记-0062 待复核' } },
+    ],
+    notes: ['科目汇总表按科目汇总凭证发生额，适合凭证复核和月末装订。', '需要支持按凭证字号范围、日期范围和审核状态筛选。'],
+  },
+  generalLedgerReport: {
+    keywordPlaceholder: '搜索科目编码、月份、方向、期末余额',
+    primaryAction: '重算总账',
+    importLabel: '导出总账',
+    statusOptions: ['全部', '有发生', '无发生', '借方余额', '贷方余额'],
+    summary: [
+      { label: '总账科目', value: '118 个', tone: 'blue' },
+      { label: '已核对', value: '116 个', tone: 'green' },
+      { label: '待复核', value: '2 个', tone: 'amber' },
+      { label: '异常', value: '0 个', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'code', label: '科目编码' },
+      { key: 'name', label: '科目名称' },
+      { key: 'month', label: '月份', align: 'center' },
+      { key: 'opening', label: '期初余额', align: 'right' },
+      { key: 'debit', label: '本月借方', align: 'right' },
+      { key: 'credit', label: '本月贷方', align: 'right' },
+      { key: 'direction', label: '方向', align: 'center' },
+      { key: 'ending', label: '期末余额', align: 'right' },
+    ],
+    rows: [
+      { id: 'gl-1002', status: '已通过', voucher: '总账', attachment: '月度汇总', values: { code: '1002', name: '银行存款', month: '2026-05', opening: '借 ¥220,000.00', debit: '¥821,300.00', credit: '¥574,920.00', direction: '借', ending: '¥466,380.00' } },
+      { id: 'gl-1122', status: '已通过', voucher: '总账', attachment: '客户辅助', values: { code: '1122', name: '应收账款', month: '2026-05', opening: '借 ¥410,000.00', debit: '¥680,000.00', credit: '¥390,000.00', direction: '借', ending: '¥700,000.00' } },
+      { id: 'gl-2221', status: '待确认', voucher: '总账', attachment: '税种辅助', values: { code: '2221', name: '应交税费', month: '2026-05', opening: '贷 ¥18,000.00', debit: '¥42,860.00', credit: '¥54,210.00', direction: '贷', ending: '¥29,350.00' } },
+    ],
+    notes: ['总账按科目和月份汇总期初、本月发生和期末余额。', '总账应能穿透到明细账和凭证，并与科目余额表一致。'],
+  },
+  subsidiaryLedgerReport: {
+    keywordPlaceholder: '搜索日期、凭证字号、摘要、科目、对方科目',
+    primaryAction: '重算明细账',
+    importLabel: '导出明细账',
+    statusOptions: ['全部', '有发生', '待确认', '异常'],
+    summary: [
+      { label: '明细行数', value: '486 行', tone: 'blue' },
+      { label: '借方发生', value: '¥1,286,300.00', tone: 'green' },
+      { label: '贷方发生', value: '¥1,286,300.00', tone: 'green' },
+      { label: '待复核', value: '3 行', tone: 'amber' },
+    ],
+    columns: [
+      { key: 'date', label: '日期' },
+      { key: 'wordNo', label: '凭证字号' },
+      { key: 'subject', label: '科目' },
+      { key: 'summary', label: '摘要' },
+      { key: 'opposite', label: '对方科目' },
+      { key: 'debit', label: '借方', align: 'right' },
+      { key: 'credit', label: '贷方', align: 'right' },
+      { key: 'balance', label: '余额', align: 'right' },
+    ],
+    rows: [
+      { id: 'sl-001', status: '已通过', voucher: '记-0051', attachment: '发票', values: { date: '2026-05-03', wordNo: '记-0051', subject: '1122 应收账款', summary: '销售控制器', opposite: '6001/2221', debit: '¥97,180.00', credit: '-', balance: '借 ¥507,180.00' } },
+      { id: 'sl-002', status: '已通过', voucher: '记-0058', attachment: '银行回单', values: { date: '2026-05-09', wordNo: '记-0058', subject: '1002 银行存款', summary: '收到货款', opposite: '1122 应收账款', debit: '¥127,200.00', credit: '-', balance: '借 ¥347,200.00' } },
+      { id: 'sl-003', status: '待确认', voucher: '记-0062', attachment: '风险项', values: { date: '2026-05-16', wordNo: '记-0062', subject: '6602 管理费用', summary: '费用报销', opposite: '1002 银行存款', debit: '¥860.00', credit: '-', balance: '待复核' } },
+    ],
+    notes: ['明细账按逐笔凭证展示摘要、对方科目、借贷方和余额。', '需要支持从总账、余额表和凭证详情互相穿透。'],
+  },
+  auxiliaryLedgerReport: {
+    keywordPlaceholder: '搜索辅助类别、辅助项目、科目、凭证字号',
+    primaryAction: '重算辅助账',
+    importLabel: '导出辅助账',
+    statusOptions: ['全部', '客户', '供应商', '项目', '部门'],
+    summary: [
+      { label: '辅助类别', value: '5 类', tone: 'blue' },
+      { label: '辅助项目', value: '86 个', tone: 'green' },
+      { label: '发生金额', value: '¥1,070,000.00', tone: 'amber' },
+      { label: '异常项目', value: '2 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'category', label: '辅助类别' },
+      { key: 'item', label: '辅助项目' },
+      { key: 'subject', label: '科目' },
+      { key: 'date', label: '日期' },
+      { key: 'wordNo', label: '凭证字号' },
+      { key: 'summary', label: '摘要' },
+      { key: 'debit', label: '借方', align: 'right' },
+      { key: 'credit', label: '贷方', align: 'right' },
+    ],
+    rows: [
+      { id: 'al-001', status: '已通过', voucher: '记-0051', attachment: '客户辅助', values: { category: '客户', item: '上海辰光贸易有限公司', subject: '1122 应收账款', date: '2026-05-03', wordNo: '记-0051', summary: '销售控制器', debit: '¥97,180.00', credit: '-' } },
+      { id: 'al-002', status: '已通过', voucher: '记-0058', attachment: '供应商辅助', values: { category: '供应商', item: '苏州材料供应链有限公司', subject: '2202 应付账款', date: '2026-05-09', wordNo: '记-0058', summary: '采购原材料', debit: '-', credit: '¥142,945.00' } },
+      { id: 'al-003', status: '异常', voucher: '记-0062', attachment: '缺辅助', values: { category: '项目', item: '待补', subject: '6602 管理费用', date: '2026-05-16', wordNo: '记-0062', summary: '费用报销', debit: '¥860.00', credit: '-' } },
+    ],
+    notes: ['辅助核算账按客户、供应商、项目、部门、人员等维度展示逐笔明细。', '缺辅助项目的凭证必须进入风险检查，不能只在总账层面通过。'],
+  },
+  auxiliaryBalanceReport: {
+    keywordPlaceholder: '搜索辅助类别、辅助项目、科目、余额方向',
+    primaryAction: '重算辅助余额',
+    importLabel: '导出辅助余额',
+    statusOptions: ['全部', '借方余额', '贷方余额', '有发生', '异常'],
+    summary: [
+      { label: '辅助余额行', value: '142 行', tone: 'blue' },
+      { label: '借方余额', value: '¥700,000.00', tone: 'green' },
+      { label: '贷方余额', value: '¥268,000.00', tone: 'amber' },
+      { label: '不一致', value: '1 行', tone: 'red' },
+    ],
+    columns: [
+      { key: 'category', label: '辅助类别' },
+      { key: 'item', label: '辅助项目' },
+      { key: 'subject', label: '科目' },
+      { key: 'opening', label: '期初余额', align: 'right' },
+      { key: 'debit', label: '本期借方', align: 'right' },
+      { key: 'credit', label: '本期贷方', align: 'right' },
+      { key: 'direction', label: '方向', align: 'center' },
+      { key: 'ending', label: '期末余额', align: 'right' },
+    ],
+    rows: [
+      { id: 'ab-001', status: '已通过', voucher: '辅助余额', attachment: '客户', values: { category: '客户', item: '上海辰光贸易有限公司', subject: '1122 应收账款', opening: '¥120,000.00', debit: '¥97,180.00', credit: '¥80,000.00', direction: '借', ending: '¥137,180.00' } },
+      { id: 'ab-002', status: '已通过', voucher: '辅助余额', attachment: '供应商', values: { category: '供应商', item: '苏州材料供应链有限公司', subject: '2202 应付账款', opening: '¥68,000.00', debit: '¥42,600.00', credit: '¥142,945.00', direction: '贷', ending: '¥168,345.00' } },
+      { id: 'ab-003', status: '异常', voucher: '辅助余额', attachment: '差异', values: { category: '项目', item: '研发项目A', subject: '6602 管理费用', opening: '-', debit: '¥18,600.00', credit: '-', direction: '借', ending: '与总账差异' } },
+    ],
+    notes: ['辅助余额表按辅助项目汇总期初、本期、期末余额。', '辅助余额与科目余额不一致时必须阻断结账。'],
+  },
+  multiColumnLedgerReport: {
+    keywordPlaceholder: '搜索多栏账科目、栏目、费用项目、发生额',
+    primaryAction: '重算多栏账',
+    importLabel: '导出多栏账',
+    statusOptions: ['全部', '收入类', '费用类', '成本类', '异常'],
+    summary: [
+      { label: '多栏科目', value: '12 个', tone: 'blue' },
+      { label: '费用合计', value: '¥286,000.00', tone: 'amber' },
+      { label: '收入合计', value: '¥680,000.00', tone: 'green' },
+      { label: '待配置', value: '1 栏', tone: 'red' },
+    ],
+    columns: [
+      { key: 'subject', label: '科目' },
+      { key: 'date', label: '日期' },
+      { key: 'wordNo', label: '凭证字号' },
+      { key: 'summary', label: '摘要' },
+      { key: 'office', label: '办公费', align: 'right' },
+      { key: 'travel', label: '差旅费', align: 'right' },
+      { key: 'salary', label: '工资薪酬', align: 'right' },
+      { key: 'total', label: '合计', align: 'right' },
+    ],
+    rows: [
+      { id: 'mc-001', status: '已通过', voucher: '记-0048', attachment: '费用报销', values: { subject: '6602 管理费用', date: '2026-05-08', wordNo: '记-0048', summary: '购买办公用品', office: '¥860.00', travel: '-', salary: '-', total: '¥860.00' } },
+      { id: 'mc-002', status: '已通过', voucher: '记-0061', attachment: '工资表', values: { subject: '6602 管理费用', date: '2026-05-31', wordNo: '记-0061', summary: '计提管理人员工资', office: '-', travel: '-', salary: '¥86,000.00', total: '¥86,000.00' } },
+      { id: 'mc-003', status: '异常', voucher: '记-0062', attachment: '规则', values: { subject: '6602 管理费用', date: '2026-05-16', wordNo: '记-0062', summary: '费用报销', office: '-', travel: '待确认', salary: '-', total: '栏目未配置' } },
+    ],
+    notes: ['多栏账按费用、收入、成本类科目拆分栏目，便于查看明细构成。', '栏目配置应来自科目设置和报表公式，未配置栏目进入规则与日志。'],
   },
   financialReport: {
     keywordPlaceholder: '搜索报表项目、行次、公式、取数科目',
@@ -2608,7 +2811,17 @@ function escapeHtml(value: string) {
 
 function printTemplateKind(kind: ModuleKind): PrintTemplateKind {
   if (kind === 'voucher') return 'voucher'
-  if (kind === 'ledgerReport' || kind === 'initialBalance') return 'ledger'
+  if (
+    kind === 'ledgerReport' ||
+    kind === 'trialBalanceReport' ||
+    kind === 'accountSummaryReport' ||
+    kind === 'generalLedgerReport' ||
+    kind === 'subsidiaryLedgerReport' ||
+    kind === 'auxiliaryLedgerReport' ||
+    kind === 'auxiliaryBalanceReport' ||
+    kind === 'multiColumnLedgerReport' ||
+    kind === 'initialBalance'
+  ) return 'ledger'
   if (
     kind === 'financialReport' ||
     kind === 'balanceSheetReport' ||

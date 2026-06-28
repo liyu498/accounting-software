@@ -163,13 +163,14 @@ function App() {
             <Route path="/matching" element={businessPage('invoiceVoucherMatching', '票据凭证匹配', '核对发票、票据、流水与凭证之间的匹配关系、差异和置信度。')} />
             <Route path="/period-closing" element={businessPage('closingTasks', '期末结转', '执行增值税、附加税、折旧摊销、成本、所得税、损益和本年利润结转。')} />
             <Route path="/risk-check" element={businessPage('riskCheck', '风险检查', '执行凭证、发票、工资、报表、税表和结账前风险校验。')} />
-            <Route path="/reports/trial-balance" element={businessPage('ledgerReport', '科目余额表', '按科目、辅助核算和期间展示期初、本期、累计和期末余额。')} />
-            <Route path="/reports/account-summary" element={businessPage('ledgerReport', '科目汇总表', '按科目汇总本期借贷发生额，支持凭证穿透、导出和打印。')} />
-            <Route path="/reports/general-ledger" element={businessPage('ledgerReport', '总账', '按科目展示月度汇总、方向、余额和凭证来源。')} />
-            <Route path="/reports/subsidiary-ledger" element={businessPage('ledgerReport', '明细账', '按科目展示逐笔凭证明细、摘要、借贷方、方向和余额。')} />
-            <Route path="/reports/auxiliary-ledger" element={businessPage('ledgerReport', '辅助核算账', '按客户、供应商、项目、部门、人员等辅助维度展示明细账。')} />
-            <Route path="/reports/auxiliary-balance" element={businessPage('ledgerReport', '辅助余额表', '按辅助核算维度展示期初、本期、累计和期末余额。')} />
-            <Route path="/reports/multi-column-ledger" element={businessPage('ledgerReport', '多栏账', '按费用、收入和成本类科目展示多栏式明细账。')} />
+            <Route path="/reports/ledgers" element={businessPage('ledgerReport', '账簿总览', '集中查看科目余额、科目汇总、总账、明细账、辅助账和多栏账的取数与校验状态。')} />
+            <Route path="/reports/trial-balance" element={businessPage('trialBalanceReport', '科目余额表', '按科目、辅助核算和期间展示期初、本期、累计和期末余额。')} />
+            <Route path="/reports/account-summary" element={businessPage('accountSummaryReport', '科目汇总表', '按科目汇总本期借贷发生额，支持凭证穿透、导出和打印。')} />
+            <Route path="/reports/general-ledger" element={businessPage('generalLedgerReport', '总账', '按科目展示月度汇总、方向、余额和凭证来源。')} />
+            <Route path="/reports/subsidiary-ledger" element={businessPage('subsidiaryLedgerReport', '明细账', '按科目展示逐笔凭证明细、摘要、借贷方、方向和余额。')} />
+            <Route path="/reports/auxiliary-ledger" element={businessPage('auxiliaryLedgerReport', '辅助核算账', '按客户、供应商、项目、部门、人员等辅助维度展示明细账。')} />
+            <Route path="/reports/auxiliary-balance" element={businessPage('auxiliaryBalanceReport', '辅助余额表', '按辅助核算维度展示期初、本期、累计和期末余额。')} />
+            <Route path="/reports/multi-column-ledger" element={businessPage('multiColumnLedgerReport', '多栏账', '按费用、收入和成本类科目展示多栏式明细账。')} />
 
             {/* Reports - 报表 */}
             <Route path="/reports" element={businessPage('financialReport', '报表总览', '集中查看资产负债表、利润表、现金流量表和所有者权益变动表的取数、校验和导出状态。')} />
