@@ -2475,7 +2475,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleExportExcel = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const { sheetRows, columnWidths } = buildExcelTemplate({
+    const { sheetRows, columnWidths, merges } = buildExcelTemplate({
       kind,
       title,
       config,
@@ -2487,6 +2487,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     await exportRowsToXlsx({
       sheetRows,
       columnWidths,
+      merges,
       sheetName: title,
       fileName: `${title}-2026-05.xlsx`,
     })

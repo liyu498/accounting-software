@@ -1,0 +1,64 @@
+import { readFileSync } from 'node:fs'
+
+const businessSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', 'utf8')
+const xlsxSource = readFileSync('src/lib/xlsxExport.ts', 'utf8')
+const pdfSource = readFileSync('src/lib/pdfExport.ts', 'utf8')
+
+const requiredBusinessSnippets = [
+  ['voucher print template', 'function renderVoucherPrintHtml'],
+  ['voucher excel template', 'function buildVoucherExcelTemplate'],
+  ['voucher fields', "'凭证日期', '凭证字号', '摘要', '借方科目', '贷方科目', '借方金额', '贷方金额'"],
+  ['ledger print template', 'function renderLedgerPrintHtml'],
+  ['ledger excel template', 'function buildLedgerExcelTemplate'],
+  ['ledger subtotal', '本页小计'],
+  ['financial print template', 'function renderFinancialPrintHtml'],
+  ['financial excel template', 'function buildFinancialExcelTemplate'],
+  ['financial fields', "'行次', '报表项目', '取数公式/科目', '期初余额/本月数', '期末余额/本年累计'"],
+  ['tax print template', 'function renderTaxPrintHtml'],
+  ['tax excel template', 'function buildTaxExcelTemplate'],
+  ['tax boundary notice', '不代表已向电子税务局提交'],
+  ['generic export template', 'function buildGenericExcelTemplate'],
+  ['template router', 'function buildExcelTemplate'],
+  ['print router', 'function buildPrintHtml'],
+]
+
+const requiredXlsxSnippets = [
+  ['xlsx span merge support', 'columnSpan: merge ? merge.e.c - merge.s.c + 1 : undefined'],
+  ['xlsx header style', "backgroundColor: titleRow ? '#DDEBFA' : headerRow ? '#E8EEF6'"],
+  ['xlsx borders', "borderStyle: headerRow || rowIndex > 0 ? 'thin' : undefined"],
+  ['xlsx chinese font', "fontFamily: 'Noto Sans SC'"],
+  ['xlsx note rows', "['制表说明', '边界说明', '本页小计']"],
+]
+
+const requiredPdfSnippets = [
+  ['pdf chinese font stack', 'Noto Sans SC'],
+  ['pdf font readiness', 'waitForChineseFonts'],
+  ['pdf a4 pagination', "new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4'"],
+  ['pdf page slicing', 'sliceHeightPx'],
+  ['pdf page number', 'pdf.text(`${pageIndex + 1}`'],
+]
+
+function check(source, checks) {
+  return checks
+    .filter(([, snippet]) => !source.includes(snippet))
+    .map(([label, snippet]) => `${label} missing snippet: ${snippet}`)
+}
+
+const errors = [
+  ...check(businessSource, requiredBusinessSnippets),
+  ...check(xlsxSource, requiredXlsxSnippets),
+  ...check(pdfSource, requiredPdfSnippets),
+]
+
+if (errors.length > 0) {
+  console.error('Export template verification failed:')
+  for (const error of errors) console.error(`- ${error}`)
+  process.exit(1)
+}
+
+console.log('Export template verification passed:')
+console.log(JSON.stringify({
+  fixedTemplates: ['voucher', 'ledger', 'financial', 'tax', 'generic-list'],
+  xlsxFeatures: ['merged title/note rows', 'header styling', 'bordered data region', 'Chinese font'],
+  pdfFeatures: ['Chinese font readiness', 'A4 pagination', 'page numbers'],
+}, null, 2))
