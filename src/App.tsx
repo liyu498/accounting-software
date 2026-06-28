@@ -195,10 +195,10 @@ function App() {
             <Route path="/settings/company-info" element={businessPage('companyInfo', '企业信息', '维护纳税人识别号、税种认定、开户行、联系人和申报基础资料。')} />
             <Route path="/settings/initial-balances" element={businessPage('initialBalance', '期初余额', '录入科目和辅助核算期初余额，校验借贷平衡。')} />
             <Route path="/settings/tax-init" element={businessPage('taxInit', '申报初始化', '维护税种、申报周期、申报账号、税局 adapter 参数和申报口径。')} />
-            <Route path="/settings/history-vouchers" element={businessPage('documentRegister', '历史凭证', '导入和查看历史凭证，支持断号检查、附件和科目映射。')} />
-            <Route path="/settings/history-balances" element={businessPage('ledgerReport', '历史科目余额表', '导入历史科目余额表，形成期初和对账依据。')} />
-            <Route path="/settings/history-general-ledger" element={businessPage('ledgerReport', '历史总账', '导入历史总账，支持科目映射和余额校验。')} />
-            <Route path="/settings/history-subsidiary-ledger" element={businessPage('ledgerReport', '历史明细账', '导入历史明细账，支持凭证和科目穿透。')} />
+            <Route path="/settings/history-vouchers" element={businessPage('historyVoucher', '历史凭证', '导入和查看历史凭证，支持断号检查、附件、科目映射和借贷平衡校验。')} />
+            <Route path="/settings/history-balances" element={businessPage('historyBalance', '历史科目余额表', '导入历史科目余额表，形成期初、迁移和总账对账依据。')} />
+            <Route path="/settings/history-general-ledger" element={businessPage('historyGeneralLedger', '历史总账', '导入历史总账，支持科目映射、期间余额和明细账校验。')} />
+            <Route path="/settings/history-subsidiary-ledger" element={businessPage('historySubsidiaryLedger', '历史明细账', '导入历史明细账，支持凭证字号、摘要、对方科目和余额穿透。')} />
             <Route path="/settings/accounts" element={businessPage('accountArchive', '账户登记', '维护银行账户、现金账户、第三方支付账户和默认科目。')} />
             <Route path="/settings/customers" element={businessPage('customerArchive', '客户', '维护客户编码、名称、税号、开户行、银行账号和默认科目。')} />
             <Route path="/settings/contracts" element={businessPage('contractLedger', '合同台账', '维护客户和供应商合同、应税合同、发票关联、印花税取数和附件归档。')} />

@@ -64,6 +64,10 @@ type ModuleKind =
   | 'matchingRules'
   | 'companyInfo'
   | 'initialBalance'
+  | 'historyVoucher'
+  | 'historyBalance'
+  | 'historyGeneralLedger'
+  | 'historySubsidiaryLedger'
   | 'taxInit'
   | 'accountArchive'
   | 'customerArchive'
@@ -1310,6 +1314,118 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'ib-2202', status: '待确认', voucher: '期初', attachment: '导入表', values: { code: '2202', name: '应付账款', aux: '供应商辅助', direction: '贷', debit: '-', credit: '¥268,000.00', check: '辅助明细待核' } },
     ],
     notes: ['期初余额需要支持科目和辅助核算双层录入，并在启用账套前完成试算平衡。', '历史账簿导入后可反向形成期初余额，但需要人工确认差异。'],
+  },
+  historyVoucher: {
+    keywordPlaceholder: '搜索凭证字号、摘要、科目、导入批次、来源文件',
+    primaryAction: '导入历史凭证',
+    importLabel: '导入凭证',
+    statusOptions: ['全部', '待处理', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '历史凭证', value: '1,286 张', tone: 'blue' },
+      { label: '已映射', value: '1,214 张', tone: 'green' },
+      { label: '待确认', value: '58 张', tone: 'amber' },
+      { label: '异常', value: '14 张', tone: 'red' },
+    ],
+    columns: [
+      { key: 'period', label: '所属期' },
+      { key: 'wordNo', label: '凭证字号' },
+      { key: 'date', label: '凭证日期' },
+      { key: 'summary', label: '摘要' },
+      { key: 'subjectMap', label: '科目映射' },
+      { key: 'debit', label: '借方金额', align: 'right' },
+      { key: 'credit', label: '贷方金额', align: 'right' },
+      { key: 'sourceBatch', label: '导入批次' },
+    ],
+    rows: [
+      { id: 'hv-001', status: '已通过', voucher: '记-202504-0031', attachment: 'Excel', values: { period: '2025-04', wordNo: '记-0031', date: '2025-04-18', summary: '销售服务收入', subjectMap: '1122/6001/2221 已匹配', debit: '¥86,400.00', credit: '¥86,400.00', sourceBatch: '历史凭证导入-01' } },
+      { id: 'hv-002', status: '待确认', voucher: '记-202504-0048', attachment: '附件缺失', values: { period: '2025-04', wordNo: '记-0048', date: '2025-04-26', summary: '采购材料', subjectMap: '1403/2202 待复核', debit: '¥42,600.00', credit: '¥42,600.00', sourceBatch: '历史凭证导入-01' } },
+      { id: 'hv-003', status: '异常', voucher: '记-202505-0016', attachment: '错误清单', values: { period: '2025-05', wordNo: '记-0016', date: '2025-05-09', summary: '银行手续费', subjectMap: '科目不存在', debit: '¥320.00', credit: '¥300.00', sourceBatch: '历史凭证导入-02' } },
+    ],
+    notes: ['历史凭证导入用于迁移旧账套凭证，必须保留导入批次、原凭证字号、科目映射和借贷平衡校验。', '异常凭证不能直接进入当前账套，需要先修复科目、辅助核算、附件和金额平衡。'],
+  },
+  historyBalance: {
+    keywordPlaceholder: '搜索科目编码、科目名称、辅助核算、来源期间',
+    primaryAction: '导入余额表',
+    importLabel: '导入余额',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '科目余额行', value: '268 行', tone: 'blue' },
+      { label: '借方累计', value: '¥8,642,300.00', tone: 'green' },
+      { label: '贷方累计', value: '¥8,642,300.00', tone: 'green' },
+      { label: '差异', value: '¥0.00', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'sourcePeriod', label: '来源期间' },
+      { key: 'code', label: '科目编码' },
+      { key: 'name', label: '科目名称' },
+      { key: 'aux', label: '辅助核算' },
+      { key: 'opening', label: '期初余额', align: 'right' },
+      { key: 'debit', label: '本期借方', align: 'right' },
+      { key: 'credit', label: '本期贷方', align: 'right' },
+      { key: 'ending', label: '期末余额', align: 'right' },
+    ],
+    rows: [
+      { id: 'hb-1002', status: '已通过', voucher: '2025-12', attachment: '余额表', values: { sourcePeriod: '2025-12', code: '1002', name: '银行存款', aux: '工行基本户', opening: '¥220,000.00', debit: '¥1,260,000.00', credit: '¥1,018,420.00', ending: '¥461,580.00' } },
+      { id: 'hb-1122', status: '待确认', voucher: '2025-12', attachment: '辅助明细', values: { sourcePeriod: '2025-12', code: '1122', name: '应收账款', aux: '客户辅助', opening: '¥410,000.00', debit: '¥860,000.00', credit: '¥642,300.00', ending: '¥627,700.00' } },
+      { id: 'hb-2202', status: '异常', voucher: '2025-12', attachment: '错误清单', values: { sourcePeriod: '2025-12', code: '2202', name: '应付账款', aux: '供应商辅助', opening: '¥268,000.00', debit: '¥380,000.00', credit: '¥421,500.00', ending: '辅助不平' } },
+    ],
+    notes: ['历史科目余额表用于校验迁移账套的期初、本期和期末余额。', '辅助核算余额必须和总账余额一致，否则不能生成正式期初。'],
+  },
+  historyGeneralLedger: {
+    keywordPlaceholder: '搜索科目编码、科目名称、期间、方向、余额',
+    primaryAction: '导入历史总账',
+    importLabel: '导入总账',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '总账科目', value: '118 个', tone: 'blue' },
+      { label: '已核对', value: '106 个', tone: 'green' },
+      { label: '待复核', value: '9 个', tone: 'amber' },
+      { label: '异常', value: '3 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'period', label: '期间' },
+      { key: 'code', label: '科目编码' },
+      { key: 'name', label: '科目名称' },
+      { key: 'direction', label: '方向', align: 'center' },
+      { key: 'opening', label: '期初余额', align: 'right' },
+      { key: 'debit', label: '借方发生', align: 'right' },
+      { key: 'credit', label: '贷方发生', align: 'right' },
+      { key: 'ending', label: '期末余额', align: 'right' },
+    ],
+    rows: [
+      { id: 'hgl-1002', status: '已通过', voucher: '总账', attachment: 'Excel', values: { period: '2025-12', code: '1002', name: '银行存款', direction: '借', opening: '¥220,000.00', debit: '¥1,260,000.00', credit: '¥1,018,420.00', ending: '¥461,580.00' } },
+      { id: 'hgl-6001', status: '已通过', voucher: '总账', attachment: 'Excel', values: { period: '2025-12', code: '6001', name: '主营业务收入', direction: '贷', opening: '-', debit: '¥0.00', credit: '¥980,000.00', ending: '¥980,000.00' } },
+      { id: 'hgl-6602', status: '异常', voucher: '总账', attachment: '错误清单', values: { period: '2025-12', code: '6602', name: '管理费用', direction: '借', opening: '-', debit: '¥128,600.00', credit: '¥0.00', ending: '和明细账差异 ¥320.00' } },
+    ],
+    notes: ['历史总账按科目和期间承载迁移账套的总账口径，后续用于和历史明细账、余额表互相校验。', '总账差异必须标记，不能直接覆盖当前账套余额。'],
+  },
+  historySubsidiaryLedger: {
+    keywordPlaceholder: '搜索科目、凭证字号、摘要、对方科目、辅助核算',
+    primaryAction: '导入历史明细账',
+    importLabel: '导入明细账',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '明细行数', value: '8,642 行', tone: 'blue' },
+      { label: '已核对', value: '8,508 行', tone: 'green' },
+      { label: '待复核', value: '112 行', tone: 'amber' },
+      { label: '异常', value: '22 行', tone: 'red' },
+    ],
+    columns: [
+      { key: 'date', label: '日期' },
+      { key: 'wordNo', label: '凭证字号' },
+      { key: 'subject', label: '科目' },
+      { key: 'summary', label: '摘要' },
+      { key: 'opposite', label: '对方科目' },
+      { key: 'debit', label: '借方', align: 'right' },
+      { key: 'credit', label: '贷方', align: 'right' },
+      { key: 'balance', label: '余额', align: 'right' },
+    ],
+    rows: [
+      { id: 'hsl-001', status: '已通过', voucher: '记-0031', attachment: 'Excel', values: { date: '2025-12-06', wordNo: '记-0031', subject: '1002 银行存款', summary: '收到客户货款', opposite: '1122 应收账款', debit: '¥97,180.00', credit: '-', balance: '¥386,200.00' } },
+      { id: 'hsl-002', status: '待确认', voucher: '记-0048', attachment: '辅助明细', values: { date: '2025-12-18', wordNo: '记-0048', subject: '2202 应付账款', summary: '支付供应商货款', opposite: '1002 银行存款', debit: '¥42,600.00', credit: '-', balance: '¥268,000.00' } },
+      { id: 'hsl-003', status: '异常', voucher: '记-0052', attachment: '错误清单', values: { date: '2025-12-22', wordNo: '记-0052', subject: '6602 管理费用', summary: '报销办公用品', opposite: '1002 银行存款', debit: '¥860.00', credit: '-', balance: '与总账差异' } },
+    ],
+    notes: ['历史明细账用于保留旧账套逐笔流水，迁移时必须能穿透到原凭证字号和辅助核算。', '明细账和总账、科目余额表校验一致后，才能作为期初和查询依据。'],
   },
   taxInit: {
     keywordPlaceholder: '搜索税种、申报周期、税局账号、申报口径',
