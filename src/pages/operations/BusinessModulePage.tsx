@@ -18,7 +18,7 @@ import {
 import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
-import { recordExportJob, useExportJobs, type ExportJob } from '../../lib/exportJobs'
+import { recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 
 type ModuleKind =
   | 'attachmentCenter'
@@ -2462,10 +2462,45 @@ function exportJobToModuleRow(job: ExportJob): ModuleRow {
   }
 }
 
+function auditLogToModuleRow(log: AuditLog): ModuleRow {
+  return {
+    id: log.id,
+    status: log.status,
+    voucher: log.voucher,
+    attachment: log.attachment,
+    values: {
+      time: log.time,
+      operator: log.operator,
+      module: log.module,
+      action: log.action,
+      object: log.object,
+      level: log.level,
+      result: log.result,
+      ip: log.terminal,
+    },
+  }
+}
+
 export function BusinessModulePage({ kind, title, description }: BusinessModulePageProps) {
   const baseConfig = moduleConfigs[kind]
   const exportJobs = useExportJobs()
+  const auditLogs = useAuditLogs()
   const config = useMemo(() => {
+    if (kind === 'auditLog') {
+      const dynamicRows = auditLogs.map(auditLogToModuleRow)
+      return {
+        ...baseConfig,
+        rows: [...dynamicRows, ...baseConfig.rows],
+        summary: baseConfig.summary.map((item) => {
+          if (item.label === '日志条数') return { ...item, value: `${dynamicRows.length + 1286} 条` }
+          if (item.label === '普通操作') return { ...item, value: `${dynamicRows.filter((row) => row.values.level === '普通').length + 1214} 条` }
+          if (item.label === '需复核') return { ...item, value: `${dynamicRows.filter((row) => row.status === '待确认').length + 58} 条` }
+          if (item.label === '高风险') return { ...item, value: `${dynamicRows.filter((row) => row.values.level === '高').length + 14} 条` }
+          return item
+        }),
+      }
+    }
+
     if (kind !== 'exportCenter') return baseConfig
     const dynamicRows = exportJobs.map(exportJobToModuleRow)
     return {
@@ -2477,7 +2512,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [baseConfig, exportJobs, kind])
+  }, [auditLogs, baseConfig, exportJobs, kind])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

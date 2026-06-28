@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 
 const STORAGE_KEY = 'accounting_export_jobs_v1'
+const AUDIT_STORAGE_KEY = 'accounting_audit_logs_v1'
 const CHANGE_EVENT = 'accounting-export-jobs-updated'
+const AUDIT_CHANGE_EVENT = 'accounting-audit-logs-updated'
 
 export interface ExportJob {
   id: string
@@ -18,6 +20,21 @@ export interface ExportJob {
   rowCount: number
 }
 
+export interface AuditLog {
+  id: string
+  time: string
+  operator: string
+  module: string
+  action: string
+  object: string
+  level: '普通' | '中' | '高'
+  result: '成功' | '待审批' | '失败'
+  terminal: string
+  status: '已通过' | '待确认' | '异常'
+  voucher: string
+  attachment: string
+}
+
 interface RecordExportJobInput {
   fileName: string
   moduleName: string
@@ -26,6 +43,18 @@ interface RecordExportJobInput {
   templateKind: string
   rowCount: number
   status?: ExportJob['status']
+}
+
+interface RecordAuditLogInput {
+  module: string
+  action: string
+  object: string
+  level?: AuditLog['level']
+  result?: AuditLog['result']
+  status?: AuditLog['status']
+  voucher?: string
+  attachment?: string
+  operator?: string
 }
 
 function safeStorage() {
@@ -58,6 +87,48 @@ export function listExportJobs(): ExportJob[] {
   }
 }
 
+export function listAuditLogs(): AuditLog[] {
+  const storage = safeStorage()
+  if (!storage) return []
+
+  try {
+    const parsed = JSON.parse(storage.getItem(AUDIT_STORAGE_KEY) || '[]')
+    return Array.isArray(parsed) ? parsed.slice(0, 100) : []
+  } catch {
+    return []
+  }
+}
+
+function persistAuditLog(storage: Storage, log: AuditLog) {
+  const logs = [log, ...listAuditLogs()].slice(0, 100)
+  storage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(logs))
+  window.dispatchEvent(new CustomEvent(AUDIT_CHANGE_EVENT, { detail: log }))
+}
+
+export function recordAuditLog(input: RecordAuditLogInput) {
+  const storage = safeStorage()
+  if (!storage) return null
+
+  const result = input.result || '成功'
+  const log: AuditLog = {
+    id: `audit-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    time: new Date().toLocaleString('zh-CN'),
+    operator: input.operator || 'admin',
+    module: input.module,
+    action: input.action,
+    object: input.object,
+    level: input.level || '普通',
+    result,
+    terminal: 'local-desktop',
+    status: input.status || (result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过'),
+    voucher: input.voucher || '-',
+    attachment: input.attachment || '快照',
+  }
+
+  persistAuditLog(storage, log)
+  return log
+}
+
 export function recordExportJob(input: RecordExportJobInput) {
   const storage = safeStorage()
   if (!storage) return null
@@ -81,6 +152,20 @@ export function recordExportJob(input: RecordExportJobInput) {
 
   const jobs = [job, ...listExportJobs()].slice(0, 50)
   storage.setItem(STORAGE_KEY, JSON.stringify(jobs))
+  persistAuditLog(storage, {
+    id: `audit-${job.id}`,
+    time: job.createdAt,
+    operator: job.operator,
+    module: job.moduleName,
+    action: `导出${job.format}`,
+    object: job.fileName,
+    level: input.templateKind === 'tax' ? '中' : '普通',
+    result: job.status === '异常' ? '失败' : job.status === '待确认' ? '待审批' : '成功',
+    terminal: 'local-desktop',
+    status: job.status === '异常' ? '异常' : job.status === '待确认' ? '待确认' : '已通过',
+    voucher: input.scope,
+    attachment: job.hash,
+  })
   window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: job }))
   return job
 }
@@ -99,4 +184,20 @@ export function useExportJobs() {
   }, [])
 
   return jobs
+}
+
+export function useAuditLogs() {
+  const [logs, setLogs] = useState<AuditLog[]>(() => listAuditLogs())
+
+  useEffect(() => {
+    const refresh = () => setLogs(listAuditLogs())
+    window.addEventListener(AUDIT_CHANGE_EVENT, refresh)
+    window.addEventListener('storage', refresh)
+    return () => {
+      window.removeEventListener(AUDIT_CHANGE_EVENT, refresh)
+      window.removeEventListener('storage', refresh)
+    }
+  }, [])
+
+  return logs
 }
