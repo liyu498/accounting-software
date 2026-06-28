@@ -172,12 +172,13 @@ function App() {
             <Route path="/reports/multi-column-ledger" element={businessPage('ledgerReport', '多栏账', '按费用、收入和成本类科目展示多栏式明细账。')} />
 
             {/* Reports - 报表 */}
-            <Route path="/reports/balance-sheet" element={businessPage('financialReport', '资产负债表', '按会计准则生成资产、负债和所有者权益报表，支持取数说明和重分类。')} />
-            <Route path="/reports/income-statement" element={businessPage('financialReport', '利润表', '生成月报利润表，支持本月、本年累计、公式说明、导出和打印。')} />
-            <Route path="/reports/income-quarter" element={businessPage('financialReport', '利润表季报', '生成企业所得税申报使用的季度利润表和取数快照。')} />
-            <Route path="/reports/cash-flow" element={businessPage('financialReport', '现金流量表', '生成现金流量表主表，支持项目映射、凭证穿透和导出。')} />
-            <Route path="/reports/cash-flow-quarter" element={businessPage('financialReport', '现金流量表季报', '生成季度现金流量表和财报报送数据。')} />
-            <Route path="/reports/equity-change" element={businessPage('financialReport', '所有者权益变动表', '生成所有者权益变动表，支持项目明细和报送快照。')} />
+            <Route path="/reports" element={businessPage('financialReport', '报表总览', '集中查看资产负债表、利润表、现金流量表和所有者权益变动表的取数、校验和导出状态。')} />
+            <Route path="/reports/balance-sheet" element={businessPage('balanceSheetReport', '资产负债表', '按会计准则生成资产、负债和所有者权益报表，支持取数说明和重分类。')} />
+            <Route path="/reports/income-statement" element={businessPage('incomeStatementReport', '利润表', '生成月报利润表，支持本月、本年累计、公式说明、导出和打印。')} />
+            <Route path="/reports/income-quarter" element={businessPage('incomeQuarterReport', '利润表季报', '生成企业所得税申报使用的季度利润表和取数快照。')} />
+            <Route path="/reports/cash-flow" element={businessPage('cashFlowReport', '现金流量表', '生成现金流量表主表，支持项目映射、凭证穿透和导出。')} />
+            <Route path="/reports/cash-flow-quarter" element={businessPage('cashFlowQuarterReport', '现金流量表季报', '生成季度现金流量表和财报报送数据。')} />
+            <Route path="/reports/equity-change" element={businessPage('equityChangeReport', '所有者权益变动表', '生成所有者权益变动表，支持项目明细和报送快照。')} />
 
             {/* Tax Reports - 税务申报 */}
             <Route path="/tax/workspace" element={<TaxWorkspace />} />

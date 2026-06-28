@@ -58,6 +58,12 @@ type ModuleKind =
   | 'closingTasks'
   | 'ledgerReport'
   | 'financialReport'
+  | 'balanceSheetReport'
+  | 'incomeStatementReport'
+  | 'incomeQuarterReport'
+  | 'cashFlowReport'
+  | 'cashFlowQuarterReport'
+  | 'equityChangeReport'
   | 'taxReport'
   | 'declarationCalendar'
   | 'settingsData'
@@ -1156,6 +1162,168 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     ],
     notes: ['会计报表页需要支持重算、公式说明、重分类设置、取数快照、Excel/PDF/打印。', '资产负债表、利润表、现金流量表、所有者权益变动表要分别做固定模板。'],
   },
+  balanceSheetReport: {
+    keywordPlaceholder: '搜索资产负债表项目、行次、取数科目、重分类说明',
+    primaryAction: '重算资产负债表',
+    importLabel: '导出报表',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '资产合计', value: '¥2,186,300.00', tone: 'blue' },
+      { label: '负债合计', value: '¥1,286,300.00', tone: 'green' },
+      { label: '所有者权益', value: '¥900,000.00', tone: 'green' },
+      { label: '平衡差异', value: '¥0.00', tone: 'gray' },
+    ],
+    columns: [
+      { key: 'line', label: '行次', align: 'center' },
+      { key: 'item', label: '报表项目' },
+      { key: 'formula', label: '取数公式/科目' },
+      { key: 'opening', label: '年初余额', align: 'right' },
+      { key: 'ending', label: '期末余额', align: 'right' },
+      { key: 'reclass', label: '重分类' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'bsr-001', status: '已通过', voucher: '取数快照', attachment: 'PDF', values: { line: '1', item: '货币资金', formula: '1001+1002+1012', opening: '¥220,000.00', ending: '¥466,380.00', reclass: '否', check: '通过' } },
+      { id: 'bsr-002', status: '已通过', voucher: '取数快照', attachment: 'PDF', values: { line: '6', item: '应收账款', formula: '1122 重分类', opening: '¥410,000.00', ending: '¥700,000.00', reclass: '是', check: '通过' } },
+      { id: 'bsr-003', status: '待确认', voucher: '取数快照', attachment: '说明', values: { line: '32', item: '应交税费', formula: '2221', opening: '¥18,000.00', ending: '¥29,350.00', reclass: '否', check: '与税表复核' } },
+    ],
+    notes: ['资产负债表需要固定展示年初余额、期末余额、重分类和资产负债权益平衡差异。', '应收应付、预收预付等项目后续要按辅助核算方向重分类取数。'],
+  },
+  incomeStatementReport: {
+    keywordPlaceholder: '搜索利润表项目、行次、取数科目、本月数、本年累计',
+    primaryAction: '重算利润表',
+    importLabel: '导出报表',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '营业收入', value: '¥680,000.00', tone: 'blue' },
+      { label: '营业成本', value: '¥386,200.00', tone: 'amber' },
+      { label: '利润总额', value: '¥126,000.00', tone: 'green' },
+      { label: '异常项目', value: '1 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'line', label: '行次', align: 'center' },
+      { key: 'item', label: '报表项目' },
+      { key: 'formula', label: '取数公式/科目' },
+      { key: 'current', label: '本月金额', align: 'right' },
+      { key: 'yearTotal', label: '本年累计', align: 'right' },
+      { key: 'source', label: '取数来源' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'is-001', status: '已通过', voucher: '取数快照', attachment: 'PDF', values: { line: '1', item: '营业收入', formula: '6001', current: '¥680,000.00', yearTotal: '¥2,860,000.00', source: '销项发票/凭证', check: '通过' } },
+      { id: 'is-002', status: '已通过', voucher: '取数快照', attachment: 'PDF', values: { line: '2', item: '营业成本', formula: '6401', current: '¥386,200.00', yearTotal: '¥1,642,800.00', source: '成本结转', check: '通过' } },
+      { id: 'is-003', status: '异常', voucher: '取数快照', attachment: '风险项', values: { line: '11', item: '管理费用', formula: '6602', current: '¥58,200.00', yearTotal: '差异', source: '凭证明细', check: '记-0062 借贷不平' } },
+    ],
+    notes: ['利润表需要区分本月金额和本年累计，支持凭证穿透和费用科目核对。', '利润表季报会使用季度累计口径，不能与月报混用。'],
+  },
+  incomeQuarterReport: {
+    keywordPlaceholder: '搜索季度利润表项目、季度、累计金额、所得税口径',
+    primaryAction: '重算季报',
+    importLabel: '导出季报',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '本季收入', value: '¥1,920,000.00', tone: 'blue' },
+      { label: '本季成本', value: '¥1,086,000.00', tone: 'amber' },
+      { label: '本季利润', value: '¥386,000.00', tone: 'green' },
+      { label: '纳调提示', value: '2 项', tone: 'red' },
+    ],
+    columns: [
+      { key: 'quarter', label: '季度' },
+      { key: 'item', label: '申报项目' },
+      { key: 'formula', label: '取数口径' },
+      { key: 'currentQuarter', label: '本季金额', align: 'right' },
+      { key: 'yearTotal', label: '本年累计', align: 'right' },
+      { key: 'taxAdjust', label: '纳税调整' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'iq-001', status: '已通过', voucher: 'Q2', attachment: 'PDF', values: { quarter: '2026-Q2', item: '营业收入', formula: '4-6月 6001', currentQuarter: '¥1,920,000.00', yearTotal: '¥2,860,000.00', taxAdjust: '无', check: '通过' } },
+      { id: 'iq-002', status: '待确认', voucher: 'Q2', attachment: '说明', values: { quarter: '2026-Q2', item: '期间费用', formula: '6601+6602+6603', currentQuarter: '¥286,000.00', yearTotal: '¥482,000.00', taxAdjust: '招待费待确认', check: '待复核' } },
+      { id: 'iq-003', status: '异常', voucher: 'Q2', attachment: '风险项', values: { quarter: '2026-Q2', item: '利润总额', formula: '收入-成本-费用', currentQuarter: '¥386,000.00', yearTotal: '差异', taxAdjust: '需纳调', check: '与所得税表不一致' } },
+    ],
+    notes: ['利润表季报面向企业所得税预缴，需要季度金额、本年累计和纳税调整提示。', '季报取数应冻结快照，避免月报重算后影响已确认申报包。'],
+  },
+  cashFlowReport: {
+    keywordPlaceholder: '搜索现金流量项目、取数规则、现金科目、凭证来源',
+    primaryAction: '重算现金流量表',
+    importLabel: '导出报表',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '经营现金流', value: '¥246,380.00', tone: 'blue' },
+      { label: '投资现金流', value: '¥-68,000.00', tone: 'amber' },
+      { label: '筹资现金流', value: '¥0.00', tone: 'gray' },
+      { label: '未映射', value: '3 笔', tone: 'red' },
+    ],
+    columns: [
+      { key: 'line', label: '行次', align: 'center' },
+      { key: 'item', label: '现金流量项目' },
+      { key: 'rule', label: '映射规则' },
+      { key: 'current', label: '本月金额', align: 'right' },
+      { key: 'yearTotal', label: '本年累计', align: 'right' },
+      { key: 'source', label: '取数来源' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'cf-001', status: '已通过', voucher: '现金流快照', attachment: 'PDF', values: { line: '1', item: '销售商品、提供劳务收到的现金', rule: '收款流水+应收核销', current: '¥821,300.00', yearTotal: '¥3,486,000.00', source: '银行流水/凭证', check: '通过' } },
+      { id: 'cf-002', status: '待确认', voucher: '现金流快照', attachment: '映射表', values: { line: '8', item: '购买商品、接受劳务支付的现金', rule: '付款流水+应付核销', current: '¥486,000.00', yearTotal: '¥1,940,000.00', source: '银行流水/进项', check: '待确认' } },
+      { id: 'cf-003', status: '异常', voucher: '现金流快照', attachment: '未映射', values: { line: '18', item: '支付其他与经营活动有关的现金', rule: '6602/6603', current: '差异', yearTotal: '差异', source: '凭证', check: '3 笔未映射' } },
+    ],
+    notes: ['现金流量表需要维护现金科目、凭证到现金流量项目的映射和未映射清单。', '银行流水与凭证来源应可穿透，方便复核经营、投资、筹资分类。'],
+  },
+  cashFlowQuarterReport: {
+    keywordPlaceholder: '搜索季度现金流项目、季度、累计金额、映射状态',
+    primaryAction: '重算现金流季报',
+    importLabel: '导出季报',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '本季经营现金流', value: '¥682,600.00', tone: 'blue' },
+      { label: '本季投资现金流', value: '¥-126,000.00', tone: 'amber' },
+      { label: '现金净增加', value: '¥556,600.00', tone: 'green' },
+      { label: '待映射', value: '5 笔', tone: 'red' },
+    ],
+    columns: [
+      { key: 'quarter', label: '季度' },
+      { key: 'item', label: '现金流量项目' },
+      { key: 'rule', label: '取数规则' },
+      { key: 'quarterAmount', label: '本季金额', align: 'right' },
+      { key: 'yearTotal', label: '本年累计', align: 'right' },
+      { key: 'mapping', label: '映射状态' },
+      { key: 'check', label: '校验' },
+    ],
+    rows: [
+      { id: 'cfq-001', status: '已通过', voucher: 'Q2', attachment: 'PDF', values: { quarter: '2026-Q2', item: '经营活动现金流入小计', rule: '4-6月现金流项目', quarterAmount: '¥2,286,000.00', yearTotal: '¥3,486,000.00', mapping: '已映射', check: '通过' } },
+      { id: 'cfq-002', status: '待确认', voucher: 'Q2', attachment: '映射表', values: { quarter: '2026-Q2', item: '经营活动现金流出小计', rule: '付款/费用/税费', quarterAmount: '¥1,603,400.00', yearTotal: '¥2,812,000.00', mapping: '部分待确认', check: '待复核' } },
+      { id: 'cfq-003', status: '异常', voucher: 'Q2', attachment: '未映射', values: { quarter: '2026-Q2', item: '现金及现金等价物净增加额', rule: '流入-流出', quarterAmount: '差异', yearTotal: '差异', mapping: '5 笔未映射', check: '阻断' } },
+    ],
+    notes: ['现金流量表季报使用季度和累计口径，需要冻结季度映射快照。', '未映射流水必须进入规则与日志，不能直接生成报送包。'],
+  },
+  equityChangeReport: {
+    keywordPlaceholder: '搜索权益项目、股本、资本公积、盈余公积、未分配利润',
+    primaryAction: '重算权益变动表',
+    importLabel: '导出报表',
+    statusOptions: ['全部', '已通过', '待确认', '异常'],
+    summary: [
+      { label: '期初权益', value: '¥820,000.00', tone: 'blue' },
+      { label: '本期净利润', value: '¥126,000.00', tone: 'green' },
+      { label: '利润分配', value: '¥46,000.00', tone: 'amber' },
+      { label: '期末权益', value: '¥900,000.00', tone: 'green' },
+    ],
+    columns: [
+      { key: 'item', label: '项目' },
+      { key: 'paidInCapital', label: '实收资本', align: 'right' },
+      { key: 'capitalReserve', label: '资本公积', align: 'right' },
+      { key: 'surplusReserve', label: '盈余公积', align: 'right' },
+      { key: 'undistributedProfit', label: '未分配利润', align: 'right' },
+      { key: 'total', label: '所有者权益合计', align: 'right' },
+      { key: 'source', label: '取数来源' },
+    ],
+    rows: [
+      { id: 'eq-001', status: '已通过', voucher: '权益快照', attachment: 'PDF', values: { item: '上年年末余额', paidInCapital: '¥500,000.00', capitalReserve: '¥80,000.00', surplusReserve: '¥60,000.00', undistributedProfit: '¥180,000.00', total: '¥820,000.00', source: '上年结转' } },
+      { id: 'eq-002', status: '已通过', voucher: '权益快照', attachment: 'PDF', values: { item: '本年净利润', paidInCapital: '-', capitalReserve: '-', surplusReserve: '-', undistributedProfit: '¥126,000.00', total: '¥126,000.00', source: '利润表' } },
+      { id: 'eq-003', status: '待确认', voucher: '权益快照', attachment: '说明', values: { item: '利润分配', paidInCapital: '-', capitalReserve: '-', surplusReserve: '¥12,600.00', undistributedProfit: '¥-46,000.00', total: '¥-33,400.00', source: '分配凭证待确认' } },
+    ],
+    notes: ['所有者权益变动表需要按权益项目横向展开，并和资产负债表所有者权益合计校验。', '利润分配、盈余公积计提和本年利润结转需要保留凭证来源。'],
+  },
   taxReport: {
     keywordPlaceholder: '搜索税种、申报表、取数来源',
     primaryAction: '重新取数',
@@ -2239,7 +2407,15 @@ function escapeHtml(value: string) {
 function printTemplateKind(kind: ModuleKind): PrintTemplateKind {
   if (kind === 'voucher') return 'voucher'
   if (kind === 'ledgerReport' || kind === 'initialBalance') return 'ledger'
-  if (kind === 'financialReport') return 'financial'
+  if (
+    kind === 'financialReport' ||
+    kind === 'balanceSheetReport' ||
+    kind === 'incomeStatementReport' ||
+    kind === 'incomeQuarterReport' ||
+    kind === 'cashFlowReport' ||
+    kind === 'cashFlowQuarterReport' ||
+    kind === 'equityChangeReport'
+  ) return 'financial'
   if (kind === 'taxReport' || kind === 'taxInit') return 'tax'
   return 'list'
 }
