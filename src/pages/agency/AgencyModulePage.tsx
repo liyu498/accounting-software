@@ -23,7 +23,7 @@ import {
 } from '../../lib/api'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
-import { recordExportJob, useExportJobs, type ExportJob } from '../../lib/exportJobs'
+import { recordAuditLog, recordExportJob, useExportJobs, type ExportJob } from '../../lib/exportJobs'
 
 export type AgencyModuleKind =
   | 'clients'
@@ -425,7 +425,9 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
-  const rows = remoteRows && remoteRows.length > 0 ? remoteRows : config.rows
+  const [operationNotice, setOperationNotice] = useState<string | null>(null)
+  const [localRows, setLocalRows] = useState<AgencyRow[]>([])
+  const rows = [...localRows, ...(remoteRows && remoteRows.length > 0 ? remoteRows : config.rows)]
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return rows
@@ -462,8 +464,52 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   useEffect(() => {
     setRemoteRows(null)
+    setLocalRows([])
+    setOperationNotice(null)
     void loadRemoteRows()
   }, [kind])
+
+  const writeAgencyAudit = (action: string, object: string, level: '普通' | '中' | '高' = '普通', result: '成功' | '待审批' | '失败' = '成功') => {
+    recordAuditLog({
+      module: `机构-${config.title}`,
+      action,
+      object,
+      level,
+      result,
+      status: result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过',
+      voucher: `${activeTab}/${query.trim() || '全部'}`,
+      attachment: '操作快照',
+    })
+  }
+
+  const handleRefresh = () => {
+    writeAgencyAudit('刷新列表', `${config.title}-${activeTab}`)
+    void loadRemoteRows()
+  }
+
+  const handleImport = () => {
+    writeAgencyAudit('导入资料', `${config.title}-导入批次`, '中', '待审批')
+    setOperationNotice('导入任务已进入待确认留痕；后续会接入文件选择、字段映射和错误清单。')
+  }
+
+  const handlePrimaryAction = () => {
+    if (kind !== 'batchOps') {
+      writeAgencyAudit(config.primaryAction, `${config.title}-${activeTab}`, '中', '待审批')
+      setOperationNotice(`${config.primaryAction} 已进入机构审计日志，等待后续表单和审批流接入。`)
+      return
+    }
+
+    const started = new Date().toLocaleString('zh-CN')
+    const nextRows: AgencyRow[] = [
+      { id: `local-batch-invoice-${Date.now()}`, status: '进行中', values: { task: '批量采集发票', scope: '全部授权客户', period: '2026-05', progress: '0/待计算', operator: 'admin', started, result: '检查税局授权后执行' } },
+      { id: `local-batch-bank-${Date.now()}`, status: '进行中', values: { task: '批量采集银行流水', scope: '已授权银行客户', period: '2026-05', progress: '0/待计算', operator: 'admin', started, result: '检查银行授权后执行' } },
+      { id: `local-batch-close-${Date.now()}`, status: '待确认', values: { task: '批量结账预检', scope: '待结账客户', period: '2026-05', progress: '待预检', operator: 'admin', started, result: '需完成风险检查' } },
+      { id: `local-batch-tax-${Date.now()}`, status: '待确认', values: { task: '批量申报预检', scope: '待申报税种', period: '2026-05', progress: '待预检', operator: 'admin', started, result: '只生成申报包，不自动提交税局' } },
+    ]
+    setLocalRows((current) => [...nextRows, ...current].slice(0, 12))
+    writeAgencyAudit('新建批量任务', '批量采集发票/流水/结账预检/申报预检', '高', '待审批')
+    setOperationNotice('已创建批量采集、批量结账预检和批量申报预检任务；当前只进入队列和审计日志，不自动提交税局或银行。')
+  }
 
   const handleExportExcel = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
@@ -534,17 +580,26 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
             <p className="text-xs text-slate-500">{config.description}</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
-            <ToolButton icon={<RefreshCw className={cn('h-3.5 w-3.5', isLoadingRows && 'animate-spin')} />} label="刷新" onClick={loadRemoteRows} />
-            <ToolButton icon={<Upload className="h-3.5 w-3.5" />} label="导入" />
+            <ToolButton icon={<RefreshCw className={cn('h-3.5 w-3.5', isLoadingRows && 'animate-spin')} />} label="刷新" onClick={handleRefresh} />
+            <ToolButton icon={<Upload className="h-3.5 w-3.5" />} label="导入" onClick={handleImport} />
             <ToolButton icon={<Download className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
             <ToolButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={handleExportPdf} />
             <ToolButton icon={<Printer className="h-3.5 w-3.5" />} label="打印" onClick={handlePrint} />
-            <button className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">
+            <button
+              type="button"
+              onClick={handlePrimaryAction}
+              className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]"
+            >
               <Play className="h-3.5 w-3.5" />
               {config.primaryAction}
             </button>
           </div>
         </div>
+        {operationNotice && (
+          <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs leading-5 text-amber-800">
+            {operationNotice}
+          </div>
+        )}
 
         <div className="flex min-h-10 items-center gap-1 overflow-x-auto border-b border-slate-200 bg-[#f8fbff] px-3">
           {config.tabs.map((tab) => (
