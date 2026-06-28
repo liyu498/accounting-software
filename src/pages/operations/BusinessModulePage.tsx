@@ -18,6 +18,7 @@ import {
 import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
+import { recordExportJob, useExportJobs, type ExportJob } from '../../lib/exportJobs'
 
 type ModuleKind =
   | 'attachmentCenter'
@@ -2442,8 +2443,41 @@ function buildExcelTemplate(params: {
   return buildGenericExcelTemplate(params)
 }
 
+function exportJobToModuleRow(job: ExportJob): ModuleRow {
+  return {
+    id: job.id,
+    status: job.status === '已完成' ? '已通过' : job.status,
+    voucher: '-',
+    attachment: job.format,
+    values: {
+      file: job.fileName,
+      module: job.moduleName,
+      format: job.format,
+      scope: job.scope,
+      hash: job.hash,
+      operator: job.operator,
+      time: job.createdAt,
+      expire: job.expireAt,
+    },
+  }
+}
+
 export function BusinessModulePage({ kind, title, description }: BusinessModulePageProps) {
-  const config = moduleConfigs[kind]
+  const baseConfig = moduleConfigs[kind]
+  const exportJobs = useExportJobs()
+  const config = useMemo(() => {
+    if (kind !== 'exportCenter') return baseConfig
+    const dynamicRows = exportJobs.map(exportJobToModuleRow)
+    return {
+      ...baseConfig,
+      rows: [...dynamicRows, ...baseConfig.rows],
+      summary: baseConfig.summary.map((item) => {
+        if (item.label === '导出任务') return { ...item, value: `${dynamicRows.length + baseConfig.rows.length} 个` }
+        if (item.label === '已生成') return { ...item, value: `${dynamicRows.filter((row) => row.status === '已通过').length + 28} 个` }
+        return item
+      }),
+    }
+  }, [baseConfig, exportJobs, kind])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -2475,6 +2509,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleExportExcel = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
+    const fileName = `${title}-2026-05.xlsx`
+    const exportScope = `${status}/${keyword.trim() || '全部'}`
+    const templateKind = printTemplateKind(kind)
     const { sheetRows, columnWidths, merges } = buildExcelTemplate({
       kind,
       title,
@@ -2489,12 +2526,23 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       columnWidths,
       merges,
       sheetName: title,
-      fileName: `${title}-2026-05.xlsx`,
+      fileName,
+    })
+    recordExportJob({
+      fileName,
+      moduleName: title,
+      format: 'Excel',
+      scope: exportScope,
+      templateKind,
+      rowCount: filteredRows.length,
     })
   }
 
   const handlePrint = () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
+    const fileName = `${title}-2026-05-print`
+    const exportScope = `${status}/${keyword.trim() || '全部'}`
+    const templateKind = printTemplateKind(kind)
     const html = buildPrintHtml({
       kind,
       title,
@@ -2510,10 +2558,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     printWindow.document.close()
     printWindow.focus()
     printWindow.print()
+    recordExportJob({
+      fileName,
+      moduleName: title,
+      format: '打印预览',
+      scope: exportScope,
+      templateKind,
+      rowCount: filteredRows.length,
+    })
   }
 
   const handleExportPdf = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
+    const fileName = `${title}-2026-05.pdf`
+    const exportScope = `${status}/${keyword.trim() || '全部'}`
+    const templateKind = printTemplateKind(kind)
     const html = buildPrintHtml({
       kind,
       title,
@@ -2525,8 +2584,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     })
     await exportHtmlToPdf({
       html,
-      fileName: `${title}-2026-05.pdf`,
+      fileName,
       pageTitle: `${title} 2026-05`,
+    })
+    recordExportJob({
+      fileName,
+      moduleName: title,
+      format: 'PDF',
+      scope: exportScope,
+      templateKind,
+      rowCount: filteredRows.length,
     })
   }
 
