@@ -18,7 +18,7 @@ import {
 import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
-import { recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
+import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 
 type ModuleKind =
   | 'attachmentCenter'
@@ -2518,6 +2518,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [showRulesLog, setShowRulesLog] = useState(false)
+  const [operationNotice, setOperationNotice] = useState<string | null>(null)
 
   const filteredRows = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
@@ -2541,6 +2542,46 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   useEffect(() => {
     if (page > totalPages) setPage(totalPages)
   }, [page, totalPages])
+
+  const auditScope = `${status}/${keyword.trim() || '全部'}`
+  const isHighRiskAction = ['closingTasks', 'periodManagement', 'taxAdapterSettings', 'bankAdapterSettings', 'voucherRecycle', 'backupRestore', 'taxReport', 'declarationReceipt'].includes(kind)
+
+  const writeModuleAudit = (action: string, object: string, level: '普通' | '中' | '高' = '普通', result: '成功' | '待审批' | '失败' = '成功') => {
+    recordAuditLog({
+      module: title,
+      action,
+      object,
+      level,
+      result,
+      status: result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过',
+      voucher: auditScope,
+      attachment: '操作快照',
+    })
+  }
+
+  const handleImportAction = () => {
+    writeModuleAudit(config.importLabel, `${title}-导入批次`, '中', '待审批')
+    setOperationNotice(`${config.importLabel} 已进入待确认留痕；后续接入文件选择、字段映射、错误清单和回滚记录。`)
+  }
+
+  const handleRefreshAction = () => {
+    writeModuleAudit('刷新列表', `${title}-${auditScope}`)
+    setOperationNotice('已刷新当前列表并记录筛选条件。')
+  }
+
+  const handleTemplateAction = () => {
+    writeModuleAudit('下载模板', `${title}-导入模板`)
+    setOperationNotice('模板下载已记录；正式模板会继续绑定固定 Excel/PDF 版本和字段校验规则。')
+  }
+
+  const handlePrimaryAction = () => {
+    writeModuleAudit(config.primaryAction, `${title}-${auditScope}`, isHighRiskAction ? '高' : '中', isHighRiskAction ? '待审批' : '成功')
+    setOperationNotice(
+      isHighRiskAction
+        ? `${config.primaryAction} 已进入高风险待确认留痕；当前不会自动提交税局、银行或覆盖账套数据。`
+        : `${config.primaryAction} 已记录到审计日志；后续会接入对应表单、规则校验和附件快照。`
+    )
+  }
 
   const handleExportExcel = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
@@ -2643,18 +2684,27 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <span className="max-w-[720px] truncate text-xs text-slate-500">{description}</span>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
-            <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} />
-            <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" />
-            <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="模板" />
+            <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
+            <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" onClick={handleRefreshAction} />
+            <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="模板" onClick={handleTemplateAction} />
             <ToolbarButton icon={<FileDown className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
             <ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={handleExportPdf} />
             <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印" onClick={handlePrint} />
-            <button className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">
+            <button
+              type="button"
+              onClick={handlePrimaryAction}
+              className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]"
+            >
               <FilePlus2 className="h-3.5 w-3.5" />
               {config.primaryAction}
             </button>
           </div>
         </div>
+        {operationNotice && (
+          <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+            {operationNotice}
+          </div>
+        )}
 
         <div className="flex overflow-x-auto border-b border-slate-200 bg-[#f8fafc] px-2">
           {tabs.map((tab, index) => (
