@@ -18,6 +18,8 @@ import {
   X,
 } from 'lucide-react'
 import { cn, formatCurrency } from '../lib/utils'
+import { recordAuditLog, recordExportJob, useAuditLogs } from '../lib/exportJobs'
+import { exportRowsToXlsx } from '../lib/xlsxExport'
 
 type AiTaskStatus = '待识别' | '待确认' | '已生成凭证' | '已修改' | '已拒绝' | '异常'
 
@@ -125,7 +127,7 @@ const aiTasks: AiVoucherTask[] = [
   },
 ]
 
-const auditLogs = [
+const aiStaticAuditLogs = [
   ['09:31:22', '生成草稿', '工资表 PAY-202605 生成凭证草稿，置信度 88%，待人工确认'],
   ['09:24:18', '阻断入账', '进项发票 310026000221 供应商资料缺失，未生成凭证'],
   ['09:18:03', '确认入账', '银行流水 ICBC-202605-083 经张会计确认生成记-0061'],
@@ -139,12 +141,15 @@ export function AIBookkeeping() {
   const [query, setQuery] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [tasks, setTasks] = useState<AiVoucherTask[]>(aiTasks)
   const [previewTask, setPreviewTask] = useState<AiVoucherTask>(aiTasks[0])
+  const [operationNotice, setOperationNotice] = useState<string | null>(null)
+  const liveAuditLogs = useAuditLogs()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const filteredTasks = useMemo(() => {
     const normalized = query.trim().toLowerCase()
-    return aiTasks.filter((task) => {
+    return tasks.filter((task) => {
       const matchesTab =
         activeTab === 'AI工作台' ||
         activeTab === '待确认' && task.status === '待确认' ||
@@ -155,23 +160,105 @@ export function AIBookkeeping() {
       if (!normalized) return true
       return Object.values(task).some((value) => String(value).toLowerCase().includes(normalized))
     })
-  }, [activeTab, query])
+  }, [activeTab, query, tasks])
+
+  const writeAiAudit = (action: string, object: string, level: '普通' | '中' | '高' = '普通', result: '成功' | '待审批' | '失败' = '成功') => {
+    recordAuditLog({
+      module: 'AI做账',
+      action,
+      object,
+      level,
+      result,
+      status: result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过',
+      voucher: `${activeTab}/${query.trim() || '全部'}`,
+      attachment: 'AI操作快照',
+    })
+  }
+
+  const updateTask = (id: string, patch: Partial<AiVoucherTask>) => {
+    setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)))
+    setPreviewTask((current) => (current.id === id ? { ...current, ...patch } : current))
+  }
+
+  const handleRefresh = () => {
+    writeAiAudit('刷新任务', `${activeTab}-${query.trim() || '全部'}`)
+    setOperationNotice('AI 做账任务列表已刷新，并记录当前筛选条件。')
+  }
+
+  const handleExportAudit = async () => {
+    const exportedAt = new Date().toLocaleString('zh-CN')
+    const fileName = `AI做账审计-${activeTab}-${exportedAt.replace(/[\\/:\s]/g, '')}.xlsx`
+    const liveRows = liveAuditLogs
+      .filter((log) => log.module === 'AI做账')
+      .map((log) => [log.time, log.action, `${log.object}｜${log.result}｜${log.voucher}`])
+    const sheetRows = [
+      ['AI做账审计日志'],
+      ['公司', '科旋电气（上海）有限公司', '账期', '2026-05', '视图', activeTab],
+      ['导出时间', exportedAt, '筛选关键字', query.trim() || '全部', '记录数', `${liveRows.length + aiStaticAuditLogs.length}`],
+      [],
+      ['时间', '动作', '说明'],
+      ...liveRows,
+      ...aiStaticAuditLogs,
+      [],
+      ['边界说明', 'AI 只生成识别结果、凭证草稿和申报取数前置材料；确认入账、真实申报和外部提交必须人工确认并写入审计日志。'],
+    ]
+    await exportRowsToXlsx({
+      sheetRows,
+      columnWidths: [{ wch: 22 }, { wch: 18 }, { wch: 80 }],
+      sheetName: 'AI审计',
+      fileName,
+    })
+    recordExportJob({
+      fileName,
+      moduleName: 'AI做账',
+      format: 'Excel',
+      scope: `${activeTab}/${query.trim() || '全部'}`,
+      templateKind: 'generic-list',
+      rowCount: liveRows.length + aiStaticAuditLogs.length,
+    })
+    setOperationNotice(`${fileName} 已生成并写入下载中心。`)
+  }
 
   const handleFileUpload = () => {
     setIsProcessing(true)
+    writeAiAudit('上传识别', '票据/OFD/PDF/Excel 批次', '中', '待审批')
     window.setTimeout(() => {
       setIsProcessing(false)
-      setPreviewTask(aiTasks[0])
+      setPreviewTask(tasks[0] || aiTasks[0])
       setActiveTab('待确认')
+      writeAiAudit('识别完成', '票据/OFD/PDF/Excel 批次', '中')
+      setOperationNotice('识别批次已进入待确认列表；AI 结果不会自动入账。')
     }, 1200)
   }
 
+  const handleViewTask = (task: AiVoucherTask) => {
+    setPreviewTask(task)
+    writeAiAudit('查看草稿', `${task.sourceType}-${task.sourceNo}`)
+  }
+
+  const handleEditDraft = () => {
+    updateTask(previewTask.id, { status: '已修改' })
+    writeAiAudit('修改草稿', `${previewTask.sourceType}-${previewTask.sourceNo}`, '中', '待审批')
+    setOperationNotice(`${previewTask.sourceNo} 已标记为已修改，需复核分录、辅助核算和附件后再确认。`)
+  }
+
+  const handleRejectDraft = () => {
+    updateTask(previewTask.id, { status: '已拒绝', voucherNo: '已拒绝' })
+    writeAiAudit('拒绝草稿', `${previewTask.sourceType}-${previewTask.sourceNo}`, '中')
+    setOperationNotice(`${previewTask.sourceNo} 已拒绝，不会进入正式凭证。`)
+  }
+
   const handleApprove = () => {
-    const toast = document.createElement('div')
-    toast.className = 'fixed bottom-4 right-4 z-50 rounded bg-green-600 px-4 py-2 text-sm text-white shadow-lg'
-    toast.textContent = '已确认 AI 凭证草稿，等待写入正式凭证'
-    document.body.appendChild(toast)
-    window.setTimeout(() => toast.remove(), 2600)
+    if (previewTask.status === '异常' || previewTask.confidence < 80) {
+      writeAiAudit('确认凭证草稿', `${previewTask.sourceType}-${previewTask.sourceNo}`, '高', '待审批')
+      setOperationNotice(`${previewTask.sourceNo} 存在异常或低置信度，已进入高风险待审批，不会自动入账。`)
+      return
+    }
+
+    const voucherNo = previewTask.voucherNo.startsWith('记-') ? previewTask.voucherNo : `记-AI-${previewTask.id.slice(-3)}`
+    updateTask(previewTask.id, { status: '已生成凭证', voucherNo })
+    writeAiAudit('确认凭证草稿', `${previewTask.sourceType}-${previewTask.sourceNo}`, '中')
+    setOperationNotice(`${previewTask.sourceNo} 已确认生成凭证草稿 ${voucherNo}，正式写账仍需后端凭证落库。`)
   }
 
   return (
@@ -183,8 +270,8 @@ export function AIBookkeeping() {
             <p className="text-xs text-slate-500">发票识别、流水匹配、凭证草稿、人工确认、申报取数前置和审计闭环</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
-            <ToolButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" />
-            <ToolButton icon={<Download className="h-3.5 w-3.5" />} label="导出审计" />
+            <ToolButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" onClick={handleRefresh} />
+            <ToolButton icon={<Download className="h-3.5 w-3.5" />} label="导出审计" onClick={handleExportAudit} />
             <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">
               <Upload className="h-3.5 w-3.5" />
               上传识别
@@ -207,6 +294,12 @@ export function AIBookkeeping() {
             </button>
           ))}
         </div>
+
+        {operationNotice && (
+          <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs leading-5 text-amber-800">
+            {operationNotice}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 border-b border-slate-200 md:grid-cols-3 xl:grid-cols-5">
           <SummaryCard label="待确认草稿" value="19 条" tone="amber" />
@@ -273,7 +366,7 @@ export function AIBookkeeping() {
             </div>
 
             {activeTab === '审计日志' ? (
-              <AuditLog />
+              <AuditLog liveLogs={liveAuditLogs.filter((log) => log.module === 'AI做账')} />
             ) : (
               <div className="max-w-full overflow-auto">
                 <table className="w-full min-w-[980px] border-collapse text-xs">
@@ -304,7 +397,7 @@ export function AIBookkeeping() {
                         <td className="border-b border-r border-slate-200 px-2 py-2 text-center"><Confidence value={task.confidence} /></td>
                         <td className="border-b border-r border-slate-200 px-2 py-2">{task.voucherNo}</td>
                         <td className="border-b border-slate-200 px-2 py-2 text-center">
-                          <button type="button" onClick={() => setPreviewTask(task)} className="inline-flex h-7 items-center gap-1 rounded px-2 text-[#1f65a7] hover:bg-[#eef6ff]">
+                          <button type="button" onClick={() => handleViewTask(task)} className="inline-flex h-7 items-center gap-1 rounded px-2 text-[#1f65a7] hover:bg-[#eef6ff]">
                             <Eye className="h-3.5 w-3.5" />
                             查看
                           </button>
@@ -370,11 +463,11 @@ export function AIBookkeeping() {
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <button type="button" className="inline-flex h-8 items-center justify-center gap-1 rounded border border-slate-300 bg-white text-xs text-slate-700 hover:border-[#1f65a7]">
+                <button type="button" onClick={handleEditDraft} className="inline-flex h-8 items-center justify-center gap-1 rounded border border-slate-300 bg-white text-xs text-slate-700 hover:border-[#1f65a7]">
                   <Edit2 className="h-3.5 w-3.5" />
                   修改
                 </button>
-                <button type="button" className="inline-flex h-8 items-center justify-center gap-1 rounded border border-red-200 bg-white text-xs text-red-700 hover:bg-red-50">
+                <button type="button" onClick={handleRejectDraft} className="inline-flex h-8 items-center justify-center gap-1 rounded border border-red-200 bg-white text-xs text-red-700 hover:bg-red-50">
                   <X className="h-3.5 w-3.5" />
                   拒绝
                 </button>
@@ -399,7 +492,11 @@ export function AIBookkeeping() {
   )
 }
 
-function AuditLog() {
+function AuditLog({ liveLogs }: { liveLogs: ReturnType<typeof useAuditLogs> }) {
+  const rows = [
+    ...liveLogs.map((log) => [log.time, log.action, `${log.object}｜${log.result}｜${log.status}`]),
+    ...aiStaticAuditLogs,
+  ]
   return (
     <div className="p-3">
       <table className="w-full border-collapse text-xs">
@@ -407,7 +504,7 @@ function AuditLog() {
           <tr><th className="border border-slate-300 px-2 py-2 text-left">时间</th><th className="border border-slate-300 px-2 py-2 text-left">动作</th><th className="border border-slate-300 px-2 py-2 text-left">说明</th></tr>
         </thead>
         <tbody>
-          {auditLogs.map(([time, action, detail]) => (
+          {rows.map(([time, action, detail]) => (
             <tr key={`${time}-${action}`}>
               <td className="border border-slate-200 px-2 py-2 font-mono"><Clock className="mr-1 inline h-3.5 w-3.5 text-slate-400" />{time}</td>
               <td className="border border-slate-200 px-2 py-2">{action}</td>
@@ -430,9 +527,9 @@ function SummaryCard({ label, value, tone }: { label: string; value: string; ton
   )
 }
 
-function ToolButton({ icon, label }: { icon: React.ReactNode; label: string }) {
+function ToolButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
   return (
-    <button type="button" className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">
+    <button type="button" onClick={onClick} className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">
       {icon}
       {label}
     </button>
