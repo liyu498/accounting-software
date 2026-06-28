@@ -315,7 +315,7 @@ export function Welcome() {
               <div className="text-xs text-slate-500">多企业做账、申报、风险和资料进度</div>
             </div>
           </div>
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="outline" onClick={() => navigate('/agency/downloads')}>
             <Archive className="h-4 w-4" />
             下载中心
           </Button>

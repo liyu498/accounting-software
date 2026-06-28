@@ -1,9 +1,6 @@
 import {
-  AlertTriangle,
-  CheckCircle2,
   ChevronDown,
   Download,
-  Eye,
   FileCheck2,
   FileSpreadsheet,
   FileText,
@@ -15,6 +12,7 @@ import {
   ShieldAlert,
   Upload,
 } from 'lucide-react'
+import { useState } from 'react'
 import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 
@@ -199,6 +197,8 @@ function riskBadge(value: string) {
 }
 
 export function TaxWorkspace() {
+  const [showRulesLog, setShowRulesLog] = useState(false)
+
   const exportTaxPackage = () => {
     const html = buildTaxDeclarationPackageHtml(new Date().toLocaleString('zh-CN'))
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
@@ -230,14 +230,14 @@ export function TaxWorkspace() {
   }
 
   return (
-    <div className="h-full min-w-[1120px] bg-[#f3f6fa] text-slate-900">
+    <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
       <div className="border border-slate-200 bg-white">
-        <div className="flex h-11 items-center justify-between border-b border-slate-200 px-3">
-          <div className="flex items-center gap-3">
+        <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-1.5">
+          <div className="flex min-w-0 items-center gap-3">
             <h1 className="text-base font-semibold">税务申报</h1>
             <span className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-green-100">已结账</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="重新取数" />
             <ToolbarButton icon={<ShieldAlert className="h-3.5 w-3.5" />} label="风险检查" />
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="导出申报包" onClick={exportTaxPackage} />
@@ -250,7 +250,7 @@ export function TaxWorkspace() {
           </div>
         </div>
 
-        <div className="flex border-b border-slate-200 bg-[#f8fafc] px-2">
+        <div className="flex overflow-x-auto border-b border-slate-200 bg-[#f8fafc] px-2">
           {tabs.map((tab, index) => (
             <button
               key={tab}
@@ -264,7 +264,7 @@ export function TaxWorkspace() {
           ))}
         </div>
 
-        <div className="grid grid-cols-6 border-b border-slate-200 bg-white">
+        <div className="grid grid-cols-2 border-b border-slate-200 bg-white md:grid-cols-3 xl:grid-cols-6">
           {[
             ['应申报税种', '5'],
             ['已取数', '4'],
@@ -280,25 +280,28 @@ export function TaxWorkspace() {
           ))}
         </div>
 
-        <div className="flex items-center justify-between border-b border-slate-200 bg-[#fbfcfe] px-3 py-2">
-          <div className="flex items-center gap-2">
-            <div className="relative">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-[#fbfcfe] px-3 py-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="relative min-w-64 flex-1 sm:flex-none">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input className="h-8 w-72 rounded border border-slate-300 bg-white pl-8 pr-3 text-xs outline-none focus:border-[#1f65a7]" placeholder="搜索税种、申报表、取数来源" />
+              <input className="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-3 text-xs outline-none focus:border-[#1f65a7] sm:w-72" placeholder="搜索税种、申报表、取数来源" />
             </div>
             <SelectLike label="申报状态" value="全部" />
             <SelectLike label="校验状态" value="全部" />
           </div>
-          <div className="flex items-center gap-1 text-xs">
+          <div className="flex flex-wrap items-center gap-1 text-xs">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label="导入初始化" />
             <ToolbarButton icon={<FileSpreadsheet className="h-3.5 w-3.5" />} label="下载模板" />
+            <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="规则与日志" onClick={() => setShowRulesLog((value) => !value)} />
             <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="列设置" />
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_320px] gap-3 pt-3">
-        <section className="border border-slate-200 bg-white">
+      {showRulesLog && <TaxRulesLogPanel />}
+
+      <div className="min-w-0 pt-3">
+        <section className="min-w-0 border border-slate-200 bg-white">
           <div className="flex h-9 items-center justify-between border-b border-slate-200 bg-[#f8fafc] px-3">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <FileCheck2 className="h-4 w-4 text-[#1f65a7]" />
@@ -306,7 +309,7 @@ export function TaxWorkspace() {
             </div>
             <div className="text-xs text-slate-500">显示 5 条，金额单位: 元</div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="max-w-full overflow-x-auto">
             <table className="min-w-[1240px] w-full border-collapse text-left text-xs">
               <thead className="bg-[#eef3f8] text-slate-600">
                 <tr>
@@ -366,64 +369,63 @@ export function TaxWorkspace() {
               </tfoot>
             </table>
           </div>
-          <div className="flex h-10 items-center justify-between border-t border-slate-200 px-3 text-xs text-slate-500">
+          <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 text-xs text-slate-500">
             <div>真实税局提交、扣款、回执收取需要合法 adapter 接入；当前页面只做取数、校验、确认、导出和日志。</div>
             <div>第 1 / 1 页，每页 50 条</div>
           </div>
         </section>
-
-        <aside className="space-y-3">
-          <section className="border border-slate-200 bg-white">
-            <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              风险与阻断
-            </div>
-            <div className="divide-y divide-slate-100">
-              {riskRows.map(([level, module, desc, link]) => (
-                <div key={desc} className="p-3 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className={cn('rounded px-2 py-0.5 font-medium', level === '阻断' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700')}>{level}</span>
-                    <button className="text-[#1f65a7]">{link}</button>
-                  </div>
-                  <div className="mt-2 font-medium text-slate-800">{module}</div>
-                  <div className="mt-1 leading-5 text-slate-600">{desc}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="border border-slate-200 bg-white">
-            <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
-              <FileText className="h-4 w-4 text-[#1f65a7]" />
-              取数说明
-            </div>
-            <div className="space-y-2 p-3 text-xs leading-5 text-slate-600">
-              <div className="rounded bg-slate-50 p-2">销项税额来自销项发票清单，按税率分组汇总。</div>
-              <div className="rounded bg-slate-50 p-2">进项抵扣来自已认证进项发票，未勾选发票不进入申报主表。</div>
-              <div className="rounded bg-slate-50 p-2">企业所得税来自利润表和纳税调整快照。</div>
-            </div>
-          </section>
-
-          <section className="border border-slate-200 bg-white">
-            <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
-              <Eye className="h-4 w-4 text-[#1f65a7]" />
-              操作日志
-            </div>
-            <div className="divide-y divide-slate-100">
-              {logs.map(([time, action, detail]) => (
-                <div key={`${time}-${action}`} className="p-3 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-slate-800">{action}</span>
-                    <span className="font-mono text-slate-400">{time}</span>
-                  </div>
-                  <div className="mt-1 leading-5 text-slate-600">{detail}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </aside>
       </div>
     </div>
+  )
+}
+
+function TaxRulesLogPanel() {
+  return (
+    <section className="mt-3 border border-slate-200 bg-white">
+      <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
+        <Settings2 className="h-4 w-4 text-[#1f65a7]" />
+        规则与日志
+      </div>
+      <div className="grid gap-0 lg:grid-cols-3">
+        <div className="border-b border-slate-200 lg:border-b-0 lg:border-r">
+          <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">风险与阻断</div>
+          <div className="divide-y divide-slate-100">
+            {riskRows.map(([level, module, desc, link]) => (
+              <div key={desc} className="p-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className={cn('rounded px-2 py-0.5 font-medium', level === '阻断' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700')}>{level}</span>
+                  <button className="text-[#1f65a7]">{link}</button>
+                </div>
+                <div className="mt-2 font-medium text-slate-800">{module}</div>
+                <div className="mt-1 leading-5 text-slate-600">{desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="border-b border-slate-200 lg:border-b-0 lg:border-r">
+          <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">取数说明</div>
+          <div className="space-y-2 p-3 text-xs leading-5 text-slate-600">
+            <div className="rounded bg-slate-50 p-2">销项税额来自销项发票清单，按税率分组汇总。</div>
+            <div className="rounded bg-slate-50 p-2">进项抵扣来自已认证进项发票，未勾选发票不进入申报主表。</div>
+            <div className="rounded bg-slate-50 p-2">企业所得税来自利润表和纳税调整快照。</div>
+          </div>
+        </div>
+        <div>
+          <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">操作日志</div>
+          <div className="divide-y divide-slate-100">
+            {logs.map(([time, action, detail]) => (
+              <div key={`${time}-${action}`} className="p-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-slate-800">{action}</span>
+                  <span className="font-mono text-slate-400">{time}</span>
+                </div>
+                <div className="mt-1 leading-5 text-slate-600">{detail}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 

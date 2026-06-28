@@ -27,8 +27,12 @@ import { exportRowsToXlsx } from '../../lib/xlsxExport'
 export type AgencyModuleKind =
   | 'clients'
   | 'accountManagement'
+  | 'authorizationCenter'
   | 'serviceContracts'
   | 'batchTax'
+  | 'declarationReceipts'
+  | 'approvalCenter'
+  | 'downloadCenter'
   | 'dataStats'
   | 'batchOps'
   | 'invoiceManagement'
@@ -129,6 +133,39 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     queue: ['新增企业、导入、导出、采集、批量删除、批量停用只在机构层出现', '采集通过维护的税务登录方式获取客户基础资料、税种、主管税务机关和企业类型', '操作列保留编辑、删除、停用、备忘录、进入账套、登录税务局'],
     notes: ['账套管理负责多家公司档案和授权状态；进入单账套后只保留该公司的业务处理。', '采集、登录税务局等能力后续通过合法 adapter 接入，不在前端伪造真实提交。'],
   },
+  authorizationCenter: {
+    title: '授权中心',
+    description: '集中维护多客户电子税务局、自然人税收、银行、工商和票池授权状态，为批量采集和批量申报提供前置授权检查。',
+    tabs: ['授权总览', '税务授权', '个税授权', '银行授权', '工商授权', '票池授权', '到期提醒'],
+    primaryAction: '新增授权',
+    keywordPlaceholder: '搜索客户、授权类型、登录人员、到期时间、异常原因',
+    summary: [
+      { label: '授权客户', value: '116 户', tone: 'blue' },
+      { label: '授权正常', value: '92 户', tone: 'green' },
+      { label: '即将到期', value: '17 户', tone: 'amber' },
+      { label: '授权异常', value: '7 户', tone: 'red' },
+    ],
+    columns: [
+      { key: 'customer', label: '客户名称' },
+      { key: 'taxNo', label: '纳税人识别号' },
+      { key: 'type', label: '授权类型' },
+      { key: 'loginPerson', label: '登录人员' },
+      { key: 'identity', label: '登录身份' },
+      { key: 'method', label: '登录方式' },
+      { key: 'statusText', label: '授权状态' },
+      { key: 'expireAt', label: '到期时间' },
+      { key: 'lastCollect', label: '最近采集' },
+      { key: 'risk', label: '异常原因' },
+    ],
+    rows: [
+      { id: 'auth-001', status: '已完成', values: { customer: '科旋电气（上海）有限公司', taxNo: '91310115MA1K3****X', type: '电子税务局', loginPerson: '办税员', identity: '代理记账人员', method: '账号密码+短信', statusText: '正常', expireAt: '2026-12-31', lastCollect: '06-26 18:09', risk: '无' } },
+      { id: 'auth-002', status: '待确认', values: { customer: '上海云启科技有限公司', taxNo: '91310113MA1G****2Q', type: '银行流水', loginPerson: '财务负责人', identity: '企业网银授权', method: '银行 adapter', statusText: '待确认', expireAt: '2026-07-15', lastCollect: '06-26 17:58', risk: '需客户确认授权范围' } },
+      { id: 'auth-003', status: '异常', values: { customer: '杭州辰光贸易有限公司', taxNo: '91330106MA2H****8P', type: '自然人税收', loginPerson: '办税员', identity: '扣缴客户端', method: '申报密码登录', statusText: '失败', expireAt: '已过期', lastCollect: '06-25 21:40', risk: '申报密码失效' } },
+    ],
+    queueTitle: '授权检查',
+    queue: ['批量采集发票、流水、税种和主管税务机关前先检查授权状态', '授权中心只保存状态、掩码账号、adapter 参数和审计日志，不保存明文敏感信息', '授权异常客户自动进入批量任务跳过队列并提示补授权'],
+    notes: ['授权中心是机构层模块，服务所有客户账套的采集、申报和自动化任务。', '单账套内只展示当前公司的授权结果和使用记录，不放跨客户批量授权入口。'],
+  },
   serviceContracts: {
     title: '服务合同',
     description: '维护代账服务合同、服务套餐、收费收款、客户协同、续费状态和归档。',
@@ -192,6 +229,102 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     queueTitle: '申报边界',
     queue: ['真实提交必须走合法电子税务局 adapter', '每户客户提交前必须人工确认申报包', '扣款和回执状态不做假提交'],
     notes: ['当前实现机构级批量申报台账、状态流转和申报包入口。', '税局登录、短信、UKey、扣款等后续按地区 adapter 独立接入。'],
+  },
+  declarationReceipts: {
+    title: '申报回执',
+    description: '机构维度统一管理多客户申报回执、缴款书、扣款结果、申报包和归档状态。',
+    tabs: ['回执总览', '待取回执', '待缴款', '扣款异常', '已归档', '申报包'],
+    primaryAction: '同步回执',
+    keywordPlaceholder: '搜索客户、税种、所属期、回执号、缴款书号',
+    summary: [
+      { label: '本期申报包', value: '68 份', tone: 'blue' },
+      { label: '待取回执', value: '9 份', tone: 'amber' },
+      { label: '缴款异常', value: '3 项', tone: 'red' },
+      { label: '已归档', value: '52 份', tone: 'green' },
+    ],
+    columns: [
+      { key: 'customer', label: '客户名称' },
+      { key: 'taxType', label: '税种' },
+      { key: 'period', label: '所属期', align: 'center' },
+      { key: 'declareStatus', label: '申报状态' },
+      { key: 'receiptNo', label: '回执号' },
+      { key: 'paymentStatus', label: '缴款状态' },
+      { key: 'paymentNo', label: '缴款书号' },
+      { key: 'archive', label: '归档状态' },
+      { key: 'owner', label: '负责人' },
+    ],
+    rows: [
+      { id: 'dr-ag-001', status: '已完成', values: { customer: '科旋电气（上海）有限公司', taxType: '增值税及附加', period: '2026-05', declareStatus: '已申报', receiptNo: 'RCPT-20260626-001', paymentStatus: '已扣款', paymentNo: 'PAY-20260626-018', archive: '已归档', owner: '张会计' } },
+      { id: 'dr-ag-002', status: '待确认', values: { customer: '上海云启科技有限公司', taxType: '企业所得税', period: '2026-Q2', declareStatus: '待提交', receiptNo: '待获取', paymentStatus: '无需缴款', paymentNo: '-', archive: '申报包待确认', owner: '李会计' } },
+      { id: 'dr-ag-003', status: '异常', values: { customer: '杭州辰光贸易有限公司', taxType: '印花税', period: '2026-05', declareStatus: '提交失败', receiptNo: '-', paymentStatus: '未缴款', paymentNo: '-', archive: '错误截图待处理', owner: '王会计' } },
+    ],
+    queueTitle: '归档要求',
+    queue: ['申报包、申报回执、缴款书和错误截图按客户/所属期归档', '扣款异常必须回链到税务申报任务和客户通知', '真实回执获取依赖合法税局 adapter 或人工上传'],
+    notes: ['申报回执是机构层跨客户归档模块，单账套内仍保留该公司自己的回执缴款书。', '自动报税场景必须保留申报包、确认人、提交时间和回执证据。'],
+  },
+  approvalCenter: {
+    title: '审批中心',
+    description: '集中处理跨客户高风险操作审批，包括申报确认、批量删除、反结账、反审核、自动化策略和授权变更。',
+    tabs: ['待我审批', '我发起的', '申报确认', '结账/反结账', '删除/恢复', '授权变更', '审批记录'],
+    primaryAction: '发起审批',
+    keywordPlaceholder: '搜索客户、审批类型、发起人、风险说明',
+    summary: [
+      { label: '待审批', value: '21 项', tone: 'amber' },
+      { label: '高风险', value: '6 项', tone: 'red' },
+      { label: '今日通过', value: '34 项', tone: 'green' },
+      { label: '退回', value: '4 项', tone: 'blue' },
+    ],
+    columns: [
+      { key: 'ticket', label: '审批单号' },
+      { key: 'customer', label: '客户名称' },
+      { key: 'type', label: '审批类型' },
+      { key: 'risk', label: '风险说明' },
+      { key: 'applicant', label: '发起人' },
+      { key: 'approver', label: '当前审批人' },
+      { key: 'createdAt', label: '发起时间' },
+      { key: 'deadline', label: '期限' },
+      { key: 'result', label: '处理结果' },
+    ],
+    rows: [
+      { id: 'ap-001', status: '待确认', values: { ticket: 'SP-20260626-018', customer: '科旋电气（上海）有限公司', type: '申报确认', risk: '2 张进项未勾选', applicant: '张会计', approver: '主管会计', createdAt: '06-26 09:40', deadline: '今天', result: '待审批' } },
+      { id: 'ap-002', status: '异常', values: { ticket: 'SP-20260626-021', customer: '杭州辰光贸易有限公司', type: '反结账', risk: '已申报期间申请反结账', applicant: '王会计', approver: '机构管理员', createdAt: '06-26 10:10', deadline: '今天', result: '阻断复核' } },
+      { id: 'ap-003', status: '已完成', values: { ticket: 'SP-20260625-093', customer: '上海云启科技有限公司', type: '批量生成凭证', risk: 'AI 置信度 86%', applicant: '李会计', approver: '主管会计', createdAt: '06-25 18:30', deadline: '已处理', result: '通过' } },
+    ],
+    queueTitle: '审批边界',
+    queue: ['真实提交申报、扣款、删除、反结账和自动化策略变更必须留审批记录', '审批通过不等于外部系统提交成功，仍需回执或执行日志', '审批记录不可被普通账套操作覆盖'],
+    notes: ['审批中心是机构层风控模块，不放入单户账套作为跨客户入口。', '单账套内仅展示当前公司的审批状态和发起入口。'],
+  },
+  downloadCenter: {
+    title: '下载中心',
+    description: '统一管理跨客户导出文件、账簿报表、申报包、回执缴款书、附件压缩包和归档下载。',
+    tabs: ['最近7天', 'Excel', 'PDF', 'ZIP归档包', '申报包', '回执缴款书', '失败任务'],
+    primaryAction: '批量下载',
+    keywordPlaceholder: '搜索文件名、客户、生成状态、发起人',
+    summary: [
+      { label: '可下载文件', value: '64 个', tone: 'blue' },
+      { label: '今日生成', value: '18 个', tone: 'green' },
+      { label: '生成中', value: '5 个', tone: 'amber' },
+      { label: '失败', value: '2 个', tone: 'red' },
+    ],
+    columns: [
+      { key: 'fileName', label: '文件名' },
+      { key: 'customer', label: '客户名称' },
+      { key: 'type', label: '文件类型' },
+      { key: 'period', label: '期间', align: 'center' },
+      { key: 'statusText', label: '生成状态' },
+      { key: 'createdAt', label: '生成时间' },
+      { key: 'creator', label: '发起人' },
+      { key: 'expireAt', label: '过期时间' },
+      { key: 'hash', label: '文件哈希' },
+    ],
+    rows: [
+      { id: 'dl-001', status: '已完成', values: { fileName: '科旋电气-记账凭证-202605.pdf', customer: '科旋电气（上海）有限公司', type: 'PDF', period: '2026-05', statusText: '已生成', createdAt: '06-26 16:59', creator: '张会计', expireAt: '7天后', hash: 'a8f2...19c' } },
+      { id: 'dl-002', status: '进行中', values: { fileName: '全部客户-申报包-202606.zip', customer: '36 户客户', type: 'ZIP', period: '2026-06', statusText: '生成中 68%', createdAt: '06-26 17:20', creator: '主管会计', expireAt: '7天后', hash: '生成中' } },
+      { id: 'dl-003', status: '异常', values: { fileName: '杭州辰光-明细账-202605.xlsx', customer: '杭州辰光贸易有限公司', type: 'Excel', period: '2026-05', statusText: '生成失败', createdAt: '06-26 15:42', creator: '王会计', expireAt: '-', hash: '缺少模板' } },
+    ],
+    queueTitle: '下载规则',
+    queue: ['默认只展示最近 7 天生成文件，过期后需重新生成', '批量下载保留文件清单、生成状态、发起人和哈希摘要', '申报包和回执下载需受客户范围权限控制'],
+    notes: ['下载中心用于机构层跨客户文件，不替代单账套内当前模块的导出按钮。', '后续导出文件应接入固定 Excel/PDF 模板和归档目录。'],
   },
   dataStats: {
     title: '数据统计',
@@ -457,14 +590,14 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }
 
   return (
-    <div className="h-full min-w-[1180px] bg-[#f3f6fa] text-slate-900">
+    <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
       <div className="border border-slate-200 bg-white">
-        <div className="flex h-12 items-center justify-between border-b border-slate-200 px-4">
-          <div>
+        <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-1.5">
+          <div className="min-w-0">
             <h1 className="text-base font-semibold">{config.title}</h1>
             <p className="text-xs text-slate-500">{config.description}</p>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolButton icon={<RefreshCw className={cn('h-3.5 w-3.5', isLoadingRows && 'animate-spin')} />} label="刷新" onClick={loadRemoteRows} />
             <ToolButton icon={<Upload className="h-3.5 w-3.5" />} label="导入" />
             <ToolButton icon={<Download className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
@@ -477,7 +610,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           </div>
         </div>
 
-        <div className="flex h-10 items-center gap-1 border-b border-slate-200 bg-[#f8fbff] px-3">
+        <div className="flex min-h-10 items-center gap-1 overflow-x-auto border-b border-slate-200 bg-[#f8fbff] px-3">
           {config.tabs.map((tab) => (
             <button
               key={tab}
@@ -493,7 +626,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           ))}
         </div>
 
-        <div className="grid grid-cols-4 border-b border-slate-200">
+        <div className="grid grid-cols-2 border-b border-slate-200 lg:grid-cols-4">
           {config.summary.map((item) => (
             <div key={item.label} className="border-r border-slate-200 px-4 py-3 last:border-r-0">
               <div className="text-xs text-slate-500">{item.label}</div>
@@ -502,23 +635,23 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           ))}
         </div>
 
-        <div className="flex h-11 items-center gap-2 border-b border-slate-200 px-3">
-          <div className="relative w-80">
+        <div className="flex min-h-11 flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-1.5">
+          <div className="relative min-w-64 flex-1 sm:flex-none">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={config.keywordPlaceholder}
-              className="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-2 text-xs outline-none focus:border-[#1f65a7]"
+              className="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-2 text-xs outline-none focus:border-[#1f65a7] sm:w-80"
             />
           </div>
           <ToolButton icon={<Filter className="h-3.5 w-3.5" />} label="筛选" />
           <span className="ml-auto text-xs text-slate-500">当前视图: {activeTab} · 显示 {pageStart}-{pageEnd} / {filteredRows.length} 条</span>
         </div>
 
-        <div className="grid min-h-[440px] grid-cols-[1fr_300px]">
+        <div className="grid min-h-[440px] min-w-0 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="flex min-w-0 flex-col">
-            <div className="overflow-auto">
+            <div className="max-w-full overflow-auto">
               <table className="w-full min-w-[840px] border-collapse text-xs">
                 <thead className="sticky top-0 bg-[#e8eef6] text-slate-700">
                   <tr>
@@ -551,7 +684,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                 </tfoot>
               </table>
             </div>
-            <div className="flex h-10 items-center justify-between border-t border-slate-200 px-3 text-xs text-slate-500">
+            <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 text-xs text-slate-500">
               <span>机构级批量页面按当前筛选分页展示，导出按筛选全集生成。</span>
               <div className="flex items-center gap-2">
                 <span>第 {page} / {totalPages} 页</span>
@@ -585,7 +718,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
             </div>
           </div>
 
-          <aside className="border-l border-slate-200 bg-[#fbfdff]">
+          <aside className="min-w-0 border-l border-slate-200 bg-[#fbfdff]">
             <div className="border-b border-slate-200 px-3 py-2 text-sm font-semibold">{config.queueTitle}</div>
             <div className="space-y-2 p-3">
               {config.queue.map((item, index) => (

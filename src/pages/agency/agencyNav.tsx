@@ -1,9 +1,13 @@
 import React from 'react'
 import {
+  Archive,
   BarChart3,
   Bot,
   Building2,
   CheckSquare,
+  ClipboardCheck,
+  Download,
+  KeyRound,
   FileCheck2,
   Notebook,
   ReceiptText,
@@ -22,8 +26,12 @@ export interface AgencyNavItem {
 export const agencyNavItems: AgencyNavItem[] = [
   { id: 'agency-clients', label: '客户总览', icon: <Building2 className="h-4 w-4" />, path: '/agency/clients', description: '跨客户账套进度、风险、负责人和账期状态。' },
   { id: 'agency-accounts', label: '账套管理', icon: <Building2 className="h-4 w-4" />, path: '/agency/accounts', description: '多客户企业档案、授权、采集状态和进入账套入口。' },
+  { id: 'agency-authorizations', label: '授权中心', icon: <KeyRound className="h-4 w-4" />, path: '/agency/authorizations', description: '多客户税务、银行、个税、工商和票池授权状态。' },
   { id: 'agency-service-contracts', label: '服务合同', icon: <Notebook className="h-4 w-4" />, path: '/agency/service-contracts', description: '代账合同、收费、协同催办、服务套餐、续费和归档。' },
   { id: 'agency-batch-tax', label: '批量申报', icon: <FileCheck2 className="h-4 w-4" />, path: '/agency/batch-tax', description: '多客户申报取数、校验、确认和回执。' },
+  { id: 'agency-declaration-receipts', label: '申报回执', icon: <Archive className="h-4 w-4" />, path: '/agency/declaration-receipts', description: '跨客户申报回执、缴款书、扣款和归档。' },
+  { id: 'agency-approvals', label: '审批中心', icon: <ClipboardCheck className="h-4 w-4" />, path: '/agency/approvals', description: '反结账、删除、申报确认和高风险操作审批。' },
+  { id: 'agency-downloads', label: '下载中心', icon: <Download className="h-4 w-4" />, path: '/agency/downloads', description: '跨客户导出文件、申报包、账簿和归档包下载。' },
   { id: 'agency-data-stats', label: '数据统计', icon: <BarChart3 className="h-4 w-4" />, path: '/agency/data-stats', description: '机构经营、产能、自动化率和风险分布。' },
   { id: 'agency-batch-ops', label: '批量操作', icon: <CheckSquare className="h-4 w-4" />, path: '/agency/batch-ops', description: '多账套批量采集发票、银行流水、结账、生成和归档。' },
   { id: 'agency-invoice-management', label: '开票管理', icon: <ReceiptText className="h-4 w-4" />, path: '/agency/invoice-management', description: '机构服务费开票、抬头、红冲作废和归档。' },

@@ -2448,6 +2448,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const [showRulesLog, setShowRulesLog] = useState(false)
 
   const filteredRows = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
@@ -2531,14 +2532,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const tabs = ['列表', '明细', '凭证草稿', '匹配规则', '附件', '操作日志']
 
   return (
-    <div className="h-full min-w-[1120px] bg-[#f3f6fa] text-slate-900">
+    <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
       <div className="border border-slate-200 bg-white">
-        <div className="flex h-11 items-center justify-between border-b border-slate-200 px-3">
+        <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-1.5">
           <div className="flex min-w-0 items-center gap-3">
             <h1 className="text-base font-semibold">{title}</h1>
             <span className="max-w-[720px] truncate text-xs text-slate-500">{description}</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} />
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" />
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="模板" />
@@ -2552,7 +2553,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
         </div>
 
-        <div className="flex border-b border-slate-200 bg-[#f8fafc] px-2">
+        <div className="flex overflow-x-auto border-b border-slate-200 bg-[#f8fafc] px-2">
           {tabs.map((tab, index) => (
             <button
               key={tab}
@@ -2566,7 +2567,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           ))}
         </div>
 
-        <div className="grid grid-cols-4 border-b border-slate-200 bg-white">
+        <div className="grid grid-cols-2 border-b border-slate-200 bg-white lg:grid-cols-4">
           {config.summary.map((item) => (
             <div key={item.label} className="border-r border-slate-100 px-4 py-3 last:border-r-0">
               <div className="text-xs text-slate-500">{item.label}</div>
@@ -2575,12 +2576,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           ))}
         </div>
 
-        <div className="flex items-center justify-between border-b border-slate-200 bg-[#fbfcfe] px-3 py-2">
-          <div className="flex items-center gap-2">
-            <div className="relative">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-[#fbfcfe] px-3 py-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="relative min-w-64 flex-1 sm:flex-none">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <input
-                className="h-8 w-80 rounded border border-slate-300 bg-white pl-8 pr-3 text-xs outline-none focus:border-[#1f65a7]"
+                className="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-3 text-xs outline-none focus:border-[#1f65a7] sm:w-80"
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
                 placeholder={config.keywordPlaceholder}
@@ -2601,20 +2602,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               高级筛选
             </button>
           </div>
-          <div className="flex items-center gap-1">
-            <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="规则" />
+          <div className="flex flex-wrap items-center gap-1">
+            <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="规则与日志" onClick={() => setShowRulesLog((value) => !value)} />
             <ToolbarButton icon={<Columns3 className="h-3.5 w-3.5" />} label="列设置" />
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_300px] gap-3 pt-3">
-        <section className="border border-slate-200 bg-white">
+      {showRulesLog && <RulesLogPanel notes={config.notes} />}
+
+      <div className="min-w-0 pt-3">
+        <section className="min-w-0 border border-slate-200 bg-white">
           <div className="flex h-9 items-center justify-between border-b border-slate-200 bg-[#f8fafc] px-3">
             <div className="text-sm font-semibold text-slate-900">{title}列表</div>
             <div className="text-xs text-slate-500">显示 {pageStart}-{pageEnd} / {filteredRows.length} 条，支持导出和打印</div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="max-w-full overflow-x-auto">
             <table className="min-w-[1120px] w-full border-collapse text-left text-xs">
               <thead className="bg-[#eef3f8] text-slate-600">
                 <tr>
@@ -2667,7 +2670,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               </tfoot>
             </table>
           </div>
-          <div className="flex h-10 items-center justify-between border-t border-slate-200 px-3 text-xs text-slate-500">
+          <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 text-xs text-slate-500">
             <div>导出文件按当前筛选、列顺序和金额格式生成；PDF 打印使用同一表格模板。</div>
             <div className="flex items-center gap-2">
               <span>第 {page} / {totalPages} 页</span>
@@ -2700,41 +2703,45 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             </div>
           </div>
         </section>
-
-        <aside className="space-y-3">
-          <section className="border border-slate-200 bg-white">
-            <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              规则与提示
-            </div>
-            {config.notes.map((note, index) => (
-              <div key={note} className="border-b border-slate-100 p-3 text-xs leading-5 text-slate-600 last:border-b-0">
-                <div className="mb-1 flex items-center gap-2 font-medium text-slate-800">
-                  {index === 0 ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> : <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
-                  {index === 0 ? '业务边界' : '自动化说明'}
-                </div>
-                {note}
-              </div>
-            ))}
-          </section>
-          <section className="border border-slate-200 bg-white">
-            <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
-              <Settings2 className="h-4 w-4 text-[#1f65a7]" />
-              操作日志
-            </div>
-            {['刷新列表', '执行筛选', '导出文件'].map((action, index) => (
-              <div key={action} className="border-b border-slate-100 p-3 text-xs last:border-b-0">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-800">{action}</span>
-                  <span className="font-mono text-slate-400">09:{30 + index * 6}</span>
-                </div>
-                <div className="mt-1 text-slate-500">系统记录操作人、账期、筛选条件和导出文件名称。</div>
-              </div>
-            ))}
-          </section>
-        </aside>
       </div>
     </div>
+  )
+}
+
+function RulesLogPanel({ notes }: { notes: string[] }) {
+  return (
+    <section className="mt-3 border border-slate-200 bg-white">
+      <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
+        <Settings2 className="h-4 w-4 text-[#1f65a7]" />
+        规则与日志
+      </div>
+      <div className="grid gap-0 md:grid-cols-2">
+        <div className="border-b border-slate-200 md:border-b-0 md:border-r">
+          <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">规则与提示</div>
+          {notes.map((note, index) => (
+            <div key={note} className="border-b border-slate-100 p-3 text-xs leading-5 text-slate-600 last:border-b-0">
+              <div className="mb-1 flex items-center gap-2 font-medium text-slate-800">
+                {index === 0 ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> : <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
+                {index === 0 ? '业务边界' : '自动化说明'}
+              </div>
+              {note}
+            </div>
+          ))}
+        </div>
+        <div>
+          <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">操作日志</div>
+          {['刷新列表', '执行筛选', '导出文件'].map((action, index) => (
+            <div key={action} className="border-b border-slate-100 p-3 text-xs last:border-b-0">
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-slate-800">{action}</span>
+                <span className="font-mono text-slate-400">09:{30 + index * 6}</span>
+              </div>
+              <div className="mt-1 text-slate-500">系统记录操作人、账期、筛选条件和导出文件名称。</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   )
 }
 

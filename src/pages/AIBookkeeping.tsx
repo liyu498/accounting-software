@@ -175,14 +175,14 @@ export function AIBookkeeping() {
   }
 
   return (
-    <div className="h-full min-w-[1180px] bg-[#f3f6fa] text-slate-900">
+    <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
       <div className="border border-slate-200 bg-white">
-        <div className="flex h-12 items-center justify-between border-b border-slate-200 px-4">
-          <div>
+        <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-1.5">
+          <div className="min-w-0">
             <h1 className="text-base font-semibold">AI 做账工作台</h1>
             <p className="text-xs text-slate-500">发票识别、流水匹配、凭证草稿、人工确认、申报取数前置和审计闭环</p>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" />
             <ToolButton icon={<Download className="h-3.5 w-3.5" />} label="导出审计" />
             <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">
@@ -192,7 +192,7 @@ export function AIBookkeeping() {
           </div>
         </div>
 
-        <div className="flex h-10 items-center gap-1 border-b border-slate-200 bg-[#f8fbff] px-3">
+        <div className="flex min-h-10 items-center gap-1 overflow-x-auto border-b border-slate-200 bg-[#f8fbff] px-3">
           {tabs.map((tab) => (
             <button
               key={tab}
@@ -208,7 +208,7 @@ export function AIBookkeeping() {
           ))}
         </div>
 
-        <div className="grid grid-cols-5 border-b border-slate-200">
+        <div className="grid grid-cols-2 border-b border-slate-200 md:grid-cols-3 xl:grid-cols-5">
           <SummaryCard label="待确认草稿" value="19 条" tone="amber" />
           <SummaryCard label="平均置信度" value="88.6%" tone="blue" />
           <SummaryCard label="自动生成率" value="71.4%" tone="green" />
@@ -216,8 +216,8 @@ export function AIBookkeeping() {
           <SummaryCard label="可入税表" value="12 项" tone="blue" />
         </div>
 
-        <div className="grid min-h-[570px] grid-cols-[300px_1fr_360px]">
-          <aside className="border-r border-slate-200 bg-[#fbfdff]">
+        <div className="grid min-h-[570px] min-w-0 grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)_320px] 2xl:grid-cols-[300px_minmax(0,1fr)_360px]">
+          <aside className="min-w-0 border-r border-slate-200 bg-[#fbfdff]">
             <div className="border-b border-slate-200 px-3 py-2 text-sm font-semibold">采集入口</div>
             <div className="p-3">
               <input ref={fileInputRef} type="file" accept="image/*,.pdf,.ofd,.xlsx" className="hidden" onChange={handleFileUpload} />
@@ -263,10 +263,10 @@ export function AIBookkeeping() {
           </aside>
 
           <section className="min-w-0">
-            <div className="flex h-11 items-center gap-2 border-b border-slate-200 px-3">
-              <div className="relative w-80">
+            <div className="flex min-h-11 flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-1.5">
+              <div className="relative min-w-64 flex-1 sm:flex-none">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索来源编号、客户、摘要、规则" className="h-8 w-full rounded border border-slate-300 pl-8 pr-2 text-xs outline-none focus:border-[#1f65a7]" />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索来源编号、客户、摘要、规则" className="h-8 w-full rounded border border-slate-300 pl-8 pr-2 text-xs outline-none focus:border-[#1f65a7] sm:w-80" />
               </div>
               <ToolButton icon={<Filter className="h-3.5 w-3.5" />} label="筛选" />
               <span className="ml-auto text-xs text-slate-500">当前视图: {activeTab} · 共 {filteredTasks.length} 条</span>
@@ -275,7 +275,7 @@ export function AIBookkeeping() {
             {activeTab === '审计日志' ? (
               <AuditLog />
             ) : (
-              <div className="overflow-auto">
+              <div className="max-w-full overflow-auto">
                 <table className="w-full min-w-[980px] border-collapse text-xs">
                   <thead className="sticky top-0 bg-[#e8eef6] text-slate-700">
                     <tr>
@@ -317,7 +317,7 @@ export function AIBookkeeping() {
             )}
           </section>
 
-          <aside className="border-l border-slate-200 bg-[#fbfdff]">
+          <aside className="min-w-0 border-l border-slate-200 bg-[#fbfdff]">
             <div className="border-b border-slate-200 px-3 py-2 text-sm font-semibold">凭证草稿预览</div>
             <div className="space-y-3 p-3">
               <div className="rounded border border-slate-200 bg-white p-3">

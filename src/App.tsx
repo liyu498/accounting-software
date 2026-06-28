@@ -87,12 +87,16 @@ function App() {
           >
             <Route path="/agency/clients" element={agencyPage('clients')} />
             <Route path="/agency/accounts" element={agencyPage('accountManagement')} />
+            <Route path="/agency/authorizations" element={agencyPage('authorizationCenter')} />
             <Route path="/agency/service-contracts" element={agencyPage('serviceContracts')} />
             <Route path="/agency/fees" element={<Navigate to="/agency/service-contracts" replace />} />
             <Route path="/agency/fee-collection" element={<Navigate to="/agency/service-contracts" replace />} />
             <Route path="/agency/collaboration" element={<Navigate to="/agency/service-contracts" replace />} />
             <Route path="/agency/customer-collaboration" element={<Navigate to="/agency/service-contracts" replace />} />
             <Route path="/agency/batch-tax" element={agencyPage('batchTax')} />
+            <Route path="/agency/declaration-receipts" element={agencyPage('declarationReceipts')} />
+            <Route path="/agency/approvals" element={agencyPage('approvalCenter')} />
+            <Route path="/agency/downloads" element={agencyPage('downloadCenter')} />
             <Route path="/agency/data-stats" element={agencyPage('dataStats')} />
             <Route path="/agency/batch-ops" element={agencyPage('batchOps')} />
             <Route path="/agency/invoice-management" element={agencyPage('invoiceManagement')} />
