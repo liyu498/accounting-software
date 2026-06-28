@@ -42,11 +42,12 @@ import {
   Wallet,
   Mail,
 } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '../../lib/utils'
 import { useAuthStore } from '../../stores/authStore'
 import { useThemeStore, type ThemeMode } from '../../stores/themeStore'
 import { CompanySelector } from '../settings/CompanySelector'
+import { recordAuditLog } from '../../lib/exportJobs'
 
 interface SidebarItem {
   id: string
@@ -206,8 +207,12 @@ const allSections: SidebarSection[] = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
-  const { user } = useAuthStore()
+  const [showQuickMenu, setShowQuickMenu] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const [operationNotice, setOperationNotice] = useState<string | null>(null)
+  const { user, logout } = useAuthStore()
   const location = useLocation()
+  const navigate = useNavigate()
 
   const allItems = useMemo(() => [...topLevelItems, ...allSections.flatMap((section) => section.items)], [])
   const activeItem = allItems.find((item) => item.path === location.pathname)
@@ -219,6 +224,50 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       else next.add(sectionId)
       return next
     })
+  }
+
+  const writeShellAudit = (
+    action: string,
+    object: string,
+    level: '普通' | '中' | '高' = '普通',
+    result: '成功' | '待审批' | '失败' = '成功'
+  ) => {
+    recordAuditLog({
+      module: '账套顶栏',
+      action,
+      object,
+      level,
+      result,
+      voucher: '2026-05/科旋电气（上海）有限公司',
+      attachment: '顶栏操作快照',
+      operator: user?.username || 'admin',
+    })
+  }
+
+  const runQuickAction = (path: string, action: string, object: string, notice: string) => {
+    writeShellAudit(action, object)
+    setOperationNotice(notice)
+    setShowQuickMenu(false)
+    navigate(path)
+  }
+
+  const runUserAction = (path: string, action: string, object: string, notice: string, level: '中' | '高' = '中') => {
+    writeShellAudit(action, object, level, '待审批')
+    setOperationNotice(notice)
+    setShowUserMenu(false)
+    navigate(path)
+  }
+
+  const handleSmsAction = () => {
+    writeShellAudit('创建短信催办', '客户资料/申报确认催办短信', '中', '待审批')
+    setOperationNotice('短信催办已写入待确认记录；未配置短信服务前不会直接发送外部短信。')
+  }
+
+  const handleLogout = () => {
+    writeShellAudit('退出登录', user?.username || 'admin')
+    setShowUserMenu(false)
+    logout()
+    navigate('/login')
   }
 
   return (
@@ -298,22 +347,121 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-2 text-sm">
             <ThemeToggle />
-            <button type="button" className="hidden h-8 items-center gap-1 rounded border border-white/25 px-3 font-medium text-white hover:bg-white/10 lg:inline-flex">
-              常办事项
-              <ChevronDown className="h-4 w-4" />
-            </button>
+            <div className="relative hidden lg:block">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowQuickMenu(!showQuickMenu)
+                  setShowUserMenu(false)
+                }}
+                className="inline-flex h-8 items-center gap-1 rounded border border-white/25 px-3 font-medium text-white hover:bg-white/10"
+              >
+                常办事项
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              {showQuickMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowQuickMenu(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-2 w-52 rounded border border-slate-200 bg-white py-1 text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => runQuickAction('/tax/workspace', '打开常办事项', '税务申报工作台', '已打开申报工作台；真实税局提交仍需人工确认。')}
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      登录税务局
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runQuickAction('/invoices/output', '打开常办事项', '导入销项发票', '已进入销项发票；采集或导入后可生成凭证。')}
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      导入发票
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runQuickAction('/bills', '打开常办事项', '导入银行流水', '已进入账单一览；银行流水采集并入此模块处理。')}
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      导入流水
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runQuickAction('/settings/period-management', '打开常办事项', '结账管理', '已进入结账管理；反结账等高风险动作需审批留痕。')}
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      结账管理
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runQuickAction('/settings/audit-log', '打开常办事项', '审计日志', '已进入审计日志，可查看本地操作留痕。')}
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      审计日志
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <Link to="/downloads" className="hidden h-8 items-center gap-1 rounded px-2 font-medium text-white hover:bg-white/10 md:inline-flex">
               <Download className="h-4 w-4" />
               下载中心
             </Link>
-            <button type="button" className="hidden h-8 items-center gap-1 rounded px-2 font-medium text-white hover:bg-white/10 md:inline-flex">
+            <button type="button" onClick={handleSmsAction} className="hidden h-8 items-center gap-1 rounded px-2 font-medium text-white hover:bg-white/10 md:inline-flex">
               <Mail className="h-4 w-4" />
               短信
             </button>
-            <div className="hidden items-center gap-1 rounded px-2 py-1 font-medium text-white sm:flex">
-              <User className="h-4 w-4" />
-              {user?.username || 'admin'}
-              <ChevronDown className="h-4 w-4" />
+            <div className="relative hidden sm:block">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUserMenu(!showUserMenu)
+                  setShowQuickMenu(false)
+                }}
+                className="inline-flex h-8 items-center gap-1 rounded px-2 font-medium text-white hover:bg-white/10"
+              >
+                <User className="h-4 w-4" />
+                {user?.username || 'admin'}
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              {showUserMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded border border-slate-200 bg-white py-1 text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                    <div className="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
+                      <div className="text-sm font-semibold">{user?.realName || user?.username || 'admin'}</div>
+                      <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">当前账套操作员</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => runUserAction('/settings/roles', '申请修改密码', user?.username || 'admin', '修改密码已进入待确认记录，请在权限管理中完成校验。')}
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      修改密码
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runUserAction('/settings/tax-adapters', '申请授权登录', '税务局授权登录', '授权登录已进入待确认记录，请在税局接口配置中维护授权资料。', '高')}
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      授权登录
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runUserAction('/settings/roles', '查看权限设置', user?.username || 'admin', '已进入权限管理，可查看角色和审计要求。')}
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      权限设置
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="block w-full border-t border-slate-100 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:border-slate-800 dark:text-red-300 dark:hover:bg-red-950/40"
+                    >
+                      退出登录
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
             <Link
               to="/"
@@ -325,6 +473,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
+        {operationNotice && (
+          <div className="border-b border-blue-200 bg-blue-50 px-4 py-2 text-xs text-blue-800 dark:border-blue-900 dark:bg-blue-950/70 dark:text-blue-100">
+            {operationNotice}
+          </div>
+        )}
         <main className="min-h-0 flex-1 overflow-auto p-4">{children}</main>
       </div>
     </div>
