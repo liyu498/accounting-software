@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useState } from 'react'
 import {
   AlertTriangle,
   ArrowRight,
@@ -14,6 +15,7 @@ import {
   RefreshCw,
   Users,
 } from 'lucide-react'
+import { recordAuditLog } from '../lib/exportJobs'
 
 const statusCards = [
   { label: '销项发票', value: '58', sub: '已匹配 46 / 异常 2', icon: ReceiptText, path: '/invoices/output' },
@@ -39,6 +41,22 @@ const progress = [
 ]
 
 export function Dashboard() {
+  const [operationNotice, setOperationNotice] = useState<string | null>(null)
+
+  const handleRefreshProgress = () => {
+    recordAuditLog({
+      module: '账套工作台',
+      action: '刷新业务处理进度',
+      object: '2026-05主链路看板',
+      level: '普通',
+      result: '成功',
+      status: '已通过',
+      voucher: '2026-05/工作台',
+      attachment: '进度快照',
+    })
+    setOperationNotice('业务处理进度已刷新，并记录当前账期主链路进度快照。')
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -57,6 +75,12 @@ export function Dashboard() {
           </Link>
         </div>
       </div>
+
+      {operationNotice && (
+        <div className="border border-amber-200 bg-amber-50 px-4 py-2 text-xs leading-5 text-amber-800">
+          {operationNotice}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
         {statusCards.map((item) => (
@@ -78,7 +102,7 @@ export function Dashboard() {
               <h2 className="font-semibold text-slate-900">业务处理进度</h2>
               <p className="text-xs text-slate-500">按竞品看板结构展示从采集到申报的主链路。</p>
             </div>
-            <button className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100">
+            <button type="button" onClick={handleRefreshProgress} className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100">
               <RefreshCw className="h-3.5 w-3.5" />
               刷新
             </button>

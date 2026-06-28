@@ -245,6 +245,91 @@ export function TaxWorkspace() {
     setOperationNotice('确认申报已进入待审批留痕；当前未向电子税务局提交，也未发起扣款。')
   }
 
+  const importInitialization = () => {
+    writeTaxAudit({
+      action: '导入初始化',
+      object: '税种认定/期初留抵/申报参数',
+      level: '中',
+      result: '待审批',
+      status: '待确认',
+      attachment: '初始化导入批次',
+    })
+    setOperationNotice('导入初始化已进入待确认留痕；后续会接入模板校验、字段映射和回滚清单。')
+  }
+
+  const downloadTaxTemplate = () => {
+    writeTaxAudit({
+      action: '下载模板',
+      object: '税务申报初始化模板',
+      level: '普通',
+      result: '成功',
+      status: '已通过',
+      attachment: '模板版本',
+    })
+    recordExportJob({
+      fileName: '税务申报初始化模板-2026-05.xlsx',
+      moduleName: '税务申报工作台',
+      format: 'Excel模板',
+      scope: '2026-05/初始化',
+      templateKind: 'tax',
+      rowCount: 0,
+    })
+    setOperationNotice('税务申报初始化模板已写入下载中心；正式模板会继续绑定税种、地区和申报口径校验。')
+  }
+
+  const openColumnSettings = () => {
+    writeTaxAudit({
+      action: '列设置',
+      object: '申报清单显示列',
+      level: '普通',
+      result: '成功',
+      status: '已通过',
+      attachment: '页面配置',
+    })
+    setOperationNotice('列设置已记录；后续会接入用户级列宽、冻结列和显示字段保存。')
+  }
+
+  const viewDeclarationRow = (row: (typeof declarationRows)[number]) => {
+    writeTaxAudit({
+      action: '查看申报明细',
+      object: `${row.category}-${row.period}`,
+      level: '普通',
+      result: '成功',
+      status: '已通过',
+      attachment: row.form,
+    })
+    setOperationNotice(`${row.category} 明细已打开留痕；后续会接入申报表主表、附表、取数公式和附件快照。`)
+  }
+
+  const fetchDeclarationRow = (row: (typeof declarationRows)[number]) => {
+    const blocked = row.risk !== '无' || row.collectStatus === '待补资料'
+    writeTaxAudit({
+      action: '单税种取数',
+      object: `${row.category}-${row.period}`,
+      level: blocked ? '中' : '普通',
+      result: blocked ? '待审批' : '成功',
+      status: blocked ? '待确认' : '已通过',
+      attachment: row.source,
+    })
+    setOperationNotice(
+      blocked
+        ? `${row.category} 存在资料或风险项，已进入待确认；不会自动进入申报提交。`
+        : `${row.category} 已重新取数并记录来源快照。`
+    )
+  }
+
+  const handleRiskLink = (module: string, desc: string) => {
+    writeTaxAudit({
+      action: '处理风险入口',
+      object: `${module}-${desc}`,
+      level: desc.includes('阻断') || desc.includes('未完成') ? '高' : '中',
+      result: '待审批',
+      status: '待确认',
+      attachment: '风险处理入口',
+    })
+    setOperationNotice(`${module} 风险处理已记录；当前只定位到处理入口，不自动修改发票、凭证或税表。`)
+  }
+
   const exportTaxPackage = () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = '税务申报包-2026-05.html'
@@ -375,15 +460,15 @@ export function TaxWorkspace() {
             <SelectLike label="校验状态" value="全部" />
           </div>
           <div className="flex flex-wrap items-center gap-1 text-xs">
-            <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label="导入初始化" />
-            <ToolbarButton icon={<FileSpreadsheet className="h-3.5 w-3.5" />} label="下载模板" />
+            <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label="导入初始化" onClick={importInitialization} />
+            <ToolbarButton icon={<FileSpreadsheet className="h-3.5 w-3.5" />} label="下载模板" onClick={downloadTaxTemplate} />
             <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="规则与日志" onClick={() => setShowRulesLog((value) => !value)} />
-            <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="列设置" />
+            <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="列设置" onClick={openColumnSettings} />
           </div>
         </div>
       </div>
 
-      {showRulesLog && <TaxRulesLogPanel />}
+      {showRulesLog && <TaxRulesLogPanel onRiskLink={handleRiskLink} />}
 
       <div className="min-w-0 pt-3">
         <section className="min-w-0 border border-slate-200 bg-white">
@@ -437,8 +522,8 @@ export function TaxWorkspace() {
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-600">{row.owner}</td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-500">{row.updated}</td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
-                      <button className="mr-2 text-[#1f65a7] hover:underline">查看</button>
-                      <button className="text-[#1f65a7] hover:underline">取数</button>
+                      <button type="button" onClick={() => viewDeclarationRow(row)} className="mr-2 text-[#1f65a7] hover:underline">查看</button>
+                      <button type="button" onClick={() => fetchDeclarationRow(row)} className="text-[#1f65a7] hover:underline">取数</button>
                     </td>
                   </tr>
                 ))}
@@ -464,7 +549,7 @@ export function TaxWorkspace() {
   )
 }
 
-function TaxRulesLogPanel() {
+function TaxRulesLogPanel({ onRiskLink }: { onRiskLink: (module: string, desc: string) => void }) {
   return (
     <section className="mt-3 border border-slate-200 bg-white">
       <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
@@ -479,7 +564,7 @@ function TaxRulesLogPanel() {
               <div key={desc} className="p-3 text-xs">
                 <div className="flex items-center justify-between">
                   <span className={cn('rounded px-2 py-0.5 font-medium', level === '阻断' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700')}>{level}</span>
-                  <button className="text-[#1f65a7]">{link}</button>
+                  <button type="button" onClick={() => onRiskLink(module, desc)} className="text-[#1f65a7]">{link}</button>
                 </div>
                 <div className="mt-2 font-medium text-slate-800">{module}</div>
                 <div className="mt-1 leading-5 text-slate-600">{desc}</div>
@@ -529,7 +614,7 @@ function ToolbarButton({ icon, label, onClick }: { icon: React.ReactNode; label:
 
 function SelectLike({ label, value }: { label: string; value: string }) {
   return (
-    <button className="inline-flex h-8 items-center gap-2 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7]">
+    <button type="button" className="inline-flex h-8 items-center gap-2 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7]">
       <span className="text-slate-400">{label}</span>
       <span>{value}</span>
       <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
