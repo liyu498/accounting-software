@@ -22,7 +22,8 @@ import { usePeriodStore } from '../stores/periodStore'
 import { TaxpayerType, AccountingSystem, accountingSystemLabels } from '../lib/constants'
 import { cn } from '../lib/utils'
 import { agencyNavItems } from './agency/agencyNav'
-import { recordAuditLog } from '../lib/exportJobs'
+import { recordAuditLog, recordExportJob } from '../lib/exportJobs'
+import { exportRowsToXlsx } from '../lib/xlsxExport'
 
 interface SummaryMetric {
   label: string
@@ -341,6 +342,74 @@ export function Welcome() {
     warningToast('采集入口已预留：正式接入时将按维护的办税登录方式采集税务登记、税种认定、主管税务机关和办税人员信息')
   }
 
+  const handleImportCompanies = () => {
+    recordWelcomeAudit('导入企业清单', '账套管理-导入批次', '中', '待审批')
+    setOperationNotice('导入企业清单已进入待确认留痕；后续会接入 Excel 模板校验、字段映射、错误清单和回滚记录。')
+    warningToast('导入任务已记录，正式文件选择和字段映射将在导入中心补齐')
+  }
+
+  const handleExportCompanies = async () => {
+    const exportedAt = new Date().toLocaleString('zh-CN')
+    const fileName = `账套管理-客户企业档案-${statusFilter}-${exportedAt.replace(/[\\/:\s]/g, '')}.xlsx`
+    const sheetRows = [
+      ['账套管理-客户企业档案'],
+      ['机构', 'AI 代理记账', '状态筛选', statusFilter === 'normal' ? '正常' : '停用', '筛选关键字', searchQuery.trim() || '全部'],
+      ['导出时间', exportedAt, '记录数', `${rows.length}`, '导出人', 'admin'],
+      [],
+      ['企业标签', '编码', '企业名称', '纳税人识别号', '企业类型', '纳税人资格', '采集状态', '信用等级', '客户导入时间', '主办会计', '服务期限', '部门主管', '账期', '主管税务机关', '状态'],
+      ...rows.map((company) => [
+        '编辑',
+        company.code,
+        company.name,
+        company.taxId,
+        company.enterpriseType,
+        company.taxType,
+        company.collectStatus,
+        company.credit,
+        company.importedAt,
+        company.accountant,
+        company.servicePeriod,
+        company.supervisor,
+        company.period,
+        company.taxOffice,
+        company.status,
+      ]),
+      [],
+      ['制表说明', '账套管理按当前筛选导出，采集、登录税务局、删除和停用等高风险动作仅记录审计，不自动提交外部系统。'],
+    ]
+    await exportRowsToXlsx({
+      sheetRows,
+      columnWidths: [
+        { wch: 10 },
+        { wch: 12 },
+        { wch: 28 },
+        { wch: 24 },
+        { wch: 18 },
+        { wch: 14 },
+        { wch: 24 },
+        { wch: 10 },
+        { wch: 20 },
+        { wch: 12 },
+        { wch: 18 },
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 28 },
+        { wch: 12 },
+      ],
+      sheetName: '账套管理',
+      fileName,
+    })
+    recordExportJob({
+      fileName,
+      moduleName: '机构-账套管理',
+      format: 'Excel',
+      scope: `${statusFilter}/${searchQuery.trim() || '全部'}`,
+      templateKind: 'agency',
+      rowCount: rows.length,
+    })
+    setOperationNotice(`${fileName} 已生成并写入下载中心；导出范围为当前账套管理筛选结果。`)
+  }
+
   const handleEditCompany = (company: AccountRow) => {
     setEditingCompanyId(company.real ? company.id : `demo:${company.id}`)
     setNewCompany({
@@ -485,8 +554,8 @@ export function Welcome() {
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <Button size="sm" onClick={() => { setEditingCompanyId(null); setNewCompany(emptyCompanyForm); setShowAddModal(true) }}><Plus className="h-4 w-4" />新增</Button>
-                <Button size="sm" variant="outline"><UploadCloud className="h-4 w-4" />导入</Button>
-                <Button size="sm" variant="outline"><Download className="h-4 w-4" />导出</Button>
+                <Button size="sm" variant="outline" onClick={handleImportCompanies}><UploadCloud className="h-4 w-4" />导入</Button>
+                <Button size="sm" variant="outline" onClick={handleExportCompanies}><Download className="h-4 w-4" />导出</Button>
                 <Button size="sm" variant="outline" onClick={() => handleCollect()}><CloudDownload className="h-4 w-4" />采集</Button>
                 <Button size="sm" variant="outline" onClick={handleBatchDelete}><Trash2 className="h-4 w-4" />批量删除</Button>
                 <Button size="sm" variant="outline" onClick={handleBatchDeactivate}><Ban className="h-4 w-4" />批量停用</Button>
