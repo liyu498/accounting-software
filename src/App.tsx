@@ -93,16 +93,16 @@ function App() {
             <Route path="/agency/fee-collection" element={<Navigate to="/agency/service-contracts" replace />} />
             <Route path="/agency/collaboration" element={<Navigate to="/agency/service-contracts" replace />} />
             <Route path="/agency/customer-collaboration" element={<Navigate to="/agency/service-contracts" replace />} />
-            <Route path="/agency/batch-tax" element={agencyPage('batchTax')} />
-            <Route path="/agency/declaration-receipts" element={agencyPage('declarationReceipts')} />
-            <Route path="/agency/approvals" element={agencyPage('approvalCenter')} />
+            <Route path="/agency/batch-tax" element={<Navigate to="/agency/batch-ops" replace />} />
+            <Route path="/agency/declaration-receipts" element={<Navigate to="/agency/batch-ops" replace />} />
+            <Route path="/agency/approvals" element={<Navigate to="/agency/batch-ops" replace />} />
             <Route path="/agency/downloads" element={agencyPage('downloadCenter')} />
             <Route path="/agency/data-stats" element={agencyPage('dataStats')} />
             <Route path="/agency/batch-ops" element={agencyPage('batchOps')} />
             <Route path="/agency/invoice-management" element={agencyPage('invoiceManagement')} />
             <Route path="/agency/health-check" element={agencyPage('healthCheck')} />
             <Route path="/agency/automation" element={agencyPage('automation')} />
-            <Route path="/agency/settings" element={agencyPage('agencySettings')} />
+            <Route path="/agency/settings" element={<Navigate to="/agency/service-contracts" replace />} />
           </Route>
 
           <Route

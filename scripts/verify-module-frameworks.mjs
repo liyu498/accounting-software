@@ -19,7 +19,7 @@ const agencyUnionKinds = unique([...agencyUnionBlock.matchAll(/'([^']+)'/g)].map
 const agencyConfigBlock = agencySource.match(/const configs: Record<AgencyModuleKind, AgencyConfig> = \{([\s\S]*?)\n\}/)?.[1] ?? ''
 const agencyConfigKinds = unique([...agencyConfigBlock.matchAll(/^  ([A-Za-z0-9]+): \{\n    title:/gm)].map((match) => match[1]))
 
-const routePaths = unique([...appSource.matchAll(/<Route path="([^"]+)"/g)].map((match) => match[1]))
+const routePaths = unique([...appSource.matchAll(/<Route\s+path="([^"]+)"/g)].map((match) => match[1])).filter((path) => path !== '*')
 const shellPaths = unique([...shellSource.matchAll(/path: '([^']+)'/g)].map((match) => match[1]))
 const agencyNavPaths = unique([...agencyNavSource.matchAll(/path: '([^']+)'/g)].map((match) => match[1]))
 

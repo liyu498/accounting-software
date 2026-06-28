@@ -29,16 +29,12 @@ export type AgencyModuleKind =
   | 'accountManagement'
   | 'authorizationCenter'
   | 'serviceContracts'
-  | 'batchTax'
-  | 'declarationReceipts'
-  | 'approvalCenter'
   | 'downloadCenter'
   | 'dataStats'
   | 'batchOps'
   | 'invoiceManagement'
   | 'healthCheck'
   | 'automation'
-  | 'agencySettings'
 
 interface AgencyModulePageProps {
   kind: AgencyModuleKind
@@ -168,10 +164,10 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   },
   serviceContracts: {
     title: '服务合同',
-    description: '维护代账服务合同、服务套餐、收费收款、客户协同、续费状态和归档。',
-    tabs: ['服务合同', '收费管理', '客户协同', '待续费', '待签署', '归档记录'],
+    description: '维护代账服务合同、服务套餐、收费收款、客户协同、机构资料、人员权限、消息模板和归档。',
+    tabs: ['服务合同', '收费管理', '客户协同', '机构资料', '服务套餐', '消息模板', '权限策略', '归档记录'],
     primaryAction: '新增合同',
-    keywordPlaceholder: '搜索客户、合同编号、收费状态、协同事项、负责人',
+    keywordPlaceholder: '搜索客户、合同编号、收费状态、协同事项、套餐、机构配置',
     summary: [
       { label: '服务中合同', value: '118 份', tone: 'blue' },
       { label: '待收服务费', value: '¥92,600', tone: 'amber' },
@@ -196,103 +192,8 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { id: 'sc-003', status: '异常', values: { contractNo: 'FW-2025-0091', customer: '杭州辰光贸易有限公司', package: '一般纳税人含申报', period: '2025-07 至 2026-06', fee: '¥3,200.00', payment: '逾期欠费 ¥6,400', collaboration: '补传销项发票', renewal: '30天内到期', owner: '王会计', archive: '缺附件' } },
     ],
     queueTitle: '合同待办',
-    queue: ['杭州辰光贸易合同 30 天内到期且欠费 2 个月', '上海云启新合同待签署，服务费发票待开具', '42 项客户协同待办统一在合同客户视图处理'],
-    notes: ['服务合同承接收费管理和客户协同，避免机构首页入口过散。', '合同、收费、催办和归档同属代理服务交付闭环；客户资料上传仍会流转到具体账套业务模块。'],
-  },
-  batchTax: {
-    title: '批量申报',
-    description: '按客户批量取数、风险校验、生成申报包、人工确认和回执归档。',
-    tabs: ['申报队列', '待取数', '待校验', '待确认', '已申报', '回执/缴款'],
-    primaryAction: '批量取数',
-    keywordPlaceholder: '搜索客户、税种、所属期、状态',
-    summary: [
-      { label: '本期任务', value: '68 项', tone: 'blue' },
-      { label: '待确认', value: '12 项', tone: 'amber' },
-      { label: '阻断风险', value: '5 项', tone: 'red' },
-      { label: '已归档', value: '41 项', tone: 'green' },
-    ],
-    columns: [
-      { key: 'customer', label: '客户名称' },
-      { key: 'tax', label: '税种' },
-      { key: 'period', label: '所属期', align: 'center' },
-      { key: 'collect', label: '取数' },
-      { key: 'check', label: '校验' },
-      { key: 'declare', label: '申报' },
-      { key: 'pay', label: '缴款' },
-      { key: 'receipt', label: '回执' },
-    ],
-    rows: [
-      { id: 'bt-001', status: '待确认', values: { customer: '科旋电气（上海）有限公司', tax: '增值税及附加', period: '2026-05', collect: '已取数', check: '校验通过', declare: '待确认', pay: '未扣款', receipt: '未归档' } },
-      { id: 'bt-002', status: '异常', values: { customer: '上海云启科技有限公司', tax: '企业所得税', period: '2026-Q2', collect: '已取数', check: '利润差异', declare: '阻断', pay: '未扣款', receipt: '未归档' } },
-      { id: 'bt-003', status: '已完成', values: { customer: '杭州辰光贸易有限公司', tax: '印花税', period: '2026-05', collect: '已取数', check: '校验通过', declare: '已提交', pay: '已缴款', receipt: '已归档' } },
-    ],
-    queueTitle: '申报边界',
-    queue: ['真实提交必须走合法电子税务局 adapter', '每户客户提交前必须人工确认申报包', '扣款和回执状态不做假提交'],
-    notes: ['当前实现机构级批量申报台账、状态流转和申报包入口。', '税局登录、短信、UKey、扣款等后续按地区 adapter 独立接入。'],
-  },
-  declarationReceipts: {
-    title: '申报回执',
-    description: '机构维度统一管理多客户申报回执、缴款书、扣款结果、申报包和归档状态。',
-    tabs: ['回执总览', '待取回执', '待缴款', '扣款异常', '已归档', '申报包'],
-    primaryAction: '同步回执',
-    keywordPlaceholder: '搜索客户、税种、所属期、回执号、缴款书号',
-    summary: [
-      { label: '本期申报包', value: '68 份', tone: 'blue' },
-      { label: '待取回执', value: '9 份', tone: 'amber' },
-      { label: '缴款异常', value: '3 项', tone: 'red' },
-      { label: '已归档', value: '52 份', tone: 'green' },
-    ],
-    columns: [
-      { key: 'customer', label: '客户名称' },
-      { key: 'taxType', label: '税种' },
-      { key: 'period', label: '所属期', align: 'center' },
-      { key: 'declareStatus', label: '申报状态' },
-      { key: 'receiptNo', label: '回执号' },
-      { key: 'paymentStatus', label: '缴款状态' },
-      { key: 'paymentNo', label: '缴款书号' },
-      { key: 'archive', label: '归档状态' },
-      { key: 'owner', label: '负责人' },
-    ],
-    rows: [
-      { id: 'dr-ag-001', status: '已完成', values: { customer: '科旋电气（上海）有限公司', taxType: '增值税及附加', period: '2026-05', declareStatus: '已申报', receiptNo: 'RCPT-20260626-001', paymentStatus: '已扣款', paymentNo: 'PAY-20260626-018', archive: '已归档', owner: '张会计' } },
-      { id: 'dr-ag-002', status: '待确认', values: { customer: '上海云启科技有限公司', taxType: '企业所得税', period: '2026-Q2', declareStatus: '待提交', receiptNo: '待获取', paymentStatus: '无需缴款', paymentNo: '-', archive: '申报包待确认', owner: '李会计' } },
-      { id: 'dr-ag-003', status: '异常', values: { customer: '杭州辰光贸易有限公司', taxType: '印花税', period: '2026-05', declareStatus: '提交失败', receiptNo: '-', paymentStatus: '未缴款', paymentNo: '-', archive: '错误截图待处理', owner: '王会计' } },
-    ],
-    queueTitle: '归档要求',
-    queue: ['申报包、申报回执、缴款书和错误截图按客户/所属期归档', '扣款异常必须回链到税务申报任务和客户通知', '真实回执获取依赖合法税局 adapter 或人工上传'],
-    notes: ['申报回执是机构层跨客户归档模块，单账套内仍保留该公司自己的回执缴款书。', '自动报税场景必须保留申报包、确认人、提交时间和回执证据。'],
-  },
-  approvalCenter: {
-    title: '审批中心',
-    description: '集中处理跨客户高风险操作审批，包括申报确认、批量删除、反结账、反审核、自动化策略和授权变更。',
-    tabs: ['待我审批', '我发起的', '申报确认', '结账/反结账', '删除/恢复', '授权变更', '审批记录'],
-    primaryAction: '发起审批',
-    keywordPlaceholder: '搜索客户、审批类型、发起人、风险说明',
-    summary: [
-      { label: '待审批', value: '21 项', tone: 'amber' },
-      { label: '高风险', value: '6 项', tone: 'red' },
-      { label: '今日通过', value: '34 项', tone: 'green' },
-      { label: '退回', value: '4 项', tone: 'blue' },
-    ],
-    columns: [
-      { key: 'ticket', label: '审批单号' },
-      { key: 'customer', label: '客户名称' },
-      { key: 'type', label: '审批类型' },
-      { key: 'risk', label: '风险说明' },
-      { key: 'applicant', label: '发起人' },
-      { key: 'approver', label: '当前审批人' },
-      { key: 'createdAt', label: '发起时间' },
-      { key: 'deadline', label: '期限' },
-      { key: 'result', label: '处理结果' },
-    ],
-    rows: [
-      { id: 'ap-001', status: '待确认', values: { ticket: 'SP-20260626-018', customer: '科旋电气（上海）有限公司', type: '申报确认', risk: '2 张进项未勾选', applicant: '张会计', approver: '主管会计', createdAt: '06-26 09:40', deadline: '今天', result: '待审批' } },
-      { id: 'ap-002', status: '异常', values: { ticket: 'SP-20260626-021', customer: '杭州辰光贸易有限公司', type: '反结账', risk: '已申报期间申请反结账', applicant: '王会计', approver: '机构管理员', createdAt: '06-26 10:10', deadline: '今天', result: '阻断复核' } },
-      { id: 'ap-003', status: '已完成', values: { ticket: 'SP-20260625-093', customer: '上海云启科技有限公司', type: '批量生成凭证', risk: 'AI 置信度 86%', applicant: '李会计', approver: '主管会计', createdAt: '06-25 18:30', deadline: '已处理', result: '通过' } },
-    ],
-    queueTitle: '审批边界',
-    queue: ['真实提交申报、扣款、删除、反结账和自动化策略变更必须留审批记录', '审批通过不等于外部系统提交成功，仍需回执或执行日志', '审批记录不可被普通账套操作覆盖'],
-    notes: ['审批中心是机构层风控模块，不放入单户账套作为跨客户入口。', '单账套内仅展示当前公司的审批状态和发起入口。'],
+    queue: ['杭州辰光贸易合同 30 天内到期且欠费 2 个月', '上海云启新合同待签署，服务费发票待开具', '42 项客户协同待办统一在合同客户视图处理', '机构资料、服务套餐和消息模板在服务合同模块内维护'],
+    notes: ['服务合同承接收费管理、客户协同和机构基础配置，避免机构首页入口过散。', '合同、收费、催办、套餐、权限策略和归档同属代理服务交付闭环；客户资料上传仍会流转到具体账套业务模块。'],
   },
   downloadCenter: {
     title: '下载中心',
@@ -358,8 +259,8 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   },
   batchOps: {
     title: '批量操作',
-    description: '集中执行批量采集发票、采集银行流水、生成凭证、结转、结账、反结账和资料归档。',
-    tabs: ['操作任务', '批量采集', '批量生成', '批量结转', '批量结账', '批量归档', '执行日志'],
+    description: '集中执行批量采集发票、采集银行流水、生成凭证、结转结账、批量申报、回执归档、反结账审批和资料归档。',
+    tabs: ['操作任务', '批量采集', '批量生成', '批量结账', '批量申报', '申报回执', '审批记录', '执行日志'],
     primaryAction: '新建任务',
     keywordPlaceholder: '搜索任务、客户、操作人、执行状态',
     summary: [
@@ -382,11 +283,13 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { id: 'op-002', status: '进行中', values: { task: '批量采集银行流水', scope: '23 户', period: '2026-05', progress: '16/23', operator: '张会计', started: '06-26 09:10', result: '执行中' } },
       { id: 'op-003', status: '待处理', values: { task: '批量生成银行流水凭证', scope: '23 户', period: '2026-05', progress: '0/23', operator: '李会计', started: '待执行', result: '排队' } },
       { id: 'op-004', status: '待处理', values: { task: '批量结账', scope: '18 户', period: '2026-05', progress: '0/18', operator: '王会计', started: '待执行', result: '需先完成风险检查' } },
-      { id: 'op-005', status: '异常', values: { task: '批量期末结转', scope: '8 户', period: '2026-05', progress: '5/8', operator: '王会计', started: '06-25 18:30', result: '3 户失败' } },
+      { id: 'op-005', status: '待确认', values: { task: '批量申报与回执归档', scope: '68 项税种', period: '2026-05', progress: '41/68', operator: '主管会计', started: '06-26 10:20', result: '12 项待确认' } },
+      { id: 'op-006', status: '异常', values: { task: '批量反结账审批', scope: '6 户', period: '2026-05', progress: '2/6', operator: '机构管理员', started: '06-26 11:10', result: '4 项阻断复核' } },
+      { id: 'op-007', status: '异常', values: { task: '批量期末结转', scope: '8 户', period: '2026-05', progress: '5/8', operator: '王会计', started: '06-25 18:30', result: '3 户失败' } },
     ],
     queueTitle: '执行控制',
-    queue: ['批量采集需读取客户维护的税局和银行授权状态', '批量结账前必须完成凭证断号、报表平衡和税务风险检查', '高风险客户自动跳过并进入复核队列', '所有任务保留执行日志和回滚说明'],
-    notes: ['批量操作用于机构级效率提升，单账套页面仍保留逐户处理入口。', '涉及提交、删除、反结账等高风险动作必须二次确认。'],
+    queue: ['批量采集需读取客户维护的税局和银行授权状态', '批量结账前必须完成凭证断号、报表平衡和税务风险检查', '批量申报、回执缴款书和扣款归档在同一任务内流转', '高风险客户自动跳过并进入审批记录', '所有任务保留执行日志和回滚说明'],
+    notes: ['批量操作用于机构级效率提升，单账套页面仍保留逐户处理入口。', '申报确认、回执归档、删除、反结账等高风险动作合并在批量操作内二次确认和审批。'],
   },
   invoiceManagement: {
     title: '开票管理',
@@ -478,36 +381,6 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     queueTitle: 'AI控制边界',
     queue: ['AI 只能生成建议和草稿，凭证入账前需确认', '自动申报只到申报包和待提交状态', '每条建议保留来源、置信度和人工处理日志'],
     notes: ['AI 是额外增强功能，必须解释来源和置信度，不能黑箱直接入账或报税。', '后续可接入 OCR、票据解析、规则引擎和税表取数 adapter。'],
-  },
-  agencySettings: {
-    title: '机构设置',
-    description: '维护机构资料、人员角色、部门权限、服务套餐、消息模板、税局/银行授权策略和自动化边界。',
-    tabs: ['机构资料', '人员权限', '服务套餐', '消息模板', '授权策略', '审计日志'],
-    primaryAction: '新增配置',
-    keywordPlaceholder: '搜索配置项、角色、套餐、模板、授权策略',
-    summary: [
-      { label: '启用人员', value: '18 人', tone: 'blue' },
-      { label: '服务套餐', value: '6 套', tone: 'green' },
-      { label: '待复核授权', value: '11 项', tone: 'amber' },
-      { label: '高风险配置', value: '2 项', tone: 'red' },
-    ],
-    columns: [
-      { key: 'item', label: '配置项' },
-      { key: 'category', label: '类别' },
-      { key: 'scope', label: '适用范围' },
-      { key: 'owner', label: '负责人' },
-      { key: 'statusText', label: '状态' },
-      { key: 'updatedAt', label: '更新时间' },
-      { key: 'audit', label: '审计要求' },
-    ],
-    rows: [
-      { id: 'as-001', status: '已完成', values: { item: '一般纳税人标准包', category: '服务套餐', scope: '全部客户', owner: '机构管理员', statusText: '启用', updatedAt: '06-26 10:20', audit: '版本留痕' } },
-      { id: 'as-002', status: '待确认', values: { item: '批量申报短信模板', category: '消息模板', scope: '待申报客户', owner: '李会计', statusText: '待复核', updatedAt: '06-25 18:40', audit: '发送留痕' } },
-      { id: 'as-003', status: '异常', values: { item: '自动提交申报', category: '授权策略', scope: '禁用', owner: '机构管理员', statusText: '阻断', updatedAt: '06-24 09:10', audit: '必须人工确认' } },
-    ],
-    queueTitle: '设置边界',
-    queue: ['机构设置不替代单账套内企业信息和科目设置', '税局和银行授权只保存授权状态和 adapter 参数，不保存明文敏感信息', '高风险自动化策略默认关闭'],
-    notes: ['机构设置承接竞品顶层设置入口，处理跨客户的人员、套餐、模板和策略。', '单公司账套设置仍保留在账套内左侧设置模块。'],
   },
 }
 
