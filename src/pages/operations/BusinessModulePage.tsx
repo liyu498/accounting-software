@@ -2583,6 +2583,29 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     )
   }
 
+  const rowObjectLabel = (row: ModuleRow) => {
+    const firstValue = Object.values(row.values).find(Boolean)
+    return row.voucher && row.voucher !== '-' ? row.voucher : firstValue || row.id
+  }
+
+  const handleViewRow = (row: ModuleRow) => {
+    const object = rowObjectLabel(row)
+    writeModuleAudit('查看明细', `${title}-${object}`)
+    setOperationNotice(`已打开 ${object} 的明细留痕；后续将接入附件、来源单据和操作快照。`)
+  }
+
+  const handleGenerateVoucher = (row: ModuleRow) => {
+    const object = rowObjectLabel(row)
+    const level = row.status === '异常' || isHighRiskAction ? '高' : '中'
+    const result = row.status === '异常' || isHighRiskAction ? '待审批' : '成功'
+    writeModuleAudit('生成凭证草稿', `${title}-${object}`, level, result)
+    setOperationNotice(
+      result === '待审批'
+        ? `${object} 已进入凭证草稿待确认；异常或高风险数据不会自动入账。`
+        : `${object} 已生成凭证草稿并写入审计日志，正式入账仍需人工确认。`
+    )
+  }
+
   const handleExportExcel = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = `${title}-2026-05.xlsx`
@@ -2808,8 +2831,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                       </span>
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
-                      <button className="mr-2 text-[#1f65a7] hover:underline">查看</button>
-                      <button className="text-[#1f65a7] hover:underline">生成凭证</button>
+                      <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
+                        查看
+                      </button>
+                      <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
+                        生成凭证
+                      </button>
                     </td>
                   </tr>
                 ))}
