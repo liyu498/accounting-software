@@ -25,7 +25,8 @@ const agencyNavPaths = unique([...agencyNavSource.matchAll(/path: '([^']+)'/g)].
 
 const missingUnion = routeKinds.filter((kind) => !unionKinds.includes(kind))
 const missingConfig = routeKinds.filter((kind) => !configKinds.includes(kind))
-const unusedUnion = unionKinds.filter((kind) => !routeKinds.includes(kind) && !['matchingRules'].includes(kind))
+const unusedUnion = unionKinds.filter((kind) => !routeKinds.includes(kind))
+const unusedConfig = configKinds.filter((kind) => !routeKinds.includes(kind))
 const navWithoutRoute = shellPaths.filter((path) => !routePaths.includes(path))
 const missingAgencyUnion = agencyRouteKinds.filter((kind) => !agencyUnionKinds.includes(kind))
 const missingAgencyConfig = agencyRouteKinds.filter((kind) => !agencyConfigKinds.includes(kind))
@@ -48,6 +49,7 @@ const errors = [
   ...missingUnion.map((kind) => `businessPage kind '${kind}' is missing from ModuleKind`),
   ...missingConfig.map((kind) => `businessPage kind '${kind}' is missing from moduleConfigs`),
   ...unusedUnion.map((kind) => `ModuleKind '${kind}' is not used by any business route`),
+  ...unusedConfig.map((kind) => `moduleConfigs kind '${kind}' is not used by any business route`),
   ...navWithoutRoute.map((path) => `sidebar path '${path}' has no matching <Route>`),
   ...missingAgencyUnion.map((kind) => `agencyPage kind '${kind}' is missing from AgencyModuleKind`),
   ...missingAgencyConfig.map((kind) => `agencyPage kind '${kind}' is missing from agency configs`),

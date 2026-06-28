@@ -379,7 +379,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => runQuickAction('/bills', '打开常办事项', '导入银行流水', '已进入账单一览；银行流水采集并入此模块处理。')}
+                      onClick={() => runQuickAction('/bank', '打开常办事项', '导入银行流水', '已进入银行账单；银行流水采集、回单和对账在此模块处理。')}
                       className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
                     >
                       导入流水

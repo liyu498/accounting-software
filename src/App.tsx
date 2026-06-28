@@ -126,7 +126,7 @@ function App() {
             {/* Collection and file centers - 资料采集与文件中心 */}
             <Route path="/collection" element={<Navigate to="/invoices/output" replace />} />
             <Route path="/collection/invoices" element={<Navigate to="/invoices/output" replace />} />
-            <Route path="/collection/bank" element={<Navigate to="/bills" replace />} />
+            <Route path="/collection/bank" element={<Navigate to="/bank" replace />} />
             <Route path="/attachments" element={businessPage('attachmentCenter', '附件中心', '管理发票、回单、合同、申报回执和导出归档文件的关联与留痕。')} />
             <Route path="/imports" element={businessPage('importCenter', '导入历史', '统一查看 Excel、CSV、OFD、PDF 等导入批次、错误清单和处理结果。')} />
             <Route path="/downloads" element={businessPage('exportCenter', '下载中心', '统一管理 Excel、PDF、ZIP 导出任务、文件哈希、下载状态和归档期限。')} />

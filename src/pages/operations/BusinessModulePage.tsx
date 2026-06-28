@@ -86,7 +86,6 @@ type ModuleKind =
   | 'nonTaxRevenueReport'
   | 'declarationCalendar'
   | 'settingsData'
-  | 'matchingRules'
   | 'companyInfo'
   | 'initialBalance'
   | 'historyVoucher'
@@ -1949,32 +1948,6 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'set-003', status: '异常', voucher: '-', attachment: '-', values: { code: 'P003', name: '研发项目A', shortName: '项目A', mnemonic: 'YFXMA', taxNo: '-', account: '研发支出' } },
     ],
     notes: ['客户、供应商、其他往来、项目、部门、标签、资产类别可复用这套资料表格。'],
-  },
-  matchingRules: {
-    keywordPlaceholder: '搜索规则名称、关键词、目标科目',
-    primaryAction: '新增规则',
-    importLabel: '导入规则',
-    statusOptions: ['全部', '启用', '停用', '异常'],
-    summary: [
-      { label: '规则数量', value: '38 条', tone: 'blue' },
-      { label: '本期命中', value: '214 次', tone: 'green' },
-      { label: 'AI 建议', value: '9 条', tone: 'amber' },
-      { label: '冲突规则', value: '2 条', tone: 'red' },
-    ],
-    columns: [
-      { key: 'name', label: '规则名称' },
-      { key: 'source', label: '来源模块' },
-      { key: 'condition', label: '匹配条件' },
-      { key: 'action', label: '生成动作' },
-      { key: 'subject', label: '目标科目' },
-      { key: 'priority', label: '优先级', align: 'center' },
-    ],
-    rows: [
-      { id: 'rule-001', status: '启用', voucher: '-', attachment: '-', values: { name: '银行手续费', source: '银行账单', condition: '摘要包含手续费', action: '生成费用凭证', subject: '财务费用', priority: '90' } },
-      { id: 'rule-002', status: '启用', voucher: '-', attachment: '-', values: { name: '销售收款', source: '销项发票+流水', condition: '客户+金额一致', action: '核销应收', subject: '银行存款/应收账款', priority: '80' } },
-      { id: 'rule-003', status: '异常', voucher: '-', attachment: '-', values: { name: '办公用品', source: '进项发票', condition: '商品名称包含办公', action: '生成费用凭证', subject: '管理费用', priority: '冲突' } },
-    ],
-    notes: ['匹配规则必须保留命中日志和人工确认状态，AI 只能建议规则。'],
   },
   companyInfo: {
     keywordPlaceholder: '搜索企业名称、纳税人识别号、开户行、联系人',
