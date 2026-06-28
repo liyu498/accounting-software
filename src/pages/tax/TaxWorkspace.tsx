@@ -15,6 +15,7 @@ import {
 import { useState } from 'react'
 import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
+import { recordExportJob } from '../../lib/exportJobs'
 
 const declarationRows = [
   {
@@ -200,32 +201,62 @@ export function TaxWorkspace() {
   const [showRulesLog, setShowRulesLog] = useState(false)
 
   const exportTaxPackage = () => {
-    const html = buildTaxDeclarationPackageHtml(new Date().toLocaleString('zh-CN'))
+    const exportedAt = new Date().toLocaleString('zh-CN')
+    const fileName = '税务申报包-2026-05.html'
+    const html = buildTaxDeclarationPackageHtml(exportedAt)
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = '税务申报包-2026-05.html'
+    anchor.download = fileName
     document.body.appendChild(anchor)
     anchor.click()
     anchor.remove()
     URL.revokeObjectURL(url)
+    recordExportJob({
+      fileName,
+      moduleName: '税务申报工作台',
+      format: '申报包HTML',
+      scope: '2026-05/全部税种',
+      templateKind: 'tax',
+      rowCount: declarationRows.length,
+    })
   }
 
   const printTaxPackage = () => {
+    const exportedAt = new Date().toLocaleString('zh-CN')
+    const fileName = '税务申报包-2026-05-print'
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
-    printWindow.document.write(buildTaxDeclarationPackageHtml(new Date().toLocaleString('zh-CN')))
+    printWindow.document.write(buildTaxDeclarationPackageHtml(exportedAt))
     printWindow.document.close()
     printWindow.focus()
     printWindow.print()
+    recordExportJob({
+      fileName,
+      moduleName: '税务申报工作台',
+      format: '打印预览',
+      scope: '2026-05/全部税种',
+      templateKind: 'tax',
+      rowCount: declarationRows.length,
+    })
   }
 
   const exportTaxPackagePdf = async () => {
+    const exportedAt = new Date().toLocaleString('zh-CN')
+    const fileName = '税务申报包-2026-05.pdf'
     await exportHtmlToPdf({
-      html: buildTaxDeclarationPackageHtml(new Date().toLocaleString('zh-CN')),
-      fileName: '税务申报包-2026-05.pdf',
+      html: buildTaxDeclarationPackageHtml(exportedAt),
+      fileName,
       pageTitle: '税务申报包 2026-05',
+    })
+    recordExportJob({
+      fileName,
+      moduleName: '税务申报工作台',
+      format: 'PDF',
+      scope: '2026-05/全部税种',
+      templateKind: 'tax',
+      rowCount: declarationRows.length,
     })
   }
 

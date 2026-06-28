@@ -23,6 +23,7 @@ import {
 } from '../../lib/api'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
+import { recordExportJob, useExportJobs, type ExportJob } from '../../lib/exportJobs'
 
 export type AgencyModuleKind =
   | 'clients'
@@ -384,8 +385,40 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   },
 }
 
+function exportJobToAgencyRow(job: ExportJob): AgencyRow {
+  return {
+    id: job.id,
+    status: job.status === '已完成' ? '已完成' : job.status === '待确认' ? '待确认' : '异常',
+    values: {
+      fileName: job.fileName,
+      customer: job.moduleName.startsWith('机构-') ? '机构批量任务' : '当前账套/客户',
+      type: job.format,
+      period: '2026-05',
+      statusText: job.status,
+      createdAt: job.createdAt,
+      creator: job.operator,
+      expireAt: job.expireAt,
+      hash: job.hash,
+    },
+  }
+}
+
 export function AgencyModulePage({ kind }: AgencyModulePageProps) {
-  const config = configs[kind]
+  const baseConfig = configs[kind]
+  const exportJobs = useExportJobs()
+  const config = useMemo(() => {
+    if (kind !== 'downloadCenter') return baseConfig
+    const dynamicRows = exportJobs.map(exportJobToAgencyRow)
+    return {
+      ...baseConfig,
+      rows: [...dynamicRows, ...baseConfig.rows],
+      summary: baseConfig.summary.map((item) => {
+        if (item.label === '可下载文件') return { ...item, value: `${dynamicRows.length + baseConfig.rows.length} 个` }
+        if (item.label === '今日生成') return { ...item, value: `${dynamicRows.length + 18} 个` }
+        return item
+      }),
+    }
+  }, [baseConfig, exportJobs, kind])
   const [remoteRows, setRemoteRows] = useState<AgencyRow[] | null>(null)
   const [isLoadingRows, setIsLoadingRows] = useState(false)
   const [activeTab, setActiveTab] = useState(config.tabs[0])
@@ -434,16 +467,28 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   const handleExportExcel = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
+    const fileName = `${config.title}-2026-05.xlsx`
+    const scope = `${activeTab}/${query.trim() || '全部'}`
     await exportRowsToXlsx({
       sheetRows: buildAgencySheetRows(config, filteredRows, exportedAt, activeTab, query.trim()),
       columnWidths: [{ wch: 18 }, { wch: 12 }, ...config.columns.map((column) => ({ wch: Math.max(14, column.label.length * 3) }))],
       sheetName: config.title,
-      fileName: `${config.title}-2026-05.xlsx`,
+      fileName,
+    })
+    recordExportJob({
+      fileName,
+      moduleName: `机构-${config.title}`,
+      format: 'Excel',
+      scope,
+      templateKind: 'agency',
+      rowCount: filteredRows.length,
     })
   }
 
   const handlePrint = () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
+    const fileName = `${config.title}-2026-05-print`
+    const scope = `${activeTab}/${query.trim() || '全部'}`
     const html = buildAgencyPrintHtml(config, filteredRows, exportedAt, activeTab, query.trim())
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
@@ -451,14 +496,32 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     printWindow.document.close()
     printWindow.focus()
     printWindow.print()
+    recordExportJob({
+      fileName,
+      moduleName: `机构-${config.title}`,
+      format: '打印预览',
+      scope,
+      templateKind: 'agency',
+      rowCount: filteredRows.length,
+    })
   }
 
   const handleExportPdf = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
+    const fileName = `${config.title}-2026-05.pdf`
+    const scope = `${activeTab}/${query.trim() || '全部'}`
     await exportHtmlToPdf({
       html: buildAgencyPrintHtml(config, filteredRows, exportedAt, activeTab, query.trim()),
-      fileName: `${config.title}-2026-05.pdf`,
+      fileName,
       pageTitle: `${config.title} 2026-05`,
+    })
+    recordExportJob({
+      fileName,
+      moduleName: `机构-${config.title}`,
+      format: 'PDF',
+      scope,
+      templateKind: 'agency',
+      rowCount: filteredRows.length,
     })
   }
 
