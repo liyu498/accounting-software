@@ -1,5 +1,6 @@
 pub mod accounts;
 pub mod agency;
+pub mod automation;
 pub mod auth;
 pub mod auxiliary;
 pub mod companies;

@@ -865,6 +865,110 @@ impl Database {
         .execute(pool)
         .await?;
 
+        // Automation jobs for AI bookkeeping and data collection queues.
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS automation_jobs (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                period TEXT,
+                job_type TEXT NOT NULL,
+                source_module TEXT NOT NULL,
+                source_id TEXT,
+                source_file TEXT,
+                status TEXT NOT NULL DEFAULT 'queued',
+                confidence REAL,
+                result_summary TEXT,
+                risk_level TEXT NOT NULL DEFAULT 'normal',
+                reviewer TEXT,
+                created_by TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
+        // Tax declaration tasks stop at local collection, validation, confirmation, and archive states.
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS tax_declaration_tasks (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                period TEXT NOT NULL,
+                tax_type TEXT NOT NULL,
+                form_name TEXT NOT NULL,
+                collect_status TEXT NOT NULL DEFAULT 'not_collected',
+                validation_status TEXT NOT NULL DEFAULT 'pending',
+                declaration_status TEXT NOT NULL DEFAULT 'draft',
+                source_snapshot TEXT,
+                taxable_amount REAL NOT NULL DEFAULT 0,
+                deduction_amount REAL NOT NULL DEFAULT 0,
+                payable_amount REAL NOT NULL DEFAULT 0,
+                risk_count INTEGER NOT NULL DEFAULT 0,
+                adapter_code TEXT,
+                confirmed_by TEXT,
+                confirmed_at TEXT,
+                receipt_no TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, period, tax_type, form_name)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
+        // External adapter authorizations keep only status, scope, and masked account metadata.
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS adapter_authorizations (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                adapter_type TEXT NOT NULL,
+                adapter_code TEXT NOT NULL,
+                region TEXT,
+                auth_status TEXT NOT NULL DEFAULT 'pending',
+                account_mask TEXT,
+                login_identity TEXT,
+                capability_scope TEXT,
+                last_checked_at TEXT,
+                expires_at TEXT,
+                risk_message TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, adapter_type, adapter_code)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
+        // Shared audit log for high-risk automation, tax, export, and adapter operations.
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS operation_audit_logs (
+                id TEXT PRIMARY KEY,
+                company_id TEXT,
+                module_name TEXT NOT NULL,
+                action TEXT NOT NULL,
+                object_ref TEXT,
+                risk_level TEXT NOT NULL DEFAULT 'normal',
+                result TEXT NOT NULL DEFAULT 'success',
+                detail TEXT,
+                operator TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
         // === Additional indexes for performance ===
 
         // Voucher entries: direction for trial balance queries
@@ -937,6 +1041,26 @@ impl Database {
             .execute(pool)
             .await?;
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_agency_tickets_status ON agency_delivery_tickets(status, delivery_status)")
+            .execute(pool)
+            .await?;
+
+        // Automation and adapter operations
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_automation_jobs_company_period ON automation_jobs(company_id, period)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_automation_jobs_status ON automation_jobs(status, job_type)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_tax_tasks_company_period ON tax_declaration_tasks(company_id, period)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_tax_tasks_status ON tax_declaration_tasks(declaration_status, validation_status)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_adapter_auth_company_type ON adapter_authorizations(company_id, adapter_type)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_audit_logs_company_module ON operation_audit_logs(company_id, module_name)")
             .execute(pool)
             .await?;
 
@@ -2631,6 +2755,165 @@ pub struct AgencyDeliveryTicket {
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
+}
+
+// ==================== Automation and Adapter Structs ====================
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct AutomationJob {
+    pub id: String,
+    pub company_id: String,
+    pub company_name: Option<String>,
+    pub period: Option<String>,
+    pub job_type: String,
+    pub source_module: String,
+    pub source_id: Option<String>,
+    pub source_file: Option<String>,
+    pub status: String,
+    pub confidence: Option<f64>,
+    pub result_summary: Option<String>,
+    pub risk_level: String,
+    pub reviewer: Option<String>,
+    pub created_by: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateAutomationJobInput {
+    pub company_id: String,
+    pub period: Option<String>,
+    pub job_type: String,
+    pub source_module: String,
+    pub source_id: Option<String>,
+    pub source_file: Option<String>,
+    pub status: Option<String>,
+    pub confidence: Option<f64>,
+    pub result_summary: Option<String>,
+    pub risk_level: Option<String>,
+    pub reviewer: Option<String>,
+    pub created_by: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateAutomationJobStatusInput {
+    pub id: String,
+    pub company_id: String,
+    pub status: String,
+    pub confidence: Option<f64>,
+    pub result_summary: Option<String>,
+    pub risk_level: Option<String>,
+    pub reviewer: Option<String>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct TaxDeclarationTask {
+    pub id: String,
+    pub company_id: String,
+    pub company_name: Option<String>,
+    pub period: String,
+    pub tax_type: String,
+    pub form_name: String,
+    pub collect_status: String,
+    pub validation_status: String,
+    pub declaration_status: String,
+    pub source_snapshot: Option<String>,
+    pub taxable_amount: f64,
+    pub deduction_amount: f64,
+    pub payable_amount: f64,
+    pub risk_count: i64,
+    pub adapter_code: Option<String>,
+    pub confirmed_by: Option<String>,
+    pub confirmed_at: Option<String>,
+    pub receipt_no: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpsertTaxDeclarationTaskInput {
+    pub company_id: String,
+    pub period: String,
+    pub tax_type: String,
+    pub form_name: String,
+    pub collect_status: Option<String>,
+    pub validation_status: Option<String>,
+    pub declaration_status: Option<String>,
+    pub source_snapshot: Option<String>,
+    pub taxable_amount: Option<f64>,
+    pub deduction_amount: Option<f64>,
+    pub payable_amount: Option<f64>,
+    pub risk_count: Option<i64>,
+    pub adapter_code: Option<String>,
+    pub receipt_no: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct ConfirmTaxDeclarationTaskInput {
+    pub id: String,
+    pub company_id: String,
+    pub confirmed_by: Option<String>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct AdapterAuthorization {
+    pub id: String,
+    pub company_id: String,
+    pub company_name: Option<String>,
+    pub adapter_type: String,
+    pub adapter_code: String,
+    pub region: Option<String>,
+    pub auth_status: String,
+    pub account_mask: Option<String>,
+    pub login_identity: Option<String>,
+    pub capability_scope: Option<String>,
+    pub last_checked_at: Option<String>,
+    pub expires_at: Option<String>,
+    pub risk_message: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpsertAdapterAuthorizationInput {
+    pub company_id: String,
+    pub adapter_type: String,
+    pub adapter_code: String,
+    pub region: Option<String>,
+    pub auth_status: Option<String>,
+    pub account_mask: Option<String>,
+    pub login_identity: Option<String>,
+    pub capability_scope: Option<String>,
+    pub last_checked_at: Option<String>,
+    pub expires_at: Option<String>,
+    pub risk_message: Option<String>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct OperationAuditLog {
+    pub id: String,
+    pub company_id: Option<String>,
+    pub company_name: Option<String>,
+    pub module_name: String,
+    pub action: String,
+    pub object_ref: Option<String>,
+    pub risk_level: String,
+    pub result: String,
+    pub detail: Option<String>,
+    pub operator: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateOperationAuditLogInput {
+    pub company_id: Option<String>,
+    pub module_name: String,
+    pub action: String,
+    pub object_ref: Option<String>,
+    pub risk_level: Option<String>,
+    pub result: Option<String>,
+    pub detail: Option<String>,
+    pub operator: Option<String>,
 }
 
 // ==================== Dashboard Structs ====================

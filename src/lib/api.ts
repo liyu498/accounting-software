@@ -178,6 +178,80 @@ export interface AgencyOperationOverview {
   blockedTickets: number
 }
 
+export interface AutomationJob {
+  id: string
+  companyId: string
+  companyName: string | null
+  period: string | null
+  jobType: string
+  sourceModule: string
+  sourceId: string | null
+  sourceFile: string | null
+  status: string
+  confidence: number | null
+  resultSummary: string | null
+  riskLevel: string
+  reviewer: string | null
+  createdBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TaxDeclarationTask {
+  id: string
+  companyId: string
+  companyName: string | null
+  period: string
+  taxType: string
+  formName: string
+  collectStatus: string
+  validationStatus: string
+  declarationStatus: string
+  sourceSnapshot: string | null
+  taxableAmount: number
+  deductionAmount: number
+  payableAmount: number
+  riskCount: number
+  adapterCode: string | null
+  confirmedBy: string | null
+  confirmedAt: string | null
+  receiptNo: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdapterAuthorization {
+  id: string
+  companyId: string
+  companyName: string | null
+  adapterType: string
+  adapterCode: string
+  region: string | null
+  authStatus: string
+  accountMask: string | null
+  loginIdentity: string | null
+  capabilityScope: string | null
+  lastCheckedAt: string | null
+  expiresAt: string | null
+  riskMessage: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OperationAuditLog {
+  id: string
+  companyId: string | null
+  companyName: string | null
+  moduleName: string
+  action: string
+  objectRef: string | null
+  riskLevel: string
+  result: string
+  detail: string | null
+  operator: string | null
+  createdAt: string
+}
+
 // ============================================
 // Auth API
 // ============================================
@@ -733,6 +807,80 @@ type RawAgencyOperationOverview = {
   blocked_tickets: number
 }
 
+type RawAutomationJob = {
+  id: string
+  company_id: string
+  company_name: string | null
+  period: string | null
+  job_type: string
+  source_module: string
+  source_id: string | null
+  source_file: string | null
+  status: string
+  confidence: number | null
+  result_summary: string | null
+  risk_level: string
+  reviewer: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+type RawTaxDeclarationTask = {
+  id: string
+  company_id: string
+  company_name: string | null
+  period: string
+  tax_type: string
+  form_name: string
+  collect_status: string
+  validation_status: string
+  declaration_status: string
+  source_snapshot: string | null
+  taxable_amount: number
+  deduction_amount: number
+  payable_amount: number
+  risk_count: number
+  adapter_code: string | null
+  confirmed_by: string | null
+  confirmed_at: string | null
+  receipt_no: string | null
+  created_at: string
+  updated_at: string
+}
+
+type RawAdapterAuthorization = {
+  id: string
+  company_id: string
+  company_name: string | null
+  adapter_type: string
+  adapter_code: string
+  region: string | null
+  auth_status: string
+  account_mask: string | null
+  login_identity: string | null
+  capability_scope: string | null
+  last_checked_at: string | null
+  expires_at: string | null
+  risk_message: string | null
+  created_at: string
+  updated_at: string
+}
+
+type RawOperationAuditLog = {
+  id: string
+  company_id: string | null
+  company_name: string | null
+  module_name: string
+  action: string
+  object_ref: string | null
+  risk_level: string
+  result: string
+  detail: string | null
+  operator: string | null
+  created_at: string
+}
+
 const mapAgencyServiceContract = (item: RawAgencyServiceContract): AgencyServiceContract => ({
   id: item.id,
   companyId: item.company_id,
@@ -810,6 +958,80 @@ const mapAgencyOperationOverview = (item: RawAgencyOperationOverview): AgencyOpe
   blockedTickets: item.blocked_tickets,
 })
 
+const mapAutomationJob = (item: RawAutomationJob): AutomationJob => ({
+  id: item.id,
+  companyId: item.company_id,
+  companyName: item.company_name,
+  period: item.period,
+  jobType: item.job_type,
+  sourceModule: item.source_module,
+  sourceId: item.source_id,
+  sourceFile: item.source_file,
+  status: item.status,
+  confidence: item.confidence,
+  resultSummary: item.result_summary,
+  riskLevel: item.risk_level,
+  reviewer: item.reviewer,
+  createdBy: item.created_by,
+  createdAt: item.created_at,
+  updatedAt: item.updated_at,
+})
+
+const mapTaxDeclarationTask = (item: RawTaxDeclarationTask): TaxDeclarationTask => ({
+  id: item.id,
+  companyId: item.company_id,
+  companyName: item.company_name,
+  period: item.period,
+  taxType: item.tax_type,
+  formName: item.form_name,
+  collectStatus: item.collect_status,
+  validationStatus: item.validation_status,
+  declarationStatus: item.declaration_status,
+  sourceSnapshot: item.source_snapshot,
+  taxableAmount: item.taxable_amount,
+  deductionAmount: item.deduction_amount,
+  payableAmount: item.payable_amount,
+  riskCount: item.risk_count,
+  adapterCode: item.adapter_code,
+  confirmedBy: item.confirmed_by,
+  confirmedAt: item.confirmed_at,
+  receiptNo: item.receipt_no,
+  createdAt: item.created_at,
+  updatedAt: item.updated_at,
+})
+
+const mapAdapterAuthorization = (item: RawAdapterAuthorization): AdapterAuthorization => ({
+  id: item.id,
+  companyId: item.company_id,
+  companyName: item.company_name,
+  adapterType: item.adapter_type,
+  adapterCode: item.adapter_code,
+  region: item.region,
+  authStatus: item.auth_status,
+  accountMask: item.account_mask,
+  loginIdentity: item.login_identity,
+  capabilityScope: item.capability_scope,
+  lastCheckedAt: item.last_checked_at,
+  expiresAt: item.expires_at,
+  riskMessage: item.risk_message,
+  createdAt: item.created_at,
+  updatedAt: item.updated_at,
+})
+
+const mapOperationAuditLog = (item: RawOperationAuditLog): OperationAuditLog => ({
+  id: item.id,
+  companyId: item.company_id,
+  companyName: item.company_name,
+  moduleName: item.module_name,
+  action: item.action,
+  objectRef: item.object_ref,
+  riskLevel: item.risk_level,
+  result: item.result,
+  detail: item.detail,
+  operator: item.operator,
+  createdAt: item.created_at,
+})
+
 // ============================================
 // Agency operation API (机构运营)
 // ============================================
@@ -854,6 +1076,245 @@ export const agencyApi = {
     try {
       const result = await invoke('get_agency_operation_overview', { period }) as RawAgencyOperationOverview
       return { success: true, data: mapAgencyOperationOverview(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
+
+// ============================================
+// Automation / AI / tax adapter API
+// ============================================
+export const automationApi = {
+  getAutomationJobs: async (filters: { companyId: string; period?: string; status?: string }): Promise<ApiResponse<AutomationJob[]>> => {
+    try {
+      const result = await invoke('get_automation_jobs', {
+        company_id: filters.companyId,
+        period: filters.period,
+        status: filters.status,
+      }) as RawAutomationJob[]
+      return { success: true, data: result.map(mapAutomationJob) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  createAutomationJob: async (input: {
+    companyId: string
+    period?: string
+    jobType: string
+    sourceModule: string
+    sourceId?: string
+    sourceFile?: string
+    status?: string
+    confidence?: number
+    resultSummary?: string
+    riskLevel?: string
+    reviewer?: string
+    createdBy?: string
+  }): Promise<ApiResponse<AutomationJob>> => {
+    try {
+      const result = await invoke('create_automation_job', {
+        input: {
+          company_id: input.companyId,
+          period: input.period,
+          job_type: input.jobType,
+          source_module: input.sourceModule,
+          source_id: input.sourceId,
+          source_file: input.sourceFile,
+          status: input.status,
+          confidence: input.confidence,
+          result_summary: input.resultSummary,
+          risk_level: input.riskLevel,
+          reviewer: input.reviewer,
+          created_by: input.createdBy,
+        },
+      }) as RawAutomationJob
+      return { success: true, data: mapAutomationJob(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  updateAutomationJobStatus: async (input: {
+    id: string
+    companyId: string
+    status: string
+    confidence?: number
+    resultSummary?: string
+    riskLevel?: string
+    reviewer?: string
+  }): Promise<ApiResponse<AutomationJob>> => {
+    try {
+      const result = await invoke('update_automation_job_status', {
+        input: {
+          id: input.id,
+          company_id: input.companyId,
+          status: input.status,
+          confidence: input.confidence,
+          result_summary: input.resultSummary,
+          risk_level: input.riskLevel,
+          reviewer: input.reviewer,
+        },
+      }) as RawAutomationJob
+      return { success: true, data: mapAutomationJob(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  getTaxDeclarationTasks: async (filters: { companyId: string; period?: string; declarationStatus?: string }): Promise<ApiResponse<TaxDeclarationTask[]>> => {
+    try {
+      const result = await invoke('get_tax_declaration_tasks', {
+        company_id: filters.companyId,
+        period: filters.period,
+        declaration_status: filters.declarationStatus,
+      }) as RawTaxDeclarationTask[]
+      return { success: true, data: result.map(mapTaxDeclarationTask) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  upsertTaxDeclarationTask: async (input: {
+    companyId: string
+    period: string
+    taxType: string
+    formName: string
+    collectStatus?: string
+    validationStatus?: string
+    declarationStatus?: string
+    sourceSnapshot?: string
+    taxableAmount?: number
+    deductionAmount?: number
+    payableAmount?: number
+    riskCount?: number
+    adapterCode?: string
+    receiptNo?: string
+  }): Promise<ApiResponse<TaxDeclarationTask>> => {
+    try {
+      const result = await invoke('upsert_tax_declaration_task', {
+        input: {
+          company_id: input.companyId,
+          period: input.period,
+          tax_type: input.taxType,
+          form_name: input.formName,
+          collect_status: input.collectStatus,
+          validation_status: input.validationStatus,
+          declaration_status: input.declarationStatus,
+          source_snapshot: input.sourceSnapshot,
+          taxable_amount: input.taxableAmount,
+          deduction_amount: input.deductionAmount,
+          payable_amount: input.payableAmount,
+          risk_count: input.riskCount,
+          adapter_code: input.adapterCode,
+          receipt_no: input.receiptNo,
+        },
+      }) as RawTaxDeclarationTask
+      return { success: true, data: mapTaxDeclarationTask(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  confirmTaxDeclarationTask: async (input: { id: string; companyId: string; confirmedBy?: string }): Promise<ApiResponse<TaxDeclarationTask>> => {
+    try {
+      const result = await invoke('confirm_tax_declaration_task', {
+        input: {
+          id: input.id,
+          company_id: input.companyId,
+          confirmed_by: input.confirmedBy,
+        },
+      }) as RawTaxDeclarationTask
+      return { success: true, data: mapTaxDeclarationTask(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  getAdapterAuthorizations: async (filters: { companyId: string; adapterType?: string }): Promise<ApiResponse<AdapterAuthorization[]>> => {
+    try {
+      const result = await invoke('get_adapter_authorizations', {
+        company_id: filters.companyId,
+        adapter_type: filters.adapterType,
+      }) as RawAdapterAuthorization[]
+      return { success: true, data: result.map(mapAdapterAuthorization) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  upsertAdapterAuthorization: async (input: {
+    companyId: string
+    adapterType: string
+    adapterCode: string
+    region?: string
+    authStatus?: string
+    accountMask?: string
+    loginIdentity?: string
+    capabilityScope?: string
+    lastCheckedAt?: string
+    expiresAt?: string
+    riskMessage?: string
+  }): Promise<ApiResponse<AdapterAuthorization>> => {
+    try {
+      const result = await invoke('upsert_adapter_authorization', {
+        input: {
+          company_id: input.companyId,
+          adapter_type: input.adapterType,
+          adapter_code: input.adapterCode,
+          region: input.region,
+          auth_status: input.authStatus,
+          account_mask: input.accountMask,
+          login_identity: input.loginIdentity,
+          capability_scope: input.capabilityScope,
+          last_checked_at: input.lastCheckedAt,
+          expires_at: input.expiresAt,
+          risk_message: input.riskMessage,
+        },
+      }) as RawAdapterAuthorization
+      return { success: true, data: mapAdapterAuthorization(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  writeOperationAuditLog: async (input: {
+    companyId?: string
+    moduleName: string
+    action: string
+    objectRef?: string
+    riskLevel?: string
+    result?: string
+    detail?: string
+    operator?: string
+  }): Promise<ApiResponse<OperationAuditLog>> => {
+    try {
+      const result = await invoke('write_operation_audit_log', {
+        input: {
+          company_id: input.companyId,
+          module_name: input.moduleName,
+          action: input.action,
+          object_ref: input.objectRef,
+          risk_level: input.riskLevel,
+          result: input.result,
+          detail: input.detail,
+          operator: input.operator,
+        },
+      }) as RawOperationAuditLog
+      return { success: true, data: mapOperationAuditLog(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  getOperationAuditLogs: async (filters: { companyId?: string; moduleName?: string } = {}): Promise<ApiResponse<OperationAuditLog[]>> => {
+    try {
+      const result = await invoke('get_operation_audit_logs', {
+        company_id: filters.companyId,
+        module_name: filters.moduleName,
+      }) as RawOperationAuditLog[]
+      return { success: true, data: result.map(mapOperationAuditLog) }
     } catch (error) {
       return { success: false, error: String(error) }
     }

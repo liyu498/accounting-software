@@ -53,6 +53,17 @@ pub fn run() {
             commands::agency::get_agency_collaboration_items,
             commands::agency::get_agency_delivery_tickets,
             commands::agency::get_agency_operation_overview,
+            // Automation, AI bookkeeping, tax adapter boundary, and audit commands
+            commands::automation::get_automation_jobs,
+            commands::automation::create_automation_job,
+            commands::automation::update_automation_job_status,
+            commands::automation::get_tax_declaration_tasks,
+            commands::automation::upsert_tax_declaration_task,
+            commands::automation::confirm_tax_declaration_task,
+            commands::automation::get_adapter_authorizations,
+            commands::automation::upsert_adapter_authorization,
+            commands::automation::write_operation_audit_log,
+            commands::automation::get_operation_audit_logs,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,
