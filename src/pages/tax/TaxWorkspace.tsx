@@ -12,10 +12,12 @@ import {
   ShieldAlert,
   Upload,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { recordAuditLog, recordExportJob } from '../../lib/exportJobs'
+import { automationApi } from '../../lib/api'
+import { useCompanyStore } from '../../stores/companyStore'
 
 const declarationRows = [
   {
@@ -115,6 +117,18 @@ const logs = [
 
 const tabs = ['申报清单', '增值税', '企业所得税', '扣缴所得税', '印花税', '社保费', '财报报送', '回执缴款书']
 
+function parseMoney(value: string) {
+  return Number(value.replace(/,/g, '')) || 0
+}
+
+function normalizeTaxValidationStatus(value: string) {
+  return value === '校验通过' ? 'passed' : value === '需复核' ? 'review_required' : 'pending'
+}
+
+function normalizeTaxDeclarationStatus(value: string) {
+  return value === '待申报' ? 'ready' : value === '已申报' ? 'submitted' : 'draft'
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -198,8 +212,54 @@ function riskBadge(value: string) {
 }
 
 export function TaxWorkspace() {
+  const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
+  const companyId = selectedCompanyId ?? 'mock-1'
+  const currentPeriod = '2026-05'
   const [showRulesLog, setShowRulesLog] = useState(false)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
+  const [backendTaskCount, setBackendTaskCount] = useState(0)
+  const [backendAuditCount, setBackendAuditCount] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadBackendState() {
+      const [tasksResult, logsResult] = await Promise.all([
+        automationApi.getTaxDeclarationTasks({ companyId, period: currentPeriod }),
+        automationApi.getOperationAuditLogs({ companyId, moduleName: '税务申报工作台' }),
+      ])
+      if (cancelled) return
+      if (tasksResult.success) setBackendTaskCount(tasksResult.data?.length ?? 0)
+      if (logsResult.success) setBackendAuditCount(logsResult.data?.length ?? 0)
+    }
+
+    void loadBackendState()
+    return () => {
+      cancelled = true
+    }
+  }, [companyId])
+
+  const persistDeclarationRow = async (row: (typeof declarationRows)[number]) => {
+    const result = await automationApi.upsertTaxDeclarationTask({
+      companyId,
+      period: row.period,
+      taxType: row.category,
+      formName: row.form,
+      collectStatus: row.collectStatus,
+      validationStatus: normalizeTaxValidationStatus(row.checkStatus),
+      declarationStatus: normalizeTaxDeclarationStatus(row.declareStatus),
+      sourceSnapshot: row.source,
+      taxableAmount: parseMoney(row.sales),
+      deductionAmount: parseMoney(row.deduction),
+      payableAmount: parseMoney(row.payable),
+      riskCount: row.risk === '无' ? 0 : 1,
+      adapterCode: 'local-preview',
+    })
+    if (result.success) {
+      setBackendTaskCount((count) => Math.max(count, 1))
+    }
+    return result
+  }
 
   const writeTaxAudit = (input: Omit<Parameters<typeof recordAuditLog>[0], 'module' | 'voucher'>) => {
     recordAuditLog({
@@ -207,9 +267,25 @@ export function TaxWorkspace() {
       voucher: '2026-05/全部税种',
       ...input,
     })
+    void automationApi.writeOperationAuditLog({
+      companyId,
+      moduleName: '税务申报工作台',
+      action: input.action,
+      objectRef: input.object,
+      riskLevel: input.level,
+      result: input.result,
+      detail: `${input.status}｜${input.attachment ?? '无附件'}`,
+      operator: 'admin',
+    }).then((response) => {
+      if (response.success) setBackendAuditCount((count) => count + 1)
+    })
   }
 
   const refreshDeclarationSnapshot = () => {
+    void Promise.all(declarationRows.map((row) => persistDeclarationRow(row))).then((results) => {
+      const saved = results.filter((result) => result.success).length
+      if (saved > 0) setBackendTaskCount(saved)
+    })
     writeTaxAudit({
       action: '重新取数',
       object: '2026-05申报取数快照',
@@ -303,6 +379,7 @@ export function TaxWorkspace() {
 
   const fetchDeclarationRow = (row: (typeof declarationRows)[number]) => {
     const blocked = row.risk !== '无' || row.collectStatus === '待补资料'
+    void persistDeclarationRow(row)
     writeTaxAudit({
       action: '单税种取数',
       object: `${row.category}-${row.period}`,
@@ -404,6 +481,7 @@ export function TaxWorkspace() {
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="导出申报包" onClick={exportTaxPackage} />
             <ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={exportTaxPackagePdf} />
             <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印申报包" onClick={printTaxPackage} />
+            <span className="mx-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">本地任务 {backendTaskCount} · 审计 {backendAuditCount}</span>
             <button
               type="button"
               onClick={confirmDeclaration}

@@ -1089,7 +1089,7 @@ export const automationApi = {
   getAutomationJobs: async (filters: { companyId: string; period?: string; status?: string }): Promise<ApiResponse<AutomationJob[]>> => {
     try {
       const result = await invoke('get_automation_jobs', {
-        company_id: filters.companyId,
+        companyId: filters.companyId,
         period: filters.period,
         status: filters.status,
       }) as RawAutomationJob[]
@@ -1166,9 +1166,9 @@ export const automationApi = {
   getTaxDeclarationTasks: async (filters: { companyId: string; period?: string; declarationStatus?: string }): Promise<ApiResponse<TaxDeclarationTask[]>> => {
     try {
       const result = await invoke('get_tax_declaration_tasks', {
-        company_id: filters.companyId,
+        companyId: filters.companyId,
         period: filters.period,
-        declaration_status: filters.declarationStatus,
+        declarationStatus: filters.declarationStatus,
       }) as RawTaxDeclarationTask[]
       return { success: true, data: result.map(mapTaxDeclarationTask) }
     } catch (error) {
@@ -1235,8 +1235,8 @@ export const automationApi = {
   getAdapterAuthorizations: async (filters: { companyId: string; adapterType?: string }): Promise<ApiResponse<AdapterAuthorization[]>> => {
     try {
       const result = await invoke('get_adapter_authorizations', {
-        company_id: filters.companyId,
-        adapter_type: filters.adapterType,
+        companyId: filters.companyId,
+        adapterType: filters.adapterType,
       }) as RawAdapterAuthorization[]
       return { success: true, data: result.map(mapAdapterAuthorization) }
     } catch (error) {
@@ -1311,8 +1311,8 @@ export const automationApi = {
   getOperationAuditLogs: async (filters: { companyId?: string; moduleName?: string } = {}): Promise<ApiResponse<OperationAuditLog[]>> => {
     try {
       const result = await invoke('get_operation_audit_logs', {
-        company_id: filters.companyId,
-        module_name: filters.moduleName,
+        companyId: filters.companyId,
+        moduleName: filters.moduleName,
       }) as RawOperationAuditLog[]
       return { success: true, data: result.map(mapOperationAuditLog) }
     } catch (error) {

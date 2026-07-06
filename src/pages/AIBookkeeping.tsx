@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   Bot,
@@ -20,6 +20,8 @@ import {
 import { cn, formatCurrency } from '../lib/utils'
 import { recordAuditLog, recordExportJob, useAuditLogs } from '../lib/exportJobs'
 import { exportRowsToXlsx } from '../lib/xlsxExport'
+import { automationApi } from '../lib/api'
+import { useCompanyStore } from '../stores/companyStore'
 
 type AiTaskStatus = '待识别' | '待确认' | '已生成凭证' | '已修改' | '已拒绝' | '异常'
 
@@ -137,6 +139,9 @@ const aiStaticAuditLogs = [
 const tabs = ['AI工作台', '待确认', '异常处理', '已生成凭证', '规则建议', '审计日志']
 
 export function AIBookkeeping() {
+  const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
+  const companyId = selectedCompanyId ?? 'mock-1'
+  const currentPeriod = '2026-05'
   const [activeTab, setActiveTab] = useState(tabs[0])
   const [query, setQuery] = useState('')
   const [isDragging, setIsDragging] = useState(false)
@@ -144,8 +149,29 @@ export function AIBookkeeping() {
   const [tasks, setTasks] = useState<AiVoucherTask[]>(aiTasks)
   const [previewTask, setPreviewTask] = useState<AiVoucherTask>(aiTasks[0])
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
+  const [backendQueueCount, setBackendQueueCount] = useState(0)
+  const [backendAuditCount, setBackendAuditCount] = useState(0)
   const liveAuditLogs = useAuditLogs()
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadBackendState() {
+      const [jobsResult, logsResult] = await Promise.all([
+        automationApi.getAutomationJobs({ companyId, period: currentPeriod }),
+        automationApi.getOperationAuditLogs({ companyId, moduleName: 'AI做账' }),
+      ])
+      if (cancelled) return
+      if (jobsResult.success) setBackendQueueCount(jobsResult.data?.length ?? 0)
+      if (logsResult.success) setBackendAuditCount(logsResult.data?.length ?? 0)
+    }
+
+    void loadBackendState()
+    return () => {
+      cancelled = true
+    }
+  }, [companyId])
 
   const filteredTasks = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -172,6 +198,18 @@ export function AIBookkeeping() {
       status: result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过',
       voucher: `${activeTab}/${query.trim() || '全部'}`,
       attachment: 'AI操作快照',
+    })
+    void automationApi.writeOperationAuditLog({
+      companyId,
+      moduleName: 'AI做账',
+      action,
+      objectRef: object,
+      riskLevel: level,
+      result,
+      detail: `${activeTab}/${query.trim() || '全部'}｜AI操作快照`,
+      operator: 'admin',
+    }).then((response) => {
+      if (response.success) setBackendAuditCount((count) => count + 1)
     })
   }
 
@@ -222,6 +260,18 @@ export function AIBookkeeping() {
   const handleFileUpload = () => {
     setIsProcessing(true)
     writeAiAudit('上传识别', '票据/OFD/PDF/Excel 批次', '中', '待审批')
+    void automationApi.createAutomationJob({
+      companyId,
+      period: currentPeriod,
+      jobType: 'document_ocr',
+      sourceModule: 'AI做账',
+      sourceFile: '票据/OFD/PDF/Excel 批次',
+      status: 'queued',
+      riskLevel: 'medium',
+      createdBy: 'admin',
+    }).then((response) => {
+      if (response.success) setBackendQueueCount((count) => count + 1)
+    })
     window.setTimeout(() => {
       setIsProcessing(false)
       setPreviewTask(tasks[0] || aiTasks[0])
@@ -270,6 +320,7 @@ export function AIBookkeeping() {
             <p className="text-xs text-slate-500">发票识别、流水匹配、凭证草稿、人工确认、申报取数前置和审计闭环</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
+            <span className="mr-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">本地队列 {backendQueueCount} · 审计 {backendAuditCount}</span>
             <ToolButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" onClick={handleRefresh} />
             <ToolButton icon={<Download className="h-3.5 w-3.5" />} label="导出审计" onClick={handleExportAudit} />
             <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">
