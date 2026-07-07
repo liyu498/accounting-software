@@ -218,6 +218,25 @@ export function AIBookkeeping() {
     setPreviewTask((current) => (current.id === id ? { ...current, ...patch } : current))
   }
 
+  const persistAiTask = (task: AiVoucherTask, status: string, resultSummary: string, riskLevel: string) => {
+    void automationApi.createAutomationJob({
+      companyId,
+      period: currentPeriod,
+      jobType: 'voucher_suggestion',
+      sourceModule: task.sourceType,
+      sourceId: task.sourceNo,
+      sourceFile: task.sourceEvidence,
+      status,
+      confidence: task.confidence / 100,
+      resultSummary,
+      riskLevel,
+      reviewer: task.reviewer,
+      createdBy: 'admin',
+    }).then((response) => {
+      if (response.success) setBackendQueueCount((count) => count + 1)
+    })
+  }
+
   const handleRefresh = () => {
     writeAiAudit('刷新任务', `${activeTab}-${query.trim() || '全部'}`)
     setOperationNotice('AI 做账任务列表已刷新，并记录当前筛选条件。')
@@ -288,18 +307,21 @@ export function AIBookkeeping() {
 
   const handleEditDraft = () => {
     updateTask(previewTask.id, { status: '已修改' })
+    persistAiTask(previewTask, 'needs_review', '人工修改凭证草稿，等待复核分录、辅助核算和附件', 'medium')
     writeAiAudit('修改草稿', `${previewTask.sourceType}-${previewTask.sourceNo}`, '中', '待审批')
     setOperationNotice(`${previewTask.sourceNo} 已标记为已修改，需复核分录、辅助核算和附件后再确认。`)
   }
 
   const handleRejectDraft = () => {
     updateTask(previewTask.id, { status: '已拒绝', voucherNo: '已拒绝' })
+    persistAiTask(previewTask, 'cancelled', '人工拒绝 AI 凭证建议，不进入正式凭证', 'medium')
     writeAiAudit('拒绝草稿', `${previewTask.sourceType}-${previewTask.sourceNo}`, '中')
     setOperationNotice(`${previewTask.sourceNo} 已拒绝，不会进入正式凭证。`)
   }
 
   const handleApprove = () => {
     if (previewTask.status === '异常' || previewTask.confidence < 80) {
+      persistAiTask(previewTask, 'needs_review', '异常或低置信度阻断自动入账，进入高风险待审批', 'high')
       writeAiAudit('确认凭证草稿', `${previewTask.sourceType}-${previewTask.sourceNo}`, '高', '待审批')
       setOperationNotice(`${previewTask.sourceNo} 存在异常或低置信度，已进入高风险待审批，不会自动入账。`)
       return
@@ -307,6 +329,7 @@ export function AIBookkeeping() {
 
     const voucherNo = previewTask.voucherNo.startsWith('记-') ? previewTask.voucherNo : `记-AI-${previewTask.id.slice(-3)}`
     updateTask(previewTask.id, { status: '已生成凭证', voucherNo })
+    persistAiTask(previewTask, 'completed', `人工确认生成凭证草稿 ${voucherNo}`, 'normal')
     writeAiAudit('确认凭证草稿', `${previewTask.sourceType}-${previewTask.sourceNo}`, '中')
     setOperationNotice(`${previewTask.sourceNo} 已确认生成凭证草稿 ${voucherNo}，正式写账仍需后端凭证落库。`)
   }

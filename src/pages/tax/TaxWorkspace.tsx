@@ -219,6 +219,7 @@ export function TaxWorkspace() {
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
   const [backendTaskCount, setBackendTaskCount] = useState(0)
   const [backendAuditCount, setBackendAuditCount] = useState(0)
+  const [backendAdapterStatus, setBackendAdapterStatus] = useState('未配置')
 
   useEffect(() => {
     let cancelled = false
@@ -228,9 +229,13 @@ export function TaxWorkspace() {
         automationApi.getTaxDeclarationTasks({ companyId, period: currentPeriod }),
         automationApi.getOperationAuditLogs({ companyId, moduleName: '税务申报工作台' }),
       ])
+      const adaptersResult = await automationApi.getAdapterAuthorizations({ companyId, adapterType: 'tax' })
       if (cancelled) return
       if (tasksResult.success) setBackendTaskCount(tasksResult.data?.length ?? 0)
       if (logsResult.success) setBackendAuditCount(logsResult.data?.length ?? 0)
+      if (adaptersResult.success) {
+        setBackendAdapterStatus(adaptersResult.data?.[0]?.authStatus ?? '未配置')
+      }
     }
 
     void loadBackendState()
@@ -310,18 +315,55 @@ export function TaxWorkspace() {
   }
 
   const confirmDeclaration = () => {
-    writeTaxAudit({
-      action: '确认申报',
-      object: '税务申报包-2026-05',
-      level: '高',
-      result: '待审批',
-      status: '待确认',
-      attachment: '待提交',
+    const blockers = declarationRows.filter((row) => row.risk !== '无' || row.checkStatus !== '校验通过' || row.collectStatus === '待补资料')
+
+    void Promise.all(declarationRows.map((row) => persistDeclarationRow(row))).then(async (results) => {
+      const saved = results.filter((result) => result.success).length
+      if (saved > 0) setBackendTaskCount(saved)
+
+      if (blockers.length > 0) {
+        writeTaxAudit({
+          action: '确认申报',
+          object: `税务申报包-2026-05 阻断${blockers.length}项`,
+          level: '高',
+          result: '待审批',
+          status: '待确认',
+          attachment: '待提交',
+        })
+        setOperationNotice(`确认申报已被本地规则阻断：${blockers.length} 个税种存在风险、资料待补或校验未通过；当前未向电子税务局提交，也未发起扣款。`)
+        return
+      }
+
+      await Promise.all(results
+        .map((result) => result.data)
+        .filter((task) => task && task.validationStatus === 'passed' && task.riskCount === 0)
+        .map((task) => automationApi.confirmTaxDeclarationTask({ id: task!.id, companyId, confirmedBy: 'admin' })))
+      writeTaxAudit({
+        action: '确认申报',
+        object: '税务申报包-2026-05 本地确认',
+        level: '高',
+        result: '待审批',
+        status: '待确认',
+        attachment: '待提交',
+      })
+      setOperationNotice('本地申报确认已写入任务状态；真实税局提交、扣款和回执仍需合法 adapter 与人工审批。')
     })
-    setOperationNotice('确认申报已进入待审批留痕；当前未向电子税务局提交，也未发起扣款。')
   }
 
   const importInitialization = () => {
+    void automationApi.upsertAdapterAuthorization({
+      companyId,
+      adapterType: 'tax',
+      adapterCode: 'local-preview',
+      region: '上海',
+      authStatus: 'pending',
+      accountMask: '未保存明文账号',
+      loginIdentity: '办税员/代理记账授权',
+      capabilityScope: '税种取数/申报包生成/回执归档',
+      riskMessage: '当前仅维护授权状态，不保存密码，不执行真实提交',
+    }).then((response) => {
+      if (response.success) setBackendAdapterStatus(response.data?.authStatus ?? 'pending')
+    })
     writeTaxAudit({
       action: '导入初始化',
       object: '税种认定/期初留抵/申报参数',
@@ -481,7 +523,7 @@ export function TaxWorkspace() {
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="导出申报包" onClick={exportTaxPackage} />
             <ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={exportTaxPackagePdf} />
             <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印申报包" onClick={printTaxPackage} />
-            <span className="mx-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">本地任务 {backendTaskCount} · 审计 {backendAuditCount}</span>
+            <span className="mx-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">本地任务 {backendTaskCount} · 审计 {backendAuditCount} · adapter {backendAdapterStatus}</span>
             <button
               type="button"
               onClick={confirmDeclaration}
