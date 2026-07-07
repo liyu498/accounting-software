@@ -97,12 +97,12 @@ export function CompanySelector() {
   }
 
   return (
-    <div className="relative flex items-center gap-2" ref={dropdownRef}>
+    <div className="relative flex min-w-0 items-center gap-2" ref={dropdownRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'inline-flex h-8 min-w-[96px] items-center justify-between gap-2 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 transition-colors',
+          'inline-flex h-8 w-[92px] shrink-0 items-center justify-between gap-2 rounded border border-slate-300 bg-white px-2 text-sm font-medium text-slate-900 transition-colors sm:w-[96px] sm:px-3',
           isOpen && 'border-white ring-2 ring-white/30',
         )}
       >
@@ -113,7 +113,7 @@ export function CompanySelector() {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'inline-flex h-8 min-w-[300px] items-center justify-between gap-2 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 transition-colors',
+          'inline-flex h-8 min-w-0 flex-1 items-center justify-between gap-2 rounded border border-slate-300 bg-white px-2 text-sm font-medium text-slate-900 transition-colors sm:w-[300px] sm:flex-none sm:px-3',
           isOpen && 'border-white ring-2 ring-white/30',
         )}
       >
@@ -128,16 +128,16 @@ export function CompanySelector() {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 z-50 mt-2 w-80 rounded-xl border border-gray-200 bg-white py-2 shadow-lg animate-fade-in">
-          <div className="px-3 py-2 border-b border-gray-100">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+        <div className="absolute left-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-1rem))] rounded-xl border border-gray-200 bg-white py-2 shadow-lg animate-fade-in dark:border-slate-700 dark:bg-slate-900">
+          <div className="border-b border-gray-100 px-3 py-2 dark:border-slate-800">
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-slate-400">
               切换公司
             </p>
           </div>
 
           <div className="max-h-48 overflow-y-auto">
             {companies.length === 0 ? (
-              <div className="px-3 py-6 text-center text-gray-500 text-sm">
+              <div className="px-3 py-6 text-center text-sm text-gray-500 dark:text-slate-400">
                 暂无公司
               </div>
             ) : (
@@ -147,10 +147,9 @@ export function CompanySelector() {
                   type="button"
                   onClick={() => handleSelectCompany(company.id)}
                   className={cn(
-                    'flex items-start gap-3 w-full px-3 py-3 text-left transition-colors',
-                    'hover:bg-gray-50',
+                    'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-slate-800',
                     company.id === selectedCompanyId &&
-                      'bg-primary-50 hover:bg-primary-50',
+                      'bg-primary-50 hover:bg-primary-50 dark:bg-blue-950/45 dark:hover:bg-blue-950/55',
                   )}
                 >
                   <div
@@ -158,7 +157,7 @@ export function CompanySelector() {
                       'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5',
                       company.id === selectedCompanyId
                         ? 'border-primary-600 bg-primary-600'
-                        : 'border-gray-300',
+                        : 'border-gray-300 dark:border-slate-600',
                     )}
                   >
                     {company.id === selectedCompanyId && (
@@ -170,13 +169,13 @@ export function CompanySelector() {
                       className={cn(
                         'text-sm font-medium',
                         company.id === selectedCompanyId
-                          ? 'text-primary-700'
-                          : 'text-gray-900',
+                          ? 'text-primary-700 dark:text-blue-200'
+                          : 'text-gray-900 dark:text-slate-100',
                       )}
                     >
                       {company.name}
                     </p>
-                    <p className="text-xs text-gray-500">{company.code}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">{company.code}</p>
                   </div>
                 </button>
               ))
@@ -185,8 +184,8 @@ export function CompanySelector() {
 
           {selectedCompanyId && companyPeriods.length > 0 && (
             <>
-              <div className="px-3 py-2 border-t border-b border-gray-100">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div className="border-y border-gray-100 px-3 py-2 dark:border-slate-800">
+                <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-slate-400">
                   会计期间
                 </p>
               </div>
@@ -195,7 +194,7 @@ export function CompanySelector() {
                   <select
                     value={selectedYear}
                     onChange={(e) => handleYearChange(Number(e.target.value))}
-                    className="flex-1 h-9 px-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="h-9 flex-1 rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                     title="选择年份"
                   >
                     {periodYears.map(year => (
@@ -205,7 +204,7 @@ export function CompanySelector() {
                   <select
                     value={selectedMonth}
                     onChange={(e) => handleMonthChange(Number(e.target.value))}
-                    className="flex-1 h-9 px-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="h-9 flex-1 rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                     title="选择月份"
                   >
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
@@ -222,14 +221,14 @@ export function CompanySelector() {
             </>
           )}
 
-          <div className="px-3 py-2 border-t border-gray-100">
+          <div className="border-t border-gray-100 px-3 py-2 dark:border-slate-800">
             <button
               type="button"
               onClick={() => {
                 setIsOpen(false)
                 navigate('/')
               }}
-              className="flex items-center gap-2 w-full px-2 py-1.5 text-sm text-gray-600 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-primary-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-blue-200"
             >
               <Plus className="w-4 h-4" />
               <span>新增公司</span>

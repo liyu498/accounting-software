@@ -335,9 +335,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 items-center justify-between border-b border-[#1f66c7] bg-[#2d79e6] px-4 text-white">
-          <div className="flex min-w-0 items-center gap-3">
-            <CompanySelector />
+        <header className="flex min-h-12 items-center justify-between gap-2 overflow-hidden border-b border-[#1f66c7] bg-[#2d79e6] px-2 py-1 text-white sm:px-4">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <div className="min-w-0 flex-1 sm:flex-none">
+              <CompanySelector />
+            </div>
             <div className="hidden h-5 w-px bg-white/30 sm:block" />
             <div className="hidden items-center gap-2 text-xs md:flex">
               <span className="rounded border border-white/25 bg-white/10 px-2 py-1 text-white">已结账</span>
@@ -345,7 +347,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex shrink-0 items-center gap-1 text-sm sm:gap-2">
             <ThemeToggle />
             <div className="relative hidden lg:block">
               <button
