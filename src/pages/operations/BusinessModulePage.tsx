@@ -19,6 +19,12 @@ import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
+import { isTauri } from '../../lib/tauri'
+import { mapLiveInvoiceRows, mapLiveVoucherRows, summarizeLiveInvoices, summarizeLiveVouchers } from '../../lib/liveModuleRows'
+import { useCompanyStore } from '../../stores/companyStore'
+import { useInvoiceStore } from '../../stores/invoiceStore'
+import { usePeriodStore } from '../../stores/periodStore'
+import { useVoucherStore } from '../../stores/voucherStore'
 
 type ModuleKind =
   | 'attachmentCenter'
@@ -3316,6 +3322,36 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const baseConfig = moduleConfigs[kind]
   const exportJobs = useExportJobs()
   const auditLogs = useAuditLogs()
+  const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
+  const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
+  const invoices = useInvoiceStore((state) => state.invoices)
+  const fetchInvoices = useInvoiceStore((state) => state.fetchInvoices)
+  const vouchers = useVoucherStore((state) => state.vouchers)
+  const queryVouchers = useVoucherStore((state) => state.queryVouchers)
+  const usesLiveModuleData = isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice', 'voucher'].includes(kind)
+
+  useEffect(() => {
+    if (!usesLiveModuleData || !selectedCompanyId) return
+
+    if (kind === 'outputInvoice' || kind === 'inputInvoice') {
+      fetchInvoices({
+        company_id: selectedCompanyId,
+        period_id: currentPeriodId || undefined,
+        invoice_type: kind === 'outputInvoice' ? 'output' : 'input',
+      })
+      return
+    }
+
+    if (kind === 'voucher') {
+      queryVouchers({
+        company_id: selectedCompanyId,
+        period_id: currentPeriodId || undefined,
+        page: 1,
+        page_size: 100,
+      })
+    }
+  }, [currentPeriodId, fetchInvoices, kind, queryVouchers, selectedCompanyId, usesLiveModuleData])
+
   const config = useMemo(() => {
     if (kind === 'auditLog') {
       const dynamicRows = auditLogs.map(auditLogToModuleRow)
@@ -3332,6 +3368,30 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'outputInvoice' && usesLiveModuleData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveInvoiceRows(invoices, 'output'),
+        summary: summarizeLiveInvoices(invoices, 'output'),
+      }
+    }
+
+    if (kind === 'inputInvoice' && usesLiveModuleData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveInvoiceRows(invoices, 'input'),
+        summary: summarizeLiveInvoices(invoices, 'input'),
+      }
+    }
+
+    if (kind === 'voucher' && usesLiveModuleData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveVoucherRows(vouchers),
+        summary: summarizeLiveVouchers(vouchers),
+      }
+    }
+
     if (kind !== 'exportCenter') return baseConfig
     const dynamicRows = exportJobs.map(exportJobToModuleRow)
     return {
@@ -3343,7 +3403,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [auditLogs, baseConfig, exportJobs, kind])
+  }, [auditLogs, baseConfig, exportJobs, invoices, kind, usesLiveModuleData, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

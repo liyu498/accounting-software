@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "verify:modules": "node scripts/verify-module-frameworks.mjs",
     "verify:exports": "node scripts/verify-export-templates.mjs",
+    "verify:live-data": "node scripts/verify-live-module-data.mjs",
     "verify:routes": "node scripts/audit-routes-visual.mjs",
     "tauri": "tauri"
   },
