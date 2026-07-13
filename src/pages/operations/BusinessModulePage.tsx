@@ -23,14 +23,18 @@ import { isTauri } from '../../lib/tauri'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
+  mapLiveCompanyInfoRows,
   mapLiveGeneralLedgerRows,
+  mapLiveInitialBalanceRows,
   mapLiveIncomeStatementRows,
   mapLiveInvoiceRows,
   mapLiveTrialBalanceRows,
   mapLiveVoucherRows,
   summarizeLiveBalanceSheet,
   summarizeLiveCashFlow,
+  summarizeLiveCompanyInfo,
   summarizeLiveGeneralLedger,
+  summarizeLiveInitialBalance,
   summarizeLiveIncomeStatement,
   summarizeLiveInvoices,
   summarizeLiveTrialBalance,
@@ -187,6 +191,7 @@ type LiveReportData = {
   balanceSheet: BalanceSheetResult | null
   incomeStatement: IncomeStatementResult | null
   cashFlow: CashFlowResult | null
+  initialBalance: TrialBalanceResult | null
 }
 
 const emptyLiveReportData: LiveReportData = {
@@ -195,6 +200,7 @@ const emptyLiveReportData: LiveReportData = {
   balanceSheet: null,
   incomeStatement: null,
   cashFlow: null,
+  initialBalance: null,
 }
 
 type PrintTemplateKind = 'list' | 'voucher' | 'ledger' | 'financial' | 'tax'
@@ -3361,12 +3367,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const exportJobs = useExportJobs()
   const auditLogs = useAuditLogs()
   const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
+  const selectedCompany = useCompanyStore((state) => state.companies.find((company) => company.id === state.selectedCompanyId))
   const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
   const fetchTrialBalance = usePeriodStore((state) => state.fetchTrialBalance)
   const getGeneralLedger = usePeriodStore((state) => state.getGeneralLedger)
   const getBalanceSheet = usePeriodStore((state) => state.getBalanceSheet)
   const getIncomeStatement = usePeriodStore((state) => state.getIncomeStatement)
   const getCashFlowStatement = usePeriodStore((state) => state.getCashFlowStatement)
+  const validateInitialBalances = usePeriodStore((state) => state.validateInitialBalances)
   const invoices = useInvoiceStore((state) => state.invoices)
   const fetchInvoices = useInvoiceStore((state) => state.fetchInvoices)
   const vouchers = useVoucherStore((state) => state.vouchers)
@@ -3378,6 +3386,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       currentPeriodId &&
       ['trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport'].includes(kind),
   )
+  const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
   const [liveReports, setLiveReports] = useState<LiveReportData>(emptyLiveReportData)
 
   useEffect(() => {
@@ -3457,6 +3466,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     kind,
     usesLiveReportData,
   ])
+
+  useEffect(() => {
+    if (!usesLiveInitialBalanceData || !currentPeriodId) return
+
+    let active = true
+    void fetchTrialBalance(currentPeriodId)
+      .then((initialBalance) => {
+        if (active) setLiveReports((reports) => ({ ...reports, initialBalance }))
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [currentPeriodId, fetchTrialBalance, usesLiveInitialBalanceData])
 
   const config = useMemo(() => {
     if (kind === 'auditLog') {
@@ -3538,6 +3562,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'companyInfo' && isTauri && selectedCompanyId) {
+      return {
+        ...baseConfig,
+        rows: mapLiveCompanyInfoRows(selectedCompany),
+        summary: summarizeLiveCompanyInfo(selectedCompany),
+      }
+    }
+
+    if (kind === 'initialBalance' && usesLiveInitialBalanceData && liveReports.initialBalance) {
+      return {
+        ...baseConfig,
+        rows: mapLiveInitialBalanceRows(liveReports.initialBalance),
+        summary: summarizeLiveInitialBalance(liveReports.initialBalance),
+      }
+    }
+
     if (kind !== 'exportCenter') return baseConfig
     const dynamicRows = exportJobs.map(exportJobToModuleRow)
     return {
@@ -3549,7 +3589,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [auditLogs, baseConfig, exportJobs, invoices, kind, liveReports, usesLiveModuleData, usesLiveReportData, vouchers])
+  }, [auditLogs, baseConfig, exportJobs, invoices, kind, liveReports, selectedCompany, selectedCompanyId, usesLiveInitialBalanceData, usesLiveModuleData, usesLiveReportData, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -3627,7 +3667,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('模板下载已记录；正式模板会继续绑定固定 Excel/PDF 版本和字段校验规则。')
   }
 
-  const handlePrimaryAction = () => {
+  const handlePrimaryAction = async () => {
+    if (kind === 'initialBalance' && isTauri && currentPeriodId) {
+      try {
+        const result = await validateInitialBalances(currentPeriodId)
+        writeModuleAudit(config.primaryAction, `${title}-${auditScope}`, result.is_balanced ? '中' : '高', result.is_balanced ? '成功' : '待审批')
+        setOperationNotice(result.message || (result.is_balanced ? '期初余额试算平衡通过。' : '期初余额借贷不平，请修正后再启用。'))
+      } catch (error) {
+        writeModuleAudit(config.primaryAction, `${title}-${auditScope}`, '高', '失败')
+        setOperationNotice(`期初余额校验失败：${String(error)}`)
+      }
+      return
+    }
+
     writeModuleAudit(config.primaryAction, `${title}-${auditScope}`, isHighRiskAction ? '高' : '中', isHighRiskAction ? '待审批' : '成功')
     setOperationNotice(
       isHighRiskAction

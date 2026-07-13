@@ -13,6 +13,8 @@ const requiredAdapterSnippets = [
   ['balance sheet row mapper', 'export function mapLiveBalanceSheetRows'],
   ['income statement row mapper', 'export function mapLiveIncomeStatementRows'],
   ['cash flow row mapper', 'export function mapLiveCashFlowRows'],
+  ['company info row mapper', 'export function mapLiveCompanyInfoRows'],
+  ['initial balance row mapper', 'export function mapLiveInitialBalanceRows'],
   ['output invoice type', "invoice.invoice_type === invoiceType"],
   ['invoice type boundary', "invoiceType: 'output' | 'input'"],
   ['voucher direction filter', "entry.direction === direction"],
@@ -40,6 +42,9 @@ const requiredPageSnippets = [
   ['balance sheet mapping', 'mapLiveBalanceSheetRows(liveReports.balanceSheet)'],
   ['income statement mapping', 'mapLiveIncomeStatementRows(liveReports.incomeStatement)'],
   ['cash flow mapping', 'mapLiveCashFlowRows(liveReports.cashFlow)'],
+  ['company info mapping', 'mapLiveCompanyInfoRows(selectedCompany)'],
+  ['initial balance mapping', 'mapLiveInitialBalanceRows(liveReports.initialBalance)'],
+  ['initial balance validation', 'validateInitialBalances(currentPeriodId)'],
   ['browser mock fallback', 'isTauri && selectedCompanyId'],
 ]
 
@@ -62,7 +67,7 @@ if (errors.length > 0) {
 
 console.log('Live data adapter verification passed:')
 console.log(JSON.stringify({
-  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport'],
+  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance'],
   scope: 'selected company and accounting period',
   browserFallback: 'existing mock rows',
 }, null, 2))

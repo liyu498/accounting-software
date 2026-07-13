@@ -8,6 +8,7 @@ import type {
   IncomeStatementResult,
   TrialBalanceResult,
 } from '../stores/periodStore'
+import type { Company } from '../stores/companyStore'
 import type { Voucher, VoucherEntry } from '../stores/voucherStore'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
@@ -323,5 +324,88 @@ export function summarizeLiveCashFlow(result: CashFlowResult): LiveSummaryItem[]
     { label: '现金净增加', value: currency(result.net_increase), tone: result.net_increase >= 0 ? 'green' : 'amber' },
     { label: '本期取数', value: '已完成', tone: 'green' },
     { label: '未映射', value: '待规则接入', tone: 'gray' },
+  ]
+}
+
+export function mapLiveCompanyInfoRows(company: Company | undefined): LiveModuleRow[] {
+  if (!company) return []
+
+  const status: LiveModuleStatus = company.is_active ? '启用' : '停用'
+  const enabledAt = company.enable_year && company.enable_month
+    ? `${company.enable_year}-${String(company.enable_month).padStart(2, '0')}`
+    : '待设置'
+  const rows = [
+    ['企业名称', company.name, '企业档案'],
+    ['纳税人识别号', company.tax_id || '待补充', '企业档案'],
+    ['纳税人资格', company.tax_type || '待设置', '税务初始化'],
+    ['会计制度', company.accounting_system || '待设置', '账套设置'],
+    ['所属地区', [company.province, company.city].filter(Boolean).join(' ') || '待设置', '企业档案'],
+    ['会计行业', company.industry || '待设置', '账套设置'],
+    ['启用期间', enabledAt, '账套设置'],
+    ['开户行及账号', [company.bank_name, company.bank_account].filter(Boolean).join(' / ') || '待补充', '银行资料'],
+  ]
+
+  return rows.map(([field, value, source], index) => ({
+    id: `company-${index}`,
+    status,
+    voucher: '-',
+    attachment: source,
+    values: {
+      field,
+      value,
+      source,
+      required: ['企业名称', '纳税人识别号', '纳税人资格', '会计制度', '启用期间'].includes(field) ? '是' : '否',
+      updatedBy: '账套管理员',
+      updatedAt: company.updated_at,
+    },
+  }))
+}
+
+export function summarizeLiveCompanyInfo(company: Company | undefined): LiveSummaryItem[] {
+  if (!company) {
+    return [
+      { label: '基础字段', value: '0 项', tone: 'blue' },
+      { label: '已完成', value: '0 项', tone: 'green' },
+      { label: '待补资料', value: '8 项', tone: 'amber' },
+      { label: '关键异常', value: '0 项', tone: 'gray' },
+    ]
+  }
+
+  const values = [company.name, company.tax_id, company.tax_type, company.accounting_system, company.province, company.city, company.industry, company.bank_name]
+  const completed = values.filter(Boolean).length
+  return [
+    { label: '基础字段', value: '8 项', tone: 'blue' },
+    { label: '已完成', value: `${completed} 项`, tone: 'green' },
+    { label: '待补资料', value: `${values.length - completed} 项`, tone: values.length === completed ? 'gray' : 'amber' },
+    { label: '关键异常', value: company.is_active ? '0 项' : '1 项', tone: company.is_active ? 'gray' : 'red' },
+  ]
+}
+
+export function mapLiveInitialBalanceRows(result: TrialBalanceResult): LiveModuleRow[] {
+  const status: LiveModuleStatus = result.is_balanced ? '已通过' : '异常'
+  return result.items.map((item) => ({
+    id: `initial-${item.account_code}`,
+    status,
+    voucher: '期初',
+    attachment: item.is_detail ? '明细科目' : '汇总科目',
+    values: {
+      code: item.account_code,
+      name: item.account_name,
+      aux: item.is_detail ? '明细核算' : '总账核算',
+      direction: item.opening_debit > 0 ? '借' : item.opening_credit > 0 ? '贷' : '-',
+      debit: currency(item.opening_debit),
+      credit: currency(item.opening_credit),
+      check: result.is_balanced ? '通过' : '借贷不平',
+    },
+  }))
+}
+
+export function summarizeLiveInitialBalance(result: TrialBalanceResult): LiveSummaryItem[] {
+  const difference = Math.abs(result.total_opening_debit - result.total_opening_credit)
+  return [
+    { label: '科目行数', value: `${result.items.length} 行`, tone: 'blue' },
+    { label: '期初借方', value: currency(result.total_opening_debit), tone: 'green' },
+    { label: '期初贷方', value: currency(result.total_opening_credit), tone: 'green' },
+    { label: '差异', value: currency(difference), tone: result.is_balanced ? 'gray' : 'red' },
   ]
 }
