@@ -8,6 +8,11 @@ const requiredAdapterSnippets = [
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
   ['invoice summary mapper', 'export function summarizeLiveInvoices'],
   ['voucher summary mapper', 'export function summarizeLiveVouchers'],
+  ['trial balance row mapper', 'export function mapLiveTrialBalanceRows'],
+  ['general ledger row mapper', 'export function mapLiveGeneralLedgerRows'],
+  ['balance sheet row mapper', 'export function mapLiveBalanceSheetRows'],
+  ['income statement row mapper', 'export function mapLiveIncomeStatementRows'],
+  ['cash flow row mapper', 'export function mapLiveCashFlowRows'],
   ['output invoice type', "invoice.invoice_type === invoiceType"],
   ['invoice type boundary', "invoiceType: 'output' | 'input'"],
   ['voucher direction filter', "entry.direction === direction"],
@@ -25,6 +30,16 @@ const requiredPageSnippets = [
   ['output live row mapping', 'mapLiveInvoiceRows(invoices, \'output\')'],
   ['input live row mapping', 'mapLiveInvoiceRows(invoices, \'input\')'],
   ['voucher live row mapping', 'mapLiveVoucherRows(vouchers)'],
+  ['trial balance refresh', 'fetchTrialBalance(currentPeriodId)'],
+  ['general ledger refresh', 'getGeneralLedger(currentPeriodId)'],
+  ['balance sheet refresh', 'getBalanceSheet(currentPeriodId)'],
+  ['income statement refresh', 'getIncomeStatement(currentPeriodId)'],
+  ['cash flow refresh', 'getCashFlowStatement(currentPeriodId)'],
+  ['trial balance mapping', 'mapLiveTrialBalanceRows(liveReports.trialBalance)'],
+  ['general ledger mapping', 'mapLiveGeneralLedgerRows(liveReports.generalLedger)'],
+  ['balance sheet mapping', 'mapLiveBalanceSheetRows(liveReports.balanceSheet)'],
+  ['income statement mapping', 'mapLiveIncomeStatementRows(liveReports.incomeStatement)'],
+  ['cash flow mapping', 'mapLiveCashFlowRows(liveReports.cashFlow)'],
   ['browser mock fallback', 'isTauri && selectedCompanyId'],
 ]
 
@@ -47,7 +62,7 @@ if (errors.length > 0) {
 
 console.log('Live data adapter verification passed:')
 console.log(JSON.stringify({
-  modules: ['outputInvoice', 'inputInvoice', 'voucher'],
+  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport'],
   scope: 'selected company and accounting period',
   browserFallback: 'existing mock rows',
 }, null, 2))

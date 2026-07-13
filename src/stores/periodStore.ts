@@ -138,6 +138,20 @@ export interface IncomeStatementResult {
   year_to_date_total: number
 }
 
+export interface CashFlowItem {
+  item_code: string
+  item_name: string
+  item_level: number
+  is_total: number
+  amount: number
+}
+
+export interface CashFlowResult {
+  period_id: string
+  items: CashFlowItem[]
+  net_increase: number
+}
+
 interface PeriodState {
   periods: AccountingPeriod[]
   voucherWords: VoucherWord[]
@@ -167,6 +181,7 @@ interface PeriodState {
 
   getBalanceSheet: (periodId: string) => Promise<BalanceSheetResult>
   getIncomeStatement: (periodId: string) => Promise<IncomeStatementResult>
+  getCashFlowStatement: (periodId: string) => Promise<CashFlowResult>
 
   saveInitialBalance: (input: {
     period_id: string
@@ -349,6 +364,15 @@ export const usePeriodStore = create<PeriodState>((set, get) => ({
       return await invoke<IncomeStatementResult>('get_income_statement', {
         periodId,
       })
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
+  getCashFlowStatement: async (periodId) => {
+    try {
+      return await invoke<CashFlowResult>('get_cash_flow_statement', { periodId })
     } catch (error) {
       set({ error: String(error) })
       throw error

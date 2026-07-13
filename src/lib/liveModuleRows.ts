@@ -1,4 +1,13 @@
 import type { Invoice } from '../stores/invoiceStore'
+import type {
+  BalanceSheetItem,
+  BalanceSheetResult,
+  CashFlowResult,
+  GeneralLedgerItem,
+  IncomeStatementItem,
+  IncomeStatementResult,
+  TrialBalanceResult,
+} from '../stores/periodStore'
 import type { Voucher, VoucherEntry } from '../stores/voucherStore'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
@@ -153,5 +162,166 @@ export function summarizeLiveVouchers(vouchers: Voucher[]): LiveSummaryItem[] {
     { label: '已审核', value: `${approved} 张`, tone: 'green' },
     { label: '待审核', value: `${Math.max(vouchers.length - approved - abnormal, 0)} 张`, tone: 'amber' },
     { label: '断号/异常', value: `${abnormal} 张`, tone: 'red' },
+  ]
+}
+
+function balanceLabel(debit: number, credit: number) {
+  if (debit > 0) return `借 ${currency(debit)}`
+  if (credit > 0) return `贷 ${currency(credit)}`
+  return currency(0)
+}
+
+export function mapLiveTrialBalanceRows(result: TrialBalanceResult): LiveModuleRow[] {
+  const status: LiveModuleStatus = result.is_balanced ? '已通过' : '异常'
+  return result.items.map((item) => ({
+    id: `trial-${item.account_code}`,
+    status,
+    voucher: '可穿透',
+    attachment: item.is_detail ? '明细科目' : '汇总科目',
+    values: {
+      code: item.account_code,
+      name: item.account_name,
+      aux: item.is_detail ? '明细核算' : '总账核算',
+      openingDebit: currency(item.opening_debit),
+      openingCredit: currency(item.opening_credit),
+      currentDebit: currency(item.period_debit),
+      currentCredit: currency(item.period_credit),
+      endingBalance: balanceLabel(item.closing_debit, item.closing_credit),
+    },
+  }))
+}
+
+export function summarizeLiveTrialBalance(result: TrialBalanceResult): LiveSummaryItem[] {
+  const difference = Math.abs(result.total_closing_debit - result.total_closing_credit)
+  return [
+    { label: '科目行数', value: `${result.items.length} 行`, tone: 'blue' },
+    { label: '本期借方', value: currency(result.total_period_debit), tone: 'green' },
+    { label: '本期贷方', value: currency(result.total_period_credit), tone: 'green' },
+    { label: '试算差异', value: currency(difference), tone: result.is_balanced ? 'gray' : 'red' },
+  ]
+}
+
+export function mapLiveGeneralLedgerRows(items: GeneralLedgerItem[]): LiveModuleRow[] {
+  return items.map((item) => {
+    const hasActivity = item.entries.length > 0 || item.period_debit !== 0 || item.period_credit !== 0
+    return {
+      id: `ledger-${item.account_code}`,
+      status: hasActivity ? '已通过' : '待处理',
+      voucher: hasActivity ? `${item.entries.length} 笔` : '无发生',
+      attachment: item.entries.length > 0 ? '凭证穿透' : '月度汇总',
+      values: {
+        code: item.account_code,
+        name: item.account_name,
+        month: '本期',
+        opening: balanceLabel(item.opening_debit, item.opening_credit),
+        debit: currency(item.period_debit),
+        credit: currency(item.period_credit),
+        direction: item.closing_debit > 0 ? '借' : item.closing_credit > 0 ? '贷' : '-',
+        ending: balanceLabel(item.closing_debit, item.closing_credit),
+      },
+    }
+  })
+}
+
+export function summarizeLiveGeneralLedger(items: GeneralLedgerItem[]): LiveSummaryItem[] {
+  const debit = items.reduce((sum, item) => sum + item.period_debit, 0)
+  const credit = items.reduce((sum, item) => sum + item.period_credit, 0)
+  const reviewed = items.filter((item) => item.entries.length > 0).length
+  return [
+    { label: '总账科目', value: `${items.length} 个`, tone: 'blue' },
+    { label: '已核对', value: `${reviewed} 个`, tone: 'green' },
+    { label: '本期借方', value: currency(debit), tone: 'amber' },
+    { label: '本期贷方', value: currency(credit), tone: 'gray' },
+  ]
+}
+
+function flattenBalanceSheetItems(items: BalanceSheetItem[]): BalanceSheetItem[] {
+  return items.flatMap((item) => [item, ...flattenBalanceSheetItems(item.children || [])])
+}
+
+export function mapLiveBalanceSheetRows(result: BalanceSheetResult): LiveModuleRow[] {
+  const status: LiveModuleStatus = result.is_balanced ? '已通过' : '异常'
+  return flattenBalanceSheetItems(result.items).map((item) => ({
+    id: `balance-${item.item_code}`,
+    status,
+    voucher: '取数快照',
+    attachment: item.is_total ? '汇总项目' : '报表项目',
+    values: {
+      line: item.item_code,
+      item: item.item_name,
+      formula: item.section || '报表模板',
+      opening: currency(item.opening_balance),
+      ending: currency(item.ending_balance),
+      reclass: '未启用',
+      check: result.is_balanced ? '通过' : '资产负债不平',
+    },
+  }))
+}
+
+export function summarizeLiveBalanceSheet(result: BalanceSheetResult): LiveSummaryItem[] {
+  const difference = Math.abs(result.total_assets - result.total_liabilities - result.total_equity)
+  return [
+    { label: '资产合计', value: currency(result.total_assets), tone: 'blue' },
+    { label: '负债合计', value: currency(result.total_liabilities), tone: 'green' },
+    { label: '所有者权益', value: currency(result.total_equity), tone: 'green' },
+    { label: '平衡差异', value: currency(difference), tone: result.is_balanced ? 'gray' : 'red' },
+  ]
+}
+
+function flattenIncomeStatementItems(items: IncomeStatementItem[]): IncomeStatementItem[] {
+  return items.flatMap((item) => [item, ...flattenIncomeStatementItems(item.children || [])])
+}
+
+export function mapLiveIncomeStatementRows(result: IncomeStatementResult): LiveModuleRow[] {
+  return flattenIncomeStatementItems(result.items).map((item) => ({
+    id: `income-${item.item_code}`,
+    status: '已通过',
+    voucher: '取数快照',
+    attachment: item.is_total ? '汇总项目' : '凭证取数',
+    values: {
+      line: item.item_code,
+      item: item.item_name,
+      formula: item.item_code,
+      current: currency(item.current_amount),
+      yearTotal: currency(item.year_to_date),
+      source: '本地账套凭证',
+      check: '通过',
+    },
+  }))
+}
+
+export function summarizeLiveIncomeStatement(result: IncomeStatementResult): LiveSummaryItem[] {
+  return [
+    { label: '本期合计', value: currency(result.current_period_total), tone: 'blue' },
+    { label: '本年累计', value: currency(result.year_to_date_total), tone: 'green' },
+    { label: '报表项目', value: `${flattenIncomeStatementItems(result.items).length} 行`, tone: 'amber' },
+    { label: '异常项目', value: '0 项', tone: 'gray' },
+  ]
+}
+
+export function mapLiveCashFlowRows(result: CashFlowResult): LiveModuleRow[] {
+  return result.items.map((item) => ({
+    id: `cash-flow-${item.item_code}`,
+    status: '已通过',
+    voucher: '现金流快照',
+    attachment: item.is_total ? '汇总项目' : '映射取数',
+    values: {
+      line: item.item_code,
+      item: item.item_name,
+      rule: '报表模板公式',
+      current: currency(item.amount),
+      yearTotal: '待累计取数',
+      source: '本地账套凭证',
+      check: '通过',
+    },
+  }))
+}
+
+export function summarizeLiveCashFlow(result: CashFlowResult): LiveSummaryItem[] {
+  return [
+    { label: '报表项目', value: `${result.items.length} 行`, tone: 'blue' },
+    { label: '现金净增加', value: currency(result.net_increase), tone: result.net_increase >= 0 ? 'green' : 'amber' },
+    { label: '本期取数', value: '已完成', tone: 'green' },
+    { label: '未映射', value: '待规则接入', tone: 'gray' },
   ]
 }

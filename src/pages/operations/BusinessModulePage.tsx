@@ -20,10 +20,32 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { mapLiveInvoiceRows, mapLiveVoucherRows, summarizeLiveInvoices, summarizeLiveVouchers } from '../../lib/liveModuleRows'
+import {
+  mapLiveBalanceSheetRows,
+  mapLiveCashFlowRows,
+  mapLiveGeneralLedgerRows,
+  mapLiveIncomeStatementRows,
+  mapLiveInvoiceRows,
+  mapLiveTrialBalanceRows,
+  mapLiveVoucherRows,
+  summarizeLiveBalanceSheet,
+  summarizeLiveCashFlow,
+  summarizeLiveGeneralLedger,
+  summarizeLiveIncomeStatement,
+  summarizeLiveInvoices,
+  summarizeLiveTrialBalance,
+  summarizeLiveVouchers,
+} from '../../lib/liveModuleRows'
 import { useCompanyStore } from '../../stores/companyStore'
 import { useInvoiceStore } from '../../stores/invoiceStore'
-import { usePeriodStore } from '../../stores/periodStore'
+import {
+  usePeriodStore,
+  type BalanceSheetResult,
+  type CashFlowResult,
+  type GeneralLedgerItem,
+  type IncomeStatementResult,
+  type TrialBalanceResult,
+} from '../../stores/periodStore'
 import { useVoucherStore } from '../../stores/voucherStore'
 
 type ModuleKind =
@@ -157,6 +179,22 @@ interface ModuleConfig {
   columns: ModuleColumn[]
   rows: ModuleRow[]
   notes: string[]
+}
+
+type LiveReportData = {
+  trialBalance: TrialBalanceResult | null
+  generalLedger: GeneralLedgerItem[] | null
+  balanceSheet: BalanceSheetResult | null
+  incomeStatement: IncomeStatementResult | null
+  cashFlow: CashFlowResult | null
+}
+
+const emptyLiveReportData: LiveReportData = {
+  trialBalance: null,
+  generalLedger: null,
+  balanceSheet: null,
+  incomeStatement: null,
+  cashFlow: null,
 }
 
 type PrintTemplateKind = 'list' | 'voucher' | 'ledger' | 'financial' | 'tax'
@@ -3324,11 +3362,23 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const auditLogs = useAuditLogs()
   const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
   const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
+  const fetchTrialBalance = usePeriodStore((state) => state.fetchTrialBalance)
+  const getGeneralLedger = usePeriodStore((state) => state.getGeneralLedger)
+  const getBalanceSheet = usePeriodStore((state) => state.getBalanceSheet)
+  const getIncomeStatement = usePeriodStore((state) => state.getIncomeStatement)
+  const getCashFlowStatement = usePeriodStore((state) => state.getCashFlowStatement)
   const invoices = useInvoiceStore((state) => state.invoices)
   const fetchInvoices = useInvoiceStore((state) => state.fetchInvoices)
   const vouchers = useVoucherStore((state) => state.vouchers)
   const queryVouchers = useVoucherStore((state) => state.queryVouchers)
   const usesLiveModuleData = isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice', 'voucher'].includes(kind)
+  const usesLiveReportData = Boolean(
+    isTauri &&
+      selectedCompanyId &&
+      currentPeriodId &&
+      ['trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport'].includes(kind),
+  )
+  const [liveReports, setLiveReports] = useState<LiveReportData>(emptyLiveReportData)
 
   useEffect(() => {
     if (!usesLiveModuleData || !selectedCompanyId) return
@@ -3351,6 +3401,62 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       })
     }
   }, [currentPeriodId, fetchInvoices, kind, queryVouchers, selectedCompanyId, usesLiveModuleData])
+
+  useEffect(() => {
+    if (!usesLiveReportData || !currentPeriodId) return
+
+    let active = true
+    setLiveReports(emptyLiveReportData)
+
+    async function loadReport() {
+      try {
+        if (kind === 'trialBalanceReport') {
+          const trialBalance = await fetchTrialBalance(currentPeriodId)
+          if (active) setLiveReports((reports) => ({ ...reports, trialBalance }))
+          return
+        }
+
+        if (kind === 'generalLedgerReport') {
+          const generalLedger = await getGeneralLedger(currentPeriodId)
+          if (active) setLiveReports((reports) => ({ ...reports, generalLedger }))
+          return
+        }
+
+        if (kind === 'balanceSheetReport') {
+          const balanceSheet = await getBalanceSheet(currentPeriodId)
+          if (active) setLiveReports((reports) => ({ ...reports, balanceSheet }))
+          return
+        }
+
+        if (kind === 'incomeStatementReport') {
+          const incomeStatement = await getIncomeStatement(currentPeriodId)
+          if (active) setLiveReports((reports) => ({ ...reports, incomeStatement }))
+          return
+        }
+
+        if (kind === 'cashFlowReport') {
+          const cashFlow = await getCashFlowStatement(currentPeriodId)
+          if (active) setLiveReports((reports) => ({ ...reports, cashFlow }))
+        }
+      } catch {
+        // Stores persist the command error; retain the page's existing non-Tauri mock fallback.
+      }
+    }
+
+    void loadReport()
+    return () => {
+      active = false
+    }
+  }, [
+    currentPeriodId,
+    fetchTrialBalance,
+    getBalanceSheet,
+    getCashFlowStatement,
+    getGeneralLedger,
+    getIncomeStatement,
+    kind,
+    usesLiveReportData,
+  ])
 
   const config = useMemo(() => {
     if (kind === 'auditLog') {
@@ -3392,6 +3498,46 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'trialBalanceReport' && usesLiveReportData && liveReports.trialBalance) {
+      return {
+        ...baseConfig,
+        rows: mapLiveTrialBalanceRows(liveReports.trialBalance),
+        summary: summarizeLiveTrialBalance(liveReports.trialBalance),
+      }
+    }
+
+    if (kind === 'generalLedgerReport' && usesLiveReportData && liveReports.generalLedger) {
+      return {
+        ...baseConfig,
+        rows: mapLiveGeneralLedgerRows(liveReports.generalLedger),
+        summary: summarizeLiveGeneralLedger(liveReports.generalLedger),
+      }
+    }
+
+    if (kind === 'balanceSheetReport' && usesLiveReportData && liveReports.balanceSheet) {
+      return {
+        ...baseConfig,
+        rows: mapLiveBalanceSheetRows(liveReports.balanceSheet),
+        summary: summarizeLiveBalanceSheet(liveReports.balanceSheet),
+      }
+    }
+
+    if (kind === 'incomeStatementReport' && usesLiveReportData && liveReports.incomeStatement) {
+      return {
+        ...baseConfig,
+        rows: mapLiveIncomeStatementRows(liveReports.incomeStatement),
+        summary: summarizeLiveIncomeStatement(liveReports.incomeStatement),
+      }
+    }
+
+    if (kind === 'cashFlowReport' && usesLiveReportData && liveReports.cashFlow) {
+      return {
+        ...baseConfig,
+        rows: mapLiveCashFlowRows(liveReports.cashFlow),
+        summary: summarizeLiveCashFlow(liveReports.cashFlow),
+      }
+    }
+
     if (kind !== 'exportCenter') return baseConfig
     const dynamicRows = exportJobs.map(exportJobToModuleRow)
     return {
@@ -3403,7 +3549,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [auditLogs, baseConfig, exportJobs, invoices, kind, usesLiveModuleData, vouchers])
+  }, [auditLogs, baseConfig, exportJobs, invoices, kind, liveReports, usesLiveModuleData, usesLiveReportData, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
