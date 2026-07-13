@@ -204,6 +204,36 @@ export function summarizeLiveTrialBalance(result: TrialBalanceResult): LiveSumma
   ]
 }
 
+export function mapLiveLedgerOverviewRows(result: TrialBalanceResult): LiveModuleRow[] {
+  const status: LiveModuleStatus = result.is_balanced ? '已通过' : '异常'
+  return result.items.map((item) => ({
+    id: `ledger-overview-${item.account_code}`,
+    status,
+    voucher: '可穿透',
+    attachment: item.is_detail ? '明细科目' : '汇总科目',
+    values: {
+      code: item.account_code,
+      name: item.account_name,
+      aux: item.is_detail ? '明细核算' : '总账核算',
+      openingDebit: currency(item.opening_debit),
+      openingCredit: currency(item.opening_credit),
+      debit: currency(item.period_debit),
+      credit: currency(item.period_credit),
+      direction: item.closing_debit > 0 ? '借' : item.closing_credit > 0 ? '贷' : '-',
+      balance: balanceLabel(item.closing_debit, item.closing_credit),
+    },
+  }))
+}
+
+export function summarizeLiveLedgerOverview(result: TrialBalanceResult): LiveSummaryItem[] {
+  return [
+    { label: '科目数', value: `${result.items.length} 个`, tone: 'blue' },
+    { label: '本期借方', value: currency(result.total_period_debit), tone: 'green' },
+    { label: '本期贷方', value: currency(result.total_period_credit), tone: 'green' },
+    { label: '不平项', value: result.is_balanced ? '0' : '1', tone: result.is_balanced ? 'gray' : 'red' },
+  ]
+}
+
 export function mapLiveGeneralLedgerRows(items: GeneralLedgerItem[]): LiveModuleRow[] {
   return items.map((item) => {
     const hasActivity = item.entries.length > 0 || item.period_debit !== 0 || item.period_credit !== 0
@@ -235,6 +265,42 @@ export function summarizeLiveGeneralLedger(items: GeneralLedgerItem[]): LiveSumm
     { label: '已核对', value: `${reviewed} 个`, tone: 'green' },
     { label: '本期借方', value: currency(debit), tone: 'amber' },
     { label: '本期贷方', value: currency(credit), tone: 'gray' },
+  ]
+}
+
+export function mapLiveAccountSummaryRows(items: GeneralLedgerItem[]): LiveModuleRow[] {
+  return items.map((item) => {
+    const debitEntries = item.entries.filter((entry) => entry.direction === 'debit')
+    const creditEntries = item.entries.filter((entry) => entry.direction === 'credit')
+    const hasActivity = item.entries.length > 0
+    return {
+      id: `account-summary-${item.account_code}`,
+      status: hasActivity ? '已通过' : '待处理',
+      voucher: hasActivity ? `${item.entries.length} 笔` : '无发生',
+      attachment: hasActivity ? '凭证汇总' : '无附件',
+      values: {
+        code: item.account_code,
+        name: item.account_name,
+        voucherCount: `${new Set(item.entries.map((entry) => entry.voucher_id)).size}`,
+        debitCount: `${debitEntries.length}`,
+        creditCount: `${creditEntries.length}`,
+        debit: currency(item.period_debit),
+        credit: currency(item.period_credit),
+        check: hasActivity ? '已取数' : '无发生',
+      },
+    }
+  })
+}
+
+export function summarizeLiveAccountSummary(items: GeneralLedgerItem[]): LiveSummaryItem[] {
+  const debit = items.reduce((sum, item) => sum + item.period_debit, 0)
+  const credit = items.reduce((sum, item) => sum + item.period_credit, 0)
+  const voucherIds = new Set(items.flatMap((item) => item.entries.map((entry) => entry.voucher_id)))
+  return [
+    { label: '凭证张数', value: `${voucherIds.size} 张`, tone: 'blue' },
+    { label: '借方合计', value: currency(debit), tone: 'green' },
+    { label: '贷方合计', value: currency(credit), tone: 'green' },
+    { label: '不平凭证', value: debit === credit ? '0 张' : '待复核', tone: debit === credit ? 'gray' : 'red' },
   ]
 }
 

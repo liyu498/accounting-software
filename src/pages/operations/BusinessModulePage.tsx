@@ -27,6 +27,8 @@ import {
   mapLiveGeneralLedgerRows,
   mapLiveInitialBalanceRows,
   mapLiveAuxiliaryArchiveRows,
+  mapLiveLedgerOverviewRows,
+  mapLiveAccountSummaryRows,
   mapLiveSubjectRows,
   mapLiveIncomeStatementRows,
   mapLiveInvoiceRows,
@@ -38,6 +40,8 @@ import {
   summarizeLiveGeneralLedger,
   summarizeLiveInitialBalance,
   summarizeLiveAuxiliaryArchive,
+  summarizeLiveLedgerOverview,
+  summarizeLiveAccountSummary,
   summarizeLiveSubjects,
   summarizeLiveIncomeStatement,
   summarizeLiveInvoices,
@@ -198,6 +202,8 @@ type LiveReportData = {
   incomeStatement: IncomeStatementResult | null
   cashFlow: CashFlowResult | null
   initialBalance: TrialBalanceResult | null
+  ledgerOverview: TrialBalanceResult | null
+  accountSummary: GeneralLedgerItem[] | null
 }
 
 const emptyLiveReportData: LiveReportData = {
@@ -207,6 +213,8 @@ const emptyLiveReportData: LiveReportData = {
   incomeStatement: null,
   cashFlow: null,
   initialBalance: null,
+  ledgerOverview: null,
+  accountSummary: null,
 }
 
 const liveAuxiliaryArchiveKinds = ['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'] as const
@@ -3403,7 +3411,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     isTauri &&
       selectedCompanyId &&
       currentPeriodId &&
-      ['trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport'].includes(kind),
+      ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport'].includes(kind),
   )
   const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
   const usesLiveArchiveData = Boolean(
@@ -3443,15 +3451,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
     async function loadReport() {
       try {
-        if (kind === 'trialBalanceReport') {
+        if (kind === 'trialBalanceReport' || kind === 'ledgerReport') {
           const trialBalance = await fetchTrialBalance(currentPeriodId)
-          if (active) setLiveReports((reports) => ({ ...reports, trialBalance }))
+          if (active) setLiveReports((reports) => kind === 'ledgerReport' ? { ...reports, ledgerOverview: trialBalance } : { ...reports, trialBalance })
           return
         }
 
-        if (kind === 'generalLedgerReport') {
+        if (kind === 'generalLedgerReport' || kind === 'accountSummaryReport') {
           const generalLedger = await getGeneralLedger(currentPeriodId)
-          if (active) setLiveReports((reports) => ({ ...reports, generalLedger }))
+          if (active) setLiveReports((reports) => kind === 'accountSummaryReport' ? { ...reports, accountSummary: generalLedger } : { ...reports, generalLedger })
           return
         }
 
@@ -3558,6 +3566,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveTrialBalanceRows(liveReports.trialBalance),
         summary: summarizeLiveTrialBalance(liveReports.trialBalance),
+      }
+    }
+
+    if (kind === 'ledgerReport' && usesLiveReportData && liveReports.ledgerOverview) {
+      return {
+        ...baseConfig,
+        rows: mapLiveLedgerOverviewRows(liveReports.ledgerOverview),
+        summary: summarizeLiveLedgerOverview(liveReports.ledgerOverview),
+      }
+    }
+
+    if (kind === 'accountSummaryReport' && usesLiveReportData && liveReports.accountSummary) {
+      return {
+        ...baseConfig,
+        rows: mapLiveAccountSummaryRows(liveReports.accountSummary),
+        summary: summarizeLiveAccountSummary(liveReports.accountSummary),
       }
     }
 

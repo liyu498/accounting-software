@@ -17,6 +17,8 @@ const requiredAdapterSnippets = [
   ['initial balance row mapper', 'export function mapLiveInitialBalanceRows'],
   ['subject settings row mapper', 'export function mapLiveSubjectRows'],
   ['auxiliary archive row mapper', 'export function mapLiveAuxiliaryArchiveRows'],
+  ['ledger overview row mapper', 'export function mapLiveLedgerOverviewRows'],
+  ['account summary row mapper', 'export function mapLiveAccountSummaryRows'],
   ['output invoice type', "invoice.invoice_type === invoiceType"],
   ['invoice type boundary', "invoiceType: 'output' | 'input'"],
   ['voucher direction filter', "entry.direction === direction"],
@@ -52,6 +54,8 @@ const requiredPageSnippets = [
   ['auxiliary item refresh', 'fetchAllItems(selectedCompanyId)'],
   ['subject settings mapping', 'mapLiveSubjectRows(accounts)'],
   ['auxiliary archive mapping', 'mapLiveAuxiliaryArchiveRows(kind, auxiliaryCategories, auxiliaryItems)'],
+  ['ledger overview mapping', 'mapLiveLedgerOverviewRows(liveReports.ledgerOverview)'],
+  ['account summary mapping', 'mapLiveAccountSummaryRows(liveReports.accountSummary)'],
   ['browser mock fallback', 'isTauri && selectedCompanyId'],
 ]
 
@@ -74,7 +78,7 @@ if (errors.length > 0) {
 
 console.log('Live data adapter verification passed:')
 console.log(JSON.stringify({
-  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'],
+  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'],
   scope: 'selected company and accounting period',
   browserFallback: 'existing mock rows',
 }, null, 2))
