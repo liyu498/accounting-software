@@ -15,6 +15,8 @@ const requiredAdapterSnippets = [
   ['cash flow row mapper', 'export function mapLiveCashFlowRows'],
   ['company info row mapper', 'export function mapLiveCompanyInfoRows'],
   ['initial balance row mapper', 'export function mapLiveInitialBalanceRows'],
+  ['subject settings row mapper', 'export function mapLiveSubjectRows'],
+  ['auxiliary archive row mapper', 'export function mapLiveAuxiliaryArchiveRows'],
   ['output invoice type', "invoice.invoice_type === invoiceType"],
   ['invoice type boundary', "invoiceType: 'output' | 'input'"],
   ['voucher direction filter', "entry.direction === direction"],
@@ -45,6 +47,11 @@ const requiredPageSnippets = [
   ['company info mapping', 'mapLiveCompanyInfoRows(selectedCompany)'],
   ['initial balance mapping', 'mapLiveInitialBalanceRows(liveReports.initialBalance)'],
   ['initial balance validation', 'validateInitialBalances(currentPeriodId)'],
+  ['account archive refresh', 'fetchAccounts(selectedCompanyId)'],
+  ['auxiliary category refresh', 'fetchCategories(selectedCompanyId)'],
+  ['auxiliary item refresh', 'fetchAllItems(selectedCompanyId)'],
+  ['subject settings mapping', 'mapLiveSubjectRows(accounts)'],
+  ['auxiliary archive mapping', 'mapLiveAuxiliaryArchiveRows(kind, auxiliaryCategories, auxiliaryItems)'],
   ['browser mock fallback', 'isTauri && selectedCompanyId'],
 ]
 
@@ -67,7 +74,7 @@ if (errors.length > 0) {
 
 console.log('Live data adapter verification passed:')
 console.log(JSON.stringify({
-  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance'],
+  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'],
   scope: 'selected company and accounting period',
   browserFallback: 'existing mock rows',
 }, null, 2))

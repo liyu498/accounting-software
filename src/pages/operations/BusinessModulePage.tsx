@@ -26,6 +26,8 @@ import {
   mapLiveCompanyInfoRows,
   mapLiveGeneralLedgerRows,
   mapLiveInitialBalanceRows,
+  mapLiveAuxiliaryArchiveRows,
+  mapLiveSubjectRows,
   mapLiveIncomeStatementRows,
   mapLiveInvoiceRows,
   mapLiveTrialBalanceRows,
@@ -35,12 +37,16 @@ import {
   summarizeLiveCompanyInfo,
   summarizeLiveGeneralLedger,
   summarizeLiveInitialBalance,
+  summarizeLiveAuxiliaryArchive,
+  summarizeLiveSubjects,
   summarizeLiveIncomeStatement,
   summarizeLiveInvoices,
   summarizeLiveTrialBalance,
   summarizeLiveVouchers,
 } from '../../lib/liveModuleRows'
 import { useCompanyStore } from '../../stores/companyStore'
+import { useAccountStore } from '../../stores/accountStore'
+import { useAuxiliaryStore } from '../../stores/auxiliaryStore'
 import { useInvoiceStore } from '../../stores/invoiceStore'
 import {
   usePeriodStore,
@@ -201,6 +207,13 @@ const emptyLiveReportData: LiveReportData = {
   incomeStatement: null,
   cashFlow: null,
   initialBalance: null,
+}
+
+const liveAuxiliaryArchiveKinds = ['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'] as const
+type LiveAuxiliaryArchiveKind = (typeof liveAuxiliaryArchiveKinds)[number]
+
+function isLiveAuxiliaryArchiveKind(kind: ModuleKind): kind is LiveAuxiliaryArchiveKind {
+  return liveAuxiliaryArchiveKinds.includes(kind as LiveAuxiliaryArchiveKind)
 }
 
 type PrintTemplateKind = 'list' | 'voucher' | 'ledger' | 'financial' | 'tax'
@@ -3375,6 +3388,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const getIncomeStatement = usePeriodStore((state) => state.getIncomeStatement)
   const getCashFlowStatement = usePeriodStore((state) => state.getCashFlowStatement)
   const validateInitialBalances = usePeriodStore((state) => state.validateInitialBalances)
+  const accounts = useAccountStore((state) => state.accounts)
+  const fetchAccounts = useAccountStore((state) => state.fetchAccounts)
+  const auxiliaryCategories = useAuxiliaryStore((state) => state.categories)
+  const auxiliaryItems = useAuxiliaryStore((state) => state.items)
+  const fetchCategories = useAuxiliaryStore((state) => state.fetchCategories)
+  const fetchAllItems = useAuxiliaryStore((state) => state.fetchAllItems)
   const invoices = useInvoiceStore((state) => state.invoices)
   const fetchInvoices = useInvoiceStore((state) => state.fetchInvoices)
   const vouchers = useVoucherStore((state) => state.vouchers)
@@ -3387,6 +3406,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       ['trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport'].includes(kind),
   )
   const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
+  const usesLiveArchiveData = Boolean(
+    isTauri &&
+      selectedCompanyId &&
+      (kind === 'subjectSettings' || isLiveAuxiliaryArchiveKind(kind)),
+  )
   const [liveReports, setLiveReports] = useState<LiveReportData>(emptyLiveReportData)
 
   useEffect(() => {
@@ -3481,6 +3505,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       active = false
     }
   }, [currentPeriodId, fetchTrialBalance, usesLiveInitialBalanceData])
+
+  useEffect(() => {
+    if (!usesLiveArchiveData || !selectedCompanyId) return
+    void fetchAccounts(selectedCompanyId)
+    void fetchCategories(selectedCompanyId)
+    void fetchAllItems(selectedCompanyId)
+  }, [fetchAccounts, fetchAllItems, fetchCategories, selectedCompanyId, usesLiveArchiveData])
 
   const config = useMemo(() => {
     if (kind === 'auditLog') {
@@ -3578,6 +3609,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'subjectSettings' && usesLiveArchiveData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveSubjectRows(accounts),
+        summary: summarizeLiveSubjects(accounts),
+      }
+    }
+
+    if (usesLiveArchiveData && isLiveAuxiliaryArchiveKind(kind)) {
+      return {
+        ...baseConfig,
+        rows: mapLiveAuxiliaryArchiveRows(kind, auxiliaryCategories, auxiliaryItems),
+        summary: summarizeLiveAuxiliaryArchive(kind, auxiliaryCategories, auxiliaryItems),
+      }
+    }
+
     if (kind !== 'exportCenter') return baseConfig
     const dynamicRows = exportJobs.map(exportJobToModuleRow)
     return {
@@ -3589,7 +3636,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [auditLogs, baseConfig, exportJobs, invoices, kind, liveReports, selectedCompany, selectedCompanyId, usesLiveInitialBalanceData, usesLiveModuleData, usesLiveReportData, vouchers])
+  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, exportJobs, invoices, kind, liveReports, selectedCompany, selectedCompanyId, usesLiveArchiveData, usesLiveInitialBalanceData, usesLiveModuleData, usesLiveReportData, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

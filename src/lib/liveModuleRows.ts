@@ -9,6 +9,8 @@ import type {
   TrialBalanceResult,
 } from '../stores/periodStore'
 import type { Company } from '../stores/companyStore'
+import type { AccountCode } from '../stores/accountStore'
+import type { AuxiliaryCategory, AuxiliaryItem } from '../stores/auxiliaryStore'
 import type { Voucher, VoucherEntry } from '../stores/voucherStore'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
@@ -407,5 +409,102 @@ export function summarizeLiveInitialBalance(result: TrialBalanceResult): LiveSum
     { label: '期初借方', value: currency(result.total_opening_debit), tone: 'green' },
     { label: '期初贷方', value: currency(result.total_opening_credit), tone: 'green' },
     { label: '差异', value: currency(difference), tone: result.is_balanced ? 'gray' : 'red' },
+  ]
+}
+
+export function mapLiveSubjectRows(accounts: AccountCode[]): LiveModuleRow[] {
+  return accounts.map((account) => ({
+    id: `subject-${account.code}`,
+    status: account.is_enabled ? '启用' : '停用',
+    voucher: '-',
+    attachment: account.is_detail ? '明细科目' : '汇总科目',
+    values: {
+      code: account.code,
+      name: account.name,
+      direction: account.normal_balance === 'credit' ? '贷' : '借',
+      aux: account.has_auxiliary ? '已启用' : '未启用',
+      report: account.account_type || '待设置',
+      cashFlow: account.has_quantity ? '待维护' : '-',
+    },
+  }))
+}
+
+export function summarizeLiveSubjects(accounts: AccountCode[]): LiveSummaryItem[] {
+  const enabled = accounts.filter((account) => account.is_enabled === 1).length
+  const auxiliary = accounts.filter((account) => account.has_auxiliary === 1).length
+  return [
+    { label: '科目数量', value: `${accounts.length} 个`, tone: 'blue' },
+    { label: '启用', value: `${enabled} 个`, tone: 'green' },
+    { label: '辅助核算', value: `${auxiliary} 个`, tone: 'amber' },
+    { label: '映射异常', value: '待维护', tone: 'gray' },
+  ]
+}
+
+type LiveAuxiliaryArchiveKind = 'customerArchive' | 'supplierArchive' | 'otherContactArchive' | 'projectArchive' | 'departmentArchive'
+
+const archiveCategoryCodes: Record<LiveAuxiliaryArchiveKind, string> = {
+  customerArchive: 'CUST',
+  supplierArchive: 'SUPP',
+  otherContactArchive: 'EMP',
+  projectArchive: 'PROJ',
+  departmentArchive: 'DEPT',
+}
+
+function archiveValues(kind: LiveAuxiliaryArchiveKind, item: AuxiliaryItem): Record<string, string> {
+  const remark = item.remarks || '待补充'
+  if (kind === 'customerArchive') {
+    return { code: item.code, name: item.name, taxNo: '待补充', bank: '待补充', subject: '1122 应收账款', contract: remark }
+  }
+  if (kind === 'supplierArchive') {
+    return { code: item.code, name: item.name, alias: remark, taxNo: '待补充', subject: '2202 应付账款', taxRate: '待维护' }
+  }
+  if (kind === 'otherContactArchive') {
+    return { code: item.code, name: item.name, type: '职员/其他往来', idNo: '待补充', subject: '1221/2241 待设置', remark }
+  }
+  if (kind === 'projectArchive') {
+    return { code: item.code, name: item.name, owner: '待补充', start: '待补充', subject: '待设置', budget: remark }
+  }
+  return { code: item.code, name: item.name, parent: '待补充', owner: '待补充', subject: '待设置', people: remark }
+}
+
+export function mapLiveAuxiliaryArchiveRows(
+  kind: LiveAuxiliaryArchiveKind,
+  categories: AuxiliaryCategory[],
+  items: AuxiliaryItem[],
+): LiveModuleRow[] {
+  const category = categories.find((item) => item.code === archiveCategoryCodes[kind])
+  if (!category) return []
+  return items
+    .filter((item) => item.category_id === category.id)
+    .map((item) => ({
+      id: `auxiliary-${item.id}`,
+      status: item.is_enabled ? '启用' : '停用',
+      voucher: '-',
+      attachment: category.name,
+      values: archiveValues(kind, item),
+    }))
+}
+
+export function summarizeLiveAuxiliaryArchive(
+  kind: LiveAuxiliaryArchiveKind,
+  categories: AuxiliaryCategory[],
+  items: AuxiliaryItem[],
+): LiveSummaryItem[] {
+  const category = categories.find((item) => item.code === archiveCategoryCodes[kind])
+  const scoped = category ? items.filter((item) => item.category_id === category.id) : []
+  const enabled = scoped.filter((item) => item.is_enabled === 1).length
+  const disabled = scoped.length - enabled
+  const labels: Record<LiveAuxiliaryArchiveKind, string> = {
+    customerArchive: '客户数量',
+    supplierArchive: '供应商',
+    otherContactArchive: '其他往来',
+    projectArchive: '项目数量',
+    departmentArchive: '部门数量',
+  }
+  return [
+    { label: labels[kind], value: `${scoped.length} 个`, tone: 'blue' },
+    { label: '启用', value: `${enabled} 个`, tone: 'green' },
+    { label: '待补资料', value: `${scoped.filter((item) => !item.remarks).length} 个`, tone: 'amber' },
+    { label: '停用', value: `${disabled} 个`, tone: 'gray' },
   ]
 }
