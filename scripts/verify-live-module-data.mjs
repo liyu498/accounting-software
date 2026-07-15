@@ -22,6 +22,8 @@ const requiredAdapterSnippets = [
   ['subsidiary ledger row mapper', 'export function mapLiveSubsidiaryLedgerRows'],
   ['auxiliary ledger row mapper', 'export function mapLiveAuxiliaryLedgerRows'],
   ['auxiliary balance row mapper', 'export function mapLiveAuxiliaryBalanceRows'],
+  ['period management row mapper', 'export function mapLivePeriodManagementRows'],
+  ['period management summary mapper', 'export function summarizeLivePeriodManagement'],
   ['output invoice type', "invoice.invoice_type === invoiceType"],
   ['invoice type boundary', "invoiceType: 'output' | 'input'"],
   ['voucher direction filter', "entry.direction === direction"],
@@ -68,6 +70,9 @@ const requiredPageSnippets = [
   ['ledger account selector', 'aria-label="明细账科目"'],
   ['auxiliary category selector', 'aria-label="辅助账类别"'],
   ['auxiliary item selector', 'aria-label="辅助账项目"'],
+  ['period management refresh', 'fetchPeriods(selectedCompanyId)'],
+  ['period management mapping', 'mapLivePeriodManagementRows(periods)'],
+  ['period management live scope', 'usesLivePeriodManagementData'],
   ['browser mock fallback', 'isTauri && selectedCompanyId'],
 ]
 
@@ -90,7 +95,7 @@ if (errors.length > 0) {
 
 console.log('Live data adapter verification passed:')
 console.log(JSON.stringify({
-  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'],
+  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement'],
   scope: 'selected company and accounting period',
   browserFallback: 'existing mock rows',
 }, null, 2))

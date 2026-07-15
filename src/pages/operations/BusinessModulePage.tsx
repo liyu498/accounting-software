@@ -31,6 +31,7 @@ import {
   mapLiveAccountSummaryRows,
   mapLiveAuxiliaryBalanceRows,
   mapLiveAuxiliaryLedgerRows,
+  mapLivePeriodManagementRows,
   mapLiveSubjectRows,
   mapLiveSubsidiaryLedgerRows,
   mapLiveIncomeStatementRows,
@@ -47,6 +48,7 @@ import {
   summarizeLiveAccountSummary,
   summarizeLiveAuxiliaryBalance,
   summarizeLiveAuxiliaryLedger,
+  summarizeLivePeriodManagement,
   summarizeLiveSubjects,
   summarizeLiveSubsidiaryLedger,
   summarizeLiveIncomeStatement,
@@ -3403,6 +3405,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
   const selectedCompany = useCompanyStore((state) => state.companies.find((company) => company.id === state.selectedCompanyId))
   const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
+  const periods = usePeriodStore((state) => state.periods)
+  const fetchPeriods = usePeriodStore((state) => state.fetchPeriods)
   const fetchTrialBalance = usePeriodStore((state) => state.fetchTrialBalance)
   const getGeneralLedger = usePeriodStore((state) => state.getGeneralLedger)
   const getSubsidiaryLedger = usePeriodStore((state) => state.getSubsidiaryLedger)
@@ -3430,6 +3434,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport'].includes(kind),
   )
   const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
+  const usesLivePeriodManagementData = Boolean(isTauri && selectedCompanyId && kind === 'periodManagement')
   const usesLiveLedgerDetailData = Boolean(
     isTauri &&
       selectedCompanyId &&
@@ -3561,6 +3566,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     void fetchCategories(selectedCompanyId)
     void fetchAllItems(selectedCompanyId)
   }, [fetchAccounts, fetchAllItems, fetchCategories, selectedCompanyId, usesLiveArchiveData])
+
+  useEffect(() => {
+    if (!usesLivePeriodManagementData || !selectedCompanyId) return
+    void fetchPeriods(selectedCompanyId)
+  }, [fetchPeriods, selectedCompanyId, usesLivePeriodManagementData])
 
   useEffect(() => {
     if (!usesLiveLedgerDetailData || !selectedCompanyId) return
@@ -3762,6 +3772,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'periodManagement' && usesLivePeriodManagementData) {
+      return {
+        ...baseConfig,
+        rows: mapLivePeriodManagementRows(periods),
+        summary: summarizeLivePeriodManagement(periods),
+      }
+    }
+
     if (kind === 'subjectSettings' && usesLiveArchiveData) {
       return {
         ...baseConfig,
@@ -3789,7 +3807,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, exportJobs, invoices, kind, liveReports, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, usesLiveArchiveData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveReportData, vouchers])
+  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, exportJobs, invoices, kind, liveReports, periods, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, usesLiveArchiveData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLivePeriodManagementData, usesLiveReportData, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

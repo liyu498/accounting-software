@@ -1,5 +1,6 @@
 import type { Invoice } from '../stores/invoiceStore'
 import type {
+  AccountingPeriod,
   BalanceSheetItem,
   BalanceSheetResult,
   CashFlowResult,
@@ -367,6 +368,41 @@ export function summarizeLiveAuxiliaryBalance(items: AuxiliaryBalanceRow[], cate
     { label: '借方余额', value: currency(endingDebit), tone: 'green' },
     { label: '贷方余额', value: currency(endingCredit), tone: 'amber' },
     { label: '不一致', value: '待总账核对', tone: 'gray' },
+  ]
+}
+
+export function mapLivePeriodManagementRows(periods: AccountingPeriod[]): LiveModuleRow[] {
+  return [...periods]
+    .sort((left, right) => right.period_year - left.period_year || right.period_month - left.period_month)
+    .map((period) => {
+      const isClosed = period.status === 'closed'
+      return {
+        id: `period-${period.id}`,
+        status: isClosed ? '已通过' : '待确认',
+        voucher: isClosed ? '已锁定' : '开放编辑',
+        attachment: isClosed ? '结账记录' : '结账前检查',
+        values: {
+          period: `${period.period_year}-${String(period.period_month).padStart(2, '0')}`,
+          status: isClosed ? '已结账' : '开放中',
+          voucher: isClosed ? '已锁定' : '待审核后结账',
+          report: '需单独核对',
+          tax: '请至申报工作台核对',
+          lockedBy: period.closed_by || '-',
+          closedAt: period.closed_at || '-',
+          action: isClosed ? '申请反结账' : '执行结账前检查',
+        },
+      }
+    })
+}
+
+export function summarizeLivePeriodManagement(periods: AccountingPeriod[]): LiveSummaryItem[] {
+  const closed = periods.filter((period) => period.status === 'closed').length
+  const open = periods.filter((period) => period.status === 'open').length
+  return [
+    { label: '账期', value: `${periods.length} 期`, tone: 'blue' },
+    { label: '已结账', value: `${closed} 期`, tone: 'green' },
+    { label: '待结账', value: `${open} 期`, tone: open > 0 ? 'amber' : 'gray' },
+    { label: '阻断', value: '需执行检查', tone: 'gray' },
   ]
 }
 
