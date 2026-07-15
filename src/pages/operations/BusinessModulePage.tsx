@@ -198,7 +198,6 @@ type ModuleKind =
   | 'reportFormulaSettings'
   | 'cashFlowMapping'
   | 'currencySettings'
-  | 'roleSettings'
   | 'printTemplateSettings'
   | 'taxAdapterSettings'
   | 'bankAdapterSettings'
@@ -2742,32 +2741,6 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'cur-eur', status: '异常', voucher: '-', attachment: '缺失', values: { code: 'EUR', name: '欧元', symbol: '€', rate: '待更新', method: '月末汇率', updatedAt: '待维护' } },
     ],
     notes: ['币别管理影响外币发票、银行账户、期末汇兑损益和报表折算。', '汇率应保留来源、更新时间和期末调汇凭证。'],
-  },
-  roleSettings: {
-    keywordPlaceholder: '搜索角色名称、成员、菜单权限、操作权限',
-    primaryAction: '新增角色',
-    importLabel: '导出权限',
-    statusOptions: ['全部', '启用', '停用', '异常'],
-    summary: [
-      { label: '角色', value: '7 个', tone: 'blue' },
-      { label: '启用', value: '6 个', tone: 'green' },
-      { label: '成员', value: '18 人', tone: 'amber' },
-      { label: '异常授权', value: '1 个', tone: 'red' },
-    ],
-    columns: [
-      { key: 'role', label: '角色名称' },
-      { key: 'members', label: '成员数', align: 'right' },
-      { key: 'menus', label: '菜单权限' },
-      { key: 'actions', label: '操作权限' },
-      { key: 'dataScope', label: '数据范围' },
-      { key: 'audit', label: '审计要求' },
-    ],
-    rows: [
-      { id: 'role-admin', status: '启用', voucher: '-', attachment: '审计日志', values: { role: '账套管理员', members: '2', menus: '全部模块', actions: '新增/修改/删除/导出', dataScope: '当前账套', audit: '强制记录' } },
-      { id: 'role-accountant', status: '启用', voucher: '-', attachment: '审计日志', values: { role: '记账会计', members: '12', menus: '业务/财务/报表', actions: '新增/修改/生成凭证', dataScope: '分配客户', audit: '强制记录' } },
-      { id: 'role-tax', status: '异常', voucher: '-', attachment: '待复核', values: { role: '申报专员', members: '3', menus: '税务申报/报表', actions: '生成申报包/确认', dataScope: '分配客户', audit: '权限待复核' } },
-    ],
-    notes: ['权限管理需要区分菜单、按钮操作、客户数据范围和导出权限。', '凭证删除、反结账、真实申报提交等高风险动作必须进入审计日志。'],
   },
   printTemplateSettings: {
     keywordPlaceholder: '搜索模板名称、适用模块、纸张、启用状态',

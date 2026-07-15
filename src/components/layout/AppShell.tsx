@@ -192,7 +192,6 @@ const allSections: SidebarSection[] = [
       { id: 'cash-flow-mapping', label: '现金流量映射', icon: <ArrowLeftRight className="h-4 w-4" />, path: '/settings/cash-flow-mapping' },
       { id: 'settlement-rules', label: '结转规则', icon: <ArrowLeftRight className="h-4 w-4" />, path: '/settings/settlement-rules' },
       { id: 'currencies', label: '币别管理', icon: <Coins className="h-4 w-4" />, path: '/settings/currencies' },
-      { id: 'roles', label: '权限管理', icon: <Shield className="h-4 w-4" />, path: '/settings/roles' },
       { id: 'print-templates', label: '打印模板', icon: <FileBarChart className="h-4 w-4" />, path: '/settings/print-templates' },
       { id: 'tax-adapters', label: '税局接口配置', icon: <BadgeDollarSign className="h-4 w-4" />, path: '/settings/tax-adapters' },
       { id: 'bank-adapters', label: '银行接口配置', icon: <Landmark className="h-4 w-4" />, path: '/settings/bank-adapters' },
@@ -435,7 +434,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </div>
                     <button
                       type="button"
-                      onClick={() => runUserAction('/settings/roles', '申请修改密码', user?.username || 'admin', '修改密码已进入待确认记录，请在权限管理中完成校验。')}
+                      onClick={() => runUserAction('/agency/service-contracts', '申请修改密码', user?.username || 'admin', '修改密码已进入待确认记录，请在机构服务合同的权限策略中完成校验。')}
                       className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
                     >
                       修改密码
@@ -449,7 +448,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => runUserAction('/settings/roles', '查看权限设置', user?.username || 'admin', '已进入权限管理，可查看角色和审计要求。')}
+                      onClick={() => runUserAction('/agency/service-contracts', '查看权限设置', user?.username || 'admin', '已进入机构服务合同的权限策略，可查看角色和审计要求。')}
                       className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
                     >
                       权限设置
