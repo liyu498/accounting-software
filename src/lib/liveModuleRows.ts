@@ -406,6 +406,68 @@ export function summarizeLivePeriodManagement(periods: AccountingPeriod[]): Live
   ]
 }
 
+export function mapLiveHistoryBalanceRows(result: TrialBalanceResult, periodLabel: string): LiveModuleRow[] {
+  const status: LiveModuleStatus = result.is_balanced ? '已通过' : '异常'
+  return result.items.map((item) => ({
+    id: `history-balance-${periodLabel}-${item.account_code}`,
+    status,
+    voucher: periodLabel,
+    attachment: '历史余额取数',
+    values: {
+      sourcePeriod: periodLabel,
+      code: item.account_code,
+      name: item.account_name,
+      aux: item.is_detail ? '明细核算' : '总账核算',
+      opening: balanceLabel(item.opening_debit, item.opening_credit),
+      debit: currency(item.period_debit),
+      credit: currency(item.period_credit),
+      ending: balanceLabel(item.closing_debit, item.closing_credit),
+    },
+  }))
+}
+
+export function summarizeLiveHistoryBalance(result: TrialBalanceResult, periodLabel: string): LiveSummaryItem[] {
+  const difference = Math.abs(result.total_closing_debit - result.total_closing_credit)
+  const hasPeriod = Boolean(periodLabel)
+  return [
+    { label: '科目余额行', value: hasPeriod ? `${result.items.length} 行` : '未选择期间', tone: hasPeriod ? 'blue' : 'gray' },
+    { label: '借方累计', value: hasPeriod ? currency(result.total_period_debit) : '-', tone: hasPeriod ? 'green' : 'gray' },
+    { label: '贷方累计', value: hasPeriod ? currency(result.total_period_credit) : '-', tone: hasPeriod ? 'green' : 'gray' },
+    { label: '差异', value: hasPeriod ? currency(difference) : '-', tone: hasPeriod ? (result.is_balanced ? 'gray' : 'red') : 'gray' },
+  ]
+}
+
+export function mapLiveHistoryGeneralLedgerRows(items: GeneralLedgerItem[], periodLabel: string): LiveModuleRow[] {
+  return items.map((item) => ({
+    id: `history-general-ledger-${periodLabel}-${item.account_code}`,
+    status: item.entries.length > 0 ? '已通过' : '待处理',
+    voucher: item.entries.length > 0 ? `${item.entries.length} 笔` : '无发生',
+    attachment: '历史总账取数',
+    values: {
+      period: periodLabel,
+      code: item.account_code,
+      name: item.account_name,
+      direction: item.closing_debit > 0 ? '借' : item.closing_credit > 0 ? '贷' : '-',
+      opening: balanceLabel(item.opening_debit, item.opening_credit),
+      debit: currency(item.period_debit),
+      credit: currency(item.period_credit),
+      ending: balanceLabel(item.closing_debit, item.closing_credit),
+    },
+  }))
+}
+
+export function summarizeLiveHistoryGeneralLedger(items: GeneralLedgerItem[], periodLabel: string): LiveSummaryItem[] {
+  const debit = items.reduce((sum, item) => sum + item.period_debit, 0)
+  const credit = items.reduce((sum, item) => sum + item.period_credit, 0)
+  const hasPeriod = Boolean(periodLabel)
+  return [
+    { label: '总账科目', value: hasPeriod ? `${items.length} 个` : '未选择期间', tone: hasPeriod ? 'blue' : 'gray' },
+    { label: '已核对', value: hasPeriod ? `${items.filter((item) => item.entries.length > 0).length} 个` : '-', tone: hasPeriod ? 'green' : 'gray' },
+    { label: '待复核', value: hasPeriod ? '需人工核对' : '-', tone: hasPeriod ? 'amber' : 'gray' },
+    { label: '异常', value: hasPeriod ? (debit === credit ? '0 个' : '需检查') : '-', tone: hasPeriod ? (debit === credit ? 'gray' : 'red') : 'gray' },
+  ]
+}
+
 export function mapLiveAccountSummaryRows(items: GeneralLedgerItem[]): LiveModuleRow[] {
   return items.map((item) => {
     const debitEntries = item.entries.filter((entry) => entry.direction === 'debit')

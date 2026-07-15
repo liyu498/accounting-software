@@ -31,6 +31,8 @@ import {
   mapLiveAccountSummaryRows,
   mapLiveAuxiliaryBalanceRows,
   mapLiveAuxiliaryLedgerRows,
+  mapLiveHistoryBalanceRows,
+  mapLiveHistoryGeneralLedgerRows,
   mapLivePeriodManagementRows,
   mapLiveSubjectRows,
   mapLiveSubsidiaryLedgerRows,
@@ -48,6 +50,8 @@ import {
   summarizeLiveAccountSummary,
   summarizeLiveAuxiliaryBalance,
   summarizeLiveAuxiliaryLedger,
+  summarizeLiveHistoryBalance,
+  summarizeLiveHistoryGeneralLedger,
   summarizeLivePeriodManagement,
   summarizeLiveSubjects,
   summarizeLiveSubsidiaryLedger,
@@ -216,6 +220,8 @@ type LiveReportData = {
   subsidiaryLedger: SubsidiaryLedgerItem[] | null
   auxiliaryLedger: AuxiliaryLedgerRow[] | null
   auxiliaryBalance: AuxiliaryBalanceRow[] | null
+  historyBalance: TrialBalanceResult | null
+  historyGeneralLedger: GeneralLedgerItem[] | null
 }
 
 const emptyLiveReportData: LiveReportData = {
@@ -230,6 +236,8 @@ const emptyLiveReportData: LiveReportData = {
   subsidiaryLedger: null,
   auxiliaryLedger: null,
   auxiliaryBalance: null,
+  historyBalance: null,
+  historyGeneralLedger: null,
 }
 
 const liveAuxiliaryArchiveKinds = ['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'] as const
@@ -3435,6 +3443,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   )
   const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
   const usesLivePeriodManagementData = Boolean(isTauri && selectedCompanyId && kind === 'periodManagement')
+  const usesLiveHistoryReportData = Boolean(
+    isTauri &&
+      selectedCompanyId &&
+      ['historyBalance', 'historyGeneralLedger'].includes(kind),
+  )
   const usesLiveLedgerDetailData = Boolean(
     isTauri &&
       selectedCompanyId &&
@@ -3450,6 +3463,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [selectedLedgerAccountCode, setSelectedLedgerAccountCode] = useState('')
   const [selectedAuxiliaryCategoryId, setSelectedAuxiliaryCategoryId] = useState('')
   const [selectedAuxiliaryItemId, setSelectedAuxiliaryItemId] = useState('')
+  const [selectedHistoryPeriodId, setSelectedHistoryPeriodId] = useState('')
   const detailedAccounts = useMemo(
     () => accounts.filter((account) => account.is_enabled === 1 && account.is_detail === 1),
     [accounts],
@@ -3466,6 +3480,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     () => auxiliaryItems.filter((item) => item.category_id === selectedAuxiliaryCategoryId && item.is_enabled === 1),
     [auxiliaryItems, selectedAuxiliaryCategoryId],
   )
+  const selectedHistoryPeriod = useMemo(
+    () => periods.find((period) => period.id === selectedHistoryPeriodId),
+    [periods, selectedHistoryPeriodId],
+  )
+  const selectedHistoryPeriodLabel = selectedHistoryPeriod
+    ? `${selectedHistoryPeriod.period_year}-${String(selectedHistoryPeriod.period_month).padStart(2, '0')}`
+    : ''
 
   useEffect(() => {
     if (!usesLiveModuleData || !selectedCompanyId) return
@@ -3571,6 +3592,43 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!usesLivePeriodManagementData || !selectedCompanyId) return
     void fetchPeriods(selectedCompanyId)
   }, [fetchPeriods, selectedCompanyId, usesLivePeriodManagementData])
+
+  useEffect(() => {
+    if (!usesLiveHistoryReportData || !selectedCompanyId) return
+    void fetchPeriods(selectedCompanyId)
+  }, [fetchPeriods, selectedCompanyId, usesLiveHistoryReportData])
+
+  useEffect(() => {
+    if (kind !== 'historyBalance' || !usesLiveHistoryReportData || !selectedHistoryPeriodId) return
+
+    let active = true
+    setLiveReports((reports) => ({ ...reports, historyBalance: null }))
+    void fetchTrialBalance(selectedHistoryPeriodId)
+      .then((historyBalance) => {
+        if (active) setLiveReports((reports) => ({ ...reports, historyBalance }))
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [fetchTrialBalance, kind, selectedHistoryPeriodId, usesLiveHistoryReportData])
+
+  useEffect(() => {
+    if (kind !== 'historyGeneralLedger' || !usesLiveHistoryReportData || !selectedHistoryPeriodId) return
+
+    let active = true
+    setLiveReports((reports) => ({ ...reports, historyGeneralLedger: null }))
+    void getGeneralLedger(selectedHistoryPeriodId)
+      .then((historyGeneralLedger) => {
+        if (active) setLiveReports((reports) => ({ ...reports, historyGeneralLedger }))
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [getGeneralLedger, kind, selectedHistoryPeriodId, usesLiveHistoryReportData])
 
   useEffect(() => {
     if (!usesLiveLedgerDetailData || !selectedCompanyId) return
@@ -3780,6 +3838,39 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'historyBalance' && usesLiveHistoryReportData) {
+      return {
+        ...baseConfig,
+        rows: liveReports.historyBalance
+          ? mapLiveHistoryBalanceRows(liveReports.historyBalance, selectedHistoryPeriodLabel)
+          : [],
+        summary: liveReports.historyBalance
+          ? summarizeLiveHistoryBalance(liveReports.historyBalance, selectedHistoryPeriodLabel)
+          : summarizeLiveHistoryBalance({
+            items: [],
+            total_opening_debit: 0,
+            total_opening_credit: 0,
+            total_period_debit: 0,
+            total_period_credit: 0,
+            total_cumulative_debit: 0,
+            total_cumulative_credit: 0,
+            total_closing_debit: 0,
+            total_closing_credit: 0,
+            is_balanced: true,
+          }, selectedHistoryPeriodLabel),
+      }
+    }
+
+    if (kind === 'historyGeneralLedger' && usesLiveHistoryReportData) {
+      return {
+        ...baseConfig,
+        rows: liveReports.historyGeneralLedger
+          ? mapLiveHistoryGeneralLedgerRows(liveReports.historyGeneralLedger, selectedHistoryPeriodLabel)
+          : [],
+        summary: summarizeLiveHistoryGeneralLedger(liveReports.historyGeneralLedger || [], selectedHistoryPeriodLabel),
+      }
+    }
+
     if (kind === 'subjectSettings' && usesLiveArchiveData) {
       return {
         ...baseConfig,
@@ -3807,7 +3898,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, exportJobs, invoices, kind, liveReports, periods, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, usesLiveArchiveData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLivePeriodManagementData, usesLiveReportData, vouchers])
+  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, exportJobs, invoices, kind, liveReports, periods, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryPeriodLabel, usesLiveArchiveData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLivePeriodManagementData, usesLiveReportData, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -4136,6 +4227,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 <option value="">选择辅助项目</option>
                 {selectableAuxiliaryItems.map((item) => (
                   <option key={item.id} value={item.id}>{item.code} {item.name}</option>
+                ))}
+              </select>
+            )}
+            {(kind === 'historyBalance' || kind === 'historyGeneralLedger') && usesLiveHistoryReportData && (
+              <select
+                aria-label="历史账期"
+                value={selectedHistoryPeriodId}
+                onChange={(event) => setSelectedHistoryPeriodId(event.target.value)}
+                className="h-8 max-w-44 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#1f65a7]"
+              >
+                <option value="">选择历史账期</option>
+                {periods.map((period) => (
+                  <option key={period.id} value={period.id}>
+                    {period.period_year}-{String(period.period_month).padStart(2, '0')}{period.status === 'closed' ? '（已结账）' : ''}
+                  </option>
                 ))}
               </select>
             )}
