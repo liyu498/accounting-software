@@ -277,6 +277,47 @@ export function summarizeLiveTaxInit(tasks: TaxDeclarationTask[], adapters: Adap
   ]
 }
 
+function taxReportStatus(task: TaxDeclarationTask): LiveModuleStatus {
+  if (task.riskCount > 0 || task.validationStatus === 'failed') return '异常'
+  if (task.validationStatus === 'passed') return '已通过'
+  return '待确认'
+}
+
+export function mapLiveTaxReportRows(tasks: TaxDeclarationTask[]): LiveModuleRow[] {
+  return [...tasks]
+    .sort((left, right) => left.taxType.localeCompare(right.taxType, 'zh-CN'))
+    .map((task) => ({
+      id: `tax-report-${task.id}`,
+      status: taxReportStatus(task),
+      voucher: task.adapterCode || '未关联申报渠道',
+      attachment: task.sourceSnapshot || '未记录取数快照',
+      values: {
+        taxType: task.taxType,
+        form: task.formName,
+        source: task.sourceSnapshot || '未记录取数来源',
+        amount: currency(task.taxableAmount),
+        tax: currency(task.payableAmount),
+        check: task.riskCount > 0
+          ? `${task.riskCount} 项风险待复核`
+          : task.validationStatus === 'passed'
+            ? '校验通过'
+            : '待校验',
+      },
+    }))
+}
+
+export function summarizeLiveTaxReports(tasks: TaxDeclarationTask[]): LiveSummaryItem[] {
+  const passed = tasks.filter((task) => taxReportStatus(task) === '已通过').length
+  const pending = tasks.filter((task) => taxReportStatus(task) === '待确认').length
+  const exception = tasks.filter((task) => taxReportStatus(task) === '异常').length
+  return [
+    { label: '税表', value: `${tasks.length} 张`, tone: tasks.length > 0 ? 'blue' : 'gray' },
+    { label: '校验通过', value: `${passed} 张`, tone: passed > 0 ? 'green' : 'gray' },
+    { label: '待确认', value: `${pending} 张`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '差异', value: `${exception} 张`, tone: exception > 0 ? 'red' : 'gray' },
+  ]
+}
+
 export function mapLiveHistoryVoucherRows(vouchers: Voucher[], periodLabel: string): LiveModuleRow[] {
   return vouchers.map((voucher) => ({
     id: `history-voucher-${voucher.id}`,

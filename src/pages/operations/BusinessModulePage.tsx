@@ -55,6 +55,7 @@ import {
   mapLiveVoucherRecycleRows,
   mapLiveDeclarationReceiptRows,
   mapLiveTaxInitRows,
+  mapLiveTaxReportRows,
   mapLiveVoucherTemplateRows,
   summarizeLiveBalanceSheet,
   summarizeLiveCashFlow,
@@ -89,6 +90,7 @@ import {
   summarizeLiveVoucherRecycle,
   summarizeLiveDeclarationReceipts,
   summarizeLiveTaxInit,
+  summarizeLiveTaxReports,
   summarizeLiveVoucherTemplates,
 } from '../../lib/liveModuleRows'
 import { useCompanyStore } from '../../stores/companyStore'
@@ -3477,6 +3479,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
   const usesLiveDeclarationReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'declarationReceipt')
   const usesLiveTaxInitData = Boolean(isTauri && selectedCompanyId && kind === 'taxInit')
+  const usesLiveTaxReportData = Boolean(isTauri && selectedCompanyId && kind === 'taxReport')
   const usesLiveHistoryReportData = Boolean(
     isTauri &&
       selectedCompanyId &&
@@ -3693,7 +3696,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [getDeletedVouchers, selectedCompanyId, usesLiveVoucherRecycleData])
 
   useEffect(() => {
-    if (!(usesLiveDeclarationReceiptData || usesLiveTaxInitData) || !selectedCompanyId) return
+    if (!(usesLiveDeclarationReceiptData || usesLiveTaxInitData || usesLiveTaxReportData) || !selectedCompanyId) return
     let active = true
     void automationApi.getTaxDeclarationTasks({ companyId: selectedCompanyId })
       .then((result) => {
@@ -3702,7 +3705,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     return () => {
       active = false
     }
-  }, [selectedCompanyId, usesLiveDeclarationReceiptData, usesLiveTaxInitData])
+  }, [selectedCompanyId, usesLiveDeclarationReceiptData, usesLiveTaxInitData, usesLiveTaxReportData])
 
   useEffect(() => {
     if (!usesLiveHistoryReportData || !selectedCompanyId) return
@@ -3902,6 +3905,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveTaxInitRows(taxDeclarationTasks, adapterAuthorizations),
         summary: summarizeLiveTaxInit(taxDeclarationTasks, adapterAuthorizations),
+      }
+    }
+
+    if (kind === 'taxReport' && usesLiveTaxReportData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveTaxReportRows(taxDeclarationTasks),
+        summary: summarizeLiveTaxReports(taxDeclarationTasks),
       }
     }
 
@@ -4177,7 +4188,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
