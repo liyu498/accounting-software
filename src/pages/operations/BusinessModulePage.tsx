@@ -24,6 +24,7 @@ import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
   mapLiveCompanyInfoRows,
+  mapLiveCommonDigestRows,
   mapLiveCurrencyRows,
   mapLiveGeneralLedgerRows,
   mapLiveInitialBalanceRows,
@@ -44,9 +45,11 @@ import {
   mapLiveInvoiceRows,
   mapLiveTrialBalanceRows,
   mapLiveVoucherRows,
+  mapLiveVoucherTemplateRows,
   summarizeLiveBalanceSheet,
   summarizeLiveCashFlow,
   summarizeLiveCompanyInfo,
+  summarizeLiveCommonDigests,
   summarizeLiveCurrencies,
   summarizeLiveGeneralLedger,
   summarizeLiveInitialBalance,
@@ -67,6 +70,7 @@ import {
   summarizeLiveInvoices,
   summarizeLiveTrialBalance,
   summarizeLiveVouchers,
+  summarizeLiveVoucherTemplates,
 } from '../../lib/liveModuleRows'
 import { useCompanyStore } from '../../stores/companyStore'
 import { useAccountStore } from '../../stores/accountStore'
@@ -84,6 +88,7 @@ import {
 import { useVoucherStore, type Voucher } from '../../stores/voucherStore'
 import { useSettlementRuleStore } from '../../stores/settlementRuleStore'
 import { useCurrencyStore } from '../../stores/currencyStore'
+import { useTemplateStore } from '../../stores/templateStore'
 
 type ModuleKind =
   | 'attachmentCenter'
@@ -3452,6 +3457,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const fetchSettlementRules = useSettlementRuleStore((state) => state.fetchSettlementRules)
   const currencies = useCurrencyStore((state) => state.currencies)
   const fetchCurrencies = useCurrencyStore((state) => state.fetchCurrencies)
+  const commonDigests = useTemplateStore((state) => state.commonDigests)
+  const voucherTemplateTypes = useTemplateStore((state) => state.voucherTemplateTypes)
+  const voucherTemplates = useTemplateStore((state) => state.voucherTemplates)
+  const fetchTemplateWorkspace = useTemplateStore((state) => state.fetchTemplateWorkspace)
   const usesLiveModuleData = isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice', 'voucher'].includes(kind)
   const usesLiveReportData = Boolean(
     isTauri &&
@@ -3463,6 +3472,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLivePeriodManagementData = Boolean(isTauri && selectedCompanyId && kind === 'periodManagement')
   const usesLiveSettlementRuleData = Boolean(isTauri && selectedCompanyId && kind === 'settlementRules')
   const usesLiveCurrencyData = Boolean(isTauri && selectedCompanyId && kind === 'currencySettings')
+  const usesLiveTemplateSettingsData = Boolean(isTauri && selectedCompanyId && ['commonDigests', 'voucherTemplateSettings'].includes(kind))
   const usesLiveHistoryReportData = Boolean(
     isTauri &&
       selectedCompanyId &&
@@ -3627,6 +3637,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!usesLiveCurrencyData || !selectedCompanyId) return
     void fetchCurrencies(selectedCompanyId)
   }, [fetchCurrencies, selectedCompanyId, usesLiveCurrencyData])
+
+  useEffect(() => {
+    if (!usesLiveTemplateSettingsData || !selectedCompanyId) return
+    void fetchTemplateWorkspace(selectedCompanyId)
+  }, [fetchTemplateWorkspace, selectedCompanyId, usesLiveTemplateSettingsData])
 
   useEffect(() => {
     if (!usesLiveHistoryReportData || !selectedCompanyId) return
@@ -3925,6 +3940,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'commonDigests' && usesLiveTemplateSettingsData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveCommonDigestRows(commonDigests),
+        summary: summarizeLiveCommonDigests(commonDigests),
+      }
+    }
+
+    if (kind === 'voucherTemplateSettings' && usesLiveTemplateSettingsData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveVoucherTemplateRows(voucherTemplates, voucherTemplateTypes),
+        summary: summarizeLiveVoucherTemplates(voucherTemplates, voucherTemplateTypes),
+      }
+    }
+
     if (kind === 'historyBalance' && usesLiveHistoryReportData) {
       return {
         ...baseConfig,
@@ -4006,7 +4037,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, currencies, exportJobs, invoices, kind, liveReports, periods, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, usesLiveArchiveData, usesLiveCurrencyData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLivePeriodManagementData, usesLiveReportData, usesLiveSettlementRuleData, vouchers])
+  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, exportJobs, invoices, kind, liveReports, periods, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, usesLiveArchiveData, usesLiveCurrencyData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLivePeriodManagementData, usesLiveReportData, usesLiveSettlementRuleData, usesLiveTemplateSettingsData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

@@ -31,6 +31,10 @@ const requiredAdapterSnippets = [
   ['settlement rule row mapper', 'export function mapLiveSettlementRuleRows'],
   ['currency row mapper', 'export function mapLiveCurrencyRows'],
   ['currency summary mapper', 'export function summarizeLiveCurrencies'],
+  ['common digest row mapper', 'export function mapLiveCommonDigestRows'],
+  ['common digest summary mapper', 'export function summarizeLiveCommonDigests'],
+  ['voucher template row mapper', 'export function mapLiveVoucherTemplateRows'],
+  ['voucher template summary mapper', 'export function summarizeLiveVoucherTemplates'],
   ['output invoice type', "invoice.invoice_type === invoiceType"],
   ['invoice type boundary', "invoiceType: 'output' | 'input'"],
   ['voucher direction filter', "entry.direction === direction"],
@@ -97,6 +101,10 @@ const requiredPageSnippets = [
   ['currency refresh', 'fetchCurrencies(selectedCompanyId)'],
   ['currency mapping', 'mapLiveCurrencyRows(currencies)'],
   ['currency live scope', 'usesLiveCurrencyData'],
+  ['template workspace refresh', 'fetchTemplateWorkspace(selectedCompanyId)'],
+  ['common digest mapping', 'mapLiveCommonDigestRows(commonDigests)'],
+  ['voucher template mapping', 'mapLiveVoucherTemplateRows(voucherTemplates, voucherTemplateTypes)'],
+  ['template settings live scope', 'usesLiveTemplateSettingsData'],
   ['browser mock fallback', 'isTauri && selectedCompanyId'],
 ]
 
@@ -119,7 +127,7 @@ if (errors.length > 0) {
 
 console.log('Live data adapter verification passed:')
 console.log(JSON.stringify({
-  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger', 'settlementRules', 'currencySettings'],
+  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger', 'settlementRules', 'currencySettings', 'commonDigests', 'voucherTemplateSettings'],
   scope: 'selected company and accounting period',
   browserFallback: 'existing mock rows',
 }, null, 2))

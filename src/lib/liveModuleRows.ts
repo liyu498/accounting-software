@@ -16,6 +16,7 @@ import type { AuxiliaryBalanceRow, AuxiliaryCategory, AuxiliaryItem, AuxiliaryLe
 import type { Voucher, VoucherEntry } from '../stores/voucherStore'
 import type { SettlementRule } from '../stores/settlementRuleStore'
 import type { Currency } from '../stores/currencyStore'
+import type { CommonDigest, VoucherTemplateType, VoucherTemplateWithEntries } from '../stores/templateStore'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
 
@@ -605,6 +606,88 @@ export function summarizeLiveCurrencies(currencies: Currency[]): LiveSummaryItem
     { label: '本位币', value: `${baseCount} 个`, tone: baseCount === 1 ? 'green' : baseCount === 0 ? 'amber' : 'red' },
     { label: '外币', value: `${foreignCount} 个`, tone: foreignCount > 0 ? 'amber' : 'gray' },
     { label: '异常', value: baseCount === 1 ? '0 个' : `${Math.abs(baseCount - 1)} 个`, tone: baseCount === 1 ? 'gray' : 'red' },
+  ]
+}
+
+export function mapLiveCommonDigestRows(digests: CommonDigest[]): LiveModuleRow[] {
+  return [...digests]
+    .sort((left, right) => left.content.localeCompare(right.content))
+    .map((digest) => ({
+      id: `digest-${digest.id}`,
+      status: '启用',
+      voucher: '-',
+      attachment: '账套摘要库',
+      values: {
+        template: digest.content,
+        module: '凭证录入',
+        keywords: '未配置关键词',
+        subject: '未配置默认科目',
+        priority: '-',
+        usage: '暂无使用记录',
+      },
+    }))
+}
+
+export function summarizeLiveCommonDigests(digests: CommonDigest[]): LiveSummaryItem[] {
+  return [
+    { label: '摘要模板', value: `${digests.length} 条`, tone: 'blue' },
+    { label: '启用', value: `${digests.length} 条`, tone: 'green' },
+    { label: '待补关键词', value: `${digests.length} 条`, tone: digests.length > 0 ? 'amber' : 'gray' },
+    { label: '冲突', value: '0 条', tone: 'gray' },
+  ]
+}
+
+function templateTypeName(template: VoucherTemplateWithEntries, types: VoucherTemplateType[]) {
+  return types.find((type) => type.id === template.template.type_id)?.name || '未分类模板'
+}
+
+function templateAccounts(template: VoucherTemplateWithEntries, direction: 'debit' | 'credit') {
+  const values = template.entries
+    .filter((entry) => entry.direction === direction)
+    .map((entry) => `${entry.account_code} ${entry.account_name}`)
+  return values.length > 0 ? values.join(' / ') : '未配置'
+}
+
+export function mapLiveVoucherTemplateRows(
+  templates: VoucherTemplateWithEntries[],
+  types: VoucherTemplateType[],
+): LiveModuleRow[] {
+  return [...templates]
+    .sort((left, right) => templateTypeName(left, types).localeCompare(templateTypeName(right, types)) || left.template.name.localeCompare(right.template.name))
+    .map((template) => {
+      const summaries = [...new Set(template.entries.map((entry) => entry.summary).filter(Boolean))]
+      const auxiliaries = [...new Set(template.entries.map((entry) => entry.auxiliary_type).filter(Boolean))]
+      const hasEntries = template.entries.length > 0
+      return {
+        id: `voucher-template-${template.template.id}`,
+        status: hasEntries ? '启用' : '待确认',
+        voucher: '-',
+        attachment: `${template.entries.length} 条分录`,
+        values: {
+          name: template.template.name,
+          source: templateTypeName(template, types),
+          summary: summaries.length > 0 ? summaries.join(' / ') : '未配置摘要',
+          debit: templateAccounts(template, 'debit'),
+          credit: templateAccounts(template, 'credit'),
+          aux: auxiliaries.length > 0 ? auxiliaries.join(' / ') : '无辅助核算',
+          priority: '未配置优先级',
+          usage: '暂无使用记录',
+        },
+      }
+    })
+}
+
+export function summarizeLiveVoucherTemplates(
+  templates: VoucherTemplateWithEntries[],
+  types: VoucherTemplateType[],
+): LiveSummaryItem[] {
+  const enabled = templates.filter((template) => template.entries.length > 0).length
+  const incomplete = templates.length - enabled
+  return [
+    { label: '凭证模板', value: `${templates.length} 套`, tone: 'blue' },
+    { label: '模板类型', value: `${types.length} 类`, tone: 'green' },
+    { label: '可用模板', value: `${enabled} 套`, tone: enabled > 0 ? 'green' : 'gray' },
+    { label: '待补分录', value: `${incomplete} 套`, tone: incomplete > 0 ? 'amber' : 'gray' },
   ]
 }
 
