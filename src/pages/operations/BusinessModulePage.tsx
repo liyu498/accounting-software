@@ -35,6 +35,7 @@ import {
   mapLiveHistoryGeneralLedgerRows,
   mapLiveHistorySubsidiaryLedgerRows,
   mapLiveHistoryVoucherRows,
+  mapLiveSettlementRuleRows,
   mapLivePeriodManagementRows,
   mapLiveSubjectRows,
   mapLiveSubsidiaryLedgerRows,
@@ -56,6 +57,7 @@ import {
   summarizeLiveHistoryGeneralLedger,
   summarizeLiveHistorySubsidiaryLedger,
   summarizeLiveHistoryVouchers,
+  summarizeLiveSettlementRules,
   summarizeLivePeriodManagement,
   summarizeLiveSubjects,
   summarizeLiveSubsidiaryLedger,
@@ -78,6 +80,7 @@ import {
   type TrialBalanceResult,
 } from '../../stores/periodStore'
 import { useVoucherStore, type Voucher } from '../../stores/voucherStore'
+import { useSettlementRuleStore } from '../../stores/settlementRuleStore'
 
 type ModuleKind =
   | 'attachmentCenter'
@@ -3442,6 +3445,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const fetchInvoices = useInvoiceStore((state) => state.fetchInvoices)
   const vouchers = useVoucherStore((state) => state.vouchers)
   const queryVouchers = useVoucherStore((state) => state.queryVouchers)
+  const settlementRules = useSettlementRuleStore((state) => state.rules)
+  const fetchSettlementRules = useSettlementRuleStore((state) => state.fetchSettlementRules)
   const usesLiveModuleData = isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice', 'voucher'].includes(kind)
   const usesLiveReportData = Boolean(
     isTauri &&
@@ -3451,6 +3456,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   )
   const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
   const usesLivePeriodManagementData = Boolean(isTauri && selectedCompanyId && kind === 'periodManagement')
+  const usesLiveSettlementRuleData = Boolean(isTauri && selectedCompanyId && kind === 'settlementRules')
   const usesLiveHistoryReportData = Boolean(
     isTauri &&
       selectedCompanyId &&
@@ -3605,6 +3611,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!usesLivePeriodManagementData || !selectedCompanyId) return
     void fetchPeriods(selectedCompanyId)
   }, [fetchPeriods, selectedCompanyId, usesLivePeriodManagementData])
+
+  useEffect(() => {
+    if (!usesLiveSettlementRuleData || !selectedCompanyId) return
+    void fetchSettlementRules(selectedCompanyId)
+  }, [fetchSettlementRules, selectedCompanyId, usesLiveSettlementRuleData])
 
   useEffect(() => {
     if (!usesLiveHistoryReportData || !selectedCompanyId) return
@@ -3887,6 +3898,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'settlementRules' && usesLiveSettlementRuleData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveSettlementRuleRows(settlementRules),
+        summary: summarizeLiveSettlementRules(settlementRules),
+      }
+    }
+
     if (kind === 'historyBalance' && usesLiveHistoryReportData) {
       return {
         ...baseConfig,
@@ -3968,7 +3987,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, exportJobs, invoices, kind, liveReports, periods, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, usesLiveArchiveData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLivePeriodManagementData, usesLiveReportData, vouchers])
+  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, exportJobs, invoices, kind, liveReports, periods, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, usesLiveArchiveData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLivePeriodManagementData, usesLiveReportData, usesLiveSettlementRuleData, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

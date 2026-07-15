@@ -28,6 +28,7 @@ const requiredAdapterSnippets = [
   ['history general ledger row mapper', 'export function mapLiveHistoryGeneralLedgerRows'],
   ['history subsidiary ledger row mapper', 'export function mapLiveHistorySubsidiaryLedgerRows'],
   ['history voucher row mapper', 'export function mapLiveHistoryVoucherRows'],
+  ['settlement rule row mapper', 'export function mapLiveSettlementRuleRows'],
   ['output invoice type', "invoice.invoice_type === invoiceType"],
   ['invoice type boundary', "invoiceType: 'output' | 'input'"],
   ['voucher direction filter', "entry.direction === direction"],
@@ -88,6 +89,9 @@ const requiredPageSnippets = [
   ['history subsidiary ledger selector', 'aria-label="历史明细账科目"'],
   ['history voucher query', "period_id: selectedHistoryPeriodId"],
   ['history voucher mapping', 'mapLiveHistoryVoucherRows(liveReports.historyVouchers'],
+  ['settlement rule refresh', 'fetchSettlementRules(selectedCompanyId)'],
+  ['settlement rule mapping', 'mapLiveSettlementRuleRows(settlementRules)'],
+  ['settlement rule live scope', 'usesLiveSettlementRuleData'],
   ['browser mock fallback', 'isTauri && selectedCompanyId'],
 ]
 
@@ -110,7 +114,7 @@ if (errors.length > 0) {
 
 console.log('Live data adapter verification passed:')
 console.log(JSON.stringify({
-  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger'],
+  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger', 'settlementRules'],
   scope: 'selected company and accounting period',
   browserFallback: 'existing mock rows',
 }, null, 2))

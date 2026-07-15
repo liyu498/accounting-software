@@ -14,6 +14,7 @@ import type { Company } from '../stores/companyStore'
 import type { AccountCode } from '../stores/accountStore'
 import type { AuxiliaryBalanceRow, AuxiliaryCategory, AuxiliaryItem, AuxiliaryLedgerRow } from '../stores/auxiliaryStore'
 import type { Voucher, VoucherEntry } from '../stores/voucherStore'
+import type { SettlementRule } from '../stores/settlementRuleStore'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
 
@@ -527,6 +528,43 @@ export function summarizeLiveHistorySubsidiaryLedger(items: SubsidiaryLedgerItem
     { label: '已核对', value: hasSelection ? `${items.length - unreviewed} 行` : '-', tone: hasSelection ? 'green' : 'gray' },
     { label: '待复核', value: hasSelection ? `${unreviewed} 行` : '-', tone: hasSelection ? 'amber' : 'gray' },
     { label: '异常', value: hasSelection ? (debit === credit ? '0 行' : '需检查') : '-', tone: hasSelection ? (debit === credit ? 'gray' : 'red') : 'gray' },
+  ]
+}
+
+const settlementRuleLabels: Record<string, string> = {
+  profit_loss: '结转损益',
+  tax: '计提所得税',
+  vat: '转出未交增值税',
+  custom: '自定义结转',
+}
+
+export function mapLiveSettlementRuleRows(rules: SettlementRule[]): LiveModuleRow[] {
+  return [...rules]
+    .sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name))
+    .map((rule) => ({
+      id: `settlement-rule-${rule.id}`,
+      status: rule.is_enabled === 1 ? '启用' : '停用',
+      voucher: rule.voucher_word_id || '-',
+      attachment: rule.target_account_code ? `目标科目 ${rule.target_account_code}` : '待配置目标科目',
+      values: {
+        order: String(rule.priority),
+        name: rule.name,
+        source: rule.source_formula || '未配置取数公式',
+        template: rule.summary_template || '未配置摘要模板',
+        condition: settlementRuleLabels[rule.rule_type] || rule.rule_type,
+        lastRun: '暂无执行记录',
+      },
+    }))
+}
+
+export function summarizeLiveSettlementRules(rules: SettlementRule[]): LiveSummaryItem[] {
+  const enabled = rules.filter((rule) => rule.is_enabled === 1).length
+  const missingTarget = rules.filter((rule) => !rule.target_account_code).length
+  return [
+    { label: '结转规则', value: `${rules.length} 条`, tone: 'blue' },
+    { label: '启用', value: `${enabled} 条`, tone: 'green' },
+    { label: '待执行', value: '待期末触发', tone: 'amber' },
+    { label: '阻断', value: `${missingTarget} 条`, tone: missingTarget > 0 ? 'red' : 'gray' },
   ]
 }
 
