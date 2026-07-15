@@ -18,7 +18,7 @@ import type { SettlementRule } from '../stores/settlementRuleStore'
 import type { Currency } from '../stores/currencyStore'
 import type { CommonDigest, VoucherTemplateType, VoucherTemplateWithEntries } from '../stores/templateStore'
 import type { ReportItem, ReportTemplate } from '../stores/reportTemplateStore'
-import type { AdapterAuthorization, OperationAuditLog } from '../lib/api'
+import type { AdapterAuthorization, OperationAuditLog, TaxDeclarationTask } from '../lib/api'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
 
@@ -202,6 +202,46 @@ export function summarizeLiveVoucherRecycle(vouchers: Voucher[]): LiveSummaryIte
     { label: '可恢复', value: `${vouchers.length} 张`, tone: vouchers.length > 0 ? 'green' : 'gray' },
     { label: '待复核', value: `${missingTimestamp} 张`, tone: missingTimestamp > 0 ? 'amber' : 'gray' },
     { label: '异常', value: '0 张', tone: 'gray' },
+  ]
+}
+
+function declarationReceiptStatus(task: TaxDeclarationTask): LiveModuleStatus {
+  const value = task.declarationStatus.toLowerCase()
+  if (['failed', 'error', 'rejected'].includes(value)) return '异常'
+  if (task.receiptNo || ['confirmed', 'submitted', 'completed'].includes(value)) return '已通过'
+  return '待确认'
+}
+
+export function mapLiveDeclarationReceiptRows(tasks: TaxDeclarationTask[]): LiveModuleRow[] {
+  return [...tasks]
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    .map((task) => ({
+      id: `declaration-receipt-${task.id}`,
+      status: declarationReceiptStatus(task),
+      voucher: task.adapterCode || '未关联申报渠道',
+      attachment: task.sourceSnapshot || '未记录回执附件',
+      values: {
+        taxType: task.taxType,
+        form: task.formName,
+        period: task.period,
+        declareStatus: task.declarationStatus,
+        receiptNo: task.receiptNo || '未收回执',
+        paymentStatus: '未记录缴款状态',
+        paymentNo: '未记录缴款书号',
+        receivedAt: task.confirmedAt || '未记录收取时间',
+      },
+    }))
+}
+
+export function summarizeLiveDeclarationReceipts(tasks: TaxDeclarationTask[]): LiveSummaryItem[] {
+  const received = tasks.filter((task) => Boolean(task.receiptNo)).length
+  const pending = tasks.filter((task) => declarationReceiptStatus(task) === '待确认').length
+  const exception = tasks.filter((task) => declarationReceiptStatus(task) === '异常').length
+  return [
+    { label: '申报事项', value: `${tasks.length} 项`, tone: 'blue' },
+    { label: '已收回执', value: `${received} 项`, tone: received > 0 ? 'green' : 'gray' },
+    { label: '待确认', value: `${pending} 项`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '异常', value: `${exception} 项`, tone: exception > 0 ? 'red' : 'gray' },
   ]
 }
 

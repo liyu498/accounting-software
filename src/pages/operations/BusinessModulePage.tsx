@@ -20,7 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { automationApi, type AdapterAuthorization, type OperationAuditLog } from '../../lib/api'
+import { automationApi, type AdapterAuthorization, type OperationAuditLog, type TaxDeclarationTask } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -52,6 +52,7 @@ import {
   mapLiveTrialBalanceRows,
   mapLiveVoucherRows,
   mapLiveVoucherRecycleRows,
+  mapLiveDeclarationReceiptRows,
   mapLiveVoucherTemplateRows,
   summarizeLiveBalanceSheet,
   summarizeLiveCashFlow,
@@ -83,6 +84,7 @@ import {
   summarizeLiveTrialBalance,
   summarizeLiveVouchers,
   summarizeLiveVoucherRecycle,
+  summarizeLiveDeclarationReceipts,
   summarizeLiveVoucherTemplates,
 } from '../../lib/liveModuleRows'
 import { useCompanyStore } from '../../stores/companyStore'
@@ -3495,6 +3497,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings'].includes(kind))
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
+  const usesLiveDeclarationReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'declarationReceipt')
   const usesLiveHistoryReportData = Boolean(
     isTauri &&
       selectedCompanyId &&
@@ -3515,6 +3518,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [adapterAuthorizations, setAdapterAuthorizations] = useState<AdapterAuthorization[]>([])
   const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
+  const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [selectedLedgerAccountCode, setSelectedLedgerAccountCode] = useState('')
   const [selectedAuxiliaryCategoryId, setSelectedAuxiliaryCategoryId] = useState('')
   const [selectedAuxiliaryItemId, setSelectedAuxiliaryItemId] = useState('')
@@ -3710,6 +3714,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [getDeletedVouchers, selectedCompanyId, usesLiveVoucherRecycleData])
 
   useEffect(() => {
+    if (!usesLiveDeclarationReceiptData || !selectedCompanyId) return
+    let active = true
+    void automationApi.getTaxDeclarationTasks({ companyId: selectedCompanyId })
+      .then((result) => {
+        if (active) setTaxDeclarationTasks(result.success ? result.data || [] : [])
+      })
+    return () => {
+      active = false
+    }
+  }, [selectedCompanyId, usesLiveDeclarationReceiptData])
+
+  useEffect(() => {
     if (!usesLiveHistoryReportData || !selectedCompanyId) return
     void fetchPeriods(selectedCompanyId)
     if (kind === 'historySubsidiaryLedger') void fetchAccounts(selectedCompanyId)
@@ -3891,6 +3907,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveVoucherRecycleRows(deletedVouchers),
         summary: summarizeLiveVoucherRecycle(deletedVouchers),
+      }
+    }
+
+    if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveDeclarationReceiptRows(taxDeclarationTasks),
+        summary: summarizeLiveDeclarationReceipts(taxDeclarationTasks),
       }
     }
 
@@ -4158,7 +4182,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveCurrencyData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
