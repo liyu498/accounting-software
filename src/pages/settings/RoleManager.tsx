@@ -58,7 +58,7 @@ const ACTIONS = [
   { key: 'import', label: '导入' },
 ]
 
-export function RoleManager() {
+export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company' }) {
   const { selectedCompanyId } = useCompanyStore()
   const { canView, canCreate, canEdit, canDelete, isAdmin } = usePermission()
   const [roles, setRoles] = useState<RoleWithPermissions[]>([])
@@ -80,7 +80,7 @@ export function RoleManager() {
       const [rolesData, usersData] = await Promise.all([
         invoke<RoleWithPermissions[]>('get_roles'),
         invoke<UserWithRole[]>('get_users_with_roles', {
-          companyId: selectedCompanyId || undefined,
+          companyId: scope === 'company' ? selectedCompanyId || undefined : undefined,
         }),
       ])
       setRoles(rolesData)
@@ -90,7 +90,7 @@ export function RoleManager() {
     } finally {
       setLoading(false)
     }
-  }, [selectedCompanyId])
+  }, [scope, selectedCompanyId])
 
   useEffect(() => {
     loadData()

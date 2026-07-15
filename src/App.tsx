@@ -11,6 +11,7 @@ import { BusinessModulePage } from './pages/operations/BusinessModulePage'
 import { TaxWorkspace } from './pages/tax/TaxWorkspace'
 import { AgencyModulePage, type AgencyModuleKind } from './pages/agency/AgencyModulePage'
 import { AgencyLayout } from './pages/agency/AgencyLayout'
+import { RoleManager } from './pages/settings/RoleManager'
 
 // Protected route wrapper
 interface ProtectedRouteProps {
@@ -102,6 +103,7 @@ function App() {
             <Route path="/agency/invoice-management" element={agencyPage('invoiceManagement')} />
             <Route path="/agency/health-check" element={agencyPage('healthCheck')} />
             <Route path="/agency/automation" element={agencyPage('automation')} />
+            <Route path="/agency/permissions" element={<RoleManager scope="agency" />} />
             <Route path="/agency/settings" element={<Navigate to="/agency/service-contracts" replace />} />
           </Route>
 
@@ -224,7 +226,7 @@ function App() {
             <Route path="/settings/cash-flow-mapping" element={businessPage('cashFlowMapping', '现金流量映射', '维护银行流水、凭证科目和现金流量表项目之间的映射规则。')} />
             <Route path="/settings/settlement-rules" element={businessPage('settlementRules', '结转规则', '维护期末结转、损益结转、税费计提和折旧摊销规则。')} />
             <Route path="/settings/currencies" element={businessPage('currencySettings', '币别管理', '维护币别、汇率、外币核算和折算规则。')} />
-            <Route path="/settings/roles" element={<Navigate to="/agency/service-contracts" replace />} />
+            <Route path="/settings/roles" element={<Navigate to="/agency/permissions" replace />} />
             <Route path="/settings/print-templates" element={businessPage('printTemplateSettings', '打印模板', '维护凭证纸、报表、申报包和附件归档的打印/PDF 模板版本。')} />
             <Route path="/settings/tax-adapters" element={businessPage('taxAdapterSettings', '税局接口配置', '维护合法税局 adapter 的地区、税种、授权状态、回执能力和提交边界。')} />
             <Route path="/settings/bank-adapters" element={businessPage('bankAdapterSettings', '银行接口配置', '维护银行流水采集、回单、对账能力和直连预留参数。')} />

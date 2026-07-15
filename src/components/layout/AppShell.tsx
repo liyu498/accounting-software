@@ -434,7 +434,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </div>
                     <button
                       type="button"
-                      onClick={() => runUserAction('/agency/service-contracts', '申请修改密码', user?.username || 'admin', '修改密码已进入待确认记录，请在机构服务合同的权限策略中完成校验。')}
+                      onClick={() => runUserAction('/agency/permissions', '申请修改密码', user?.username || 'admin', '修改密码已进入待确认记录，请在机构权限管理中完成校验。')}
                       className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
                     >
                       修改密码
@@ -448,7 +448,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => runUserAction('/agency/service-contracts', '查看权限设置', user?.username || 'admin', '已进入机构服务合同的权限策略，可查看角色和审计要求。')}
+                      onClick={() => runUserAction('/agency/permissions', '查看权限设置', user?.username || 'admin', '已进入机构权限管理，可查看角色和审计要求。')}
                       className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
                     >
                       权限设置
