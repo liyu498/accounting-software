@@ -468,6 +468,37 @@ export function summarizeLiveHistoryGeneralLedger(items: GeneralLedgerItem[], pe
   ]
 }
 
+export function mapLiveHistorySubsidiaryLedgerRows(items: SubsidiaryLedgerItem[], subject: string): LiveModuleRow[] {
+  return items.map((item, index) => ({
+    id: `history-subsidiary-${item.voucher_id || item.voucher_number || index}`,
+    status: item.balance_direction ? '已通过' : '待确认',
+    voucher: item.voucher_number || '期初',
+    attachment: item.summary === '期初余额' ? '历史期初' : '历史凭证穿透',
+    values: {
+      date: item.voucher_date || '-',
+      wordNo: item.voucher_number || '期初',
+      subject: subject || '未选择科目',
+      summary: item.summary || '期初余额',
+      opposite: item.opposite_account || '-',
+      debit: currency(item.debit),
+      credit: currency(item.credit),
+      balance: item.balance_direction ? `${item.balance_direction} ${currency(item.balance)}` : currency(item.balance),
+    },
+  }))
+}
+
+export function summarizeLiveHistorySubsidiaryLedger(items: SubsidiaryLedgerItem[], hasSelection: boolean): LiveSummaryItem[] {
+  const debit = items.reduce((sum, item) => sum + item.debit, 0)
+  const credit = items.reduce((sum, item) => sum + item.credit, 0)
+  const unreviewed = items.filter((item) => !item.balance_direction).length
+  return [
+    { label: '明细行数', value: hasSelection ? `${items.length} 行` : '未选择条件', tone: hasSelection ? 'blue' : 'gray' },
+    { label: '已核对', value: hasSelection ? `${items.length - unreviewed} 行` : '-', tone: hasSelection ? 'green' : 'gray' },
+    { label: '待复核', value: hasSelection ? `${unreviewed} 行` : '-', tone: hasSelection ? 'amber' : 'gray' },
+    { label: '异常', value: hasSelection ? (debit === credit ? '0 行' : '需检查') : '-', tone: hasSelection ? (debit === credit ? 'gray' : 'red') : 'gray' },
+  ]
+}
+
 export function mapLiveAccountSummaryRows(items: GeneralLedgerItem[]): LiveModuleRow[] {
   return items.map((item) => {
     const debitEntries = item.entries.filter((entry) => entry.direction === 'debit')

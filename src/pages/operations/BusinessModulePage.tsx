@@ -33,6 +33,7 @@ import {
   mapLiveAuxiliaryLedgerRows,
   mapLiveHistoryBalanceRows,
   mapLiveHistoryGeneralLedgerRows,
+  mapLiveHistorySubsidiaryLedgerRows,
   mapLivePeriodManagementRows,
   mapLiveSubjectRows,
   mapLiveSubsidiaryLedgerRows,
@@ -52,6 +53,7 @@ import {
   summarizeLiveAuxiliaryLedger,
   summarizeLiveHistoryBalance,
   summarizeLiveHistoryGeneralLedger,
+  summarizeLiveHistorySubsidiaryLedger,
   summarizeLivePeriodManagement,
   summarizeLiveSubjects,
   summarizeLiveSubsidiaryLedger,
@@ -222,6 +224,7 @@ type LiveReportData = {
   auxiliaryBalance: AuxiliaryBalanceRow[] | null
   historyBalance: TrialBalanceResult | null
   historyGeneralLedger: GeneralLedgerItem[] | null
+  historySubsidiaryLedger: SubsidiaryLedgerItem[] | null
 }
 
 const emptyLiveReportData: LiveReportData = {
@@ -238,6 +241,7 @@ const emptyLiveReportData: LiveReportData = {
   auxiliaryBalance: null,
   historyBalance: null,
   historyGeneralLedger: null,
+  historySubsidiaryLedger: null,
 }
 
 const liveAuxiliaryArchiveKinds = ['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'] as const
@@ -3446,7 +3450,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveHistoryReportData = Boolean(
     isTauri &&
       selectedCompanyId &&
-      ['historyBalance', 'historyGeneralLedger'].includes(kind),
+      ['historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger'].includes(kind),
   )
   const usesLiveLedgerDetailData = Boolean(
     isTauri &&
@@ -3464,6 +3468,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [selectedAuxiliaryCategoryId, setSelectedAuxiliaryCategoryId] = useState('')
   const [selectedAuxiliaryItemId, setSelectedAuxiliaryItemId] = useState('')
   const [selectedHistoryPeriodId, setSelectedHistoryPeriodId] = useState('')
+  const [selectedHistoryLedgerAccountCode, setSelectedHistoryLedgerAccountCode] = useState('')
+  const selectedHistoryLedgerAccount = useMemo(
+    () => accounts.find((account) => account.code === selectedHistoryLedgerAccountCode),
+    [accounts, selectedHistoryLedgerAccountCode],
+  )
   const detailedAccounts = useMemo(
     () => accounts.filter((account) => account.is_enabled === 1 && account.is_detail === 1),
     [accounts],
@@ -3596,7 +3605,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   useEffect(() => {
     if (!usesLiveHistoryReportData || !selectedCompanyId) return
     void fetchPeriods(selectedCompanyId)
-  }, [fetchPeriods, selectedCompanyId, usesLiveHistoryReportData])
+    if (kind === 'historySubsidiaryLedger') void fetchAccounts(selectedCompanyId)
+  }, [fetchAccounts, fetchPeriods, kind, selectedCompanyId, usesLiveHistoryReportData])
 
   useEffect(() => {
     if (kind !== 'historyBalance' || !usesLiveHistoryReportData || !selectedHistoryPeriodId) return
@@ -3629,6 +3639,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       active = false
     }
   }, [getGeneralLedger, kind, selectedHistoryPeriodId, usesLiveHistoryReportData])
+
+  useEffect(() => {
+    if (kind !== 'historySubsidiaryLedger' || !usesLiveHistoryReportData || !selectedHistoryPeriodId || !selectedHistoryLedgerAccountCode) return
+
+    let active = true
+    setLiveReports((reports) => ({ ...reports, historySubsidiaryLedger: null }))
+    void getSubsidiaryLedger(selectedHistoryPeriodId, selectedHistoryLedgerAccountCode)
+      .then((historySubsidiaryLedger) => {
+        if (active) setLiveReports((reports) => ({ ...reports, historySubsidiaryLedger }))
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [getSubsidiaryLedger, kind, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, usesLiveHistoryReportData])
 
   useEffect(() => {
     if (!usesLiveLedgerDetailData || !selectedCompanyId) return
@@ -3871,6 +3897,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'historySubsidiaryLedger' && usesLiveHistoryReportData) {
+      const hasSelection = Boolean(selectedHistoryPeriodId && selectedHistoryLedgerAccountCode)
+      return {
+        ...baseConfig,
+        rows: liveReports.historySubsidiaryLedger
+          ? mapLiveHistorySubsidiaryLedgerRows(liveReports.historySubsidiaryLedger, selectedHistoryLedgerAccount ? `${selectedHistoryLedgerAccount.code} ${selectedHistoryLedgerAccount.name}` : '')
+          : [],
+        summary: summarizeLiveHistorySubsidiaryLedger(liveReports.historySubsidiaryLedger || [], hasSelection),
+      }
+    }
+
     if (kind === 'subjectSettings' && usesLiveArchiveData) {
       return {
         ...baseConfig,
@@ -3898,7 +3935,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, exportJobs, invoices, kind, liveReports, periods, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryPeriodLabel, usesLiveArchiveData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLivePeriodManagementData, usesLiveReportData, vouchers])
+  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, exportJobs, invoices, kind, liveReports, periods, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, usesLiveArchiveData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLivePeriodManagementData, usesLiveReportData, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -4230,7 +4267,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 ))}
               </select>
             )}
-            {(kind === 'historyBalance' || kind === 'historyGeneralLedger') && usesLiveHistoryReportData && (
+            {(kind === 'historyBalance' || kind === 'historyGeneralLedger' || kind === 'historySubsidiaryLedger') && usesLiveHistoryReportData && (
               <select
                 aria-label="历史账期"
                 value={selectedHistoryPeriodId}
@@ -4242,6 +4279,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                   <option key={period.id} value={period.id}>
                     {period.period_year}-{String(period.period_month).padStart(2, '0')}{period.status === 'closed' ? '（已结账）' : ''}
                   </option>
+                ))}
+              </select>
+            )}
+            {kind === 'historySubsidiaryLedger' && usesLiveHistoryReportData && (
+              <select
+                aria-label="历史明细账科目"
+                value={selectedHistoryLedgerAccountCode}
+                onChange={(event) => setSelectedHistoryLedgerAccountCode(event.target.value)}
+                className="h-8 max-w-56 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#1f65a7]"
+              >
+                <option value="">选择历史明细账科目</option>
+                {detailedAccounts.map((account) => (
+                  <option key={account.code} value={account.code}>{account.code} {account.name}</option>
                 ))}
               </select>
             )}
