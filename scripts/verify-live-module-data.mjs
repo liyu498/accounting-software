@@ -19,6 +19,9 @@ const requiredAdapterSnippets = [
   ['auxiliary archive row mapper', 'export function mapLiveAuxiliaryArchiveRows'],
   ['ledger overview row mapper', 'export function mapLiveLedgerOverviewRows'],
   ['account summary row mapper', 'export function mapLiveAccountSummaryRows'],
+  ['subsidiary ledger row mapper', 'export function mapLiveSubsidiaryLedgerRows'],
+  ['auxiliary ledger row mapper', 'export function mapLiveAuxiliaryLedgerRows'],
+  ['auxiliary balance row mapper', 'export function mapLiveAuxiliaryBalanceRows'],
   ['output invoice type', "invoice.invoice_type === invoiceType"],
   ['invoice type boundary', "invoiceType: 'output' | 'input'"],
   ['voucher direction filter', "entry.direction === direction"],
@@ -56,6 +59,15 @@ const requiredPageSnippets = [
   ['auxiliary archive mapping', 'mapLiveAuxiliaryArchiveRows(kind, auxiliaryCategories, auxiliaryItems)'],
   ['ledger overview mapping', 'mapLiveLedgerOverviewRows(liveReports.ledgerOverview)'],
   ['account summary mapping', 'mapLiveAccountSummaryRows(liveReports.accountSummary)'],
+  ['subsidiary ledger query', 'getSubsidiaryLedger(currentPeriodId, selectedLedgerAccountCode)'],
+  ['auxiliary ledger query', 'fetchAuxiliaryLedger({'],
+  ['auxiliary balance query', 'fetchAuxiliaryBalance(selectedAuxiliaryCategoryId, currentPeriodId, selectedCompanyId)'],
+  ['subsidiary ledger mapping', 'mapLiveSubsidiaryLedgerRows(liveReports.subsidiaryLedger)'],
+  ['auxiliary ledger mapping', 'mapLiveAuxiliaryLedgerRows(liveReports.auxiliaryLedger'],
+  ['auxiliary balance mapping', 'mapLiveAuxiliaryBalanceRows(liveReports.auxiliaryBalance'],
+  ['ledger account selector', 'aria-label="明细账科目"'],
+  ['auxiliary category selector', 'aria-label="辅助账类别"'],
+  ['auxiliary item selector', 'aria-label="辅助账项目"'],
   ['browser mock fallback', 'isTauri && selectedCompanyId'],
 ]
 
@@ -78,7 +90,7 @@ if (errors.length > 0) {
 
 console.log('Live data adapter verification passed:')
 console.log(JSON.stringify({
-  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'],
+  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'],
   scope: 'selected company and accounting period',
   browserFallback: 'existing mock rows',
 }, null, 2))

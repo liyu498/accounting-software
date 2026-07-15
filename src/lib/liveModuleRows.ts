@@ -6,11 +6,12 @@ import type {
   GeneralLedgerItem,
   IncomeStatementItem,
   IncomeStatementResult,
+  SubsidiaryLedgerItem,
   TrialBalanceResult,
 } from '../stores/periodStore'
 import type { Company } from '../stores/companyStore'
 import type { AccountCode } from '../stores/accountStore'
-import type { AuxiliaryCategory, AuxiliaryItem } from '../stores/auxiliaryStore'
+import type { AuxiliaryBalanceRow, AuxiliaryCategory, AuxiliaryItem, AuxiliaryLedgerRow } from '../stores/auxiliaryStore'
 import type { Voucher, VoucherEntry } from '../stores/voucherStore'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
@@ -265,6 +266,107 @@ export function summarizeLiveGeneralLedger(items: GeneralLedgerItem[]): LiveSumm
     { label: '已核对', value: `${reviewed} 个`, tone: 'green' },
     { label: '本期借方', value: currency(debit), tone: 'amber' },
     { label: '本期贷方', value: currency(credit), tone: 'gray' },
+  ]
+}
+
+export function mapLiveSubsidiaryLedgerRows(items: SubsidiaryLedgerItem[]): LiveModuleRow[] {
+  return items.map((item, index) => ({
+    id: `subsidiary-${item.voucher_id || item.voucher_number || index}`,
+    status: item.balance_direction ? '已通过' : '待确认',
+    voucher: item.voucher_number || '期初',
+    attachment: item.summary === '期初余额' ? '期初余额' : '凭证穿透',
+    values: {
+      date: item.voucher_date || '-',
+      wordNo: item.voucher_number || '期初',
+      subject: '当前选择科目',
+      summary: item.summary || '期初余额',
+      opposite: item.opposite_account || '-',
+      debit: currency(item.debit),
+      credit: currency(item.credit),
+      balance: item.balance_direction ? `${item.balance_direction} ${currency(item.balance)}` : currency(item.balance),
+    },
+  }))
+}
+
+export function summarizeLiveSubsidiaryLedger(items: SubsidiaryLedgerItem[]): LiveSummaryItem[] {
+  const debit = items.reduce((sum, item) => sum + item.debit, 0)
+  const credit = items.reduce((sum, item) => sum + item.credit, 0)
+  return [
+    { label: '明细行数', value: `${items.length} 行`, tone: 'blue' },
+    { label: '借方发生', value: currency(debit), tone: 'green' },
+    { label: '贷方发生', value: currency(credit), tone: 'green' },
+    { label: '待复核', value: `${items.filter((item) => !item.balance_direction).length} 行`, tone: 'amber' },
+  ]
+}
+
+export function mapLiveAuxiliaryLedgerRows(
+  items: AuxiliaryLedgerRow[],
+  categoryName: string,
+  itemName: string,
+): LiveModuleRow[] {
+  return items.map((item, index) => {
+    const isDebit = item.direction === '借' || item.direction === 'debit'
+    return {
+      id: `auxiliary-ledger-${item.voucher_number || index}`,
+      status: item.voucher_number ? '已通过' : '待确认',
+      voucher: item.voucher_number || '期初',
+      attachment: categoryName || '辅助核算',
+      values: {
+        category: categoryName || '当前选择类别',
+        item: itemName || '当前选择项目',
+        subject: '辅助核算明细',
+        date: item.date || '-',
+        wordNo: item.voucher_number || '期初',
+        summary: item.summary || '期初余额',
+        debit: isDebit ? currency(item.amount) : currency(0),
+        credit: isDebit ? currency(0) : currency(item.amount),
+      },
+    }
+  })
+}
+
+export function summarizeLiveAuxiliaryLedger(items: AuxiliaryLedgerRow[], categoryName: string, itemName: string): LiveSummaryItem[] {
+  const debit = items.reduce((sum, item) => sum + (item.direction === '借' || item.direction === 'debit' ? item.amount : 0), 0)
+  const credit = items.reduce((sum, item) => sum + (item.direction === '贷' || item.direction === 'credit' ? item.amount : 0), 0)
+  return [
+    { label: '辅助类别', value: categoryName || '未选择', tone: categoryName ? 'blue' : 'gray' },
+    { label: '辅助项目', value: itemName || '未选择', tone: itemName ? 'green' : 'gray' },
+    { label: '发生金额', value: currency(debit + credit), tone: 'amber' },
+    { label: '异常项目', value: '0 个', tone: 'gray' },
+  ]
+}
+
+export function mapLiveAuxiliaryBalanceRows(items: AuxiliaryBalanceRow[], categoryName: string): LiveModuleRow[] {
+  return items.map((item) => {
+    const endingDebit = item.ending_debit > 0
+    const endingCredit = item.ending_credit > 0
+    return {
+      id: `auxiliary-balance-${item.auxiliary_item_code}`,
+      status: endingDebit || endingCredit ? '已通过' : '待处理',
+      voucher: '辅助余额',
+      attachment: categoryName || '辅助核算',
+      values: {
+        category: categoryName || '当前选择类别',
+        item: item.auxiliary_item_name,
+        subject: '辅助核算余额',
+        opening: balanceLabel(item.beginning_debit, item.beginning_credit),
+        debit: currency(item.period_debit),
+        credit: currency(item.period_credit),
+        direction: endingDebit ? '借' : endingCredit ? '贷' : '-',
+        ending: balanceLabel(item.ending_debit, item.ending_credit),
+      },
+    }
+  })
+}
+
+export function summarizeLiveAuxiliaryBalance(items: AuxiliaryBalanceRow[], categoryName: string): LiveSummaryItem[] {
+  const endingDebit = items.reduce((sum, item) => sum + item.ending_debit, 0)
+  const endingCredit = items.reduce((sum, item) => sum + item.ending_credit, 0)
+  return [
+    { label: '辅助余额行', value: categoryName ? `${items.length} 行` : '未选择类别', tone: categoryName ? 'blue' : 'gray' },
+    { label: '借方余额', value: currency(endingDebit), tone: 'green' },
+    { label: '贷方余额', value: currency(endingCredit), tone: 'amber' },
+    { label: '不一致', value: '待总账核对', tone: 'gray' },
   ]
 }
 

@@ -29,7 +29,10 @@ import {
   mapLiveAuxiliaryArchiveRows,
   mapLiveLedgerOverviewRows,
   mapLiveAccountSummaryRows,
+  mapLiveAuxiliaryBalanceRows,
+  mapLiveAuxiliaryLedgerRows,
   mapLiveSubjectRows,
+  mapLiveSubsidiaryLedgerRows,
   mapLiveIncomeStatementRows,
   mapLiveInvoiceRows,
   mapLiveTrialBalanceRows,
@@ -42,7 +45,10 @@ import {
   summarizeLiveAuxiliaryArchive,
   summarizeLiveLedgerOverview,
   summarizeLiveAccountSummary,
+  summarizeLiveAuxiliaryBalance,
+  summarizeLiveAuxiliaryLedger,
   summarizeLiveSubjects,
+  summarizeLiveSubsidiaryLedger,
   summarizeLiveIncomeStatement,
   summarizeLiveInvoices,
   summarizeLiveTrialBalance,
@@ -50,7 +56,7 @@ import {
 } from '../../lib/liveModuleRows'
 import { useCompanyStore } from '../../stores/companyStore'
 import { useAccountStore } from '../../stores/accountStore'
-import { useAuxiliaryStore } from '../../stores/auxiliaryStore'
+import { useAuxiliaryStore, type AuxiliaryBalanceRow, type AuxiliaryLedgerRow } from '../../stores/auxiliaryStore'
 import { useInvoiceStore } from '../../stores/invoiceStore'
 import {
   usePeriodStore,
@@ -58,6 +64,7 @@ import {
   type CashFlowResult,
   type GeneralLedgerItem,
   type IncomeStatementResult,
+  type SubsidiaryLedgerItem,
   type TrialBalanceResult,
 } from '../../stores/periodStore'
 import { useVoucherStore } from '../../stores/voucherStore'
@@ -204,6 +211,9 @@ type LiveReportData = {
   initialBalance: TrialBalanceResult | null
   ledgerOverview: TrialBalanceResult | null
   accountSummary: GeneralLedgerItem[] | null
+  subsidiaryLedger: SubsidiaryLedgerItem[] | null
+  auxiliaryLedger: AuxiliaryLedgerRow[] | null
+  auxiliaryBalance: AuxiliaryBalanceRow[] | null
 }
 
 const emptyLiveReportData: LiveReportData = {
@@ -215,6 +225,9 @@ const emptyLiveReportData: LiveReportData = {
   initialBalance: null,
   ledgerOverview: null,
   accountSummary: null,
+  subsidiaryLedger: null,
+  auxiliaryLedger: null,
+  auxiliaryBalance: null,
 }
 
 const liveAuxiliaryArchiveKinds = ['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'] as const
@@ -3392,6 +3405,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
   const fetchTrialBalance = usePeriodStore((state) => state.fetchTrialBalance)
   const getGeneralLedger = usePeriodStore((state) => state.getGeneralLedger)
+  const getSubsidiaryLedger = usePeriodStore((state) => state.getSubsidiaryLedger)
   const getBalanceSheet = usePeriodStore((state) => state.getBalanceSheet)
   const getIncomeStatement = usePeriodStore((state) => state.getIncomeStatement)
   const getCashFlowStatement = usePeriodStore((state) => state.getCashFlowStatement)
@@ -3402,6 +3416,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const auxiliaryItems = useAuxiliaryStore((state) => state.items)
   const fetchCategories = useAuxiliaryStore((state) => state.fetchCategories)
   const fetchAllItems = useAuxiliaryStore((state) => state.fetchAllItems)
+  const fetchAuxiliaryLedger = useAuxiliaryStore((state) => state.fetchAuxiliaryLedger)
+  const fetchAuxiliaryBalance = useAuxiliaryStore((state) => state.fetchAuxiliaryBalance)
   const invoices = useInvoiceStore((state) => state.invoices)
   const fetchInvoices = useInvoiceStore((state) => state.fetchInvoices)
   const vouchers = useVoucherStore((state) => state.vouchers)
@@ -3414,12 +3430,37 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport'].includes(kind),
   )
   const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
+  const usesLiveLedgerDetailData = Boolean(
+    isTauri &&
+      selectedCompanyId &&
+      currentPeriodId &&
+      ['subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport'].includes(kind),
+  )
   const usesLiveArchiveData = Boolean(
     isTauri &&
       selectedCompanyId &&
       (kind === 'subjectSettings' || isLiveAuxiliaryArchiveKind(kind)),
   )
   const [liveReports, setLiveReports] = useState<LiveReportData>(emptyLiveReportData)
+  const [selectedLedgerAccountCode, setSelectedLedgerAccountCode] = useState('')
+  const [selectedAuxiliaryCategoryId, setSelectedAuxiliaryCategoryId] = useState('')
+  const [selectedAuxiliaryItemId, setSelectedAuxiliaryItemId] = useState('')
+  const detailedAccounts = useMemo(
+    () => accounts.filter((account) => account.is_enabled === 1 && account.is_detail === 1),
+    [accounts],
+  )
+  const selectedAuxiliaryCategory = useMemo(
+    () => auxiliaryCategories.find((category) => category.id === selectedAuxiliaryCategoryId),
+    [auxiliaryCategories, selectedAuxiliaryCategoryId],
+  )
+  const selectedAuxiliaryItem = useMemo(
+    () => auxiliaryItems.find((item) => item.id === selectedAuxiliaryItemId),
+    [auxiliaryItems, selectedAuxiliaryItemId],
+  )
+  const selectableAuxiliaryItems = useMemo(
+    () => auxiliaryItems.filter((item) => item.category_id === selectedAuxiliaryCategoryId && item.is_enabled === 1),
+    [auxiliaryItems, selectedAuxiliaryCategoryId],
+  )
 
   useEffect(() => {
     if (!usesLiveModuleData || !selectedCompanyId) return
@@ -3521,6 +3562,63 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     void fetchAllItems(selectedCompanyId)
   }, [fetchAccounts, fetchAllItems, fetchCategories, selectedCompanyId, usesLiveArchiveData])
 
+  useEffect(() => {
+    if (!usesLiveLedgerDetailData || !selectedCompanyId) return
+    void fetchAccounts(selectedCompanyId)
+    void fetchCategories(selectedCompanyId)
+    void fetchAllItems(selectedCompanyId)
+  }, [fetchAccounts, fetchAllItems, fetchCategories, selectedCompanyId, usesLiveLedgerDetailData])
+
+  useEffect(() => {
+    if (kind !== 'subsidiaryLedgerReport' || !usesLiveLedgerDetailData || !currentPeriodId || !selectedLedgerAccountCode) return
+
+    let active = true
+    setLiveReports((reports) => ({ ...reports, subsidiaryLedger: null }))
+    void getSubsidiaryLedger(currentPeriodId, selectedLedgerAccountCode)
+      .then((subsidiaryLedger) => {
+        if (active) setLiveReports((reports) => ({ ...reports, subsidiaryLedger }))
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [currentPeriodId, getSubsidiaryLedger, kind, selectedLedgerAccountCode, usesLiveLedgerDetailData])
+
+  useEffect(() => {
+    if (kind !== 'auxiliaryLedgerReport' || !usesLiveLedgerDetailData || !selectedCompanyId || !selectedAuxiliaryItemId) return
+
+    let active = true
+    setLiveReports((reports) => ({ ...reports, auxiliaryLedger: null }))
+    void fetchAuxiliaryLedger({
+      auxiliary_item_id: selectedAuxiliaryItemId,
+      company_id: selectedCompanyId,
+      period_id: currentPeriodId || undefined,
+    }).then((auxiliaryLedger) => {
+      if (active) setLiveReports((reports) => ({ ...reports, auxiliaryLedger }))
+    })
+
+    return () => {
+      active = false
+    }
+  }, [currentPeriodId, fetchAuxiliaryLedger, kind, selectedAuxiliaryItemId, selectedCompanyId, usesLiveLedgerDetailData])
+
+  useEffect(() => {
+    if (kind !== 'auxiliaryBalanceReport' || !usesLiveLedgerDetailData || !selectedCompanyId || !currentPeriodId || !selectedAuxiliaryCategoryId) return
+
+    let active = true
+    setLiveReports((reports) => ({ ...reports, auxiliaryBalance: null }))
+    void fetchAuxiliaryBalance(selectedAuxiliaryCategoryId, currentPeriodId, selectedCompanyId)
+      .then((auxiliaryBalance) => {
+        if (active) setLiveReports((reports) => ({ ...reports, auxiliaryBalance }))
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [currentPeriodId, fetchAuxiliaryBalance, kind, selectedAuxiliaryCategoryId, selectedCompanyId, usesLiveLedgerDetailData])
+
   const config = useMemo(() => {
     if (kind === 'auditLog') {
       const dynamicRows = auditLogs.map(auditLogToModuleRow)
@@ -3593,6 +3691,37 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'subsidiaryLedgerReport' && usesLiveLedgerDetailData) {
+      const rows = liveReports.subsidiaryLedger
+        ? mapLiveSubsidiaryLedgerRows(liveReports.subsidiaryLedger)
+        : []
+      return {
+        ...baseConfig,
+        rows,
+        summary: summarizeLiveSubsidiaryLedger(liveReports.subsidiaryLedger || []),
+      }
+    }
+
+    if (kind === 'auxiliaryLedgerReport' && usesLiveLedgerDetailData) {
+      return {
+        ...baseConfig,
+        rows: liveReports.auxiliaryLedger
+          ? mapLiveAuxiliaryLedgerRows(liveReports.auxiliaryLedger, selectedAuxiliaryCategory?.name || '', selectedAuxiliaryItem?.name || '')
+          : [],
+        summary: summarizeLiveAuxiliaryLedger(liveReports.auxiliaryLedger || [], selectedAuxiliaryCategory?.name || '', selectedAuxiliaryItem?.name || ''),
+      }
+    }
+
+    if (kind === 'auxiliaryBalanceReport' && usesLiveLedgerDetailData) {
+      return {
+        ...baseConfig,
+        rows: liveReports.auxiliaryBalance
+          ? mapLiveAuxiliaryBalanceRows(liveReports.auxiliaryBalance, selectedAuxiliaryCategory?.name || '')
+          : [],
+        summary: summarizeLiveAuxiliaryBalance(liveReports.auxiliaryBalance || [], selectedAuxiliaryCategory?.name || ''),
+      }
+    }
+
     if (kind === 'balanceSheetReport' && usesLiveReportData && liveReports.balanceSheet) {
       return {
         ...baseConfig,
@@ -3660,7 +3789,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, exportJobs, invoices, kind, liveReports, selectedCompany, selectedCompanyId, usesLiveArchiveData, usesLiveInitialBalanceData, usesLiveModuleData, usesLiveReportData, vouchers])
+  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, exportJobs, invoices, kind, liveReports, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, usesLiveArchiveData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveReportData, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -3949,6 +4078,49 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
+            {kind === 'subsidiaryLedgerReport' && usesLiveLedgerDetailData && (
+              <select
+                aria-label="明细账科目"
+                value={selectedLedgerAccountCode}
+                onChange={(event) => setSelectedLedgerAccountCode(event.target.value)}
+                className="h-8 max-w-56 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#1f65a7]"
+              >
+                <option value="">选择科目</option>
+                {detailedAccounts.map((account) => (
+                  <option key={account.code} value={account.code}>{account.code} {account.name}</option>
+                ))}
+              </select>
+            )}
+            {(kind === 'auxiliaryLedgerReport' || kind === 'auxiliaryBalanceReport') && usesLiveLedgerDetailData && (
+              <select
+                aria-label="辅助账类别"
+                value={selectedAuxiliaryCategoryId}
+                onChange={(event) => {
+                  setSelectedAuxiliaryCategoryId(event.target.value)
+                  setSelectedAuxiliaryItemId('')
+                }}
+                className="h-8 max-w-44 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#1f65a7]"
+              >
+                <option value="">选择辅助类别</option>
+                {auxiliaryCategories.map((category) => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+            )}
+            {kind === 'auxiliaryLedgerReport' && usesLiveLedgerDetailData && (
+              <select
+                aria-label="辅助账项目"
+                value={selectedAuxiliaryItemId}
+                onChange={(event) => setSelectedAuxiliaryItemId(event.target.value)}
+                disabled={!selectedAuxiliaryCategoryId}
+                className="h-8 max-w-56 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none disabled:bg-slate-100 disabled:text-slate-400 focus:border-[#1f65a7]"
+              >
+                <option value="">选择辅助项目</option>
+                {selectableAuxiliaryItems.map((item) => (
+                  <option key={item.id} value={item.id}>{item.code} {item.name}</option>
+                ))}
+              </select>
+            )}
             <button className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">
               <Filter className="h-3.5 w-3.5" />
               高级筛选
