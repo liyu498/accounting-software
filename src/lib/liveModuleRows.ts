@@ -1170,3 +1170,71 @@ export function summarizeLiveAuxiliaryArchive(
     { label: '停用', value: `${disabled} 个`, tone: 'gray' },
   ]
 }
+
+export function mapLiveAuxiliaryCategoryRows(categories: AuxiliaryCategory[]): LiveModuleRow[] {
+  return [...categories]
+    .sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name))
+    .map((category) => ({
+      id: `auxiliary-category-${category.id}`,
+      status: '启用',
+      voucher: '-',
+      attachment: category.is_system === 1 ? '系统预置' : '账套自定义',
+      values: {
+        code: category.code,
+        name: category.name,
+        scope: '账套辅助核算',
+        subjects: '未配置关联科目',
+        required: '待配置',
+        source: category.is_system === 1 ? '系统预置' : '账套自定义',
+      },
+    }))
+}
+
+export function summarizeLiveAuxiliaryCategories(categories: AuxiliaryCategory[]): LiveSummaryItem[] {
+  const systemCount = categories.filter((category) => category.is_system === 1).length
+  return [
+    { label: '辅助类别', value: `${categories.length} 类`, tone: 'blue' },
+    { label: '系统预置', value: `${systemCount} 类`, tone: systemCount > 0 ? 'green' : 'gray' },
+    { label: '账套自定义', value: `${categories.length - systemCount} 类`, tone: categories.length - systemCount > 0 ? 'amber' : 'gray' },
+    { label: '异常', value: '0 类', tone: 'gray' },
+  ]
+}
+
+export function mapLiveAuxiliaryItemRows(
+  categories: AuxiliaryCategory[],
+  items: AuxiliaryItem[],
+): LiveModuleRow[] {
+  const categoryById = new Map(categories.map((category) => [category.id, category]))
+  return [...items]
+    .sort((left, right) => {
+      const leftCategory = categoryById.get(left.category_id)?.name || ''
+      const rightCategory = categoryById.get(right.category_id)?.name || ''
+      return leftCategory.localeCompare(rightCategory) || left.code.localeCompare(right.code)
+    })
+    .map((item) => ({
+      id: `auxiliary-item-${item.id}`,
+      status: item.is_enabled === 1 ? '启用' : '停用',
+      voucher: '-',
+      attachment: item.remarks || '无备注',
+      values: {
+        category: categoryById.get(item.category_id)?.name || '未知类别',
+        code: item.code,
+        name: item.name,
+        alias: item.remarks || '未配置别名/备注',
+        subject: '未配置默认科目',
+        lastUsed: '未记录使用时间',
+      },
+    }))
+}
+
+export function summarizeLiveAuxiliaryItems(items: AuxiliaryItem[]): LiveSummaryItem[] {
+  const enabled = items.filter((item) => item.is_enabled === 1).length
+  const missingRemark = items.filter((item) => !item.remarks?.trim()).length
+  const disabled = items.length - enabled
+  return [
+    { label: '辅助项目', value: `${items.length} 个`, tone: 'blue' },
+    { label: '启用', value: `${enabled} 个`, tone: 'green' },
+    { label: '待补资料', value: `${missingRemark} 个`, tone: missingRemark > 0 ? 'amber' : 'gray' },
+    { label: '停用', value: `${disabled} 个`, tone: disabled > 0 ? 'red' : 'gray' },
+  ]
+}

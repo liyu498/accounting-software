@@ -30,6 +30,8 @@ import {
   mapLiveGeneralLedgerRows,
   mapLiveInitialBalanceRows,
   mapLiveAuxiliaryArchiveRows,
+  mapLiveAuxiliaryCategoryRows,
+  mapLiveAuxiliaryItemRows,
   mapLiveAdapterAuthorizationRows,
   mapLiveOperationAuditRows,
   mapLiveLedgerOverviewRows,
@@ -58,6 +60,8 @@ import {
   summarizeLiveGeneralLedger,
   summarizeLiveInitialBalance,
   summarizeLiveAuxiliaryArchive,
+  summarizeLiveAuxiliaryCategories,
+  summarizeLiveAuxiliaryItems,
   summarizeLiveAdapterAuthorizations,
   summarizeLiveOperationAudits,
   summarizeLiveLedgerOverview,
@@ -3501,7 +3505,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveArchiveData = Boolean(
     isTauri &&
       selectedCompanyId &&
-      (kind === 'subjectSettings' || isLiveAuxiliaryArchiveKind(kind)),
+      (kind === 'subjectSettings' || kind === 'auxiliaryCategories' || kind === 'auxiliaryItems' || isLiveAuxiliaryArchiveKind(kind)),
   )
   const [liveReports, setLiveReports] = useState<LiveReportData>(emptyLiveReportData)
   const [adapterAuthorizations, setAdapterAuthorizations] = useState<AdapterAuthorization[]>([])
@@ -4092,6 +4096,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveSubjectRows(accounts),
         summary: summarizeLiveSubjects(accounts),
+      }
+    }
+
+    if (kind === 'auxiliaryCategories' && usesLiveArchiveData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveAuxiliaryCategoryRows(auxiliaryCategories),
+        summary: summarizeLiveAuxiliaryCategories(auxiliaryCategories),
+      }
+    }
+
+    if (kind === 'auxiliaryItems' && usesLiveArchiveData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveAuxiliaryItemRows(auxiliaryCategories, auxiliaryItems),
+        summary: summarizeLiveAuxiliaryItems(auxiliaryItems),
       }
     }
 
