@@ -175,6 +175,36 @@ export function summarizeLiveVouchers(vouchers: Voucher[]): LiveSummaryItem[] {
   ]
 }
 
+export function mapLiveVoucherRecycleRows(vouchers: Voucher[]): LiveModuleRow[] {
+  return [...vouchers]
+    .sort((left, right) => (right.deleted_at || '').localeCompare(left.deleted_at || ''))
+    .map((voucher) => ({
+      id: `voucher-recycle-${voucher.id}`,
+      status: '待确认',
+      voucher: voucher.voucher_number,
+      attachment: voucher.attachment_count > 0 ? `附件 ${voucher.attachment_count}` : '无附件',
+      values: {
+        date: voucher.voucher_date,
+        wordNo: voucher.voucher_number,
+        summary: voucher.summary || voucher.entries[0]?.summary || '待补充摘要',
+        amount: currency(Math.max(voucher.total_debit, voucher.total_credit)),
+        deletedBy: '未记录删除人',
+        deletedAt: voucher.deleted_at || '未记录删除时间',
+        reason: '未记录删除原因',
+      },
+    }))
+}
+
+export function summarizeLiveVoucherRecycle(vouchers: Voucher[]): LiveSummaryItem[] {
+  const missingTimestamp = vouchers.filter((voucher) => !voucher.deleted_at).length
+  return [
+    { label: '删除凭证', value: `${vouchers.length} 张`, tone: 'blue' },
+    { label: '可恢复', value: `${vouchers.length} 张`, tone: vouchers.length > 0 ? 'green' : 'gray' },
+    { label: '待复核', value: `${missingTimestamp} 张`, tone: missingTimestamp > 0 ? 'amber' : 'gray' },
+    { label: '异常', value: '0 张', tone: 'gray' },
+  ]
+}
+
 export function mapLiveHistoryVoucherRows(vouchers: Voucher[], periodLabel: string): LiveModuleRow[] {
   return vouchers.map((voucher) => ({
     id: `history-voucher-${voucher.id}`,

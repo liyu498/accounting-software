@@ -51,6 +51,7 @@ import {
   mapLiveInvoiceRows,
   mapLiveTrialBalanceRows,
   mapLiveVoucherRows,
+  mapLiveVoucherRecycleRows,
   mapLiveVoucherTemplateRows,
   summarizeLiveBalanceSheet,
   summarizeLiveCashFlow,
@@ -81,6 +82,7 @@ import {
   summarizeLiveInvoices,
   summarizeLiveTrialBalance,
   summarizeLiveVouchers,
+  summarizeLiveVoucherRecycle,
   summarizeLiveVoucherTemplates,
 } from '../../lib/liveModuleRows'
 import { useCompanyStore } from '../../stores/companyStore'
@@ -3465,6 +3467,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const fetchInvoices = useInvoiceStore((state) => state.fetchInvoices)
   const vouchers = useVoucherStore((state) => state.vouchers)
   const queryVouchers = useVoucherStore((state) => state.queryVouchers)
+  const getDeletedVouchers = useVoucherStore((state) => state.getDeletedVouchers)
   const settlementRules = useSettlementRuleStore((state) => state.rules)
   const fetchSettlementRules = useSettlementRuleStore((state) => state.fetchSettlementRules)
   const currencies = useCurrencyStore((state) => state.currencies)
@@ -3491,6 +3494,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveReportFormulaData = Boolean(isTauri && selectedCompanyId && kind === 'reportFormulaSettings')
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings'].includes(kind))
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
+  const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
   const usesLiveHistoryReportData = Boolean(
     isTauri &&
       selectedCompanyId &&
@@ -3510,6 +3514,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [liveReports, setLiveReports] = useState<LiveReportData>(emptyLiveReportData)
   const [adapterAuthorizations, setAdapterAuthorizations] = useState<AdapterAuthorization[]>([])
   const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
+  const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [selectedLedgerAccountCode, setSelectedLedgerAccountCode] = useState('')
   const [selectedAuxiliaryCategoryId, setSelectedAuxiliaryCategoryId] = useState('')
   const [selectedAuxiliaryItemId, setSelectedAuxiliaryItemId] = useState('')
@@ -3694,6 +3699,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [selectedCompanyId, usesLiveOperationAuditData])
 
   useEffect(() => {
+    if (!usesLiveVoucherRecycleData || !selectedCompanyId) return
+    let active = true
+    void getDeletedVouchers(selectedCompanyId).then((result) => {
+      if (active) setDeletedVouchers(result)
+    })
+    return () => {
+      active = false
+    }
+  }, [getDeletedVouchers, selectedCompanyId, usesLiveVoucherRecycleData])
+
+  useEffect(() => {
     if (!usesLiveHistoryReportData || !selectedCompanyId) return
     void fetchPeriods(selectedCompanyId)
     if (kind === 'historySubsidiaryLedger') void fetchAccounts(selectedCompanyId)
@@ -3867,6 +3883,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveVoucherRows(vouchers),
         summary: summarizeLiveVouchers(vouchers),
+      }
+    }
+
+    if (kind === 'voucherRecycle' && usesLiveVoucherRecycleData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveVoucherRecycleRows(deletedVouchers),
+        summary: summarizeLiveVoucherRecycle(deletedVouchers),
       }
     }
 
@@ -4134,7 +4158,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveCurrencyData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTemplateSettingsData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveCurrencyData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
