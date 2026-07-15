@@ -15,6 +15,7 @@ import type { AccountCode } from '../stores/accountStore'
 import type { AuxiliaryBalanceRow, AuxiliaryCategory, AuxiliaryItem, AuxiliaryLedgerRow } from '../stores/auxiliaryStore'
 import type { Voucher, VoucherEntry } from '../stores/voucherStore'
 import type { SettlementRule } from '../stores/settlementRuleStore'
+import type { Currency } from '../stores/currencyStore'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
 
@@ -565,6 +566,45 @@ export function summarizeLiveSettlementRules(rules: SettlementRule[]): LiveSumma
     { label: '启用', value: `${enabled} 条`, tone: 'green' },
     { label: '待执行', value: '待期末触发', tone: 'amber' },
     { label: '阻断', value: `${missingTarget} 条`, tone: missingTarget > 0 ? 'red' : 'gray' },
+  ]
+}
+
+const currencySymbols: Record<string, string> = {
+  CNY: '¥',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  JPY: '¥',
+  HKD: 'HK$',
+}
+
+export function mapLiveCurrencyRows(currencies: Currency[]): LiveModuleRow[] {
+  return [...currencies]
+    .sort((left, right) => right.is_base - left.is_base || left.code.localeCompare(right.code))
+    .map((currencyItem) => ({
+      id: `currency-${currencyItem.id}`,
+      status: '启用',
+      voucher: '-',
+      attachment: currencyItem.is_base === 1 ? '本位币' : '可用于期末调汇',
+      values: {
+        code: currencyItem.code,
+        name: currencyItem.name || '未命名币别',
+        symbol: currencySymbols[currencyItem.code.toUpperCase()] || currencyItem.code,
+        rate: currencyItem.exchange_rate.toFixed(4),
+        method: currencyItem.is_base === 1 ? '本位币' : '账套记账汇率',
+        updatedAt: '未记录更新时间',
+      },
+    }))
+}
+
+export function summarizeLiveCurrencies(currencies: Currency[]): LiveSummaryItem[] {
+  const baseCount = currencies.filter((currencyItem) => currencyItem.is_base === 1).length
+  const foreignCount = currencies.length - baseCount
+  return [
+    { label: '币别', value: `${currencies.length} 个`, tone: 'blue' },
+    { label: '本位币', value: `${baseCount} 个`, tone: baseCount === 1 ? 'green' : baseCount === 0 ? 'amber' : 'red' },
+    { label: '外币', value: `${foreignCount} 个`, tone: foreignCount > 0 ? 'amber' : 'gray' },
+    { label: '异常', value: baseCount === 1 ? '0 个' : `${Math.abs(baseCount - 1)} 个`, tone: baseCount === 1 ? 'gray' : 'red' },
   ]
 }
 
