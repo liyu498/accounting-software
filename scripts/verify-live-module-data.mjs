@@ -56,6 +56,8 @@ const requiredAdapterSnippets = [
   ['tax report summary mapper', 'export function summarizeLiveTaxReports'],
   ['automation job row mapper', 'export function mapLiveAutomationJobRows'],
   ['automation job summary mapper', 'export function summarizeLiveAutomationJobs'],
+  ['finance tax report row mapper', 'export function mapLiveFinanceTaxReportRows'],
+  ['finance tax report summary mapper', 'export function summarizeLiveFinanceTaxReports'],
   ['output invoice type', "invoice.invoice_type === invoiceType"],
   ['invoice type boundary', "invoiceType: 'output' | 'input'"],
   ['voucher direction filter', "entry.direction === direction"],
@@ -154,6 +156,8 @@ const requiredPageSnippets = [
   ['AI job queue mapping', "mapLiveAutomationJobRows(automationJobs, 'queue')"],
   ['AI recognition mapping', "mapLiveAutomationJobRows(automationJobs, 'recognition')"],
   ['automation job live scope', 'usesLiveAutomationJobData'],
+  ['finance tax report mapping', 'mapLiveFinanceTaxReportRows(taxDeclarationTasks)'],
+  ['finance tax report live scope', 'usesLiveFinanceTaxReportData'],
   ['browser mock fallback', 'isTauri && selectedCompanyId'],
 ]
 
@@ -187,7 +191,7 @@ if (errors.length > 0) {
 
 console.log('Live data adapter verification passed:')
 console.log(JSON.stringify({
-  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger', 'settlementRules', 'currencySettings', 'commonDigests', 'voucherTemplateSettings', 'reportFormulaSettings', 'taxAdapterSettings', 'bankAdapterSettings', 'auditLog', 'auxiliaryCategories', 'auxiliaryItems', 'voucherRecycle', 'declarationReceipt', 'taxInit', 'taxReport', 'aiJobQueue', 'aiRecognitionResults'],
+  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger', 'settlementRules', 'currencySettings', 'commonDigests', 'voucherTemplateSettings', 'reportFormulaSettings', 'taxAdapterSettings', 'bankAdapterSettings', 'auditLog', 'auxiliaryCategories', 'auxiliaryItems', 'voucherRecycle', 'declarationReceipt', 'taxInit', 'taxReport', 'aiJobQueue', 'aiRecognitionResults', 'financeTaxReport'],
   scope: 'selected company and accounting period',
   browserFallback: 'existing mock rows',
 }, null, 2))

@@ -57,6 +57,7 @@ import {
   mapLiveTaxInitRows,
   mapLiveTaxReportRows,
   mapLiveAutomationJobRows,
+  mapLiveFinanceTaxReportRows,
   mapLiveVoucherTemplateRows,
   summarizeLiveBalanceSheet,
   summarizeLiveCashFlow,
@@ -93,6 +94,7 @@ import {
   summarizeLiveTaxInit,
   summarizeLiveTaxReports,
   summarizeLiveAutomationJobs,
+  summarizeLiveFinanceTaxReports,
   summarizeLiveVoucherTemplates,
 } from '../../lib/liveModuleRows'
 import { useCompanyStore } from '../../stores/companyStore'
@@ -3482,6 +3484,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveDeclarationReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'declarationReceipt')
   const usesLiveTaxInitData = Boolean(isTauri && selectedCompanyId && kind === 'taxInit')
   const usesLiveTaxReportData = Boolean(isTauri && selectedCompanyId && kind === 'taxReport')
+  const usesLiveFinanceTaxReportData = Boolean(isTauri && selectedCompanyId && kind === 'financeTaxReport')
   const usesLiveAutomationJobData = Boolean(isTauri && selectedCompanyId && ['aiJobQueue', 'aiRecognitionResults'].includes(kind))
   const usesLiveHistoryReportData = Boolean(
     isTauri &&
@@ -3700,7 +3703,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [getDeletedVouchers, selectedCompanyId, usesLiveVoucherRecycleData])
 
   useEffect(() => {
-    if (!(usesLiveDeclarationReceiptData || usesLiveTaxInitData || usesLiveTaxReportData) || !selectedCompanyId) return
+    if (!(usesLiveDeclarationReceiptData || usesLiveTaxInitData || usesLiveTaxReportData || usesLiveFinanceTaxReportData) || !selectedCompanyId) return
     let active = true
     void automationApi.getTaxDeclarationTasks({ companyId: selectedCompanyId })
       .then((result) => {
@@ -3709,7 +3712,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     return () => {
       active = false
     }
-  }, [selectedCompanyId, usesLiveDeclarationReceiptData, usesLiveTaxInitData, usesLiveTaxReportData])
+  }, [selectedCompanyId, usesLiveDeclarationReceiptData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveFinanceTaxReportData])
 
   useEffect(() => {
     if (!usesLiveAutomationJobData || !selectedCompanyId) return
@@ -3929,6 +3932,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveTaxReportRows(taxDeclarationTasks),
         summary: summarizeLiveTaxReports(taxDeclarationTasks),
+      }
+    }
+
+    if (kind === 'financeTaxReport' && usesLiveFinanceTaxReportData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveFinanceTaxReportRows(taxDeclarationTasks),
+        summary: summarizeLiveFinanceTaxReports(taxDeclarationTasks),
       }
     }
 
@@ -4220,7 +4231,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveFinanceTaxReportData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

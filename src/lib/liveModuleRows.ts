@@ -318,6 +318,49 @@ export function summarizeLiveTaxReports(tasks: TaxDeclarationTask[]): LiveSummar
   ]
 }
 
+function isFinanceTaxReportTask(task: TaxDeclarationTask) {
+  return /资产负债|利润表|现金流|财报|财务报表/.test(`${task.taxType} ${task.formName}`)
+}
+
+export function mapLiveFinanceTaxReportRows(tasks: TaxDeclarationTask[]): LiveModuleRow[] {
+  return tasks
+    .filter(isFinanceTaxReportTask)
+    .sort((left, right) => left.formName.localeCompare(right.formName, 'zh-CN'))
+    .map((task) => ({
+      id: `finance-tax-report-${task.id}`,
+      status: taxReportStatus(task),
+      voucher: task.adapterCode || '未关联报送渠道',
+      attachment: task.sourceSnapshot || '未记录取数快照',
+      values: {
+        form: task.formName,
+        period: task.period,
+        source: task.sourceSnapshot || '未记录来源报表',
+        amount: currency(task.payableAmount),
+        snapshot: task.sourceSnapshot ? '已记录' : '未记录',
+        attachment: task.receiptNo || '未记录报送附件',
+        owner: task.confirmedBy || '未记录负责人',
+        check: task.riskCount > 0
+          ? `${task.riskCount} 项风险待复核`
+          : task.validationStatus === 'passed'
+            ? '校验通过'
+            : '待校验',
+      },
+    }))
+}
+
+export function summarizeLiveFinanceTaxReports(tasks: TaxDeclarationTask[]): LiveSummaryItem[] {
+  const scoped = tasks.filter(isFinanceTaxReportTask)
+  const passed = scoped.filter((task) => taxReportStatus(task) === '已通过').length
+  const pending = scoped.filter((task) => taxReportStatus(task) === '待确认').length
+  const exception = scoped.filter((task) => taxReportStatus(task) === '异常').length
+  return [
+    { label: '报送表', value: `${scoped.length} 张`, tone: scoped.length > 0 ? 'blue' : 'gray' },
+    { label: '已取数', value: `${passed} 张`, tone: passed > 0 ? 'green' : 'gray' },
+    { label: '待确认', value: `${pending} 张`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '差异', value: `${exception} 项`, tone: exception > 0 ? 'red' : 'gray' },
+  ]
+}
+
 function automationJobStatus(job: AutomationJob): LiveModuleStatus {
   const status = job.status.toLowerCase()
   if (['failed', 'error', 'rejected', 'cancelled'].includes(status)) return '异常'
