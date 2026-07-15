@@ -20,6 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
+import { automationApi, type AdapterAuthorization } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -29,6 +30,7 @@ import {
   mapLiveGeneralLedgerRows,
   mapLiveInitialBalanceRows,
   mapLiveAuxiliaryArchiveRows,
+  mapLiveAdapterAuthorizationRows,
   mapLiveLedgerOverviewRows,
   mapLiveAccountSummaryRows,
   mapLiveAuxiliaryBalanceRows,
@@ -55,6 +57,7 @@ import {
   summarizeLiveGeneralLedger,
   summarizeLiveInitialBalance,
   summarizeLiveAuxiliaryArchive,
+  summarizeLiveAdapterAuthorizations,
   summarizeLiveLedgerOverview,
   summarizeLiveAccountSummary,
   summarizeLiveAuxiliaryBalance,
@@ -3480,6 +3483,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveCurrencyData = Boolean(isTauri && selectedCompanyId && kind === 'currencySettings')
   const usesLiveTemplateSettingsData = Boolean(isTauri && selectedCompanyId && ['commonDigests', 'voucherTemplateSettings'].includes(kind))
   const usesLiveReportFormulaData = Boolean(isTauri && selectedCompanyId && kind === 'reportFormulaSettings')
+  const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings'].includes(kind))
   const usesLiveHistoryReportData = Boolean(
     isTauri &&
       selectedCompanyId &&
@@ -3497,6 +3501,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       (kind === 'subjectSettings' || isLiveAuxiliaryArchiveKind(kind)),
   )
   const [liveReports, setLiveReports] = useState<LiveReportData>(emptyLiveReportData)
+  const [adapterAuthorizations, setAdapterAuthorizations] = useState<AdapterAuthorization[]>([])
   const [selectedLedgerAccountCode, setSelectedLedgerAccountCode] = useState('')
   const [selectedAuxiliaryCategoryId, setSelectedAuxiliaryCategoryId] = useState('')
   const [selectedAuxiliaryItemId, setSelectedAuxiliaryItemId] = useState('')
@@ -3654,6 +3659,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!usesLiveReportFormulaData || !selectedCompanyId) return
     void fetchReportTemplateWorkspace(selectedCompanyId)
   }, [fetchReportTemplateWorkspace, selectedCompanyId, usesLiveReportFormulaData])
+
+  useEffect(() => {
+    if (!usesLiveAdapterAuthorizationData || !selectedCompanyId) return
+    const adapterType = kind === 'taxAdapterSettings' ? 'tax' : 'bank'
+    let active = true
+    void automationApi.getAdapterAuthorizations({ companyId: selectedCompanyId, adapterType })
+      .then((result) => {
+        if (active) setAdapterAuthorizations(result.success ? result.data || [] : [])
+      })
+    return () => {
+      active = false
+    }
+  }, [kind, selectedCompanyId, usesLiveAdapterAuthorizationData])
 
   useEffect(() => {
     if (!usesLiveHistoryReportData || !selectedCompanyId) return
@@ -3976,6 +3994,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'taxAdapterSettings' && usesLiveAdapterAuthorizationData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveAdapterAuthorizationRows(adapterAuthorizations, 'tax'),
+        summary: summarizeLiveAdapterAuthorizations(adapterAuthorizations, 'tax'),
+      }
+    }
+
+    if (kind === 'bankAdapterSettings' && usesLiveAdapterAuthorizationData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveAdapterAuthorizationRows(adapterAuthorizations, 'bank'),
+        summary: summarizeLiveAdapterAuthorizations(adapterAuthorizations, 'bank'),
+      }
+    }
+
     if (kind === 'historyBalance' && usesLiveHistoryReportData) {
       return {
         ...baseConfig,
@@ -4057,7 +4091,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, exportJobs, invoices, kind, liveReports, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, usesLiveArchiveData, usesLiveCurrencyData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTemplateSettingsData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, exportJobs, invoices, kind, liveReports, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveCurrencyData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTemplateSettingsData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

@@ -18,6 +18,7 @@ import type { SettlementRule } from '../stores/settlementRuleStore'
 import type { Currency } from '../stores/currencyStore'
 import type { CommonDigest, VoucherTemplateType, VoucherTemplateWithEntries } from '../stores/templateStore'
 import type { ReportItem, ReportTemplate } from '../stores/reportTemplateStore'
+import type { AdapterAuthorization } from '../lib/api'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
 
@@ -744,6 +745,84 @@ export function summarizeLiveReportFormulas(
     { label: '启用', value: `${enabled} 条`, tone: 'green' },
     { label: '待复核', value: `${pending} 条`, tone: pending > 0 ? 'amber' : 'gray' },
     { label: '异常', value: `${disabled} 条`, tone: disabled > 0 ? 'red' : 'gray' },
+  ]
+}
+
+type AdapterKind = 'tax' | 'bank'
+
+function adapterStatus(adapter: AdapterAuthorization): LiveModuleStatus {
+  const value = adapter.authStatus.toLowerCase()
+  if (adapter.riskMessage || ['expired', 'failed', 'error', 'revoked'].includes(value)) return '异常'
+  if (['authorized', 'active', 'configured', 'ready'].includes(value)) return '启用'
+  if (['disabled', 'inactive'].includes(value)) return '停用'
+  return '待确认'
+}
+
+function adapterStatusLabel(adapter: AdapterAuthorization) {
+  return adapter.authStatus || '未记录授权状态'
+}
+
+export function mapLiveAdapterAuthorizationRows(
+  adapters: AdapterAuthorization[],
+  kind: AdapterKind,
+): LiveModuleRow[] {
+  return adapters
+    .filter((adapter) => adapter.adapterType === kind)
+    .sort((left, right) => (left.region || '').localeCompare(right.region || '') || left.adapterCode.localeCompare(right.adapterCode))
+    .map((adapter) => {
+      const status = adapterStatus(adapter)
+      if (kind === 'tax') {
+        return {
+          id: `tax-adapter-${adapter.id}`,
+          status,
+          voucher: '-',
+          attachment: adapter.riskMessage || '授权边界记录',
+          values: {
+            region: adapter.region || '未配置地区',
+            channel: adapter.adapterCode,
+            taxTypes: adapter.capabilityScope || '未配置税种范围',
+            authMode: adapter.loginIdentity || '未配置授权身份',
+            account: adapter.accountMask || '未配置脱敏账号',
+            submitScope: adapter.capabilityScope || '未配置能力范围',
+            receipt: '未配置回执能力',
+            lastCheck: adapter.lastCheckedAt || '未检测',
+          },
+        }
+      }
+
+      return {
+        id: `bank-adapter-${adapter.id}`,
+        status,
+        voucher: '-',
+        attachment: adapter.riskMessage || '授权边界记录',
+        values: {
+          bank: adapter.adapterCode,
+          account: adapter.accountMask || '未配置脱敏账号',
+          collectMode: adapter.capabilityScope || '未配置采集能力',
+          fileFormat: '未配置文件格式',
+          authStatus: adapterStatusLabel(adapter),
+          reconcile: '未配置对账能力',
+          receipt: '未配置回单能力',
+          lastSync: adapter.lastCheckedAt || '未检测',
+        },
+      }
+    })
+}
+
+export function summarizeLiveAdapterAuthorizations(
+  adapters: AdapterAuthorization[],
+  kind: AdapterKind,
+): LiveSummaryItem[] {
+  const scoped = adapters.filter((adapter) => adapter.adapterType === kind)
+  const enabled = scoped.filter((adapter) => adapterStatus(adapter) === '启用').length
+  const pending = scoped.filter((adapter) => adapterStatus(adapter) === '待确认').length
+  const exception = scoped.filter((adapter) => adapterStatus(adapter) === '异常').length
+  const label = kind === 'tax' ? '税局渠道' : '银行渠道'
+  return [
+    { label, value: `${scoped.length} 个`, tone: 'blue' },
+    { label: '已配置', value: `${enabled} 个`, tone: enabled > 0 ? 'green' : 'gray' },
+    { label: '待授权', value: `${pending} 个`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '异常', value: `${exception} 个`, tone: exception > 0 ? 'red' : 'gray' },
   ]
 }
 
