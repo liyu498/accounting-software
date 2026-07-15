@@ -17,6 +17,7 @@ import type { Voucher, VoucherEntry } from '../stores/voucherStore'
 import type { SettlementRule } from '../stores/settlementRuleStore'
 import type { Currency } from '../stores/currencyStore'
 import type { CommonDigest, VoucherTemplateType, VoucherTemplateWithEntries } from '../stores/templateStore'
+import type { ReportItem, ReportTemplate } from '../stores/reportTemplateStore'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
 
@@ -688,6 +689,61 @@ export function summarizeLiveVoucherTemplates(
     { label: '模板类型', value: `${types.length} 类`, tone: 'green' },
     { label: '可用模板', value: `${enabled} 套`, tone: enabled > 0 ? 'green' : 'gray' },
     { label: '待补分录', value: `${incomplete} 套`, tone: incomplete > 0 ? 'amber' : 'gray' },
+  ]
+}
+
+const reportTypeLabels: Record<string, string> = {
+  balance_sheet: '资产负债表',
+  income_statement: '利润表',
+  cash_flow: '现金流量表',
+  equity_change: '所有者权益变动表',
+}
+
+export function mapLiveReportFormulaRows(
+  templates: ReportTemplate[],
+  items: ReportItem[],
+): LiveModuleRow[] {
+  const templateById = new Map(templates.map((template) => [template.id, template]))
+  return [...items]
+    .sort((left, right) => {
+      const leftTemplate = templateById.get(left.template_id)?.template_name || ''
+      const rightTemplate = templateById.get(right.template_id)?.template_name || ''
+      return leftTemplate.localeCompare(rightTemplate) || left.sort_order - right.sort_order
+    })
+    .map((item) => {
+      const template = templateById.get(item.template_id)
+      const hasFormula = Boolean(item.formula?.trim())
+      return {
+        id: `report-formula-${item.id}`,
+        status: item.is_enabled === 1 ? (hasFormula ? '启用' : '待确认') : '停用',
+        voucher: '-',
+        attachment: template?.is_system === 1 ? '系统模板' : '账套模板',
+        values: {
+          report: template ? reportTypeLabels[template.report_type] || template.template_name : '未知模板',
+          line: item.item_code,
+          item: item.item_name,
+          formula: item.formula || '未配置取数公式',
+          direction: '未配置',
+          reclass: '未配置',
+          version: template?.template_code || '未记录版本',
+          check: item.is_enabled === 0 ? '已停用' : hasFormula ? '待报表取数校验' : '缺少公式',
+        },
+      }
+    })
+}
+
+export function summarizeLiveReportFormulas(
+  templates: ReportTemplate[],
+  items: ReportItem[],
+): LiveSummaryItem[] {
+  const enabled = items.filter((item) => item.is_enabled === 1 && Boolean(item.formula?.trim())).length
+  const pending = items.filter((item) => item.is_enabled === 1 && !item.formula?.trim()).length
+  const disabled = items.filter((item) => item.is_enabled === 0).length
+  return [
+    { label: '报表公式', value: `${items.length} 条`, tone: 'blue' },
+    { label: '启用', value: `${enabled} 条`, tone: 'green' },
+    { label: '待复核', value: `${pending} 条`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '异常', value: `${disabled} 条`, tone: disabled > 0 ? 'red' : 'gray' },
   ]
 }
 

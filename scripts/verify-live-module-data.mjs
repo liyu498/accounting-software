@@ -35,6 +35,8 @@ const requiredAdapterSnippets = [
   ['common digest summary mapper', 'export function summarizeLiveCommonDigests'],
   ['voucher template row mapper', 'export function mapLiveVoucherTemplateRows'],
   ['voucher template summary mapper', 'export function summarizeLiveVoucherTemplates'],
+  ['report formula row mapper', 'export function mapLiveReportFormulaRows'],
+  ['report formula summary mapper', 'export function summarizeLiveReportFormulas'],
   ['output invoice type', "invoice.invoice_type === invoiceType"],
   ['invoice type boundary', "invoiceType: 'output' | 'input'"],
   ['voucher direction filter', "entry.direction === direction"],
@@ -105,6 +107,9 @@ const requiredPageSnippets = [
   ['common digest mapping', 'mapLiveCommonDigestRows(commonDigests)'],
   ['voucher template mapping', 'mapLiveVoucherTemplateRows(voucherTemplates, voucherTemplateTypes)'],
   ['template settings live scope', 'usesLiveTemplateSettingsData'],
+  ['report template refresh', 'fetchReportTemplateWorkspace(selectedCompanyId)'],
+  ['report formula mapping', 'mapLiveReportFormulaRows(reportTemplates, reportItems)'],
+  ['report formula live scope', 'usesLiveReportFormulaData'],
   ['browser mock fallback', 'isTauri && selectedCompanyId'],
 ]
 
@@ -127,7 +132,7 @@ if (errors.length > 0) {
 
 console.log('Live data adapter verification passed:')
 console.log(JSON.stringify({
-  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger', 'settlementRules', 'currencySettings', 'commonDigests', 'voucherTemplateSettings'],
+  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger', 'settlementRules', 'currencySettings', 'commonDigests', 'voucherTemplateSettings', 'reportFormulaSettings'],
   scope: 'selected company and accounting period',
   browserFallback: 'existing mock rows',
 }, null, 2))
