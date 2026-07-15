@@ -113,7 +113,7 @@ interface VoucherState {
     account_code?: string
     page?: number
     page_size?: number
-  }) => Promise<void>
+  }) => Promise<Voucher[]>
   getVoucher: (id: string, companyId: string) => Promise<Voucher | null>
 
   addVoucher: (input: {
@@ -243,15 +243,18 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
       const result = await invoke<VoucherListResponse>('query_vouchers', {
         input: filters,
       })
+      const vouchers = result.vouchers.map(mapVoucher)
       set({
-        vouchers: result.vouchers.map(mapVoucher),
+        vouchers,
         totalVouchers: result.total,
         currentPage: filters.page || 1,
         pageSize: filters.page_size || 20,
         isLoading: false,
       })
+      return vouchers
     } catch (error) {
       set({ error: String(error), isLoading: false })
+      return []
     }
   },
 

@@ -34,6 +34,7 @@ import {
   mapLiveHistoryBalanceRows,
   mapLiveHistoryGeneralLedgerRows,
   mapLiveHistorySubsidiaryLedgerRows,
+  mapLiveHistoryVoucherRows,
   mapLivePeriodManagementRows,
   mapLiveSubjectRows,
   mapLiveSubsidiaryLedgerRows,
@@ -54,6 +55,7 @@ import {
   summarizeLiveHistoryBalance,
   summarizeLiveHistoryGeneralLedger,
   summarizeLiveHistorySubsidiaryLedger,
+  summarizeLiveHistoryVouchers,
   summarizeLivePeriodManagement,
   summarizeLiveSubjects,
   summarizeLiveSubsidiaryLedger,
@@ -75,7 +77,7 @@ import {
   type SubsidiaryLedgerItem,
   type TrialBalanceResult,
 } from '../../stores/periodStore'
-import { useVoucherStore } from '../../stores/voucherStore'
+import { useVoucherStore, type Voucher } from '../../stores/voucherStore'
 
 type ModuleKind =
   | 'attachmentCenter'
@@ -225,6 +227,7 @@ type LiveReportData = {
   historyBalance: TrialBalanceResult | null
   historyGeneralLedger: GeneralLedgerItem[] | null
   historySubsidiaryLedger: SubsidiaryLedgerItem[] | null
+  historyVouchers: Voucher[] | null
 }
 
 const emptyLiveReportData: LiveReportData = {
@@ -242,6 +245,7 @@ const emptyLiveReportData: LiveReportData = {
   historyBalance: null,
   historyGeneralLedger: null,
   historySubsidiaryLedger: null,
+  historyVouchers: null,
 }
 
 const liveAuxiliaryArchiveKinds = ['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'] as const
@@ -3450,7 +3454,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveHistoryReportData = Boolean(
     isTauri &&
       selectedCompanyId &&
-      ['historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger'].includes(kind),
+      ['historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger'].includes(kind),
   )
   const usesLiveLedgerDetailData = Boolean(
     isTauri &&
@@ -3607,6 +3611,25 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     void fetchPeriods(selectedCompanyId)
     if (kind === 'historySubsidiaryLedger') void fetchAccounts(selectedCompanyId)
   }, [fetchAccounts, fetchPeriods, kind, selectedCompanyId, usesLiveHistoryReportData])
+
+  useEffect(() => {
+    if (kind !== 'historyVoucher' || !usesLiveHistoryReportData || !selectedCompanyId || !selectedHistoryPeriodId) return
+
+    let active = true
+    setLiveReports((reports) => ({ ...reports, historyVouchers: null }))
+    void queryVouchers({
+      company_id: selectedCompanyId,
+      period_id: selectedHistoryPeriodId,
+      page: 1,
+      page_size: 100,
+    }).then((historyVouchers) => {
+      if (active) setLiveReports((reports) => ({ ...reports, historyVouchers }))
+    })
+
+    return () => {
+      active = false
+    }
+  }, [kind, queryVouchers, selectedCompanyId, selectedHistoryPeriodId, usesLiveHistoryReportData])
 
   useEffect(() => {
     if (kind !== 'historyBalance' || !usesLiveHistoryReportData || !selectedHistoryPeriodId) return
@@ -3884,6 +3907,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             total_closing_credit: 0,
             is_balanced: true,
           }, selectedHistoryPeriodLabel),
+      }
+    }
+
+    if (kind === 'historyVoucher' && usesLiveHistoryReportData) {
+      return {
+        ...baseConfig,
+        rows: liveReports.historyVouchers
+          ? mapLiveHistoryVoucherRows(liveReports.historyVouchers, selectedHistoryPeriodLabel)
+          : [],
+        summary: summarizeLiveHistoryVouchers(liveReports.historyVouchers || [], selectedHistoryPeriodLabel),
       }
     }
 
@@ -4267,7 +4300,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 ))}
               </select>
             )}
-            {(kind === 'historyBalance' || kind === 'historyGeneralLedger' || kind === 'historySubsidiaryLedger') && usesLiveHistoryReportData && (
+            {(kind === 'historyVoucher' || kind === 'historyBalance' || kind === 'historyGeneralLedger' || kind === 'historySubsidiaryLedger') && usesLiveHistoryReportData && (
               <select
                 aria-label="历史账期"
                 value={selectedHistoryPeriodId}

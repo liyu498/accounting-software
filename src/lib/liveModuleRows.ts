@@ -170,6 +170,37 @@ export function summarizeLiveVouchers(vouchers: Voucher[]): LiveSummaryItem[] {
   ]
 }
 
+export function mapLiveHistoryVoucherRows(vouchers: Voucher[], periodLabel: string): LiveModuleRow[] {
+  return vouchers.map((voucher) => ({
+    id: `history-voucher-${voucher.id}`,
+    status: voucherStatus(voucher),
+    voucher: voucher.voucher_number,
+    attachment: voucher.attachment_count > 0 ? `附件 ${voucher.attachment_count}` : '无附件',
+    values: {
+      period: periodLabel,
+      wordNo: voucher.voucher_number,
+      date: voucher.voucher_date,
+      summary: voucher.summary || voucher.entries[0]?.summary || '待补充摘要',
+      subjectMap: `${entryAccount(voucher.entries, 'debit')} / ${entryAccount(voucher.entries, 'credit')}`,
+      debit: currency(voucher.total_debit),
+      credit: currency(voucher.total_credit),
+      sourceBatch: '本地账套查询',
+    },
+  }))
+}
+
+export function summarizeLiveHistoryVouchers(vouchers: Voucher[], periodLabel: string): LiveSummaryItem[] {
+  const approved = vouchers.filter((voucher) => voucher.status === 'approved' || voucher.status === 'posted').length
+  const abnormal = vouchers.filter((voucher) => voucher.status === 'error' || voucher.total_debit !== voucher.total_credit).length
+  const hasPeriod = Boolean(periodLabel)
+  return [
+    { label: '历史凭证', value: hasPeriod ? `${vouchers.length} 张` : '未选择期间', tone: hasPeriod ? 'blue' : 'gray' },
+    { label: '已映射', value: hasPeriod ? `${vouchers.filter((voucher) => voucher.entries.length > 0).length} 张` : '-', tone: hasPeriod ? 'green' : 'gray' },
+    { label: '待确认', value: hasPeriod ? `${Math.max(vouchers.length - approved - abnormal, 0)} 张` : '-', tone: hasPeriod ? 'amber' : 'gray' },
+    { label: '异常', value: hasPeriod ? `${abnormal} 张` : '-', tone: hasPeriod ? 'red' : 'gray' },
+  ]
+}
+
 function balanceLabel(debit: number, credit: number) {
   if (debit > 0) return `借 ${currency(debit)}`
   if (credit > 0) return `贷 ${currency(credit)}`
