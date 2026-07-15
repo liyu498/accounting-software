@@ -8,6 +8,7 @@ const APP_SOURCE = fs.readFileSync(path.join(ROOT, 'src/App.tsx'), 'utf8')
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.ROUTE_AUDIT_PORT || 1420)
 const BASE_URL = `http://${HOST}:${PORT}`
+const REPORT_PATH = process.env.ROUTE_AUDIT_REPORT || path.join(ROOT, 'tmp', 'route-visual-audit.json')
 const VIEWPORTS = [
   { name: 'desktop', width: 1428, height: 789 },
   { name: 'mobile', width: 390, height: 844 },
@@ -119,7 +120,8 @@ async function main() {
     if (server) server.kill()
     console.error('Playwright Chromium is not installed. Run `npx playwright install chromium`, then retry `npm run verify:routes`.')
     console.error(String(error?.message || error))
-    process.exit(2)
+    process.exitCode = 2
+    return
   }
 
   try {
@@ -182,17 +184,24 @@ async function main() {
     failures: failures.length,
   }
 
+  const report = { summary, failures }
+  fs.mkdirSync(path.dirname(REPORT_PATH), { recursive: true })
+  fs.writeFileSync(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`)
+
   if (failures.length > 0) {
     console.error('Route visual audit failed:')
     console.error(JSON.stringify({ summary, failures: failures.slice(0, 80) }, null, 2))
-    process.exit(1)
+    console.error(`Full report: ${REPORT_PATH}`)
+    process.exitCode = 1
+    return
   }
 
   console.log('Route visual audit passed:')
   console.log(JSON.stringify(summary, null, 2))
+  console.log(`Full report: ${REPORT_PATH}`)
 }
 
 main().catch((error) => {
   console.error(error)
-  process.exit(1)
+  process.exitCode = 1
 })
