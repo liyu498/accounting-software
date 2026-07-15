@@ -18,7 +18,7 @@ import type { SettlementRule } from '../stores/settlementRuleStore'
 import type { Currency } from '../stores/currencyStore'
 import type { CommonDigest, VoucherTemplateType, VoucherTemplateWithEntries } from '../stores/templateStore'
 import type { ReportItem, ReportTemplate } from '../stores/reportTemplateStore'
-import type { AdapterAuthorization, OperationAuditLog, TaxDeclarationTask } from '../lib/api'
+import type { AdapterAuthorization, AutomationJob, OperationAuditLog, TaxDeclarationTask } from '../lib/api'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
 
@@ -315,6 +315,88 @@ export function summarizeLiveTaxReports(tasks: TaxDeclarationTask[]): LiveSummar
     { label: '校验通过', value: `${passed} 张`, tone: passed > 0 ? 'green' : 'gray' },
     { label: '待确认', value: `${pending} 张`, tone: pending > 0 ? 'amber' : 'gray' },
     { label: '差异', value: `${exception} 张`, tone: exception > 0 ? 'red' : 'gray' },
+  ]
+}
+
+function automationJobStatus(job: AutomationJob): LiveModuleStatus {
+  const status = job.status.toLowerCase()
+  if (['failed', 'error', 'rejected', 'cancelled'].includes(status)) return '异常'
+  if (['completed', 'succeeded', 'approved', 'confirmed'].includes(status)) return '已通过'
+  if (['pending', 'review', 'awaiting_review', 'waiting_confirmation'].includes(status)) return '待确认'
+  return '待处理'
+}
+
+function automationConfidence(confidence: number | null) {
+  if (confidence === null) return '未记录'
+  const percentage = confidence <= 1 ? confidence * 100 : confidence
+  return `${Math.round(percentage)}%`
+}
+
+function automationNext(status: LiveModuleStatus) {
+  if (status === '已通过') return '查看结果'
+  if (status === '待确认') return '人工复核'
+  if (status === '异常') return '人工处理'
+  return '等待执行'
+}
+
+export function mapLiveAutomationJobRows(jobs: AutomationJob[], view: 'queue' | 'recognition'): LiveModuleRow[] {
+  return [...jobs]
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .map((job) => {
+      const status = automationJobStatus(job)
+      const sourceFile = job.sourceFile || job.sourceId || '未记录来源文件'
+      const shared = {
+        id: `automation-${view}-${job.id}`,
+        status,
+        voucher: job.sourceId || '未关联凭证',
+        attachment: sourceFile,
+      }
+
+      if (view === 'recognition') {
+        return {
+          ...shared,
+          values: {
+            object: job.sourceId || job.jobType,
+            file: sourceFile,
+            fields: job.resultSummary || '未记录识别字段',
+            matched: status === '已通过' ? '已复核' : status === '异常' ? '匹配异常' : '待复核',
+            confidence: automationConfidence(job.confidence),
+            risk: job.riskLevel || '未记录',
+            reviewer: job.reviewer || '待分配',
+            target: job.sourceModule,
+          },
+        }
+      }
+
+      return {
+        ...shared,
+        values: {
+          jobNo: job.id,
+          source: job.sourceModule,
+          file: sourceFile,
+          stage: job.status,
+          confidence: automationConfidence(job.confidence),
+          owner: job.reviewer || job.createdBy || '待分配',
+          startedAt: job.createdAt,
+          next: automationNext(status),
+        },
+      }
+    })
+}
+
+export function summarizeLiveAutomationJobs(jobs: AutomationJob[], view: 'queue' | 'recognition'): LiveSummaryItem[] {
+  const passed = jobs.filter((job) => automationJobStatus(job) === '已通过').length
+  const pending = jobs.filter((job) => automationJobStatus(job) === '待确认').length
+  const exception = jobs.filter((job) => automationJobStatus(job) === '异常').length
+  const label = view === 'queue' ? 'AI任务' : '识别结果'
+  const passedLabel = view === 'queue' ? '已完成' : '自动通过'
+  const pendingLabel = view === 'queue' ? '待确认' : '待复核'
+  const exceptionLabel = view === 'queue' ? '异常' : '异常字段'
+  return [
+    { label, value: `${jobs.length} 条`, tone: jobs.length > 0 ? 'blue' : 'gray' },
+    { label: passedLabel, value: `${passed} 条`, tone: passed > 0 ? 'green' : 'gray' },
+    { label: pendingLabel, value: `${pending} 条`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: exceptionLabel, value: `${exception} 条`, tone: exception > 0 ? 'red' : 'gray' },
   ]
 }
 
