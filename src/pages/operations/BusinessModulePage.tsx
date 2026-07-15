@@ -20,7 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { automationApi, type AdapterAuthorization } from '../../lib/api'
+import { automationApi, type AdapterAuthorization, type OperationAuditLog } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -31,6 +31,7 @@ import {
   mapLiveInitialBalanceRows,
   mapLiveAuxiliaryArchiveRows,
   mapLiveAdapterAuthorizationRows,
+  mapLiveOperationAuditRows,
   mapLiveLedgerOverviewRows,
   mapLiveAccountSummaryRows,
   mapLiveAuxiliaryBalanceRows,
@@ -58,6 +59,7 @@ import {
   summarizeLiveInitialBalance,
   summarizeLiveAuxiliaryArchive,
   summarizeLiveAdapterAuthorizations,
+  summarizeLiveOperationAudits,
   summarizeLiveLedgerOverview,
   summarizeLiveAccountSummary,
   summarizeLiveAuxiliaryBalance,
@@ -3484,6 +3486,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveTemplateSettingsData = Boolean(isTauri && selectedCompanyId && ['commonDigests', 'voucherTemplateSettings'].includes(kind))
   const usesLiveReportFormulaData = Boolean(isTauri && selectedCompanyId && kind === 'reportFormulaSettings')
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings'].includes(kind))
+  const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
   const usesLiveHistoryReportData = Boolean(
     isTauri &&
       selectedCompanyId &&
@@ -3502,6 +3505,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   )
   const [liveReports, setLiveReports] = useState<LiveReportData>(emptyLiveReportData)
   const [adapterAuthorizations, setAdapterAuthorizations] = useState<AdapterAuthorization[]>([])
+  const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
   const [selectedLedgerAccountCode, setSelectedLedgerAccountCode] = useState('')
   const [selectedAuxiliaryCategoryId, setSelectedAuxiliaryCategoryId] = useState('')
   const [selectedAuxiliaryItemId, setSelectedAuxiliaryItemId] = useState('')
@@ -3674,6 +3678,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [kind, selectedCompanyId, usesLiveAdapterAuthorizationData])
 
   useEffect(() => {
+    if (!usesLiveOperationAuditData || !selectedCompanyId) return
+    let active = true
+    void automationApi.getOperationAuditLogs({ companyId: selectedCompanyId })
+      .then((result) => {
+        if (active) setOperationAuditLogs(result.success ? result.data || [] : [])
+      })
+    return () => {
+      active = false
+    }
+  }, [selectedCompanyId, usesLiveOperationAuditData])
+
+  useEffect(() => {
     if (!usesLiveHistoryReportData || !selectedCompanyId) return
     void fetchPeriods(selectedCompanyId)
     if (kind === 'historySubsidiaryLedger') void fetchAccounts(selectedCompanyId)
@@ -3805,6 +3821,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const config = useMemo(() => {
     if (kind === 'auditLog') {
+      if (usesLiveOperationAuditData) {
+        return {
+          ...baseConfig,
+          rows: mapLiveOperationAuditRows(operationAuditLogs),
+          summary: summarizeLiveOperationAudits(operationAuditLogs),
+        }
+      }
       const dynamicRows = auditLogs.map(auditLogToModuleRow)
       return {
         ...baseConfig,
@@ -4091,7 +4114,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, exportJobs, invoices, kind, liveReports, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveCurrencyData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTemplateSettingsData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveCurrencyData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTemplateSettingsData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

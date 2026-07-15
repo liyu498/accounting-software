@@ -18,7 +18,7 @@ import type { SettlementRule } from '../stores/settlementRuleStore'
 import type { Currency } from '../stores/currencyStore'
 import type { CommonDigest, VoucherTemplateType, VoucherTemplateWithEntries } from '../stores/templateStore'
 import type { ReportItem, ReportTemplate } from '../stores/reportTemplateStore'
-import type { AdapterAuthorization } from '../lib/api'
+import type { AdapterAuthorization, OperationAuditLog } from '../lib/api'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
 
@@ -823,6 +823,44 @@ export function summarizeLiveAdapterAuthorizations(
     { label: '已配置', value: `${enabled} 个`, tone: enabled > 0 ? 'green' : 'gray' },
     { label: '待授权', value: `${pending} 个`, tone: pending > 0 ? 'amber' : 'gray' },
     { label: '异常', value: `${exception} 个`, tone: exception > 0 ? 'red' : 'gray' },
+  ]
+}
+
+function operationAuditStatus(log: OperationAuditLog): LiveModuleStatus {
+  const result = log.result.toLowerCase()
+  if (['failed', 'error', 'rejected'].includes(result)) return '异常'
+  if (['pending', 'review'].includes(result)) return '待确认'
+  return '已通过'
+}
+
+export function mapLiveOperationAuditRows(logs: OperationAuditLog[]): LiveModuleRow[] {
+  return logs.map((log) => ({
+    id: `operation-audit-${log.id}`,
+    status: operationAuditStatus(log),
+    voucher: log.objectRef || '-',
+    attachment: log.detail || '后端审计记录',
+    values: {
+      time: log.createdAt,
+      operator: log.operator || '系统',
+      module: log.moduleName,
+      action: log.action,
+      object: log.objectRef || '-',
+      level: log.riskLevel || 'normal',
+      result: log.result || '未记录结果',
+      ip: '后端日志',
+    },
+  }))
+}
+
+export function summarizeLiveOperationAudits(logs: OperationAuditLog[]): LiveSummaryItem[] {
+  const normal = logs.filter((log) => !['high', 'critical'].includes(log.riskLevel.toLowerCase())).length
+  const pending = logs.filter((log) => operationAuditStatus(log) === '待确认').length
+  const highRisk = logs.filter((log) => ['high', 'critical'].includes(log.riskLevel.toLowerCase())).length
+  return [
+    { label: '日志条数', value: `${logs.length} 条`, tone: 'blue' },
+    { label: '普通操作', value: `${normal} 条`, tone: 'green' },
+    { label: '需复核', value: `${pending} 条`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '高风险', value: `${highRisk} 条`, tone: highRisk > 0 ? 'red' : 'gray' },
   ]
 }
 
