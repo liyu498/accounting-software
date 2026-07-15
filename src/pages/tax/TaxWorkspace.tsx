@@ -14,9 +14,10 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { cn } from '../../lib/utils'
+import { isTauri } from '../../lib/tauri'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { recordAuditLog, recordExportJob } from '../../lib/exportJobs'
-import { automationApi } from '../../lib/api'
+import { automationApi, type TaxDeclarationTask } from '../../lib/api'
 import { useCompanyStore } from '../../stores/companyStore'
 
 const declarationRows = [
@@ -102,6 +103,8 @@ const declarationRows = [
   },
 ]
 
+type DeclarationRow = (typeof declarationRows)[number]
+
 const riskRows = [
   ['阻断', '增值税及附加', '进项发票未完成勾选，抵扣税额不能进入申报主表', '发票勾选'],
   ['提示', '扣缴所得税', '员工王五专项附加扣除缺少结束月份', '专项附加扣除'],
@@ -129,6 +132,41 @@ function normalizeTaxDeclarationStatus(value: string) {
   return value === '待申报' ? 'ready' : value === '已申报' ? 'submitted' : 'draft'
 }
 
+function displayTaxValidationStatus(value: string) {
+  if (value === 'passed') return '校验通过'
+  if (value === 'review_required') return '需复核'
+  return '待确认'
+}
+
+function displayTaxDeclarationStatus(value: string) {
+  if (value === 'submitted' || value === 'completed') return '已申报'
+  if (value === 'ready' || value === 'confirmed') return '待申报'
+  return '未申报'
+}
+
+function formatTaxNumber(value: number) {
+  return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function mapTaxDeclarationTaskToRow(task: TaxDeclarationTask): DeclarationRow {
+  return {
+    id: task.id,
+    category: task.taxType,
+    form: task.formName,
+    period: task.period,
+    collectStatus: task.collectStatus || '未取数',
+    checkStatus: displayTaxValidationStatus(task.validationStatus),
+    declareStatus: displayTaxDeclarationStatus(task.declarationStatus),
+    source: task.sourceSnapshot || '未记录取数来源',
+    sales: formatTaxNumber(task.taxableAmount),
+    deduction: formatTaxNumber(task.deductionAmount),
+    payable: formatTaxNumber(task.payableAmount),
+    risk: task.riskCount > 0 ? `${task.riskCount} 项待处理` : '无',
+    owner: task.confirmedBy || '未记录',
+    updated: task.updatedAt.replace('T', ' ').slice(5, 16),
+  }
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -138,8 +176,8 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#039;')
 }
 
-function buildTaxDeclarationPackageHtml(exportedAt: string) {
-  const declarationBody = declarationRows.map((row) => `
+function buildTaxDeclarationPackageHtml(exportedAt: string, rows: DeclarationRow[]) {
+  const declarationBody = rows.map((row) => `
     <tr>
       <td>${escapeHtml(row.category)}</td>
       <td>${escapeHtml(row.form)}</td>
@@ -215,8 +253,10 @@ export function TaxWorkspace() {
   const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
   const companyId = selectedCompanyId ?? 'mock-1'
   const currentPeriod = '2026-05'
+  const usesLiveTaxDeclarationData = Boolean(isTauri && selectedCompanyId)
   const [showRulesLog, setShowRulesLog] = useState(false)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
+  const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [backendTaskCount, setBackendTaskCount] = useState(0)
   const [backendAuditCount, setBackendAuditCount] = useState(0)
   const [backendAdapterStatus, setBackendAdapterStatus] = useState('未配置')
@@ -231,7 +271,11 @@ export function TaxWorkspace() {
       ])
       const adaptersResult = await automationApi.getAdapterAuthorizations({ companyId, adapterType: 'tax' })
       if (cancelled) return
-      if (tasksResult.success) setBackendTaskCount(tasksResult.data?.length ?? 0)
+      if (tasksResult.success) {
+        const tasks = tasksResult.data ?? []
+        setBackendTaskCount(tasks.length)
+        setTaxDeclarationTasks(tasks)
+      }
       if (logsResult.success) setBackendAuditCount(logsResult.data?.length ?? 0)
       if (adaptersResult.success) {
         setBackendAdapterStatus(adaptersResult.data?.[0]?.authStatus ?? '未配置')
@@ -244,7 +288,30 @@ export function TaxWorkspace() {
     }
   }, [companyId])
 
-  const persistDeclarationRow = async (row: (typeof declarationRows)[number]) => {
+  const visibleDeclarationRows = usesLiveTaxDeclarationData
+    ? taxDeclarationTasks.map(mapTaxDeclarationTaskToRow)
+    : declarationRows
+  const currentRows = usesLiveTaxDeclarationData ? visibleDeclarationRows : declarationRows
+  const declarationMetrics = {
+    total: visibleDeclarationRows.length,
+    collected: visibleDeclarationRows.filter((row) => row.collectStatus === '已取数').length,
+    validated: visibleDeclarationRows.filter((row) => row.checkStatus === '校验通过').length,
+    pending: visibleDeclarationRows.filter((row) => row.checkStatus !== '校验通过' || row.declareStatus !== '已申报').length,
+    blocked: visibleDeclarationRows.filter((row) => row.risk !== '无' || row.collectStatus === '待补资料').length,
+    payable: visibleDeclarationRows.reduce((sum, row) => sum + parseMoney(row.payable), 0),
+  }
+
+  const reloadTaxDeclarationTasks = async () => {
+    const result = await automationApi.getTaxDeclarationTasks({ companyId, period: currentPeriod })
+    if (result.success) {
+      const tasks = result.data ?? []
+      setTaxDeclarationTasks(tasks)
+      setBackendTaskCount(tasks.length)
+    }
+    return result
+  }
+
+  const persistDeclarationRow = async (row: DeclarationRow) => {
     const result = await automationApi.upsertTaxDeclarationTask({
       companyId,
       period: row.period,
@@ -261,7 +328,7 @@ export function TaxWorkspace() {
       adapterCode: 'local-preview',
     })
     if (result.success) {
-      setBackendTaskCount((count) => Math.max(count, 1))
+      await reloadTaxDeclarationTasks()
     }
     return result
   }
@@ -287,7 +354,20 @@ export function TaxWorkspace() {
   }
 
   const refreshDeclarationSnapshot = () => {
-    void Promise.all(declarationRows.map((row) => persistDeclarationRow(row))).then((results) => {
+    if (currentRows.length === 0) {
+      writeTaxAudit({
+        action: '重新取数',
+        object: `${currentPeriod}申报取数快照`,
+        level: '中',
+        result: '待审批',
+        status: '待确认',
+        attachment: '无本地申报任务',
+      })
+      setOperationNotice('当前账套尚无本地申报任务；未写入示例数据，需先通过合法采集或初始化流程生成真实任务。')
+      return
+    }
+
+    void Promise.all(currentRows.map((row) => persistDeclarationRow(row))).then((results) => {
       const saved = results.filter((result) => result.success).length
       if (saved > 0) setBackendTaskCount(saved)
     })
@@ -315,9 +395,14 @@ export function TaxWorkspace() {
   }
 
   const confirmDeclaration = () => {
-    const blockers = declarationRows.filter((row) => row.risk !== '无' || row.checkStatus !== '校验通过' || row.collectStatus === '待补资料')
+    if (currentRows.length === 0) {
+      setOperationNotice('当前账套尚无待确认申报任务；未向电子税务局提交，也未写入示例数据。')
+      return
+    }
 
-    void Promise.all(declarationRows.map((row) => persistDeclarationRow(row))).then(async (results) => {
+    const blockers = currentRows.filter((row) => row.risk !== '无' || row.checkStatus !== '校验通过' || row.collectStatus === '待补资料')
+
+    void Promise.all(currentRows.map((row) => persistDeclarationRow(row))).then(async (results) => {
       const saved = results.filter((result) => result.success).length
       if (saved > 0) setBackendTaskCount(saved)
 
@@ -407,7 +492,7 @@ export function TaxWorkspace() {
     setOperationNotice('列设置已记录；后续会接入用户级列宽、冻结列和显示字段保存。')
   }
 
-  const viewDeclarationRow = (row: (typeof declarationRows)[number]) => {
+  const viewDeclarationRow = (row: DeclarationRow) => {
     writeTaxAudit({
       action: '查看申报明细',
       object: `${row.category}-${row.period}`,
@@ -419,7 +504,7 @@ export function TaxWorkspace() {
     setOperationNotice(`${row.category} 明细已打开留痕；后续会接入申报表主表、附表、取数公式和附件快照。`)
   }
 
-  const fetchDeclarationRow = (row: (typeof declarationRows)[number]) => {
+  const fetchDeclarationRow = (row: DeclarationRow) => {
     const blocked = row.risk !== '无' || row.collectStatus === '待补资料'
     void persistDeclarationRow(row)
     writeTaxAudit({
@@ -452,7 +537,7 @@ export function TaxWorkspace() {
   const exportTaxPackage = () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = '税务申报包-2026-05.html'
-    const html = buildTaxDeclarationPackageHtml(exportedAt)
+    const html = buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows)
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
@@ -468,7 +553,7 @@ export function TaxWorkspace() {
       format: '申报包HTML',
       scope: '2026-05/全部税种',
       templateKind: 'tax',
-      rowCount: declarationRows.length,
+      rowCount: visibleDeclarationRows.length,
     })
   }
 
@@ -477,7 +562,7 @@ export function TaxWorkspace() {
     const fileName = '税务申报包-2026-05-print'
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
-    printWindow.document.write(buildTaxDeclarationPackageHtml(exportedAt))
+    printWindow.document.write(buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows))
     printWindow.document.close()
     printWindow.focus()
     printWindow.print()
@@ -487,7 +572,7 @@ export function TaxWorkspace() {
       format: '打印预览',
       scope: '2026-05/全部税种',
       templateKind: 'tax',
-      rowCount: declarationRows.length,
+      rowCount: visibleDeclarationRows.length,
     })
   }
 
@@ -495,7 +580,7 @@ export function TaxWorkspace() {
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = '税务申报包-2026-05.pdf'
     await exportHtmlToPdf({
-      html: buildTaxDeclarationPackageHtml(exportedAt),
+      html: buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows),
       fileName,
       pageTitle: '税务申报包 2026-05',
     })
@@ -505,7 +590,7 @@ export function TaxWorkspace() {
       format: 'PDF',
       scope: '2026-05/全部税种',
       templateKind: 'tax',
-      rowCount: declarationRows.length,
+      rowCount: visibleDeclarationRows.length,
     })
   }
 
@@ -556,12 +641,12 @@ export function TaxWorkspace() {
 
         <div className="grid grid-cols-2 border-b border-slate-200 bg-white md:grid-cols-3 xl:grid-cols-6">
           {[
-            ['应申报税种', '5'],
-            ['已取数', '4'],
-            ['校验通过', '2'],
-            ['待确认', '2'],
-            ['阻断风险', '1'],
-            ['预计应缴', '183,290.00'],
+            ['应申报税种', `${declarationMetrics.total}`],
+            ['已取数', `${declarationMetrics.collected}`],
+            ['校验通过', `${declarationMetrics.validated}`],
+            ['待确认', `${declarationMetrics.pending}`],
+            ['阻断风险', `${declarationMetrics.blocked}`],
+            ['预计应缴', formatTaxNumber(declarationMetrics.payable)],
           ].map(([label, value]) => (
             <div key={label} className="border-r border-slate-100 px-4 py-3 last:border-r-0">
               <div className="text-xs text-slate-500">{label}</div>
@@ -597,7 +682,7 @@ export function TaxWorkspace() {
               <FileCheck2 className="h-4 w-4 text-[#1f65a7]" />
               本期申报清单
             </div>
-            <div className="text-xs text-slate-500">显示 5 条，金额单位: 元</div>
+            <div className="text-xs text-slate-500">显示 {visibleDeclarationRows.length} 条，金额单位: 元</div>
           </div>
           <div className="max-w-full overflow-x-auto">
             <table className="min-w-[1240px] w-full border-collapse text-left text-xs">
@@ -623,7 +708,7 @@ export function TaxWorkspace() {
                 </tr>
               </thead>
               <tbody>
-                {declarationRows.map((row) => (
+                {visibleDeclarationRows.map((row) => (
                   <tr key={row.id} className="hover:bg-[#f8fbff]">
                     <td className="border-b border-slate-100 px-2 py-2">
                       <input type="checkbox" aria-label={`选择 ${row.category}`} />
@@ -652,8 +737,8 @@ export function TaxWorkspace() {
                 <tr>
                   <td className="px-2 py-2" />
                   <td className="px-2 py-2" colSpan={8}>合计</td>
-                  <td className="px-2 py-2 text-right font-mono">42,860.00</td>
-                  <td className="px-2 py-2 text-right font-mono">183,290.00</td>
+                  <td className="px-2 py-2 text-right font-mono">{formatTaxNumber(visibleDeclarationRows.reduce((sum, row) => sum + parseMoney(row.deduction), 0))}</td>
+                  <td className="px-2 py-2 text-right font-mono">{formatTaxNumber(declarationMetrics.payable)}</td>
                   <td className="px-2 py-2" colSpan={4} />
                 </tr>
               </tfoot>

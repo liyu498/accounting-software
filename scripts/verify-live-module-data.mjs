@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 
 const adapterSource = readFileSync('src/lib/liveModuleRows.ts', 'utf8')
 const pageSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', 'utf8')
+const taxWorkspaceSource = readFileSync('src/pages/tax/TaxWorkspace.tsx', 'utf8')
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -138,6 +139,16 @@ const requiredPageSnippets = [
   ['browser mock fallback', 'isTauri && selectedCompanyId'],
 ]
 
+const requiredTaxWorkspaceSnippets = [
+  ['tax workspace live scope', 'usesLiveTaxDeclarationData'],
+  ['tax workspace task state', 'setTaxDeclarationTasks'],
+  ['tax workspace task mapping', 'mapTaxDeclarationTaskToRow'],
+  ['tax workspace visible rows', 'visibleDeclarationRows'],
+  ['tax workspace live list refresh', 'getTaxDeclarationTasks({ companyId, period: currentPeriod })'],
+  ['tax workspace table binding', 'visibleDeclarationRows.map((row) =>'],
+  ['tax workspace export binding', 'buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -147,6 +158,7 @@ function verify(source, checks, sourceName) {
 const errors = [
   ...verify(adapterSource, requiredAdapterSnippets, 'live module adapter'),
   ...verify(pageSource, requiredPageSnippets, 'business module page'),
+  ...verify(taxWorkspaceSource, requiredTaxWorkspaceSnippets, 'tax workspace'),
 ]
 
 if (errors.length > 0) {
