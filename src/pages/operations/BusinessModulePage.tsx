@@ -25,6 +25,7 @@ import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
   mapLiveCompanyInfoRows,
+  mapLiveCompanyBankAccountRows,
   mapLiveCommonDigestRows,
   mapLiveCurrencyRows,
   mapLiveGeneralLedgerRows,
@@ -57,6 +58,7 @@ import {
   summarizeLiveBalanceSheet,
   summarizeLiveCashFlow,
   summarizeLiveCompanyInfo,
+  summarizeLiveCompanyBankAccounts,
   summarizeLiveCommonDigests,
   summarizeLiveCurrencies,
   summarizeLiveGeneralLedger,
@@ -3462,6 +3464,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport'].includes(kind),
   )
   const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
+  const usesLiveCompanyBankAccountData = Boolean(isTauri && selectedCompanyId && kind === 'accountArchive')
   const usesLivePeriodManagementData = Boolean(isTauri && selectedCompanyId && kind === 'periodManagement')
   const usesLiveSettlementRuleData = Boolean(isTauri && selectedCompanyId && kind === 'settlementRules')
   const usesLiveCurrencyData = Boolean(isTauri && selectedCompanyId && kind === 'currencySettings')
@@ -3986,6 +3989,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'accountArchive' && usesLiveCompanyBankAccountData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveCompanyBankAccountRows(selectedCompany),
+        summary: summarizeLiveCompanyBankAccounts(selectedCompany),
+      }
+    }
+
     if (kind === 'initialBalance' && usesLiveInitialBalanceData && liveReports.initialBalance) {
       return {
         ...baseConfig,
@@ -4155,7 +4166,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

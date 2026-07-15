@@ -1115,6 +1115,36 @@ export function summarizeLiveCompanyInfo(company: Company | undefined): LiveSumm
   ]
 }
 
+export function mapLiveCompanyBankAccountRows(company: Company | undefined): LiveModuleRow[] {
+  if (!company) return []
+
+  const hasBankProfile = Boolean(company.bank_name || company.bank_account)
+  return [{
+    id: `company-bank-${company.id}`,
+    status: hasBankProfile ? '启用' : '待确认',
+    voucher: '未关联默认科目',
+    attachment: '企业信息',
+    values: {
+      name: `${company.name}基本账户`,
+      type: '银行账户',
+      bank: company.bank_name || '未维护开户行',
+      number: company.bank_account || '未维护银行账号',
+      subject: '未关联默认科目',
+      balance: '未接入余额数据',
+    },
+  }]
+}
+
+export function summarizeLiveCompanyBankAccounts(company: Company | undefined): LiveSummaryItem[] {
+  const configured = Boolean(company?.bank_name && company?.bank_account)
+  return [
+    { label: '账户数量', value: company ? '1 个' : '0 个', tone: company ? 'blue' : 'gray' },
+    { label: '资料完整', value: configured ? '1 个' : '0 个', tone: configured ? 'green' : 'gray' },
+    { label: '待补资料', value: company && !configured ? '1 个' : '0 个', tone: company && !configured ? 'amber' : 'gray' },
+    { label: '余额数据', value: '未接入', tone: 'gray' },
+  ]
+}
+
 export function mapLiveInitialBalanceRows(result: TrialBalanceResult): LiveModuleRow[] {
   const status: LiveModuleStatus = result.is_balanced ? '已通过' : '异常'
   return result.items.map((item) => ({
