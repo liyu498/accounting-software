@@ -1,6 +1,7 @@
 use crate::db::{
     AdapterAuthorization, AgencyBatchTask, AgencyCollaborationItem, AgencyDeliveryTicket,
-    AgencyFeeCollection, AgencyServiceContract, CreateAgencyBatchTasksInput, Database,
+    AgencyFeeCollection, AgencyServiceContract, AutomationJob, CreateAgencyBatchTasksInput,
+    Database,
 };
 use serde::Serialize;
 use tauri::State;
@@ -350,6 +351,49 @@ pub async fn get_agency_health_checks(
     )
     .bind(&period_filter)
     .bind(&period_filter)
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    Ok(rows)
+}
+
+#[tauri::command]
+pub async fn get_agency_automation_jobs(
+    period: Option<String>,
+    status: Option<String>,
+    db: State<'_, Database>,
+) -> Result<Vec<AutomationJob>, String> {
+    let rows: Vec<AutomationJob> = sqlx::query_as(
+        r#"
+        SELECT
+            j.id,
+            j.company_id,
+            c.name AS company_name,
+            j.period,
+            j.job_type,
+            j.source_module,
+            j.source_id,
+            j.source_file,
+            j.status,
+            j.confidence,
+            j.result_summary,
+            j.risk_level,
+            j.reviewer,
+            j.created_by,
+            j.created_at,
+            j.updated_at
+        FROM automation_jobs j
+        LEFT JOIN companies c ON c.id = j.company_id
+        WHERE (? IS NULL OR j.period = ?)
+          AND (? IS NULL OR j.status = ?)
+        ORDER BY j.updated_at DESC, c.name ASC
+        "#,
+    )
+    .bind(&period)
+    .bind(&period)
+    .bind(&status)
+    .bind(&status)
     .fetch_all(db.pool())
     .await
     .map_err(|e| format!("Database error: {}", e))?;

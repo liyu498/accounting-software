@@ -225,6 +225,9 @@ const requiredAgencyModuleSnippets = [
   ['agency health check data source', 'agencyApi.getHealthChecks()'],
   ['agency health check row mapper', 'function mapAgencyHealthCheckRow(item: AgencyHealthCheckItem)'],
   ['agency health check live scope', "kind === 'healthCheck'"],
+  ['agency automation data source', 'agencyApi.getAutomationJobs()'],
+  ['agency automation row mapper', 'function mapAgencyAutomationJobRow(item: AutomationJob)'],
+  ['agency automation live scope', "kind === 'automation'"],
   ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
 ]
 

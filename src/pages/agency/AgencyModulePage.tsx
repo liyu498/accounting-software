@@ -27,6 +27,7 @@ import {
   type AgencyHealthCheckItem,
   type AgencyOperationOverview,
   type AgencyServiceContract,
+  type AutomationJob,
 } from '../../lib/api'
 import { isTauri } from '../../lib/tauri'
 import { useCompanyStore, type Company } from '../../stores/companyStore'
@@ -345,15 +346,15 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   },
   automation: {
     title: '财税自动化',
-    description: '管理自动采票、自动识票、自动匹配、自动生成凭证和自动申报前置任务。',
-    tabs: ['任务看板', '采票任务', '识别任务', '匹配规则', '凭证任务', '申报任务'],
-    primaryAction: '新建自动化',
-    keywordPlaceholder: '搜索任务、客户、触发器、执行结果',
+    description: '集中查看各客户账套已保存的 OCR、识别和凭证建议任务；不在机构页直接执行外部动作。',
+    tabs: ['任务看板', '识别任务', '凭证建议'],
+    primaryAction: '刷新任务',
+    keywordPlaceholder: '搜索任务、客户、来源模块、执行结果',
     summary: [
-      { label: '启用任务', value: '36 个', tone: 'blue' },
-      { label: '今日执行', value: '148 次', tone: 'green' },
-      { label: '需确认', value: '19 项', tone: 'amber' },
-      { label: '失败', value: '6 项', tone: 'red' },
+      { label: '任务总数', value: '0 个', tone: 'blue' },
+      { label: '已完成', value: '0 个', tone: 'green' },
+      { label: '待确认', value: '0 项', tone: 'amber' },
+      { label: '失败', value: '0 项', tone: 'red' },
     ],
     columns: [
       { key: 'name', label: '任务名称' },
@@ -364,14 +365,10 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { key: 'confirm', label: '人工确认' },
       { key: 'result', label: '结果' },
     ],
-    rows: [
-      { id: 'au-001', status: '进行中', values: { name: '每日采集进销项发票', trigger: '每日 08:30', scope: '全部客户', lastRun: '06-26 08:30', confidence: '92%', confirm: '异常需确认', result: '执行中' } },
-      { id: 'au-002', status: '待确认', values: { name: '银行流水自动生成凭证', trigger: '导入后', scope: '已授权客户', lastRun: '06-26 09:05', confidence: '86%', confirm: '21 条待确认', result: '待复核' } },
-      { id: 'au-003', status: '异常', values: { name: '申报表自动取数', trigger: '结账后', scope: '一般纳税人', lastRun: '06-25 20:10', confidence: '78%', confirm: '必须确认', result: '税表差异' } },
-    ],
+    rows: [],
     queueTitle: 'AI控制边界',
     queue: ['AI 只能生成建议和草稿，凭证入账前需确认', '自动申报只到申报包和待提交状态', '每条建议保留来源、置信度和人工处理日志'],
-    notes: ['AI 是额外增强功能，必须解释来源和置信度，不能黑箱直接入账或报税。', '后续可接入 OCR、票据解析、规则引擎和税表取数 adapter。'],
+    notes: ['AI 是额外增强功能，必须解释来源和置信度，不能黑箱直接入账或报税。', '任务创建、凭证确认和税务操作在对应客户账套中完成，机构页仅做跨客户监管。'],
   },
 }
 
@@ -607,6 +604,18 @@ function summarizeAgencyTabRows(config: AgencyConfig, rows: AgencyRow[]) {
       { label: '高风险', value: `${high} 项`, tone: 'red' as const },
       { label: '中风险', value: `${medium} 项`, tone: 'amber' as const },
       { label: '待整改', value: `${rows.length} 项`, tone: 'green' as const },
+    ]
+  }
+
+  if (config.title === '财税自动化') {
+    const completed = rows.filter((row) => row.status === '已完成').length
+    const pending = rows.filter((row) => row.status === '待处理' || row.status === '待确认').length
+    const failed = rows.filter((row) => row.status === '异常').length
+    return [
+      { label: '任务总数', value: `${rows.length} 个`, tone: 'blue' as const },
+      { label: '已完成', value: `${completed} 个`, tone: 'green' as const },
+      { label: '待确认', value: `${pending} 项`, tone: 'amber' as const },
+      { label: '失败', value: `${failed} 项`, tone: 'red' as const },
     ]
   }
 
@@ -853,6 +862,13 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       writeAgencyAudit('开始体检', `${pageConfig.title}-${activeTab}`)
       void loadRemoteRows()
       setOperationNotice('正在重新扫描本地未匹配发票、税务申报风险和阻断交付任务。')
+      return
+    }
+
+    if (kind === 'automation') {
+      writeAgencyAudit('刷新自动化任务', `${pageConfig.title}-${activeTab}`)
+      void loadRemoteRows()
+      setOperationNotice('正在读取各客户账套本地保存的自动化任务队列。')
       return
     }
 
@@ -1126,6 +1142,15 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 }
 
 async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promise<AgencyRow[]> {
+  if (kind === 'automation') {
+    const response = await agencyApi.getAutomationJobs()
+    if (!response.success) throw new Error(response.error || '自动化任务读取失败')
+    const rows = (response.data ?? []).map(mapAgencyAutomationJobRow)
+    if (activeTab === '识别任务') return rows.filter((row) => row.values.name.includes('识别'))
+    if (activeTab === '凭证建议') return rows.filter((row) => row.values.name.includes('凭证'))
+    return rows
+  }
+
   if (kind === 'healthCheck') {
     const response = await agencyApi.getHealthChecks()
     if (!response.success) throw new Error(response.error || '健康检查读取失败')
@@ -1166,6 +1191,22 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
     return response.data?.map(mapServiceContractRow) ?? []
   }
   return []
+}
+
+function mapAgencyAutomationJobRow(item: AutomationJob): AgencyRow {
+  return {
+    id: item.id,
+    status: mapAgencyAutomationStatus(item.status, item.riskLevel),
+    values: {
+      name: formatAgencyAutomationJobType(item.jobType),
+      trigger: item.sourceModule,
+      scope: item.companyName || item.companyId,
+      lastRun: item.updatedAt,
+      confidence: item.confidence === null ? '-' : `${Math.round(item.confidence * 100)}%`,
+      confirm: item.riskLevel === 'high' ? '必须人工确认' : item.reviewer || '人工复核',
+      result: item.resultSummary || item.status,
+    },
+  }
 }
 
 function mapAgencyHealthCheckRow(item: AgencyHealthCheckItem): AgencyRow {
@@ -1341,6 +1382,23 @@ function mapAgencyBatchTaskStatus(status: string, requiresApproval: boolean): Ag
   if (normalized === 'running' || normalized === 'processing') return '进行中'
   if (normalized === 'awaiting_approval' || (normalized === 'queued' && requiresApproval)) return '待确认'
   return '待处理'
+}
+
+function mapAgencyAutomationStatus(status: string, riskLevel: string): AgencyRow['status'] {
+  const normalized = status.toLowerCase()
+  if (normalized === 'completed' || normalized === 'confirmed') return '已完成'
+  if (normalized === 'failed' || normalized === 'rejected') return '异常'
+  if (normalized === 'running' || normalized === 'processing') return '进行中'
+  if (normalized === 'review' || normalized === 'awaiting_confirmation' || riskLevel === 'high') return '待确认'
+  return '待处理'
+}
+
+function formatAgencyAutomationJobType(jobType: string) {
+  if (jobType === 'document_ocr') return '单据 OCR 识别'
+  if (jobType === 'voucher_suggestion') return 'AI 凭证建议'
+  if (jobType === 'invoice_collection') return '发票采集任务'
+  if (jobType === 'bank_collection') return '银行流水采集任务'
+  return jobType
 }
 
 function formatAdapterType(value: string) {

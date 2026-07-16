@@ -1188,6 +1188,15 @@ export const agencyApi = {
     }
   },
 
+  getAutomationJobs: async (filters: { period?: string; status?: string } = {}): Promise<ApiResponse<AutomationJob[]>> => {
+    try {
+      const result = await invoke('get_agency_automation_jobs', filters) as RawAutomationJob[]
+      return { success: true, data: result.map(mapAutomationJob) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
   getAuthorizations: async (filters: { adapterType?: string } = {}): Promise<ApiResponse<AdapterAuthorization[]>> => {
     try {
       const result = await invoke('get_agency_adapter_authorizations', {
