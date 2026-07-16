@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 const adapterSource = readFileSync('src/lib/liveModuleRows.ts', 'utf8')
 const pageSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', 'utf8')
 const taxWorkspaceSource = readFileSync('src/pages/tax/TaxWorkspace.tsx', 'utf8')
+const agencyModuleSource = readFileSync('src/pages/agency/AgencyModulePage.tsx', 'utf8')
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -196,6 +197,16 @@ const requiredTaxWorkspaceSnippets = [
   ['tax workspace export binding', 'buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows)'],
 ]
 
+const requiredAgencyModuleSnippets = [
+  ['agency service contract data source', 'agencyApi.getServiceContracts()'],
+  ['agency fee collection data source', 'agencyApi.getFeeCollections()'],
+  ['agency collaboration data source', 'agencyApi.getCollaborationItems()'],
+  ['agency fee collection mapper', 'function mapFeeCollectionRow(item: AgencyFeeCollection)'],
+  ['agency collaboration mapper', 'function mapCollaborationItemRow(item: AgencyCollaborationItem)'],
+  ['agency live tab selection', "activeTab === '收费管理'"],
+  ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -206,6 +217,7 @@ const errors = [
   ...verify(adapterSource, requiredAdapterSnippets, 'live module adapter'),
   ...verify(pageSource, requiredPageSnippets, 'business module page'),
   ...verify(taxWorkspaceSource, requiredTaxWorkspaceSnippets, 'tax workspace'),
+  ...verify(agencyModuleSource, requiredAgencyModuleSnippets, 'agency module page'),
 ]
 
 if (errors.length > 0) {

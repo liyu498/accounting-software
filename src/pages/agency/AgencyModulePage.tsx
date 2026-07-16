@@ -20,8 +20,11 @@ import {
 import { cn } from '../../lib/utils'
 import {
   agencyApi,
+  type AgencyCollaborationItem,
+  type AgencyFeeCollection,
   type AgencyServiceContract,
 } from '../../lib/api'
+import { isTauri } from '../../lib/tauri'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useExportJobs, type ExportJob } from '../../lib/exportJobs'
@@ -404,6 +407,118 @@ function exportJobToAgencyRow(job: ExportJob): AgencyRow {
   }
 }
 
+function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string): AgencyConfig {
+  if (baseConfig.title !== '服务合同') return baseConfig
+
+  if (activeTab === '收费管理') {
+    return {
+      ...baseConfig,
+      title: '收费管理',
+      description: '按客户和账期查看应收、实收、欠费、服务费开票和催收记录。',
+      primaryAction: '新增收费记录',
+      keywordPlaceholder: '搜索客户、账期、收费状态、收款人',
+      summary: [
+        { label: '收费记录', value: '0 条', tone: 'blue' },
+        { label: '应收金额', value: '¥0.00', tone: 'amber' },
+        { label: '已收金额', value: '¥0.00', tone: 'green' },
+        { label: '欠费金额', value: '¥0.00', tone: 'red' },
+      ],
+      columns: [
+        { key: 'customer', label: '客户名称' },
+        { key: 'period', label: '账期', align: 'center' },
+        { key: 'receivable', label: '应收金额', align: 'right' },
+        { key: 'received', label: '已收金额', align: 'right' },
+        { key: 'arrears', label: '欠费金额', align: 'right' },
+        { key: 'invoice', label: '服务费开票' },
+        { key: 'payment', label: '收费状态' },
+        { key: 'collector', label: '收款负责人' },
+        { key: 'followUp', label: '最近催收' },
+      ],
+      rows: [
+        { id: 'preview-fee-001', status: '已完成', values: { customer: '科旋电气（上海）有限公司', period: '2026-05', receivable: '¥2,800.00', received: '¥2,800.00', arrears: '¥0.00', invoice: '已开票', payment: '已收款', collector: '张会计', followUp: '2026-05-31' } },
+        { id: 'preview-fee-002', status: '待确认', values: { customer: '上海云启科技有限公司', period: '2026-05', receivable: '¥1,200.00', received: '¥0.00', arrears: '¥1,200.00', invoice: '待开票', payment: '待催收', collector: '李会计', followUp: '2026-06-18' } },
+      ],
+      queueTitle: '收费待办',
+      queue: ['欠费、开票和客户催收由收费记录驱动，不在客户账套内重复维护。', '收款与开票状态变更需要留存对应的客户、账期和操作人。'],
+      notes: ['收费管理属于机构服务交付，不与客户经营发票混用。', '桌面端仅展示本地收费记录；税务和银行外部动作需要授权 adapter。'],
+    }
+  }
+
+  if (activeTab === '客户协同') {
+    return {
+      ...baseConfig,
+      title: '客户协同',
+      description: '集中跟进客户资料补充、催办、答复状态和责任人，资料进入对应客户账套后再处理。',
+      primaryAction: '新增协同事项',
+      keywordPlaceholder: '搜索客户、事项、资料类型、联系人、负责人',
+      summary: [
+        { label: '协同事项', value: '0 项', tone: 'blue' },
+        { label: '待客户答复', value: '0 项', tone: 'amber' },
+        { label: '已完成', value: '0 项', tone: 'green' },
+        { label: '超时提醒', value: '0 项', tone: 'red' },
+      ],
+      columns: [
+        { key: 'customer', label: '客户名称' },
+        { key: 'todo', label: '协同事项' },
+        { key: 'material', label: '资料类型' },
+        { key: 'contact', label: '客户联系人' },
+        { key: 'reminder', label: '催办次数', align: 'center' },
+        { key: 'lastContact', label: '最近联系' },
+        { key: 'reply', label: '客户答复' },
+        { key: 'owner', label: '负责人' },
+      ],
+      rows: [
+        { id: 'preview-collaboration-001', status: '待确认', values: { customer: '上海云启科技有限公司', todo: '补充管理费用合同', material: '合同附件', contact: '王女士', reminder: '2 次', lastContact: '2026-06-18 10:30', reply: '待客户答复', owner: '李会计' } },
+        { id: 'preview-collaboration-002', status: '异常', values: { customer: '杭州辰光贸易有限公司', todo: '补传销项发票影像', material: '发票附件', contact: '陈先生', reminder: '4 次', lastContact: '2026-06-17 16:20', reply: '超时', owner: '王会计' } },
+      ],
+      queueTitle: '协同待办',
+      queue: ['资料补充、催办和客户答复在机构层统一跟进。', '资料进入账套后由对应的发票、单据或凭证模块继续处理。'],
+      notes: ['协同事项不替代单账套业务处理，只保存跨客户服务交付跟进。', '桌面端仅展示本地协同事项和审计留痕。'],
+    }
+  }
+
+  return baseConfig
+}
+
+function summarizeAgencyTabRows(config: AgencyConfig, rows: AgencyRow[]) {
+  if (config.title === '收费管理') {
+    const total = (key: string) => rows.reduce((sum, row) => sum + parseAgencyMoney(row.values[key]), 0)
+    return [
+      { label: '收费记录', value: `${rows.length} 条`, tone: 'blue' as const },
+      { label: '应收金额', value: formatMoney(total('receivable')), tone: 'amber' as const },
+      { label: '已收金额', value: formatMoney(total('received')), tone: 'green' as const },
+      { label: '欠费金额', value: formatMoney(total('arrears')), tone: 'red' as const },
+    ]
+  }
+
+  if (config.title === '客户协同') {
+    const completed = rows.filter((row) => row.status === '已完成').length
+    const overdue = rows.filter((row) => row.status === '异常').length
+    return [
+      { label: '协同事项', value: `${rows.length} 项`, tone: 'blue' as const },
+      { label: '待客户答复', value: `${rows.filter((row) => row.status === '待确认' || row.status === '待处理').length} 项`, tone: 'amber' as const },
+      { label: '已完成', value: `${completed} 项`, tone: 'green' as const },
+      { label: '超时提醒', value: `${overdue} 项`, tone: 'red' as const },
+    ]
+  }
+
+  if (config.title === '服务合同') {
+    return [
+      { label: '服务中合同', value: `${rows.filter((row) => row.status === '进行中').length} 份`, tone: 'blue' as const },
+      { label: '待续签/待确认', value: `${rows.filter((row) => row.status === '待确认').length} 份`, tone: 'amber' as const },
+      { label: '异常/到期', value: `${rows.filter((row) => row.status === '异常').length} 份`, tone: 'red' as const },
+      { label: '已归档', value: `${rows.filter((row) => row.values.archive === 'archived' || row.values.archive === '已归档').length} 份`, tone: 'green' as const },
+    ]
+  }
+
+  return config.summary
+}
+
+function parseAgencyMoney(value = '') {
+  const normalized = value.replace(/[^0-9.-]/g, '')
+  return Number.isFinite(Number(normalized)) ? Number(normalized) : 0
+}
+
 export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const navigate = useNavigate()
   const baseConfig = configs[kind]
@@ -429,7 +544,12 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [pageSize, setPageSize] = useState(20)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
   const [localRows, setLocalRows] = useState<AgencyRow[]>([])
-  const rows = [...localRows, ...(remoteRows && remoteRows.length > 0 ? remoteRows : config.rows)]
+  const pageConfig = useMemo(() => getAgencyTabConfig(config, activeTab), [activeTab, config])
+  const rows = [...localRows, ...(isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows)]
+  const summary = useMemo(
+    () => isTauri && remoteRows !== null ? summarizeAgencyTabRows(pageConfig, remoteRows) : pageConfig.summary,
+    [pageConfig, remoteRows]
+  )
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return rows
@@ -455,8 +575,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const loadRemoteRows = async () => {
     setIsLoadingRows(true)
     try {
-      const nextRows = await fetchAgencyRows(kind)
-      setRemoteRows(nextRows.length > 0 ? nextRows : null)
+      const nextRows = await fetchAgencyRows(kind, activeTab)
+      setRemoteRows(nextRows)
     } catch {
       setRemoteRows(null)
     } finally {
@@ -469,11 +589,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     setLocalRows([])
     setOperationNotice(null)
     void loadRemoteRows()
-  }, [kind])
+  }, [activeTab, kind])
 
   const writeAgencyAudit = (action: string, object: string, level: '普通' | '中' | '高' = '普通', result: '成功' | '待审批' | '失败' = '成功') => {
     recordAuditLog({
-      module: `机构-${config.title}`,
+      module: `机构-${pageConfig.title}`,
       action,
       object,
       level,
@@ -490,14 +610,14 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   const handleViewRow = (row: AgencyRow) => {
     const object = rowObjectLabel(row)
-    writeAgencyAudit('查看明细', `${config.title}-${object}`)
+    writeAgencyAudit('查看明细', `${pageConfig.title}-${object}`)
     setOperationNotice(`已打开 ${object} 的机构级明细留痕；后续会接入附件、来源任务和操作快照。`)
   }
 
   const handleProcessRow = (row: AgencyRow) => {
     const object = rowObjectLabel(row)
     const isRisky = row.status === '异常' || kind === 'batchOps' || kind === 'authorizationCenter' || kind === 'healthCheck'
-    writeAgencyAudit('处理行任务', `${config.title}-${object}`, isRisky ? '高' : '中', isRisky ? '待审批' : '成功')
+    writeAgencyAudit('处理行任务', `${pageConfig.title}-${object}`, isRisky ? '高' : '中', isRisky ? '待审批' : '成功')
     setOperationNotice(
       isRisky
         ? `${object} 已进入机构级待审批队列；批量采集、授权、申报和高风险处理不会自动提交外部系统。`
@@ -507,24 +627,24 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   const handleEnterAccount = (row: AgencyRow) => {
     const object = rowObjectLabel(row)
-    writeAgencyAudit('进入账套', `${config.title}-${object}`)
+    writeAgencyAudit('进入账套', `${pageConfig.title}-${object}`)
     navigate('/dashboard')
   }
 
   const handleRefresh = () => {
-    writeAgencyAudit('刷新列表', `${config.title}-${activeTab}`)
+    writeAgencyAudit('刷新列表', `${pageConfig.title}-${activeTab}`)
     void loadRemoteRows()
   }
 
   const handleImport = () => {
-    writeAgencyAudit('导入资料', `${config.title}-导入批次`, '中', '待审批')
+    writeAgencyAudit('导入资料', `${pageConfig.title}-导入批次`, '中', '待审批')
     setOperationNotice('导入任务已进入待确认留痕；后续会接入文件选择、字段映射和错误清单。')
   }
 
   const handlePrimaryAction = () => {
     if (kind !== 'batchOps') {
-      writeAgencyAudit(config.primaryAction, `${config.title}-${activeTab}`, '中', '待审批')
-      setOperationNotice(`${config.primaryAction} 已进入机构审计日志，等待后续表单和审批流接入。`)
+      writeAgencyAudit(pageConfig.primaryAction, `${pageConfig.title}-${activeTab}`, '中', '待审批')
+      setOperationNotice(`${pageConfig.primaryAction} 已进入机构审计日志，等待后续表单和审批流接入。`)
       return
     }
 
@@ -542,17 +662,17 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   const handleExportExcel = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const fileName = `${config.title}-2026-05.xlsx`
+    const fileName = `${pageConfig.title}-2026-05.xlsx`
     const scope = `${activeTab}/${query.trim() || '全部'}`
     await exportRowsToXlsx({
-      sheetRows: buildAgencySheetRows(config, filteredRows, exportedAt, activeTab, query.trim()),
-      columnWidths: [{ wch: 18 }, { wch: 12 }, ...config.columns.map((column) => ({ wch: Math.max(14, column.label.length * 3) }))],
-      sheetName: config.title,
+      sheetRows: buildAgencySheetRows(pageConfig, filteredRows, exportedAt, activeTab, query.trim()),
+      columnWidths: [{ wch: 18 }, { wch: 12 }, ...pageConfig.columns.map((column) => ({ wch: Math.max(14, column.label.length * 3) }))],
+      sheetName: pageConfig.title,
       fileName,
     })
     recordExportJob({
       fileName,
-      moduleName: `机构-${config.title}`,
+      moduleName: `机构-${pageConfig.title}`,
       format: 'Excel',
       scope,
       templateKind: 'agency',
@@ -562,9 +682,9 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   const handlePrint = () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const fileName = `${config.title}-2026-05-print`
+    const fileName = `${pageConfig.title}-2026-05-print`
     const scope = `${activeTab}/${query.trim() || '全部'}`
-    const html = buildAgencyPrintHtml(config, filteredRows, exportedAt, activeTab, query.trim())
+    const html = buildAgencyPrintHtml(pageConfig, filteredRows, exportedAt, activeTab, query.trim())
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
     printWindow.document.write(html)
@@ -573,7 +693,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     printWindow.print()
     recordExportJob({
       fileName,
-      moduleName: `机构-${config.title}`,
+      moduleName: `机构-${pageConfig.title}`,
       format: '打印预览',
       scope,
       templateKind: 'agency',
@@ -583,16 +703,16 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   const handleExportPdf = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const fileName = `${config.title}-2026-05.pdf`
+    const fileName = `${pageConfig.title}-2026-05.pdf`
     const scope = `${activeTab}/${query.trim() || '全部'}`
     await exportHtmlToPdf({
-      html: buildAgencyPrintHtml(config, filteredRows, exportedAt, activeTab, query.trim()),
+      html: buildAgencyPrintHtml(pageConfig, filteredRows, exportedAt, activeTab, query.trim()),
       fileName,
-      pageTitle: `${config.title} 2026-05`,
+      pageTitle: `${pageConfig.title} 2026-05`,
     })
     recordExportJob({
       fileName,
-      moduleName: `机构-${config.title}`,
+      moduleName: `机构-${pageConfig.title}`,
       format: 'PDF',
       scope,
       templateKind: 'agency',
@@ -605,8 +725,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       <div className="border border-slate-200 bg-white">
         <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-1.5">
           <div className="min-w-0">
-            <h1 className="text-base font-semibold">{config.title}</h1>
-            <p className="text-xs text-slate-500">{config.description}</p>
+            <h1 className="text-base font-semibold">{pageConfig.title}</h1>
+            <p className="text-xs text-slate-500">{pageConfig.description}</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolButton icon={<RefreshCw className={cn('h-3.5 w-3.5', isLoadingRows && 'animate-spin')} />} label="刷新" onClick={handleRefresh} />
@@ -620,7 +740,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
               className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]"
             >
               <Play className="h-3.5 w-3.5" />
-              {config.primaryAction}
+              {pageConfig.primaryAction}
             </button>
           </div>
         </div>
@@ -647,7 +767,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         </div>
 
         <div className="grid grid-cols-2 border-b border-slate-200 lg:grid-cols-4">
-          {config.summary.map((item) => (
+          {summary.map((item) => (
             <div key={item.label} className="border-r border-slate-200 px-4 py-3 last:border-r-0">
               <div className="text-xs text-slate-500">{item.label}</div>
               <div className={cn('mt-1 text-xl font-semibold tabular-nums', toneClass(item.tone))}>{item.value}</div>
@@ -661,7 +781,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={config.keywordPlaceholder}
+              placeholder={pageConfig.keywordPlaceholder}
               className="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-2 text-xs outline-none focus:border-[#1f65a7] sm:w-80"
             />
           </div>
@@ -677,7 +797,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                   <tr>
                     <th className="w-10 border-b border-r border-slate-300 px-2 py-2 text-left">选</th>
                     <th className="w-20 border-b border-r border-slate-300 px-2 py-2 text-left">状态</th>
-                    {config.columns.map((column) => (
+                    {pageConfig.columns.map((column) => (
                       <th key={column.key} className={cn('border-b border-r border-slate-300 px-2 py-2', alignClass(column.align))}>{column.label}</th>
                     ))}
                     <th className="w-36 border-b border-slate-300 px-2 py-2 text-right">操作</th>
@@ -688,7 +808,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                     <tr key={row.id} className="hover:bg-[#f8fbff]">
                       <td className="border-b border-r border-slate-200 px-2 py-2"><input type="checkbox" /></td>
                       <td className="border-b border-r border-slate-200 px-2 py-2"><StatusBadge value={row.status} /></td>
-                      {config.columns.map((column) => (
+                      {pageConfig.columns.map((column) => (
                         <td key={column.key} className={cn('border-b border-r border-slate-200 px-2 py-2', alignClass(column.align))}>
                           {row.values[column.key]}
                         </td>
@@ -712,7 +832,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                 <tfoot className="bg-[#f8fafc]">
                   <tr>
                     <td className="border-t border-r border-slate-200 px-2 py-2" />
-                    <td className="border-t border-r border-slate-200 px-2 py-2 font-semibold" colSpan={Math.max(config.columns.length + 1, 1)}>本页小计</td>
+                    <td className="border-t border-r border-slate-200 px-2 py-2 font-semibold" colSpan={Math.max(pageConfig.columns.length + 1, 1)}>本页小计</td>
                     <td className="border-t border-slate-200 px-2 py-2 text-right text-slate-500">当前页 {pagedRows.length} 条</td>
                   </tr>
                 </tfoot>
@@ -753,9 +873,9 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           </div>
 
           <aside className="min-w-0 border-l border-slate-200 bg-[#fbfdff]">
-            <div className="border-b border-slate-200 px-3 py-2 text-sm font-semibold">{config.queueTitle}</div>
+            <div className="border-b border-slate-200 px-3 py-2 text-sm font-semibold">{pageConfig.queueTitle}</div>
             <div className="space-y-2 p-3">
-              {config.queue.map((item, index) => (
+              {pageConfig.queue.map((item, index) => (
                 <div key={item} className="rounded border border-slate-200 bg-white p-2 text-xs text-slate-700">
                   <div className="mb-1 flex items-center gap-1 font-medium text-slate-900">
                     {index === 0 ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> : <CheckCircle2 className="h-3.5 w-3.5 text-[#1f65a7]" />}
@@ -768,7 +888,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
             <div className="border-y border-slate-200 px-3 py-2 text-sm font-semibold">模块说明</div>
             <div className="space-y-2 p-3">
-              {config.notes.map((note) => (
+              {pageConfig.notes.map((note) => (
                 <p key={note} className="text-xs leading-5 text-slate-600">{note}</p>
               ))}
             </div>
@@ -779,9 +899,22 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   )
 }
 
-async function fetchAgencyRows(kind: AgencyModuleKind): Promise<AgencyRow[]> {
+async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promise<AgencyRow[]> {
+  if (kind === 'serviceContracts' && activeTab === '收费管理') {
+    const response = await agencyApi.getFeeCollections()
+    if (!response.success) throw new Error(response.error || '收费记录读取失败')
+    return response.data?.map(mapFeeCollectionRow) ?? []
+  }
+
+  if (kind === 'serviceContracts' && activeTab === '客户协同') {
+    const response = await agencyApi.getCollaborationItems()
+    if (!response.success) throw new Error(response.error || '协同事项读取失败')
+    return response.data?.map(mapCollaborationItemRow) ?? []
+  }
+
   if (kind === 'serviceContracts') {
     const response = await agencyApi.getServiceContracts()
+    if (!response.success) throw new Error(response.error || '服务合同读取失败')
     return response.data?.map(mapServiceContractRow) ?? []
   }
   return []
@@ -806,12 +939,47 @@ function mapServiceContractRow(item: AgencyServiceContract): AgencyRow {
   }
 }
 
+function mapFeeCollectionRow(item: AgencyFeeCollection): AgencyRow {
+  return {
+    id: item.id,
+    status: mapAgencyStatus(item.status, item.paymentStatus),
+    values: {
+      customer: item.companyName || item.companyId,
+      period: item.period,
+      receivable: formatMoney(item.receivableAmount),
+      received: formatMoney(item.receivedAmount),
+      arrears: formatMoney(item.arrearsAmount),
+      invoice: item.invoiceStatus,
+      payment: item.paymentStatus,
+      collector: item.collector || '-',
+      followUp: item.lastFollowUp || '-',
+    },
+  }
+}
+
+function mapCollaborationItemRow(item: AgencyCollaborationItem): AgencyRow {
+  return {
+    id: item.id,
+    status: mapAgencyStatus(item.status, item.replyStatus),
+    values: {
+      customer: item.companyName || item.companyId,
+      todo: item.todoTitle,
+      material: item.materialType || '-',
+      contact: item.customerContact || '-',
+      reminder: `${item.reminderCount} 次`,
+      lastContact: item.lastContactAt || '-',
+      reply: item.replyStatus,
+      owner: item.owner || '-',
+    },
+  }
+}
+
 function mapAgencyStatus(primary: string, secondary = ''): AgencyRow['status'] {
   const value = `${primary} ${secondary}`.toLowerCase()
-  if (value.includes('paid') || value.includes('completed') || value.includes('已确认')) return '已完成'
-  if (value.includes('blocked') || value.includes('overdue') || value.includes('expiring') || value.includes('超时')) return '异常'
+  if (value.includes('paid') || value.includes('completed') || value.includes('已确认') || value.includes('已完成') || value.includes('已收')) return '已完成'
+  if (value.includes('blocked') || value.includes('overdue') || value.includes('expiring') || value.includes('超时') || value.includes('异常')) return '异常'
   if (value.includes('waiting') || value.includes('pending') || value.includes('待')) return '待确认'
-  if (value.includes('active') || value.includes('processing')) return '进行中'
+  if (value.includes('active') || value.includes('processing') || value.includes('进行中')) return '进行中'
   return '待处理'
 }
 
