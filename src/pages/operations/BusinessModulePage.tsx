@@ -46,6 +46,7 @@ import {
   mapLiveSettlementRuleRows,
   mapLivePeriodManagementRows,
   mapLiveReportFormulaRows,
+  mapLiveRiskCheckRows,
   mapLiveSubjectRows,
   mapLiveSubsidiaryLedgerRows,
   mapLiveIncomeStatementRows,
@@ -84,6 +85,7 @@ import {
   summarizeLiveSettlementRules,
   summarizeLivePeriodManagement,
   summarizeLiveReportFormulas,
+  summarizeLiveRiskChecks,
   summarizeLiveSubjects,
   summarizeLiveSubsidiaryLedger,
   summarizeLiveIncomeStatement,
@@ -3466,7 +3468,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const reportTemplates = useReportTemplateStore((state) => state.reportTemplates)
   const reportItems = useReportTemplateStore((state) => state.reportItems)
   const fetchReportTemplateWorkspace = useReportTemplateStore((state) => state.fetchReportTemplateWorkspace)
-  const usesLiveModuleData = isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice', 'voucher'].includes(kind)
+  const usesLiveModuleData = isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice', 'voucher', 'riskCheck'].includes(kind)
   const usesLiveReportData = Boolean(
     isTauri &&
       selectedCompanyId &&
@@ -3557,6 +3559,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
 
     if (kind === 'voucher') {
+      queryVouchers({
+        company_id: selectedCompanyId,
+        period_id: currentPeriodId || undefined,
+        page: 1,
+        page_size: 100,
+      })
+      return
+    }
+
+    if (kind === 'riskCheck') {
+      fetchInvoices({
+        company_id: selectedCompanyId,
+        period_id: currentPeriodId || undefined,
+      })
       queryVouchers({
         company_id: selectedCompanyId,
         period_id: currentPeriodId || undefined,
@@ -3920,6 +3936,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveVoucherRows(vouchers),
         summary: summarizeLiveVouchers(vouchers),
+      }
+    }
+
+    if (kind === 'riskCheck' && usesLiveModuleData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveRiskCheckRows(vouchers, invoices),
+        summary: summarizeLiveRiskChecks(vouchers, invoices),
       }
     }
 

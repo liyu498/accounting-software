@@ -175,6 +175,101 @@ export function summarizeLiveVouchers(vouchers: Voucher[]): LiveSummaryItem[] {
   ]
 }
 
+export function mapLiveRiskCheckRows(vouchers: Voucher[], invoices: Invoice[]): LiveModuleRow[] {
+  const rows: LiveModuleRow[] = []
+  const unbalancedVouchers = vouchers.filter((voucher) => voucher.status === 'error' || voucher.total_debit !== voucher.total_credit)
+  const draftVouchers = vouchers.filter((voucher) => voucher.status === 'draft')
+  const rejectedInvoices = invoices.filter((invoice) => invoice.status === 'rejected')
+
+  for (const voucher of unbalancedVouchers) {
+    rows.push({
+      id: `risk-voucher-balance-${voucher.id}`,
+      status: '异常',
+      voucher: voucher.voucher_number,
+      attachment: voucher.attachment_count > 0 ? `附件 ${voucher.attachment_count}` : '无附件',
+      values: {
+        level: '高',
+        module: '会计凭证',
+        rule: '借贷不平',
+        impact: '阻断结账',
+        owner: voucher.modified_by || voucher.created_by || '待分配',
+        updated: voucher.modified_at || voucher.created_at || '未记录',
+      },
+    })
+  }
+
+  for (const voucher of draftVouchers) {
+    rows.push({
+      id: `risk-voucher-draft-${voucher.id}`,
+      status: '待处理',
+      voucher: voucher.voucher_number,
+      attachment: voucher.attachment_count > 0 ? `附件 ${voucher.attachment_count}` : '无附件',
+      values: {
+        level: '中',
+        module: '会计凭证',
+        rule: '草稿凭证待审核',
+        impact: '结账前需审核',
+        owner: voucher.created_by || '待分配',
+        updated: voucher.modified_at || voucher.created_at || '未记录',
+      },
+    })
+  }
+
+  for (const invoice of rejectedInvoices) {
+    rows.push({
+      id: `risk-invoice-rejected-${invoice.id}`,
+      status: '异常',
+      voucher: invoice.voucher_id || '未关联凭证',
+      attachment: invoiceAttachment(invoice),
+      values: {
+        level: '高',
+        module: invoice.invoice_type === 'input' ? '进项发票' : '销项发票',
+        rule: '发票状态异常',
+        impact: '影响申报',
+        owner: '待分配',
+        updated: invoice.updated_at,
+      },
+    })
+  }
+
+  if (rows.length === 0 && (vouchers.length > 0 || invoices.length > 0)) {
+    const updateTimes = [...vouchers.map((voucher) => voucher.modified_at || voucher.created_at), ...invoices.map((invoice) => invoice.updated_at)]
+      .filter((value): value is string => Boolean(value))
+      .sort()
+    const updated = updateTimes.length > 0 ? updateTimes[updateTimes.length - 1] : '未记录'
+
+    rows.push({
+      id: 'risk-base-check-passed',
+      status: '已通过',
+      voucher: `已检查 ${vouchers.length} 张凭证`,
+      attachment: `已检查 ${invoices.length} 张发票`,
+      values: {
+        level: '低',
+        module: '基础校验',
+        rule: '借贷平衡与发票状态检查',
+        impact: '未发现阻断项',
+        owner: '系统校验',
+        updated,
+      },
+    })
+  }
+
+  return rows
+}
+
+export function summarizeLiveRiskChecks(vouchers: Voucher[], invoices: Invoice[]): LiveSummaryItem[] {
+  const rows = mapLiveRiskCheckRows(vouchers, invoices)
+  const passed = rows.filter((row) => row.status === '已通过').length
+  const pending = rows.filter((row) => row.status === '待处理' || row.status === '待确认').length
+  const blockers = rows.filter((row) => row.status === '异常').length
+  return [
+    { label: '检查项', value: `${rows.length} 项`, tone: rows.length > 0 ? 'blue' : 'gray' },
+    { label: '已通过', value: `${passed} 项`, tone: passed > 0 ? 'green' : 'gray' },
+    { label: '需复核', value: `${pending} 项`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '阻断结账', value: `${blockers} 项`, tone: blockers > 0 ? 'red' : 'gray' },
+  ]
+}
+
 export function mapLiveVoucherRecycleRows(vouchers: Voucher[]): LiveModuleRow[] {
   return [...vouchers]
     .sort((left, right) => (right.deleted_at || '').localeCompare(left.deleted_at || ''))

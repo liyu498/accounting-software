@@ -62,6 +62,8 @@ const requiredAdapterSnippets = [
   ['finance tax report summary mapper', 'export function summarizeLiveFinanceTaxReports'],
   ['financial overview row mapper', 'export function mapLiveFinancialOverviewRows'],
   ['financial overview summary mapper', 'export function summarizeLiveFinancialOverview'],
+  ['risk check row mapper', 'export function mapLiveRiskCheckRows'],
+  ['risk check summary mapper', 'export function summarizeLiveRiskChecks'],
   ['output invoice type', "invoice.invoice_type === invoiceType"],
   ['invoice type boundary', "invoiceType: 'output' | 'input'"],
   ['voucher direction filter', "entry.direction === direction"],
@@ -162,6 +164,9 @@ const requiredPageSnippets = [
   ['AI voucher suggestion mapping', "mapLiveAutomationJobRows(automationJobs, 'suggestion')"],
   ['AI voucher suggestion live kind', "'aiVoucherSuggestions'"],
   ['automation job live scope', 'usesLiveAutomationJobData'],
+  ['risk check mapping', 'mapLiveRiskCheckRows(vouchers, invoices)'],
+  ['risk check summary mapping', 'summarizeLiveRiskChecks(vouchers, invoices)'],
+  ['risk check live kind', "'riskCheck'"],
   ['finance tax report mapping', 'mapLiveFinanceTaxReportRows(taxDeclarationTasks)'],
   ['finance tax report live scope', 'usesLiveFinanceTaxReportData'],
   ['financial overview mapping', 'mapLiveFinancialOverviewRows(liveReports.balanceSheet, liveReports.incomeStatement, liveReports.cashFlow)'],
@@ -199,7 +204,7 @@ if (errors.length > 0) {
 
 console.log('Live data adapter verification passed:')
 console.log(JSON.stringify({
-  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'financialReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger', 'settlementRules', 'currencySettings', 'commonDigests', 'voucherTemplateSettings', 'reportFormulaSettings', 'taxAdapterSettings', 'bankAdapterSettings', 'auditLog', 'auxiliaryCategories', 'auxiliaryItems', 'voucherRecycle', 'declarationReceipt', 'taxInit', 'taxReport', 'aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'financeTaxReport'],
+  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'riskCheck', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'financialReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger', 'settlementRules', 'currencySettings', 'commonDigests', 'voucherTemplateSettings', 'reportFormulaSettings', 'taxAdapterSettings', 'bankAdapterSettings', 'auditLog', 'auxiliaryCategories', 'auxiliaryItems', 'voucherRecycle', 'declarationReceipt', 'taxInit', 'taxReport', 'aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'financeTaxReport'],
   scope: 'selected company and accounting period',
   browserFallback: 'existing mock rows',
 }, null, 2))
