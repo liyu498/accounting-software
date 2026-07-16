@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Ban,
@@ -155,6 +155,141 @@ const emptyCompanyForm = {
 
 type CompanyForm = typeof emptyCompanyForm
 
+interface CompanyImportCandidate {
+  code: string
+  name: string
+  tax_id: string
+  tax_type: TaxpayerType
+  industry: string
+  accounting_system: AccountingSystem
+  province: string
+  city: string
+  district: string
+  enterprise_type: string
+  service_start: string
+  service_end: string
+  enable_year: number
+  enable_month: number
+}
+
+function normalizeCompanyImportHeader(value: string) {
+  return value.replace(/\s+/g, '').replace(/[：:*]/g, '').trim()
+}
+
+function findCompanyImportHeaderRow(rows: string[][]) {
+  return rows.findIndex((row) => {
+    const headers = row.map((value) => normalizeCompanyImportHeader(value))
+    return headers.some((header) => header.includes('企业名称') || header.includes('客户名称'))
+      && headers.some((header) => header.includes('纳税人识别号') || header.includes('税号'))
+  })
+}
+
+function parseCsvTable(text: string) {
+  const rows: string[][] = []
+  let row: string[] = []
+  let cell = ''
+  let quoted = false
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (char === '"') {
+      if (quoted && text[index + 1] === '"') {
+        cell += '"'
+        index += 1
+      } else {
+        quoted = !quoted
+      }
+    } else if (char === ',' && !quoted) {
+      row.push(cell.trim())
+      cell = ''
+    } else if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && text[index + 1] === '\n') index += 1
+      row.push(cell.trim())
+      if (row.some(Boolean)) rows.push(row)
+      row = []
+      cell = ''
+    } else {
+      cell += char
+    }
+  }
+
+  row.push(cell.trim())
+  if (row.some(Boolean)) rows.push(row)
+  return rows
+}
+
+function importCellText(value: unknown) {
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  return value === null || value === undefined ? '' : String(value).trim()
+}
+
+async function readCompanyImportTable(file: File) {
+  const fileName = file.name.toLowerCase()
+  if (fileName.endsWith('.xlsx')) {
+    const { readSheet } = await import('read-excel-file/browser')
+    const rows = await readSheet(file)
+    return rows.map((row) => row.map(importCellText))
+  }
+  if (fileName.endsWith('.csv')) return parseCsvTable(await file.text())
+  throw new Error('仅支持 .xlsx 或 .csv 企业档案文件')
+}
+
+function importValue(row: Record<string, string>, ...aliases: string[]) {
+  for (const alias of aliases) {
+    const value = row[normalizeCompanyImportHeader(alias)]
+    if (value) return value
+  }
+  return ''
+}
+
+function mapImportedTaxpayerType(value: string): TaxpayerType {
+  return value.includes('一般') ? 'general' : 'small'
+}
+
+function mapImportedAccountingSystem(value: string): AccountingSystem {
+  if (value.includes('企业会计准则') && !value.includes('小企业')) return 'enterprise'
+  if (value.includes('民间非营利')) return 'non_profit'
+  if (value.includes('合作社')) return 'cooperative'
+  return 'small_enterprise'
+}
+
+function parseImportedEnablePeriod(row: Record<string, string>) {
+  const period = importValue(row, '启用期间', '账期')
+  const match = period.match(/(20\d{2})\D+(\d{1,2})/)
+  const year = Number(importValue(row, '启用年')) || Number(match?.[1]) || currentYear
+  const month = Number(importValue(row, '启用月')) || Number(match?.[2]) || new Date().getMonth() + 1
+  return { enable_year: year, enable_month: Math.min(Math.max(month, 1), 12) }
+}
+
+function buildCompanyImportCandidate(row: Record<string, string>, index: number): { candidate?: CompanyImportCandidate; error?: string } {
+  const name = importValue(row, '企业名称', '客户名称')
+  const taxId = importValue(row, '纳税人识别号', '税号')
+  if (!name || !taxId) return { error: `第 ${index + 1} 行缺少企业名称或纳税人识别号` }
+  const accountingSystemValue = importValue(row, '会计制度')
+  if (accountingSystemValue.includes('政府')) return { error: `第 ${index + 1} 行为政府会计制度，当前账套模板暂不支持导入` }
+
+  const region = importValue(row, '地区').split(/[\s/，,]+/).filter(Boolean)
+  const { enable_year, enable_month } = parseImportedEnablePeriod(row)
+  return {
+    candidate: {
+      code: importValue(row, '企业编码', '客户编码', '编码') || `KHIMP${Date.now().toString().slice(-8)}${String(index + 1).padStart(3, '0')}`,
+      name,
+      tax_id: taxId,
+      tax_type: mapImportedTaxpayerType(importValue(row, '纳税人资格', '纳税人类型')),
+      industry: importValue(row, '会计行业', '行业'),
+      accounting_system: mapImportedAccountingSystem(accountingSystemValue),
+      province: importValue(row, '省', '省份') || region[0] || '',
+      city: importValue(row, '市', '城市') || region[1] || '',
+      district: importValue(row, '区县', '区/县', '区') || region[2] || '',
+      enterprise_type: importValue(row, '企业类型'),
+      service_start: importValue(row, '服务期限起', '服务开始'),
+      service_end: importValue(row, '服务期限止', '服务结束'),
+      enable_year,
+      enable_month,
+    },
+  }
+}
+
 function maskAuthorizationAccount(value: string) {
   const normalized = value.trim()
   if (!normalized) return '未维护账号'
@@ -244,6 +379,7 @@ export function Welcome() {
   const [newCompany, setNewCompany] = useState<CompanyForm>(emptyCompanyForm)
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
+  const companyImportRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchCompanies().catch((err) => console.error('[Welcome] fetchCompanies failed:', err))
@@ -441,9 +577,62 @@ export function Welcome() {
   }
 
   const handleImportCompanies = () => {
-    recordWelcomeAudit('导入企业清单', '账套管理-导入批次', '中', '待审批')
-    setOperationNotice('导入企业清单已进入待确认留痕；后续会接入 Excel 模板校验、字段映射、错误清单和回滚记录。')
-    warningToast('导入任务已记录，正式文件选择和字段映射将在导入中心补齐')
+    companyImportRef.current?.click()
+  }
+
+  const handleCompanyImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    try {
+      const table = await readCompanyImportTable(file)
+      const headerRowIndex = findCompanyImportHeaderRow(table)
+      if (headerRowIndex === -1) throw new Error('未找到“企业名称/纳税人识别号”表头行')
+
+      const headers = table[headerRowIndex].map((header) => normalizeCompanyImportHeader(header))
+      const forbiddenImportHeaders = ['密码', '账号', '验证码', 'Cookie']
+      const forbiddenColumns = headers.filter((header) => forbiddenImportHeaders.some((keyword) => header.includes(keyword)))
+      if (forbiddenColumns.length > 0) throw new Error(`导入文件包含敏感列：${forbiddenColumns.join('、')}。请删除后重试`)
+
+      const importedRows = table.slice(headerRowIndex + 1)
+        .filter((row) => row.some((value) => value.trim()))
+        .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])))
+      const candidates = importedRows.map((row, index) => buildCompanyImportCandidate(row, index))
+      const invalidRows = candidates.filter((item) => item.error).map((item) => item.error!)
+      const previousCompanyId = useCompanyStore.getState().selectedCompanyId
+      await fetchCompanies()
+      const existingCompanies = useCompanyStore.getState().companies
+      const existingCodes = new Set(existingCompanies.map((company) => company.code))
+      const existingTaxIds = new Set(existingCompanies.map((company) => company.tax_id).filter(Boolean))
+      let imported = 0
+      let skipped = invalidRows.length
+
+      for (const item of candidates) {
+        const candidate = item.candidate
+        if (!candidate) continue
+        if (existingCodes.has(candidate.code) || existingTaxIds.has(candidate.tax_id)) {
+          skipped += 1
+          continue
+        }
+        await createCompany(candidate)
+        existingCodes.add(candidate.code)
+        existingTaxIds.add(candidate.tax_id)
+        imported += 1
+      }
+
+      await fetchCompanies()
+      selectCompany(previousCompanyId)
+      const result = `已导入 ${imported} 户，跳过 ${skipped} 行`
+      recordWelcomeAudit('导入企业清单', `${file.name} / ${result}`, '中', skipped > 0 ? '待审批' : '成功')
+      setOperationNotice(`${result}。导入仅处理企业基础档案，不导入密码、账号、验证码、Cookie 或外部授权凭据。`)
+      warningToast(result)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      recordWelcomeAudit('导入企业清单失败', file.name, '中', '失败')
+      warningToast(`企业导入失败：${message}`)
+    } finally {
+      event.target.value = ''
+    }
   }
 
   const handleExportCompanies = async () => {
@@ -603,6 +792,7 @@ export function Welcome() {
 
   return (
     <div className="min-h-screen bg-[#eef3f8] text-slate-900">
+      <input ref={companyImportRef} type="file" accept=".xlsx,.csv" onChange={handleCompanyImportFile} className="hidden" aria-label="导入企业档案" />
       <header className="border-b border-slate-200 bg-[#f8fbff]">
         <div className="mx-auto flex max-w-[1440px] items-center justify-between px-6 py-3">
           <div className="flex items-center gap-3">

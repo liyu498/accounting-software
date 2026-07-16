@@ -215,6 +215,12 @@ const requiredWelcomeSnippets = [
   ['company edit authorization loading', 'automationApi.getAdapterAuthorizations({ companyId: company.id })'],
   ['company edit authorization notice', '已载入授权元数据；账号、身份证号、邮箱和密码不会回填'],
   ['company account update guard', 'if (company.taxLoginAccount.trim())'],
+  ['company import file input', 'ref={companyImportRef}'],
+  ['company import excel parser', "import('read-excel-file/browser')"],
+  ['company import header scanner', 'function findCompanyImportHeaderRow'],
+  ['company import duplicate tax guard', 'existingTaxIds.has(candidate.tax_id)'],
+  ['company import secret column boundary', "const forbiddenImportHeaders = ['密码', '账号', '验证码', 'Cookie']"],
+  ['company import create binding', 'await createCompany(candidate)'],
 ]
 
 const requiredCompanyPersistenceSnippets = [
