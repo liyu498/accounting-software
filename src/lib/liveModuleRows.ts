@@ -374,6 +374,61 @@ export function summarizeLiveClosingTasks(
   ]
 }
 
+function invoiceVoucherMatchingStatus(invoice: Invoice, voucher: Voucher | undefined): LiveModuleStatus {
+  if (invoice.status === 'rejected') return '异常'
+  if (!invoice.voucher_id) return '待处理'
+  if (!voucher) return '异常'
+  return Math.abs(voucher.total_debit - invoice.total_amount) < 0.01 ? '已匹配' : '待确认'
+}
+
+export function mapLiveInvoiceVoucherMatchingRows(invoices: Invoice[], vouchers: Voucher[]): LiveModuleRow[] {
+  const vouchersById = new Map(vouchers.map((voucher) => [voucher.id, voucher]))
+  return invoices.map((invoice) => {
+    const voucher = invoice.voucher_id ? vouchersById.get(invoice.voucher_id) : undefined
+    const status = invoiceVoucherMatchingStatus(invoice, voucher)
+    const difference = voucher ? Math.abs(voucher.total_debit - invoice.total_amount) : null
+    const counterparty = invoice.invoice_type === 'input' ? invoice.seller_name : invoice.buyer_name
+
+    return {
+      id: `invoice-voucher-match-${invoice.id}`,
+      status,
+      voucher: voucher?.voucher_number || invoice.voucher_id || '未关联凭证',
+      attachment: invoiceAttachment(invoice),
+      values: {
+        invoiceNo: invoice.invoice_no,
+        counterparty: counterparty || '未记录往来单位',
+        invoiceAmount: currency(invoice.total_amount),
+        voucherNo: voucher?.voucher_number || '未匹配',
+        voucherAmount: voucher ? currency(voucher.total_debit) : '未记录',
+        difference: difference === null ? '未匹配' : currency(difference),
+        confidence: invoice.voucher_id ? '未记录' : '—',
+        matchStatus: status === '已匹配'
+          ? '凭证已关联'
+          : status === '待确认'
+            ? '金额差异'
+            : status === '异常'
+              ? invoice.voucher_id ? '关联凭证缺失' : '发票状态异常'
+              : '待关联凭证',
+      },
+    }
+  })
+}
+
+export function summarizeLiveInvoiceVoucherMatching(invoices: Invoice[], vouchers: Voucher[]): LiveSummaryItem[] {
+  const rows = mapLiveInvoiceVoucherMatchingRows(invoices, vouchers)
+  const linked = rows.filter((row) => row.status === '已匹配').length
+  const pending = rows.filter((row) => row.status === '待确认').length
+  const exceptions = rows.filter((row) => row.status === '异常').length
+  const unmatched = rows.filter((row) => row.status === '待处理').length
+  const linkedRate = rows.length === 0 ? '—' : `${Math.round((linked / rows.length) * 100)}%`
+  return [
+    { label: '待匹配票据', value: `${unmatched} 张`, tone: unmatched > 0 ? 'blue' : 'gray' },
+    { label: '已关联率', value: linkedRate, tone: linked > 0 ? 'green' : 'gray' },
+    { label: '待人工确认', value: `${pending} 张`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '差异票据', value: `${exceptions} 张`, tone: exceptions > 0 ? 'red' : 'gray' },
+  ]
+}
+
 export function mapLiveVoucherRecycleRows(vouchers: Voucher[]): LiveModuleRow[] {
   return [...vouchers]
     .sort((left, right) => (right.deleted_at || '').localeCompare(left.deleted_at || ''))
