@@ -1305,9 +1305,15 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
   }
 
   if (kind === 'authorizationCenter') {
-    const response = await agencyApi.getAuthorizations()
+    const adapterType = agencyAuthorizationAdapterType(activeTab)
+    const response = adapterType
+      ? await agencyApi.getAuthorizations({ adapterType })
+      : await agencyApi.getAuthorizations()
     if (!response.success) throw new Error(response.error || '授权记录读取失败')
-    return (response.data ?? []).map(mapAgencyAuthorizationRow)
+    const items = activeTab === '到期提醒'
+      ? (response.data ?? []).filter((item) => isAuthorizationExpiryReminder(item.expiresAt))
+      : response.data ?? []
+    return items.map(mapAgencyAuthorizationRow)
   }
 
   if (kind === 'invoiceManagement') {
@@ -1418,6 +1424,23 @@ function mapAgencyAuthorizationRow(item: AdapterAuthorization): AgencyRow {
       risk: item.riskMessage || '无',
     },
   }
+}
+
+function agencyAuthorizationAdapterType(activeTab: string) {
+  if (activeTab === '税务授权') return 'tax'
+  if (activeTab === '个税授权') return 'individual_tax'
+  if (activeTab === '银行授权') return 'bank'
+  if (activeTab === '工商授权') return 'industrial_commercial'
+  if (activeTab === '票池授权') return 'invoice_pool'
+  return undefined
+}
+
+function isAuthorizationExpiryReminder(expiresAt: string | null) {
+  if (!expiresAt) return false
+  const expiresAtValue = new Date(expiresAt).getTime()
+  if (Number.isNaN(expiresAtValue)) return false
+  const reminderWindow = 30 * 24 * 60 * 60 * 1000
+  return expiresAtValue <= Date.now() + reminderWindow
 }
 
 function mapAgencyCompanyRow(item: Company, kind: AgencyModuleKind): AgencyRow {

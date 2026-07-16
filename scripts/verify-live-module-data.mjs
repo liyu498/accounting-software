@@ -225,6 +225,8 @@ const requiredAgencyModuleSnippets = [
   ['agency overview summary mapper', 'function summarizeAgencyOverview(overview: AgencyOperationOverview)'],
   ['agency authorization data source', 'agencyApi.getAuthorizations()'],
   ['agency authorization row mapper', 'function mapAgencyAuthorizationRow(item: AdapterAuthorization)'],
+  ['agency authorization tab filter', 'function agencyAuthorizationAdapterType(activeTab: string)'],
+  ['agency authorization expiry filter', 'function isAuthorizationExpiryReminder(expiresAt: string | null)'],
   ['agency authorization live scope', "kind === 'authorizationCenter'"],
   ['agency batch task data source', 'agencyApi.getBatchTasks()'],
   ['agency batch task create binding', 'agencyApi.createBatchTasks('],
