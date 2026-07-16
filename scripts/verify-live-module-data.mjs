@@ -212,6 +212,8 @@ const requiredAgencyModuleSnippets = [
   ['agency live tab selection', "activeTab === '收费管理'"],
   ['agency contract archive row mapper', 'function mapAgencyContractArchiveRow(item: AgencyServiceContract)'],
   ['agency contract archive live tab', "activeTab === '归档记录'"],
+  ['agency service package row mapper', 'function mapAgencyServicePackageRows(items: AgencyServiceContract[])'],
+  ['agency service package live tab', "activeTab === '服务套餐'"],
   ['agency overview data source', 'agencyApi.getOverview()'],
   ['agency overview state', 'setAgencyOverview(response.data ?? null)'],
   ['agency overview live scope', "kind === 'dataStats'"],

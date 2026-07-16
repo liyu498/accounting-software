@@ -523,6 +523,34 @@ function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLive
     }
   }
 
+  if (activeTab === '服务套餐') {
+    return {
+      ...baseConfig,
+      title: '服务套餐',
+      description: '按本地服务合同汇总套餐覆盖客户、合同数量、月服务费、续费和归档情况。',
+      primaryAction: '刷新套餐汇总',
+      keywordPlaceholder: '搜索套餐名称、客户数、续费状态、归档异常',
+      summary: [
+        { label: '套餐种类', value: '0 个', tone: 'blue' },
+        { label: '服务合同', value: '0 份', tone: 'green' },
+        { label: '月服务费', value: '¥0.00', tone: 'amber' },
+        { label: '待续签套餐', value: '0 个', tone: 'red' },
+      ],
+      columns: [
+        { key: 'package', label: '服务套餐' },
+        { key: 'customers', label: '覆盖客户', align: 'center' },
+        { key: 'contracts', label: '合同数量', align: 'center' },
+        { key: 'monthlyFee', label: '月服务费合计', align: 'right' },
+        { key: 'renewal', label: '续费状态' },
+        { key: 'archive', label: '归档情况' },
+      ],
+      rows: [],
+      queueTitle: '套餐说明',
+      queue: ['套餐信息从服务合同汇总，不维护重复的套餐收费数据。', '新增套餐、修改套餐范围和价格需通过服务合同流程留痕。'],
+      notes: ['服务套餐用于查看已签合同的服务范围与规模。', '套餐本身不触发开票、收款或客户经营账套业务。'],
+    }
+  }
+
   if (activeTab === '收费管理') {
     return {
       ...baseConfig,
@@ -602,6 +630,18 @@ function summarizeAgencyTabRows(config: AgencyConfig, rows: AgencyRow[]) {
       { label: '已归档', value: `${archived} 条`, tone: 'green' as const },
       { label: '待归档', value: `${rows.filter((row) => row.values.archive === '待归档').length} 条`, tone: 'amber' as const },
       { label: '缺少附件', value: `${missing} 条`, tone: 'red' as const },
+    ]
+  }
+
+  if (config.title === '服务套餐') {
+    const totalContracts = rows.reduce((sum, row) => sum + Number(row.values.contracts.replace(/\D/g, '') || 0), 0)
+    const totalFee = rows.reduce((sum, row) => sum + parseAgencyMoney(row.values.monthlyFee), 0)
+    const renewal = rows.filter((row) => row.values.renewal !== '正常').length
+    return [
+      { label: '套餐种类', value: `${rows.length} 个`, tone: 'blue' as const },
+      { label: '服务合同', value: `${totalContracts} 份`, tone: 'green' as const },
+      { label: '月服务费', value: formatMoney(totalFee), tone: 'amber' as const },
+      { label: '待续签套餐', value: `${renewal} 个`, tone: 'red' as const },
     ]
   }
 
@@ -955,6 +995,13 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       return
     }
 
+    if (kind === 'serviceContracts' && activeTab === '服务套餐') {
+      writeAgencyAudit('刷新套餐汇总', `${pageConfig.title}-${activeTab}`)
+      void loadRemoteRows()
+      setOperationNotice('正在按本地服务合同汇总套餐覆盖客户、合同数量和月服务费。')
+      return
+    }
+
     if (kind === 'downloadCenter') {
       writeAgencyAudit('刷新文件清单', `${pageConfig.title}-${activeTab}`)
       setOperationNotice('已刷新本机导出文件记录；过期文件需回到原模块重新生成。')
@@ -1290,6 +1337,12 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
     return response.data?.map(mapAgencyContractArchiveRow) ?? []
   }
 
+  if (kind === 'serviceContracts' && activeTab === '服务套餐') {
+    const response = await agencyApi.getServiceContracts()
+    if (!response.success) throw new Error(response.error || '服务套餐汇总读取失败')
+    return mapAgencyServicePackageRows(response.data ?? [])
+  }
+
   if (kind === 'serviceContracts') {
     const response = await agencyApi.getServiceContracts()
     if (!response.success) throw new Error(response.error || '服务合同读取失败')
@@ -1442,6 +1495,49 @@ function mapAgencyContractArchiveRow(item: AgencyServiceContract): AgencyRow {
       updatedAt: item.updatedAt || '-',
     },
   }
+}
+
+function mapAgencyServicePackageRows(items: AgencyServiceContract[]): AgencyRow[] {
+  const packages = new Map<string, {
+    customers: Set<string>
+    contracts: number
+    monthlyFee: number
+    pendingRenewal: number
+    missingArchive: number
+    abnormal: boolean
+  }>()
+
+  for (const item of items) {
+    const packageName = item.servicePackage || '未设置套餐'
+    const current = packages.get(packageName) || {
+      customers: new Set<string>(),
+      contracts: 0,
+      monthlyFee: 0,
+      pendingRenewal: 0,
+      missingArchive: 0,
+      abnormal: false,
+    }
+    current.customers.add(item.companyId)
+    current.contracts += 1
+    current.monthlyFee += item.monthlyFee
+    current.pendingRenewal += item.renewalStatus === 'normal' ? 0 : 1
+    current.missingArchive += item.archiveStatus === 'missing' ? 1 : 0
+    current.abnormal ||= mapAgencyStatus(item.status, item.renewalStatus) === '异常'
+    packages.set(packageName, current)
+  }
+
+  return [...packages.entries()].map(([packageName, item]) => ({
+    id: `service-package-${packageName}`,
+    status: item.abnormal ? '异常' : item.pendingRenewal > 0 ? '待确认' : '进行中',
+    values: {
+      package: packageName,
+      customers: `${item.customers.size} 户`,
+      contracts: `${item.contracts} 份`,
+      monthlyFee: formatMoney(item.monthlyFee),
+      renewal: item.pendingRenewal > 0 ? `待续签 ${item.pendingRenewal} 份` : '正常',
+      archive: item.missingArchive > 0 ? `缺少附件 ${item.missingArchive} 份` : '完整',
+    },
+  }))
 }
 
 function mapFeeCollectionRow(item: AgencyFeeCollection): AgencyRow {
