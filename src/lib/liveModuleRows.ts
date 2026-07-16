@@ -361,6 +361,77 @@ export function summarizeLiveFinanceTaxReports(tasks: TaxDeclarationTask[]): Liv
   ]
 }
 
+export function mapLiveFinancialOverviewRows(
+  balanceSheet: BalanceSheetResult,
+  incomeStatement: IncomeStatementResult,
+  cashFlow: CashFlowResult,
+): LiveModuleRow[] {
+  if (balanceSheet.items.length === 0 && incomeStatement.items.length === 0 && cashFlow.items.length === 0) return []
+  const balanceDifference = Math.abs(balanceSheet.total_assets - balanceSheet.total_liabilities - balanceSheet.total_equity)
+  return [
+    {
+      id: `financial-overview-balance-${balanceSheet.period_id}`,
+      status: balanceSheet.is_balanced ? '已通过' : '异常',
+      voucher: '资产负债表',
+      attachment: '本地取数',
+      values: {
+        line: '01',
+        item: '资产负债表',
+        formula: '资产、负债及所有者权益汇总',
+        opening: currency(balanceSheet.opening_total_assets),
+        ending: currency(balanceSheet.total_assets),
+        reclass: balanceSheet.is_balanced ? '无需' : '待复核',
+        note: `负债及权益 ${currency(balanceSheet.total_liabilities + balanceSheet.total_equity)}；差异 ${currency(balanceDifference)}`,
+      },
+    },
+    {
+      id: `financial-overview-income-${incomeStatement.period_id}`,
+      status: incomeStatement.items.length > 0 ? '已通过' : '待确认',
+      voucher: '利润表',
+      attachment: '本地取数',
+      values: {
+        line: '02',
+        item: '利润表',
+        formula: '收入、成本、费用及损益科目汇总',
+        opening: '-',
+        ending: currency(incomeStatement.current_period_total),
+        reclass: '无需',
+        note: `本年累计 ${currency(incomeStatement.year_to_date_total)}；取数项目 ${incomeStatement.items.length} 行`,
+      },
+    },
+    {
+      id: `financial-overview-cash-${cashFlow.period_id}`,
+      status: cashFlow.items.length > 0 ? '已通过' : '待确认',
+      voucher: '现金流量表',
+      attachment: '本地取数',
+      values: {
+        line: '03',
+        item: '现金流量表',
+        formula: '现金及现金等价物净增加额',
+        opening: '-',
+        ending: currency(cashFlow.net_increase),
+        reclass: '无需',
+        note: `取数项目 ${cashFlow.items.length} 行`,
+      },
+    },
+  ]
+}
+
+export function summarizeLiveFinancialOverview(
+  balanceSheet: BalanceSheetResult,
+  incomeStatement: IncomeStatementResult,
+  cashFlow: CashFlowResult,
+): LiveSummaryItem[] {
+  const hasReports = balanceSheet.items.length > 0 || incomeStatement.items.length > 0 || cashFlow.items.length > 0
+  const difference = Math.abs(balanceSheet.total_assets - balanceSheet.total_liabilities - balanceSheet.total_equity)
+  return [
+    { label: '报表项目', value: hasReports ? '3 张' : '0 张', tone: hasReports ? 'blue' : 'gray' },
+    { label: '资产合计', value: hasReports ? currency(balanceSheet.total_assets) : '未取数', tone: hasReports ? 'green' : 'gray' },
+    { label: '负债权益', value: hasReports ? currency(balanceSheet.total_liabilities + balanceSheet.total_equity) : '未取数', tone: hasReports ? 'green' : 'gray' },
+    { label: '校验差异', value: hasReports ? currency(difference) : '未取数', tone: hasReports ? (difference === 0 ? 'gray' : 'red') : 'gray' },
+  ]
+}
+
 function automationJobStatus(job: AutomationJob): LiveModuleStatus {
   const status = job.status.toLowerCase()
   if (['failed', 'error', 'rejected', 'cancelled'].includes(status)) return '异常'
