@@ -966,6 +966,12 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }
 
   const handlePrimaryAction = async () => {
+    if (kind === 'clients' || kind === 'accountManagement') {
+      writeAgencyAudit('打开新增企业表单', `${pageConfig.title}-${activeTab}`)
+      navigate('/?createCompany=1')
+      return
+    }
+
     if (kind === 'dataStats') {
       writeAgencyAudit('刷新统计', `${pageConfig.title}-${activeTab}`)
       void loadRemoteRows()

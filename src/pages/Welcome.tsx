@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Ban,
   Building2,
@@ -156,6 +156,7 @@ type CompanyForm = typeof emptyCompanyForm
 
 export function Welcome() {
   const navigate = useNavigate()
+  const location = useLocation()
   const warningToast = useWarningToast()
   const { companies, selectCompany, fetchCompanies, createCompany, updateCompany, deactivateCompany, deleteCompany } = useCompanyStore()
   const { fetchPeriods, fetchVoucherWords } = usePeriodStore()
@@ -170,6 +171,14 @@ export function Welcome() {
   useEffect(() => {
     fetchCompanies().catch((err) => console.error('[Welcome] fetchCompanies failed:', err))
   }, [fetchCompanies])
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('createCompany') === '1') {
+      setEditingCompanyId(null)
+      setNewCompany(emptyCompanyForm)
+      setShowAddModal(true)
+    }
+  }, [location.search])
 
   const realRows = useMemo(
     () =>

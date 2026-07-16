@@ -4,6 +4,7 @@ const adapterSource = readFileSync('src/lib/liveModuleRows.ts', 'utf8')
 const pageSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', 'utf8')
 const taxWorkspaceSource = readFileSync('src/pages/tax/TaxWorkspace.tsx', 'utf8')
 const agencyModuleSource = readFileSync('src/pages/agency/AgencyModulePage.tsx', 'utf8')
+const welcomeSource = readFileSync('src/pages/Welcome.tsx', 'utf8')
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -197,11 +198,16 @@ const requiredTaxWorkspaceSnippets = [
   ['tax workspace export binding', 'buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows)'],
 ]
 
+const requiredWelcomeSnippets = [
+  ['company creation deep link', "new URLSearchParams(location.search).get('createCompany') === '1'"],
+]
+
 const requiredAgencyModuleSnippets = [
   ['agency company data source', 'useCompanyStore()'],
   ['agency company refresh', 'await fetchCompanies()'],
   ['agency company row mapper', 'function mapAgencyCompanyRow(item: Company, kind: AgencyModuleKind)'],
   ['agency company tab filter', 'function filterAgencyCompanyRows(rows: AgencyRow[], activeTab: string)'],
+  ['agency company creation deep link', "navigate('/?createCompany=1')"],
   ['agency client tab consolidation', "tabs: ['全部客户', '启用账套', '停用账套', '一般纳税人', '小规模纳税人']"],
   ['agency account tab consolidation', "tabs: ['正常', '停用', '一般纳税人', '小规模纳税人']"],
   ['agency company tab presentation', "baseConfig.title === '客户总览' || baseConfig.title === '账套管理'"],
@@ -259,6 +265,7 @@ const errors = [
   ...verify(adapterSource, requiredAdapterSnippets, 'live module adapter'),
   ...verify(pageSource, requiredPageSnippets, 'business module page'),
   ...verify(taxWorkspaceSource, requiredTaxWorkspaceSnippets, 'tax workspace'),
+  ...verify(welcomeSource, requiredWelcomeSnippets, 'welcome page'),
   ...verify(agencyModuleSource, requiredAgencyModuleSnippets, 'agency module page'),
 ]
 
