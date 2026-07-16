@@ -210,6 +210,11 @@ const requiredAgencyModuleSnippets = [
   ['agency fee collection mapper', 'function mapFeeCollectionRow(item: AgencyFeeCollection)'],
   ['agency collaboration mapper', 'function mapCollaborationItemRow(item: AgencyCollaborationItem)'],
   ['agency live tab selection', "activeTab === '收费管理'"],
+  ['agency overview data source', 'agencyApi.getOverview()'],
+  ['agency overview state', 'setAgencyOverview(response.data ?? null)'],
+  ['agency overview live scope', "kind === 'dataStats'"],
+  ['agency overview row mapper', 'function mapAgencyOverviewRows(overview: AgencyOperationOverview, activeTab: string)'],
+  ['agency overview summary mapper', 'function summarizeAgencyOverview(overview: AgencyOperationOverview)'],
   ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
 ]
 
@@ -225,6 +230,11 @@ const errors = [
   ...verify(taxWorkspaceSource, requiredTaxWorkspaceSnippets, 'tax workspace'),
   ...verify(agencyModuleSource, requiredAgencyModuleSnippets, 'agency module page'),
 ]
+
+const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
+if (agencyPrintButtonCount !== 1) {
+  errors.push(`agency module page: expected one print toolbar button, found ${agencyPrintButtonCount}`)
+}
 
 if (errors.length > 0) {
   console.error('Live data adapter verification failed:')

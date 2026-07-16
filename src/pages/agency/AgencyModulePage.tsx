@@ -22,6 +22,7 @@ import {
   agencyApi,
   type AgencyCollaborationItem,
   type AgencyFeeCollection,
+  type AgencyOperationOverview,
   type AgencyServiceContract,
 } from '../../lib/api'
 import { isTauri } from '../../lib/tauri'
@@ -236,33 +237,25 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   },
   dataStats: {
     title: '数据统计',
-    description: '统计机构客户做账效率、收票率、凭证量、申报进度和风险分布。',
-    tabs: ['经营概览', '客户进度', '收票统计', '凭证统计', '申报统计', '人员绩效'],
+    description: '汇总本地服务合同、收费、客户协同和交付工单数据，供机构负责人查看经营与交付状态。',
+    tabs: ['经营概览', '合同与收费', '协同与交付'],
     primaryAction: '刷新统计',
-    keywordPlaceholder: '搜索客户、负责人、统计口径',
+    keywordPlaceholder: '搜索统计指标、数据来源',
     summary: [
-      { label: '月处理凭证', value: '4,862 张', tone: 'blue' },
-      { label: '平均收票率', value: '83.6%', tone: 'green' },
-      { label: '逾期客户', value: '9 户', tone: 'red' },
-      { label: '自动生成率', value: '71.4%', tone: 'amber' },
+      { label: '服务中合同', value: '0 份', tone: 'blue' },
+      { label: '当期应收', value: '¥0.00', tone: 'green' },
+      { label: '待协同事项', value: '0 项', tone: 'amber' },
+      { label: '阻断交付任务', value: '0 项', tone: 'red' },
     ],
     columns: [
-      { key: 'owner', label: '负责人' },
-      { key: 'clients', label: '客户数', align: 'right' },
-      { key: 'invoices', label: '发票数', align: 'right' },
-      { key: 'vouchers', label: '凭证数', align: 'right' },
-      { key: 'autoRate', label: '自动化率', align: 'right' },
-      { key: 'taxDone', label: '申报完成率', align: 'right' },
-      { key: 'risk', label: '风险项', align: 'right' },
+      { key: 'metric', label: '统计指标' },
+      { key: 'value', label: '当前数值', align: 'right' },
+      { key: 'source', label: '本地数据来源' },
     ],
-    rows: [
-      { id: 'st-001', status: '已完成', values: { owner: '张会计', clients: '36', invoices: '1,426', vouchers: '1,286', autoRate: '76.2%', taxDone: '91.7%', risk: '8' } },
-      { id: 'st-002', status: '进行中', values: { owner: '李会计', clients: '42', invoices: '1,108', vouchers: '984', autoRate: '69.8%', taxDone: '82.1%', risk: '13' } },
-      { id: 'st-003', status: '异常', values: { owner: '王会计', clients: '31', invoices: '842', vouchers: '617', autoRate: '63.5%', taxDone: '74.2%', risk: '21' } },
-    ],
+    rows: [],
     queueTitle: '统计口径',
-    queue: ['收票率=已采集发票/客户预估发票', '自动化率=自动生成且已确认凭证/总凭证', '风险项按未处理状态统计'],
-    notes: ['这个模块用于机构负责人看整体产能，不混在单客户账套里。', '后续可接入真实数据库做跨客户聚合。'],
+    queue: ['服务中合同和到期合同来自机构服务合同记录。', '应收、欠费按当前账期的本地收费记录汇总。', '协同和交付风险只统计已保存的协同事项与交付工单。'],
+    notes: ['这个模块只呈现本地已保存的机构数据，不用样例数字填充经营统计。', '发票、凭证和申报等跨客户统计需在对应数据完整落库后再纳入。'],
   },
   batchOps: {
     title: '批量操作',
@@ -409,8 +402,8 @@ function exportJobToAgencyRow(job: ExportJob): AgencyRow {
   }
 }
 
-function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLiveCompanyData: boolean): AgencyConfig {
-  if (useLiveCompanyData && (baseConfig.title === '客户总览' || baseConfig.title === '账套管理')) {
+function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLiveDesktopData: boolean): AgencyConfig {
+  if (useLiveDesktopData && (baseConfig.title === '客户总览' || baseConfig.title === '账套管理')) {
     const isAccountManagement = baseConfig.title === '账套管理'
     return {
       ...baseConfig,
@@ -591,6 +584,32 @@ function summarizeAgencyTabRows(config: AgencyConfig, rows: AgencyRow[]) {
   return config.summary
 }
 
+function mapAgencyOverviewRows(overview: AgencyOperationOverview, activeTab: string): AgencyRow[] {
+  const rows: AgencyRow[] = [
+    { id: 'overview-service-contracts', status: overview.serviceContracts > 0 ? '已完成' : '待处理', values: { metric: '服务中合同', value: `${overview.serviceContracts} 份`, source: '服务合同记录' } },
+    { id: 'overview-expiring-contracts', status: overview.expiringContracts > 0 ? '异常' : '已完成', values: { metric: '即将到期合同', value: `${overview.expiringContracts} 份`, source: '服务合同记录' } },
+    { id: 'overview-receivable', status: overview.receivableAmount > 0 ? '进行中' : '待处理', values: { metric: '当期应收金额', value: formatMoney(overview.receivableAmount), source: '收费记录（当前账期）' } },
+    { id: 'overview-arrears', status: overview.arrearsAmount > 0 ? '异常' : '已完成', values: { metric: '当期欠费金额', value: formatMoney(overview.arrearsAmount), source: '收费记录（当前账期）' } },
+    { id: 'overview-pending-collaboration', status: overview.pendingCollaboration > 0 ? '待确认' : '已完成', values: { metric: '待协同事项', value: `${overview.pendingCollaboration} 项`, source: '客户协同事项' } },
+    { id: 'overview-overdue-collaboration', status: overview.overdueCollaboration > 0 ? '异常' : '已完成', values: { metric: '超时协同事项', value: `${overview.overdueCollaboration} 项`, source: '客户协同事项' } },
+    { id: 'overview-open-tickets', status: overview.openTickets > 0 ? '进行中' : '已完成', values: { metric: '开放交付任务', value: `${overview.openTickets} 项`, source: '交付工单（当前账期）' } },
+    { id: 'overview-blocked-tickets', status: overview.blockedTickets > 0 ? '异常' : '已完成', values: { metric: '阻断交付任务', value: `${overview.blockedTickets} 项`, source: '交付工单（当前账期）' } },
+  ]
+
+  if (activeTab === '合同与收费') return rows.slice(0, 4)
+  if (activeTab === '协同与交付') return rows.slice(4)
+  return rows
+}
+
+function summarizeAgencyOverview(overview: AgencyOperationOverview) {
+  return [
+    { label: '服务中合同', value: `${overview.serviceContracts} 份`, tone: 'blue' as const },
+    { label: '当期应收', value: formatMoney(overview.receivableAmount), tone: 'green' as const },
+    { label: '待协同事项', value: `${overview.pendingCollaboration} 项`, tone: 'amber' as const },
+    { label: '阻断交付任务', value: `${overview.blockedTickets} 项`, tone: 'red' as const },
+  ]
+}
+
 function parseAgencyMoney(value = '') {
   const normalized = value.replace(/[^0-9.-]/g, '')
   return Number.isFinite(Number(normalized)) ? Number(normalized) : 0
@@ -616,6 +635,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     }
   }, [baseConfig, exportJobs, kind])
   const [remoteRows, setRemoteRows] = useState<AgencyRow[] | null>(null)
+  const [agencyOverview, setAgencyOverview] = useState<AgencyOperationOverview | null>(null)
   const [isLoadingRows, setIsLoadingRows] = useState(false)
   const [activeTab, setActiveTab] = useState(config.tabs[0])
   const [query, setQuery] = useState('')
@@ -624,10 +644,22 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
   const [localRows, setLocalRows] = useState<AgencyRow[]>([])
   const pageConfig = useMemo(() => getAgencyTabConfig(config, activeTab, isTauri), [activeTab, config])
-  const rows = [...localRows, ...(isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows)]
+  const overviewRows = useMemo(
+    () => agencyOverview ? mapAgencyOverviewRows(agencyOverview, activeTab) : [],
+    [activeTab, agencyOverview]
+  )
+  const rows = [
+    ...localRows,
+    ...(isTauri && kind === 'dataStats'
+      ? overviewRows
+      : isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows),
+  ]
   const summary = useMemo(
-    () => isTauri && remoteRows !== null ? summarizeAgencyTabRows(pageConfig, remoteRows) : pageConfig.summary,
-    [pageConfig, remoteRows]
+    () => {
+      if (isTauri && kind === 'dataStats' && agencyOverview) return summarizeAgencyOverview(agencyOverview)
+      return isTauri && remoteRows !== null ? summarizeAgencyTabRows(pageConfig, remoteRows) : pageConfig.summary
+    },
+    [agencyOverview, kind, pageConfig, remoteRows]
   )
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -664,9 +696,24 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         setRemoteRows(liveCompanies.map((item) => mapAgencyCompanyRow(item, kind)))
         return
       }
+
+      if (kind === 'dataStats') {
+        if (!isTauri) {
+          setAgencyOverview(null)
+          setRemoteRows(null)
+          return
+        }
+        const response = await agencyApi.getOverview()
+        if (!response.success) throw new Error(response.error || '机构统计读取失败')
+        setAgencyOverview(response.data ?? null)
+        setRemoteRows([])
+        return
+      }
+
       const nextRows = await fetchAgencyRows(kind, activeTab)
       setRemoteRows(nextRows)
     } catch {
+      if (kind === 'dataStats') setAgencyOverview(null)
       setRemoteRows(null)
     } finally {
       setIsLoadingRows(false)
@@ -675,6 +722,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   useEffect(() => {
     setRemoteRows(null)
+    setAgencyOverview(null)
     setLocalRows([])
     setOperationNotice(null)
     void loadRemoteRows()
@@ -736,6 +784,13 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }
 
   const handlePrimaryAction = () => {
+    if (kind === 'dataStats') {
+      writeAgencyAudit('刷新统计', `${pageConfig.title}-${activeTab}`)
+      void loadRemoteRows()
+      setOperationNotice('正在重新读取本地服务合同、收费、协同和交付工单汇总。')
+      return
+    }
+
     if (kind !== 'batchOps') {
       writeAgencyAudit(pageConfig.primaryAction, `${pageConfig.title}-${activeTab}`, '中', '待审批')
       setOperationNotice(`${pageConfig.primaryAction} 已进入机构审计日志，等待后续表单和审批流接入。`)
