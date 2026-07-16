@@ -167,6 +167,23 @@ export interface AgencyDeliveryTicket {
   updatedAt: string
 }
 
+export interface AgencyBatchTask {
+  id: string
+  taskType: string
+  taskName: string
+  period: string
+  customerScope: string
+  status: string
+  progressCurrent: number
+  progressTotal: number | null
+  resultSummary: string | null
+  riskLevel: string
+  operator: string | null
+  requiresApproval: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export interface AgencyOperationOverview {
   serviceContracts: number
   expiringContracts: number
@@ -796,6 +813,23 @@ type RawAgencyDeliveryTicket = {
   updated_at: string
 }
 
+type RawAgencyBatchTask = {
+  id: string
+  task_type: string
+  task_name: string
+  period: string
+  customer_scope: string
+  status: string
+  progress_current: number
+  progress_total: number | null
+  result_summary: string | null
+  risk_level: string
+  operator: string | null
+  requires_approval: number
+  created_at: string
+  updated_at: string
+}
+
 type RawAgencyOperationOverview = {
   service_contracts: number
   expiring_contracts: number
@@ -947,6 +981,23 @@ const mapAgencyDeliveryTicket = (item: RawAgencyDeliveryTicket): AgencyDeliveryT
   updatedAt: item.updated_at,
 })
 
+const mapAgencyBatchTask = (item: RawAgencyBatchTask): AgencyBatchTask => ({
+  id: item.id,
+  taskType: item.task_type,
+  taskName: item.task_name,
+  period: item.period,
+  customerScope: item.customer_scope,
+  status: item.status,
+  progressCurrent: item.progress_current,
+  progressTotal: item.progress_total,
+  resultSummary: item.result_summary,
+  riskLevel: item.risk_level,
+  operator: item.operator,
+  requiresApproval: item.requires_approval === 1,
+  createdAt: item.created_at,
+  updatedAt: item.updated_at,
+})
+
 const mapAgencyOperationOverview = (item: RawAgencyOperationOverview): AgencyOperationOverview => ({
   serviceContracts: item.service_contracts,
   expiringContracts: item.expiring_contracts,
@@ -1067,6 +1118,29 @@ export const agencyApi = {
     try {
       const result = await invoke('get_agency_delivery_tickets', filters) as RawAgencyDeliveryTicket[]
       return { success: true, data: result.map(mapAgencyDeliveryTicket) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  getBatchTasks: async (filters: { period?: string; status?: string } = {}): Promise<ApiResponse<AgencyBatchTask[]>> => {
+    try {
+      const result = await invoke('get_agency_batch_tasks', filters) as RawAgencyBatchTask[]
+      return { success: true, data: result.map(mapAgencyBatchTask) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  createBatchTasks: async (input: { period: string; operator?: string }): Promise<ApiResponse<void>> => {
+    try {
+      await invoke('create_agency_batch_tasks', {
+        input: {
+          period: input.period,
+          operator: input.operator,
+        },
+      })
+      return { success: true }
     } catch (error) {
       return { success: false, error: String(error) }
     }

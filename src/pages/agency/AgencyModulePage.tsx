@@ -21,6 +21,7 @@ import { cn } from '../../lib/utils'
 import {
   agencyApi,
   type AdapterAuthorization,
+  type AgencyBatchTask,
   type AgencyCollaborationItem,
   type AgencyFeeCollection,
   type AgencyOperationOverview,
@@ -265,10 +266,10 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     primaryAction: '新建任务',
     keywordPlaceholder: '搜索任务、客户、操作人、执行状态',
     summary: [
-      { label: '待执行', value: '14 个', tone: 'amber' },
-      { label: '执行中', value: '3 个', tone: 'blue' },
-      { label: '已完成', value: '52 个', tone: 'green' },
-      { label: '失败', value: '4 个', tone: 'red' },
+      { label: '待执行', value: '0 个', tone: 'amber' },
+      { label: '执行中', value: '0 个', tone: 'blue' },
+      { label: '已完成', value: '0 个', tone: 'green' },
+      { label: '阻断/失败', value: '0 个', tone: 'red' },
     ],
     columns: [
       { key: 'task', label: '任务名称' },
@@ -279,18 +280,10 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { key: 'started', label: '开始时间' },
       { key: 'result', label: '结果' },
     ],
-    rows: [
-      { id: 'op-001', status: '进行中', values: { task: '批量采集发票', scope: '36 户', period: '2026-05', progress: '28/36', operator: '张会计', started: '06-26 08:30', result: '8 户待授权' } },
-      { id: 'op-002', status: '进行中', values: { task: '批量采集银行流水', scope: '23 户', period: '2026-05', progress: '16/23', operator: '张会计', started: '06-26 09:10', result: '执行中' } },
-      { id: 'op-003', status: '待处理', values: { task: '批量生成银行流水凭证', scope: '23 户', period: '2026-05', progress: '0/23', operator: '李会计', started: '待执行', result: '排队' } },
-      { id: 'op-004', status: '待处理', values: { task: '批量结账', scope: '18 户', period: '2026-05', progress: '0/18', operator: '王会计', started: '待执行', result: '需先完成风险检查' } },
-      { id: 'op-005', status: '待确认', values: { task: '批量申报与回执归档', scope: '68 项税种', period: '2026-05', progress: '41/68', operator: '主管会计', started: '06-26 10:20', result: '12 项待确认' } },
-      { id: 'op-006', status: '异常', values: { task: '批量反结账审批', scope: '6 户', period: '2026-05', progress: '2/6', operator: '机构管理员', started: '06-26 11:10', result: '4 项阻断复核' } },
-      { id: 'op-007', status: '异常', values: { task: '批量期末结转', scope: '8 户', period: '2026-05', progress: '5/8', operator: '王会计', started: '06-25 18:30', result: '3 户失败' } },
-    ],
+    rows: [],
     queueTitle: '执行控制',
     queue: ['批量采集需读取客户维护的税局和银行授权状态', '批量结账前必须完成凭证断号、报表平衡和税务风险检查', '批量申报、回执缴款书和扣款归档在同一任务内流转', '高风险客户自动跳过并进入审批记录', '所有任务保留执行日志和回滚说明'],
-    notes: ['批量操作用于机构级效率提升，单账套页面仍保留逐户处理入口。', '申报确认、回执归档、删除、反结账等高风险动作合并在批量操作内二次确认和审批。'],
+    notes: ['批量操作用于机构级效率提升，单账套页面仍保留逐户处理入口。', '新建任务只写入本地预检队列；申报确认、回执归档、删除、反结账等高风险动作仍需二次确认和审批。'],
   },
   invoiceManagement: {
     title: '开票管理',
@@ -595,6 +588,19 @@ function summarizeAgencyTabRows(config: AgencyConfig, rows: AgencyRow[]) {
     ]
   }
 
+  if (config.title === '批量操作') {
+    const queued = rows.filter((row) => row.status === '待处理' || row.status === '待确认').length
+    const processing = rows.filter((row) => row.status === '进行中').length
+    const completed = rows.filter((row) => row.status === '已完成').length
+    const blocked = rows.filter((row) => row.status === '异常').length
+    return [
+      { label: '待执行', value: `${queued} 个`, tone: 'amber' as const },
+      { label: '执行中', value: `${processing} 个`, tone: 'blue' as const },
+      { label: '已完成', value: `${completed} 个`, tone: 'green' as const },
+      { label: '阻断/失败', value: `${blocked} 个`, tone: 'red' as const },
+    ]
+  }
+
   if (config.title === '服务合同') {
     return [
       { label: '服务中合同', value: `${rows.filter((row) => row.status === '进行中').length} 份`, tone: 'blue' as const },
@@ -826,7 +832,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     setOperationNotice('导入任务已进入待确认留痕；后续会接入文件选择、字段映射和错误清单。')
   }
 
-  const handlePrimaryAction = () => {
+  const handlePrimaryAction = async () => {
     if (kind === 'dataStats') {
       writeAgencyAudit('刷新统计', `${pageConfig.title}-${activeTab}`)
       void loadRemoteRows()
@@ -837,6 +843,18 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     if (kind !== 'batchOps') {
       writeAgencyAudit(pageConfig.primaryAction, `${pageConfig.title}-${activeTab}`, '中', '待审批')
       setOperationNotice(`${pageConfig.primaryAction} 已进入机构审计日志，等待后续表单和审批流接入。`)
+      return
+    }
+
+    if (isTauri) {
+      const response = await agencyApi.createBatchTasks({ period: '2026-05', operator: 'admin' })
+      if (!response.success) {
+        setOperationNotice(response.error || '批量预检任务创建失败。')
+        return
+      }
+      await loadRemoteRows()
+      writeAgencyAudit('新建批量任务', '批量采集发票/流水/结账预检/申报预检', '高', '待审批')
+      setOperationNotice('已写入本地批量预检队列；采集、结账和申报均需后续人工确认，不会自动提交税局或银行。')
       return
     }
 
@@ -1092,6 +1110,12 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 }
 
 async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promise<AgencyRow[]> {
+  if (kind === 'batchOps') {
+    const response = await agencyApi.getBatchTasks()
+    if (!response.success) throw new Error(response.error || '批量任务读取失败')
+    return (response.data ?? []).map(mapAgencyBatchTaskRow)
+  }
+
   if (kind === 'authorizationCenter') {
     const response = await agencyApi.getAuthorizations()
     if (!response.success) throw new Error(response.error || '授权记录读取失败')
@@ -1116,6 +1140,22 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
     return response.data?.map(mapServiceContractRow) ?? []
   }
   return []
+}
+
+function mapAgencyBatchTaskRow(item: AgencyBatchTask): AgencyRow {
+  return {
+    id: item.id,
+    status: mapAgencyBatchTaskStatus(item.status, item.requiresApproval),
+    values: {
+      task: item.taskName,
+      scope: item.customerScope,
+      period: item.period,
+      progress: item.progressTotal === null ? `${item.progressCurrent}/待计算` : `${item.progressCurrent}/${item.progressTotal}`,
+      operator: item.operator || '-',
+      started: item.createdAt,
+      result: item.resultSummary || '-',
+    },
+  }
 }
 
 function mapAgencyAuthorizationRow(item: AdapterAuthorization): AgencyRow {
@@ -1249,6 +1289,15 @@ function mapAuthorizationStatus(authStatus: string, expiresAt: string | null, ri
   if (value.includes('expired') || value.includes('invalid') || value.includes('failed') || value.includes('异常') || value.includes('失效')) return '异常'
   if (value.includes('pending') || value.includes('待')) return '待确认'
   if (value.includes('valid') || value.includes('authorized') || value.includes('normal') || value.includes('有效') || value.includes('正常')) return '已完成'
+  return '待处理'
+}
+
+function mapAgencyBatchTaskStatus(status: string, requiresApproval: boolean): AgencyRow['status'] {
+  const normalized = status.toLowerCase()
+  if (normalized === 'completed') return '已完成'
+  if (normalized === 'failed' || normalized === 'blocked') return '异常'
+  if (normalized === 'running' || normalized === 'processing') return '进行中'
+  if (normalized === 'awaiting_approval' || (normalized === 'queued' && requiresApproval)) return '待确认'
   return '待处理'
 }
 

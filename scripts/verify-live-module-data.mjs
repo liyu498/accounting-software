@@ -218,6 +218,10 @@ const requiredAgencyModuleSnippets = [
   ['agency authorization data source', 'agencyApi.getAuthorizations()'],
   ['agency authorization row mapper', 'function mapAgencyAuthorizationRow(item: AdapterAuthorization)'],
   ['agency authorization live scope', "kind === 'authorizationCenter'"],
+  ['agency batch task data source', 'agencyApi.getBatchTasks()'],
+  ['agency batch task create binding', 'agencyApi.createBatchTasks('],
+  ['agency batch task row mapper', 'function mapAgencyBatchTaskRow(item: AgencyBatchTask)'],
+  ['agency batch task live scope', "kind === 'batchOps'"],
   ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
 ]
 

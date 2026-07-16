@@ -865,6 +865,30 @@ impl Database {
         .execute(pool)
         .await?;
 
+        // Agency batch work queue. Creation records a local preflight task only; external adapters execute separately.
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS agency_batch_tasks (
+                id TEXT PRIMARY KEY,
+                task_type TEXT NOT NULL,
+                task_name TEXT NOT NULL,
+                period TEXT NOT NULL,
+                customer_scope TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'queued',
+                progress_current INTEGER NOT NULL DEFAULT 0,
+                progress_total INTEGER,
+                result_summary TEXT,
+                risk_level TEXT NOT NULL DEFAULT 'normal',
+                operator TEXT,
+                requires_approval INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
         // Automation jobs for AI bookkeeping and data collection queues.
         sqlx::query(
             r#"
@@ -1041,6 +1065,9 @@ impl Database {
             .execute(pool)
             .await?;
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_agency_tickets_status ON agency_delivery_tickets(status, delivery_status)")
+            .execute(pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_agency_batch_tasks_period_status ON agency_batch_tasks(period, status)")
             .execute(pool)
             .await?;
 
@@ -2755,6 +2782,30 @@ pub struct AgencyDeliveryTicket {
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct AgencyBatchTask {
+    pub id: String,
+    pub task_type: String,
+    pub task_name: String,
+    pub period: String,
+    pub customer_scope: String,
+    pub status: String,
+    pub progress_current: i64,
+    pub progress_total: Option<i64>,
+    pub result_summary: Option<String>,
+    pub risk_level: String,
+    pub operator: Option<String>,
+    pub requires_approval: i32,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateAgencyBatchTasksInput {
+    pub period: String,
+    pub operator: Option<String>,
 }
 
 // ==================== Automation and Adapter Structs ====================

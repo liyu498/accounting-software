@@ -1,6 +1,6 @@
 use crate::db::{
-    AdapterAuthorization, AgencyCollaborationItem, AgencyDeliveryTicket, AgencyFeeCollection,
-    AgencyServiceContract, Database,
+    AdapterAuthorization, AgencyBatchTask, AgencyCollaborationItem, AgencyDeliveryTicket,
+    AgencyFeeCollection, AgencyServiceContract, CreateAgencyBatchTasksInput, Database,
 };
 use serde::Serialize;
 use tauri::State;
@@ -189,6 +189,91 @@ pub async fn get_agency_delivery_tickets(
     .map_err(|e| format!("Database error: {}", e))?;
 
     Ok(rows)
+}
+
+#[tauri::command]
+pub async fn get_agency_batch_tasks(
+    period: Option<String>,
+    status: Option<String>,
+    db: State<'_, Database>,
+) -> Result<Vec<AgencyBatchTask>, String> {
+    let rows: Vec<AgencyBatchTask> = sqlx::query_as(
+        r#"
+        SELECT
+            id,
+            task_type,
+            task_name,
+            period,
+            customer_scope,
+            status,
+            progress_current,
+            progress_total,
+            result_summary,
+            risk_level,
+            operator,
+            requires_approval,
+            created_at,
+            updated_at
+        FROM agency_batch_tasks
+        WHERE (? IS NULL OR period = ?)
+          AND (? IS NULL OR status = ?)
+        ORDER BY created_at DESC
+        "#,
+    )
+    .bind(&period)
+    .bind(&period)
+    .bind(&status)
+    .bind(&status)
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    Ok(rows)
+}
+
+#[tauri::command]
+pub async fn create_agency_batch_tasks(
+    input: CreateAgencyBatchTasksInput,
+    db: State<'_, Database>,
+) -> Result<(), String> {
+    if input.period.trim().is_empty() {
+        return Err("period cannot be empty".to_string());
+    }
+
+    let operator = input.operator.unwrap_or_else(|| "admin".to_string());
+    let templates = [
+        ("invoice_collection", "批量采集发票", "全部已授权税务客户", "检查税务授权后执行", "medium", 0),
+        ("bank_collection", "批量采集银行流水", "已授权银行客户", "检查银行授权后执行", "medium", 0),
+        ("closing_precheck", "批量结账预检", "待结账客户", "需完成风险检查", "high", 1),
+        ("tax_declaration_precheck", "批量申报预检", "待申报税种", "只生成申报包，不自动提交税局", "high", 1),
+    ];
+
+    for (task_type, task_name, customer_scope, result_summary, risk_level, requires_approval) in templates {
+        let id = uuid::Uuid::new_v4().to_string();
+        sqlx::query(
+            r#"
+            INSERT INTO agency_batch_tasks (
+                id, task_type, task_name, period, customer_scope, status,
+                result_summary, risk_level, operator, requires_approval
+            )
+            VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&id)
+        .bind(task_type)
+        .bind(task_name)
+        .bind(&input.period)
+        .bind(customer_scope)
+        .bind(result_summary)
+        .bind(risk_level)
+        .bind(&operator)
+        .bind(requires_approval)
+        .execute(db.pool())
+        .await
+        .map_err(|e| format!("Database error: {}", e))?;
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
