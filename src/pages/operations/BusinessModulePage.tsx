@@ -3441,7 +3441,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
   const periods = usePeriodStore((state) => state.periods)
   const currentPeriod = useMemo(() => periods.find((period) => period.id === currentPeriodId), [currentPeriodId, periods])
+  const currentPeriodLabel = currentPeriod
+    ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}`
+    : '当前账期'
   const fetchPeriods = usePeriodStore((state) => state.fetchPeriods)
+  const closePeriod = usePeriodStore((state) => state.closePeriod)
   const fetchTrialBalance = usePeriodStore((state) => state.fetchTrialBalance)
   const getGeneralLedger = usePeriodStore((state) => state.getGeneralLedger)
   const getSubsidiaryLedger = usePeriodStore((state) => state.getSubsidiaryLedger)
@@ -4417,6 +4421,36 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handlePrimaryAction = async () => {
+    if (kind === 'closingTasks' && isTauri && currentPeriodId) {
+      if (!currentPeriod) {
+        writeModuleAudit(config.primaryAction, `${title}-${auditScope}`, '高', '失败')
+        setOperationNotice('未找到当前账期，无法执行结账。')
+        return
+      }
+      if (currentPeriod.status === 'closed') {
+        setOperationNotice(`账期 ${currentPeriodLabel} 已结账并锁定。`)
+        return
+      }
+      const blockers = config.rows.filter((row) => row.status === '异常')
+      const pending = config.rows.filter((row) => row.status === '待处理' || row.status === '待确认')
+      if (blockers.length > 0 || pending.length > 0) {
+        writeModuleAudit(config.primaryAction, `${title}-${auditScope}`, '高', '待审批')
+        setOperationNotice(`结账前检查未完成：${blockers.length} 项阻断、${pending.length} 项待确认。`)
+        return
+      }
+      if (!window.confirm(`确认结账账期 ${currentPeriodLabel} 吗？结账后账期将锁定。`)) return
+
+      try {
+        await closePeriod(currentPeriodId, 'admin')
+        writeModuleAudit(config.primaryAction, `${title}-${currentPeriodLabel}`, '高', '成功')
+        setOperationNotice(`账期 ${currentPeriodLabel} 已结账并锁定。`)
+      } catch (error) {
+        writeModuleAudit(config.primaryAction, `${title}-${currentPeriodLabel}`, '高', '失败')
+        setOperationNotice(`账期结账失败：${String(error)}`)
+      }
+      return
+    }
+
     if (kind === 'initialBalance' && isTauri && currentPeriodId) {
       try {
         const result = await validateInitialBalances(currentPeriodId)

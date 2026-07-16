@@ -174,6 +174,8 @@ const requiredPageSnippets = [
   ['closing task mapping', 'mapLiveClosingTaskRows(currentPeriod, vouchers, liveReports.trialBalance, liveReports.balanceSheet)'],
   ['closing task summary mapping', 'summarizeLiveClosingTasks(currentPeriod, vouchers, liveReports.trialBalance, liveReports.balanceSheet)'],
   ['closing task live scope', 'usesLiveClosingTaskData'],
+  ['closing period command binding', "await closePeriod(currentPeriodId, 'admin')"],
+  ['closing period confirmation', '确认结账账期 ${currentPeriodLabel} 吗？结账后账期将锁定。'],
   ['invoice voucher matching mapping', 'mapLiveInvoiceVoucherMatchingRows(invoices, vouchers)'],
   ['invoice voucher matching summary mapping', 'summarizeLiveInvoiceVoucherMatching(invoices, vouchers)'],
   ['invoice voucher matching live scope', 'usesLiveInvoiceVoucherMatchingData'],
