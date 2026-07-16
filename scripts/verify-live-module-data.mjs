@@ -210,6 +210,8 @@ const requiredAgencyModuleSnippets = [
   ['agency fee collection mapper', 'function mapFeeCollectionRow(item: AgencyFeeCollection)'],
   ['agency collaboration mapper', 'function mapCollaborationItemRow(item: AgencyCollaborationItem)'],
   ['agency live tab selection', "activeTab === '收费管理'"],
+  ['agency contract archive row mapper', 'function mapAgencyContractArchiveRow(item: AgencyServiceContract)'],
+  ['agency contract archive live tab', "activeTab === '归档记录'"],
   ['agency overview data source', 'agencyApi.getOverview()'],
   ['agency overview state', 'setAgencyOverview(response.data ?? null)'],
   ['agency overview live scope', "kind === 'dataStats'"],

@@ -494,6 +494,35 @@ function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLive
 
   if (baseConfig.title !== '服务合同') return baseConfig
 
+  if (activeTab === '归档记录') {
+    return {
+      ...baseConfig,
+      title: '合同归档',
+      description: '查看本地服务合同的归档状态、服务期间、负责人和最近更新时间。',
+      primaryAction: '刷新归档记录',
+      keywordPlaceholder: '搜索合同编号、客户、归档状态、负责人',
+      summary: [
+        { label: '归档记录', value: '0 条', tone: 'blue' },
+        { label: '已归档', value: '0 条', tone: 'green' },
+        { label: '待归档', value: '0 条', tone: 'amber' },
+        { label: '缺少附件', value: '0 条', tone: 'red' },
+      ],
+      columns: [
+        { key: 'contractNo', label: '合同编号' },
+        { key: 'customer', label: '客户名称' },
+        { key: 'period', label: '服务期间' },
+        { key: 'archive', label: '归档状态' },
+        { key: 'renewal', label: '续费状态' },
+        { key: 'owner', label: '负责人' },
+        { key: 'updatedAt', label: '最近更新' },
+      ],
+      rows: [],
+      queueTitle: '归档规则',
+      queue: ['归档状态来自本地服务合同记录，不伪造合同附件或电子签章。', '缺少附件或到期合同需回到服务合同模块补充或续签。'],
+      notes: ['归档记录是服务合同的子视图，不单独维护第二份合同数据。', '真实附件存储和下载将在文件存储 adapter 接入后开放。'],
+    }
+  }
+
   if (activeTab === '收费管理') {
     return {
       ...baseConfig,
@@ -565,6 +594,17 @@ function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLive
 }
 
 function summarizeAgencyTabRows(config: AgencyConfig, rows: AgencyRow[]) {
+  if (config.title === '合同归档') {
+    const archived = rows.filter((row) => row.values.archive === '已归档').length
+    const missing = rows.filter((row) => row.values.archive === '缺少附件').length
+    return [
+      { label: '归档记录', value: `${rows.length} 条`, tone: 'blue' as const },
+      { label: '已归档', value: `${archived} 条`, tone: 'green' as const },
+      { label: '待归档', value: `${rows.filter((row) => row.values.archive === '待归档').length} 条`, tone: 'amber' as const },
+      { label: '缺少附件', value: `${missing} 条`, tone: 'red' as const },
+    ]
+  }
+
   if (config.title === '开票管理') {
     const pending = rows.filter((row) => row.values.invoice !== '已开票').length
     const issued = rows.filter((row) => row.values.invoice === '已开票').length
@@ -908,6 +948,13 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       return
     }
 
+    if (kind === 'serviceContracts' && activeTab === '归档记录') {
+      writeAgencyAudit('刷新归档记录', `${pageConfig.title}-${activeTab}`)
+      void loadRemoteRows()
+      setOperationNotice('正在读取本地服务合同的归档状态和最近更新时间。')
+      return
+    }
+
     if (kind === 'downloadCenter') {
       writeAgencyAudit('刷新文件清单', `${pageConfig.title}-${activeTab}`)
       setOperationNotice('已刷新本机导出文件记录；过期文件需回到原模块重新生成。')
@@ -1237,6 +1284,12 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
     return response.data?.map(mapCollaborationItemRow) ?? []
   }
 
+  if (kind === 'serviceContracts' && activeTab === '归档记录') {
+    const response = await agencyApi.getServiceContracts()
+    if (!response.success) throw new Error(response.error || '合同归档记录读取失败')
+    return response.data?.map(mapAgencyContractArchiveRow) ?? []
+  }
+
   if (kind === 'serviceContracts') {
     const response = await agencyApi.getServiceContracts()
     if (!response.success) throw new Error(response.error || '服务合同读取失败')
@@ -1375,6 +1428,22 @@ function mapServiceContractRow(item: AgencyServiceContract): AgencyRow {
   }
 }
 
+function mapAgencyContractArchiveRow(item: AgencyServiceContract): AgencyRow {
+  return {
+    id: item.id,
+    status: mapAgencyStatus(item.status, item.archiveStatus),
+    values: {
+      contractNo: item.contractNo,
+      customer: item.companyName || item.companyId,
+      period: `${item.serviceStart} 至 ${item.serviceEnd}`,
+      archive: formatAgencyArchiveStatus(item.archiveStatus),
+      renewal: item.renewalStatus || '未设置',
+      owner: item.owner || '-',
+      updatedAt: item.updatedAt || '-',
+    },
+  }
+}
+
 function mapFeeCollectionRow(item: AgencyFeeCollection): AgencyRow {
   return {
     id: item.id,
@@ -1447,6 +1516,13 @@ function formatAgencyPaymentStatus(value: string) {
   if (value === 'paid') return '已收款'
   if (value === 'pending') return '待收款'
   if (value === 'overdue') return '逾期欠费'
+  return value || '未设置'
+}
+
+function formatAgencyArchiveStatus(value: string) {
+  if (value === 'archived') return '已归档'
+  if (value === 'pending') return '待归档'
+  if (value === 'missing') return '缺少附件'
   return value || '未设置'
 }
 
