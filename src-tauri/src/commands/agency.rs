@@ -17,6 +17,18 @@ pub struct AgencyOperationOverview {
     pub blocked_tickets: i64,
 }
 
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct AgencyHealthCheckItem {
+    pub id: String,
+    pub company_id: String,
+    pub company_name: Option<String>,
+    pub module_name: String,
+    pub risk_message: String,
+    pub risk_level: String,
+    pub owner: Option<String>,
+    pub resolution_status: String,
+}
+
 #[tauri::command]
 pub async fn get_agency_service_contracts(
     company_id: Option<String>,
@@ -274,6 +286,75 @@ pub async fn create_agency_batch_tasks(
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_agency_health_checks(
+    period: Option<String>,
+    db: State<'_, Database>,
+) -> Result<Vec<AgencyHealthCheckItem>, String> {
+    let period_filter = period.unwrap_or_else(|| "2026-05".to_string());
+    let rows: Vec<AgencyHealthCheckItem> = sqlx::query_as(
+        r#"
+        SELECT
+            'invoice-unmatched-' || i.company_id AS id,
+            i.company_id,
+            c.name AS company_name,
+            '发票' AS module_name,
+            printf('%d 张有效发票尚未匹配凭证', COUNT(*)) AS risk_message,
+            CASE WHEN COUNT(*) >= 5 THEN '高' ELSE '中' END AS risk_level,
+            NULL AS owner,
+            '待整改' AS resolution_status
+        FROM invoices i
+        LEFT JOIN companies c ON c.id = i.company_id
+        WHERE i.voucher_id IS NULL
+          AND i.status NOT IN ('void', 'cancelled')
+        GROUP BY i.company_id, c.name
+        HAVING COUNT(*) > 0
+
+        UNION ALL
+
+        SELECT
+            'tax-risk-' || t.company_id AS id,
+            t.company_id,
+            c.name AS company_name,
+            '税务申报' AS module_name,
+            printf('%d 项税务申报风险待处理', SUM(t.risk_count)) AS risk_message,
+            CASE WHEN SUM(t.risk_count) >= 3 THEN '高' ELSE '中' END AS risk_level,
+            MAX(t.confirmed_by) AS owner,
+            '待整改' AS resolution_status
+        FROM tax_declaration_tasks t
+        LEFT JOIN companies c ON c.id = t.company_id
+        WHERE t.period = ?
+          AND t.risk_count > 0
+        GROUP BY t.company_id, c.name
+
+        UNION ALL
+
+        SELECT
+            'delivery-blocked-' || t.id AS id,
+            t.company_id,
+            c.name AS company_name,
+            '交付' AS module_name,
+            '交付任务 ' || t.ticket_no || ' 已阻断' AS risk_message,
+            '高' AS risk_level,
+            t.owner,
+            '待审批' AS resolution_status
+        FROM agency_delivery_tickets t
+        LEFT JOIN companies c ON c.id = t.company_id
+        WHERE t.period = ?
+          AND (t.status = 'blocked' OR t.delivery_status = 'blocked')
+
+        ORDER BY risk_level DESC, company_name ASC, module_name ASC
+        "#,
+    )
+    .bind(&period_filter)
+    .bind(&period_filter)
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    Ok(rows)
 }
 
 #[tauri::command]

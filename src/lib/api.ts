@@ -184,6 +184,17 @@ export interface AgencyBatchTask {
   updatedAt: string
 }
 
+export interface AgencyHealthCheckItem {
+  id: string
+  companyId: string
+  companyName: string | null
+  moduleName: string
+  riskMessage: string
+  riskLevel: string
+  owner: string | null
+  resolutionStatus: string
+}
+
 export interface AgencyOperationOverview {
   serviceContracts: number
   expiringContracts: number
@@ -830,6 +841,17 @@ type RawAgencyBatchTask = {
   updated_at: string
 }
 
+type RawAgencyHealthCheckItem = {
+  id: string
+  company_id: string
+  company_name: string | null
+  module_name: string
+  risk_message: string
+  risk_level: string
+  owner: string | null
+  resolution_status: string
+}
+
 type RawAgencyOperationOverview = {
   service_contracts: number
   expiring_contracts: number
@@ -998,6 +1020,17 @@ const mapAgencyBatchTask = (item: RawAgencyBatchTask): AgencyBatchTask => ({
   updatedAt: item.updated_at,
 })
 
+const mapAgencyHealthCheckItem = (item: RawAgencyHealthCheckItem): AgencyHealthCheckItem => ({
+  id: item.id,
+  companyId: item.company_id,
+  companyName: item.company_name,
+  moduleName: item.module_name,
+  riskMessage: item.risk_message,
+  riskLevel: item.risk_level,
+  owner: item.owner,
+  resolutionStatus: item.resolution_status,
+})
+
 const mapAgencyOperationOverview = (item: RawAgencyOperationOverview): AgencyOperationOverview => ({
   serviceContracts: item.service_contracts,
   expiringContracts: item.expiring_contracts,
@@ -1141,6 +1174,15 @@ export const agencyApi = {
         },
       })
       return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  getHealthChecks: async (period = '2026-05'): Promise<ApiResponse<AgencyHealthCheckItem[]>> => {
+    try {
+      const result = await invoke('get_agency_health_checks', { period }) as RawAgencyHealthCheckItem[]
+      return { success: true, data: result.map(mapAgencyHealthCheckItem) }
     } catch (error) {
       return { success: false, error: String(error) }
     }

@@ -222,6 +222,9 @@ const requiredAgencyModuleSnippets = [
   ['agency batch task create binding', 'agencyApi.createBatchTasks('],
   ['agency batch task row mapper', 'function mapAgencyBatchTaskRow(item: AgencyBatchTask)'],
   ['agency batch task live scope', "kind === 'batchOps'"],
+  ['agency health check data source', 'agencyApi.getHealthChecks()'],
+  ['agency health check row mapper', 'function mapAgencyHealthCheckRow(item: AgencyHealthCheckItem)'],
+  ['agency health check live scope', "kind === 'healthCheck'"],
   ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
 ]
 

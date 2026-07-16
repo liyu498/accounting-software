@@ -24,6 +24,7 @@ import {
   type AgencyBatchTask,
   type AgencyCollaborationItem,
   type AgencyFeeCollection,
+  type AgencyHealthCheckItem,
   type AgencyOperationOverview,
   type AgencyServiceContract,
 } from '../../lib/api'
@@ -318,15 +319,15 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   },
   healthCheck: {
     title: '健康体检',
-    description: '跨客户扫描发票、凭证、科目、报表、税表和结账风险。',
-    tabs: ['体检总览', '发票风险', '凭证风险', '报表风险', '税务风险', '整改记录'],
+    description: '基于本地未匹配发票、税务申报风险和阻断交付任务生成跨客户体检清单。',
+    tabs: ['体检总览', '发票风险', '税务风险', '交付风险'],
     primaryAction: '开始体检',
     keywordPlaceholder: '搜索客户、风险项、责任人、整改状态',
     summary: [
-      { label: '扫描客户', value: '96 户', tone: 'blue' },
-      { label: '高风险', value: '18 项', tone: 'red' },
-      { label: '中风险', value: '42 项', tone: 'amber' },
-      { label: '已整改', value: '63 项', tone: 'green' },
+      { label: '风险客户', value: '0 户', tone: 'blue' },
+      { label: '高风险', value: '0 项', tone: 'red' },
+      { label: '中风险', value: '0 项', tone: 'amber' },
+      { label: '待整改', value: '0 项', tone: 'green' },
     ],
     columns: [
       { key: 'customer', label: '客户名称' },
@@ -334,17 +335,13 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { key: 'risk', label: '风险说明' },
       { key: 'level', label: '级别', align: 'center' },
       { key: 'owner', label: '责任人' },
-      { key: 'deadline', label: '截止时间' },
+      { key: 'source', label: '数据来源' },
       { key: 'fix', label: '整改状态' },
     ],
-    rows: [
-      { id: 'hc-001', status: '异常', values: { customer: '杭州辰光贸易有限公司', module: '发票', risk: '销项票少于银行收款匹配金额', level: '高', owner: '王会计', deadline: '06-27', fix: '待整改' } },
-      { id: 'hc-002', status: '待确认', values: { customer: '上海云启科技有限公司', module: '报表', risk: '利润表收入与增值税销售额差异', level: '中', owner: '李会计', deadline: '06-28', fix: '待复核' } },
-      { id: 'hc-003', status: '已完成', values: { customer: '科旋电气（上海）有限公司', module: '凭证', risk: '费用科目缺少部门辅助核算', level: '低', owner: '张会计', deadline: '06-25', fix: '已整改' } },
-    ],
+    rows: [],
     queueTitle: '体检规则',
-    queue: ['发票、流水、凭证三方金额核对', '报表勾稽和税表取数一致性检查', '结账前必须处理高风险阻断项'],
-    notes: ['健康体检是竞品常见的机构级风控入口，适合放在外层导航。', '风险规则应可配置，并能回链到具体发票、凭证或报表。'],
+    queue: ['未匹配凭证的有效发票按客户汇总显示。', '税务申报风险仅统计本地税表任务的风险数量。', '阻断交付任务需在批量操作或对应账套中人工处理。'],
+    notes: ['健康体检只展示可追溯到本地数据表的风险，不以样例补足风险项。', '后续可在真实规则落库后补充凭证、报表和结账勾稽检查。'],
   },
   automation: {
     title: '财税自动化',
@@ -601,6 +598,18 @@ function summarizeAgencyTabRows(config: AgencyConfig, rows: AgencyRow[]) {
     ]
   }
 
+  if (config.title === '健康体检') {
+    const customers = new Set(rows.map((row) => row.values.customer).filter(Boolean)).size
+    const high = rows.filter((row) => row.values.level === '高').length
+    const medium = rows.filter((row) => row.values.level === '中').length
+    return [
+      { label: '风险客户', value: `${customers} 户`, tone: 'blue' as const },
+      { label: '高风险', value: `${high} 项`, tone: 'red' as const },
+      { label: '中风险', value: `${medium} 项`, tone: 'amber' as const },
+      { label: '待整改', value: `${rows.length} 项`, tone: 'green' as const },
+    ]
+  }
+
   if (config.title === '服务合同') {
     return [
       { label: '服务中合同', value: `${rows.filter((row) => row.status === '进行中').length} 份`, tone: 'blue' as const },
@@ -837,6 +846,13 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       writeAgencyAudit('刷新统计', `${pageConfig.title}-${activeTab}`)
       void loadRemoteRows()
       setOperationNotice('正在重新读取本地服务合同、收费、协同和交付工单汇总。')
+      return
+    }
+
+    if (kind === 'healthCheck') {
+      writeAgencyAudit('开始体检', `${pageConfig.title}-${activeTab}`)
+      void loadRemoteRows()
+      setOperationNotice('正在重新扫描本地未匹配发票、税务申报风险和阻断交付任务。')
       return
     }
 
@@ -1110,6 +1126,16 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 }
 
 async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promise<AgencyRow[]> {
+  if (kind === 'healthCheck') {
+    const response = await agencyApi.getHealthChecks()
+    if (!response.success) throw new Error(response.error || '健康检查读取失败')
+    const rows = (response.data ?? []).map(mapAgencyHealthCheckRow)
+    if (activeTab === '发票风险') return rows.filter((row) => row.values.module === '发票')
+    if (activeTab === '税务风险') return rows.filter((row) => row.values.module === '税务申报')
+    if (activeTab === '交付风险') return rows.filter((row) => row.values.module === '交付')
+    return rows
+  }
+
   if (kind === 'batchOps') {
     const response = await agencyApi.getBatchTasks()
     if (!response.success) throw new Error(response.error || '批量任务读取失败')
@@ -1140,6 +1166,22 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
     return response.data?.map(mapServiceContractRow) ?? []
   }
   return []
+}
+
+function mapAgencyHealthCheckRow(item: AgencyHealthCheckItem): AgencyRow {
+  return {
+    id: item.id,
+    status: item.riskLevel === '高' ? '异常' : '待确认',
+    values: {
+      customer: item.companyName || item.companyId,
+      module: item.moduleName,
+      risk: item.riskMessage,
+      level: item.riskLevel,
+      owner: item.owner || '-',
+      source: '本地风险扫描',
+      fix: item.resolutionStatus,
+    },
+  }
 }
 
 function mapAgencyBatchTaskRow(item: AgencyBatchTask): AgencyRow {
