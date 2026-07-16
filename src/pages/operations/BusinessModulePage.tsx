@@ -3488,7 +3488,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveTaxReportData = Boolean(isTauri && selectedCompanyId && kind === 'taxReport')
   const usesLiveFinanceTaxReportData = Boolean(isTauri && selectedCompanyId && kind === 'financeTaxReport')
   const usesLiveFinancialOverviewData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'financialReport')
-  const usesLiveAutomationJobData = Boolean(isTauri && selectedCompanyId && ['aiJobQueue', 'aiRecognitionResults'].includes(kind))
+  const usesLiveAutomationJobData = Boolean(isTauri && selectedCompanyId && ['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions'].includes(kind))
   const usesLiveHistoryReportData = Boolean(
     isTauri &&
       selectedCompanyId &&
@@ -3984,6 +3984,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveAutomationJobRows(automationJobs, 'recognition'),
         summary: summarizeLiveAutomationJobs(automationJobs, 'recognition'),
+      }
+    }
+
+    if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveAutomationJobRows(automationJobs, 'suggestion'),
+        summary: summarizeLiveAutomationJobs(automationJobs, 'suggestion'),
       }
     }
 

@@ -440,6 +440,14 @@ function automationJobStatus(job: AutomationJob): LiveModuleStatus {
   return '待处理'
 }
 
+function automationSuggestionStatus(job: AutomationJob): LiveModuleStatus {
+  const status = job.status.toLowerCase()
+  if (['failed', 'error', 'rejected', 'cancelled'].includes(status)) return '异常'
+  if (['completed', 'succeeded', 'approved', 'confirmed'].includes(status)) return '已生成凭证'
+  if (['pending', 'review', 'awaiting_review', 'waiting_confirmation', 'needs_review'].includes(status)) return '待确认'
+  return '待处理'
+}
+
 function automationConfidence(confidence: number | null) {
   if (confidence === null) return '未记录'
   const percentage = confidence <= 1 ? confidence * 100 : confidence
@@ -453,11 +461,14 @@ function automationNext(status: LiveModuleStatus) {
   return '等待执行'
 }
 
-export function mapLiveAutomationJobRows(jobs: AutomationJob[], view: 'queue' | 'recognition'): LiveModuleRow[] {
-  return [...jobs]
+export function mapLiveAutomationJobRows(jobs: AutomationJob[], view: 'queue' | 'recognition' | 'suggestion'): LiveModuleRow[] {
+  const suggestionJobs = jobs.filter((job) => job.jobType === 'voucher_suggestion')
+  const visibleJobs = view === 'suggestion' ? suggestionJobs : jobs
+
+  return [...visibleJobs]
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
     .map((job) => {
-      const status = automationJobStatus(job)
+      const status = view === 'suggestion' ? automationSuggestionStatus(job) : automationJobStatus(job)
       const sourceFile = job.sourceFile || job.sourceId || '未记录来源文件'
       const shared = {
         id: `automation-${view}-${job.id}`,
@@ -482,6 +493,22 @@ export function mapLiveAutomationJobRows(jobs: AutomationJob[], view: 'queue' | 
         }
       }
 
+      if (view === 'suggestion') {
+        return {
+          ...shared,
+          values: {
+            suggestNo: job.id,
+            source: [job.sourceModule, job.sourceId].filter(Boolean).join(' / ') || '未记录来源',
+            summary: job.resultSummary || '未记录摘要',
+            debit: '未记录分录',
+            credit: '未记录分录',
+            amount: '未记录金额',
+            confidence: automationConfidence(job.confidence),
+            risk: job.riskLevel || '未记录',
+          },
+        }
+      }
+
       return {
         ...shared,
         values: {
@@ -498,16 +525,32 @@ export function mapLiveAutomationJobRows(jobs: AutomationJob[], view: 'queue' | 
     })
 }
 
-export function summarizeLiveAutomationJobs(jobs: AutomationJob[], view: 'queue' | 'recognition'): LiveSummaryItem[] {
-  const passed = jobs.filter((job) => automationJobStatus(job) === '已通过').length
-  const pending = jobs.filter((job) => automationJobStatus(job) === '待确认').length
-  const exception = jobs.filter((job) => automationJobStatus(job) === '异常').length
+export function summarizeLiveAutomationJobs(jobs: AutomationJob[], view: 'queue' | 'recognition' | 'suggestion'): LiveSummaryItem[] {
+  const suggestionJobs = jobs.filter((job) => job.jobType === 'voucher_suggestion')
+  const visibleJobs = view === 'suggestion' ? suggestionJobs : jobs
+  const statusForView = view === 'suggestion' ? automationSuggestionStatus : automationJobStatus
+  const riskJobs = visibleJobs.filter((job) => ['high', 'critical'].includes(job.riskLevel.toLowerCase()) || statusForView(job) === '异常').length
+  const completed = visibleJobs.filter((job) => statusForView(job) === (view === 'suggestion' ? '已生成凭证' : '已通过')).length
+  const pending = visibleJobs.filter((job) => statusForView(job) === '待确认').length
+  const waiting = visibleJobs.filter((job) => statusForView(job) === '待处理').length
+  const exception = visibleJobs.filter((job) => statusForView(job) === '异常').length
+
+  if (view === 'suggestion') {
+    return [
+      { label: '凭证建议', value: `${visibleJobs.length} 条`, tone: visibleJobs.length > 0 ? 'blue' : 'gray' },
+      { label: '可确认', value: `${pending} 条`, tone: pending > 0 ? 'green' : 'gray' },
+      { label: '待修改', value: `${waiting} 条`, tone: waiting > 0 ? 'amber' : 'gray' },
+      { label: '高风险', value: `${riskJobs} 条`, tone: riskJobs > 0 ? 'red' : 'gray' },
+    ]
+  }
+
+  const passed = completed
   const label = view === 'queue' ? 'AI任务' : '识别结果'
   const passedLabel = view === 'queue' ? '已完成' : '自动通过'
   const pendingLabel = view === 'queue' ? '待确认' : '待复核'
   const exceptionLabel = view === 'queue' ? '异常' : '异常字段'
   return [
-    { label, value: `${jobs.length} 条`, tone: jobs.length > 0 ? 'blue' : 'gray' },
+    { label, value: `${visibleJobs.length} 条`, tone: visibleJobs.length > 0 ? 'blue' : 'gray' },
     { label: passedLabel, value: `${passed} 条`, tone: passed > 0 ? 'green' : 'gray' },
     { label: pendingLabel, value: `${pending} 条`, tone: pending > 0 ? 'amber' : 'gray' },
     { label: exceptionLabel, value: `${exception} 条`, tone: exception > 0 ? 'red' : 'gray' },
