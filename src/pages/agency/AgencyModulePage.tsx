@@ -289,34 +289,30 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   },
   invoiceManagement: {
     title: '开票管理',
-    description: '机构维度管理服务费开票、客户开票授权、发票抬头、开票申请、红冲作废和开票归档。',
-    tabs: ['开票申请', '待开票', '已开票', '红冲作废', '抬头管理', '开票记录'],
-    primaryAction: '新建开票申请',
-    keywordPlaceholder: '搜索客户、合同、发票抬头、开票状态',
+    description: '查看机构服务费收费记录对应的开票状态；客户经营发票仍在各自账套的销项发票模块处理。',
+    tabs: ['服务费开票队列', '待开票', '已开票', '异常状态'],
+    primaryAction: '刷新开票队列',
+    keywordPlaceholder: '搜索客户、账期、服务费开票状态、收款负责人',
     summary: [
-      { label: '待开票', value: '26 张', tone: 'amber' },
-      { label: '本月已开', value: '108 张', tone: 'green' },
-      { label: '待确认抬头', value: '9 户', tone: 'blue' },
-      { label: '异常/红冲', value: '3 张', tone: 'red' },
+      { label: '服务费记录', value: '0 条', tone: 'blue' },
+      { label: '待开票', value: '0 条', tone: 'amber' },
+      { label: '已开票', value: '0 条', tone: 'green' },
+      { label: '异常状态', value: '0 条', tone: 'red' },
     ],
     columns: [
       { key: 'customer', label: '客户名称' },
-      { key: 'contract', label: '关联合同' },
-      { key: 'invoiceTitle', label: '发票抬头' },
-      { key: 'taxId', label: '税号' },
-      { key: 'amount', label: '开票金额', align: 'right' },
-      { key: 'type', label: '发票类型' },
-      { key: 'status', label: '开票状态' },
-      { key: 'owner', label: '负责人' },
+      { key: 'period', label: '账期', align: 'center' },
+      { key: 'amount', label: '服务费应收', align: 'right' },
+      { key: 'received', label: '已收金额', align: 'right' },
+      { key: 'invoice', label: '开票状态' },
+      { key: 'payment', label: '收款状态' },
+      { key: 'owner', label: '收款负责人' },
+      { key: 'followUp', label: '最近跟进' },
     ],
-    rows: [
-      { id: 'im-001', status: '待确认', values: { customer: '科旋电气（上海）有限公司', contract: 'FW-2026-0018', invoiceTitle: '科旋电气（上海）有限公司', taxId: '91310115MA1K3****X', amount: '¥2,800.00', type: '数电专票', status: '待客户确认抬头', owner: '张会计' } },
-      { id: 'im-002', status: '进行中', values: { customer: '上海云启科技有限公司', contract: 'FW-2026-0042', invoiceTitle: '上海云启科技有限公司', taxId: '91310113MA1G****2Q', amount: '¥1,200.00', type: '数电普票', status: '待开票', owner: '李会计' } },
-      { id: 'im-003', status: '异常', values: { customer: '杭州辰光贸易有限公司', contract: 'FW-2025-0091', invoiceTitle: '杭州辰光贸易有限公司', taxId: '91330106MA2H****8P', amount: '¥3,200.00', type: '数电专票', status: '红冲申请待复核', owner: '王会计' } },
-    ],
+    rows: [],
     queueTitle: '开票控制',
-    queue: ['服务费开票只处理机构自身收入，不混入客户账套经营发票', '开票前校验合同、收费、抬头和税号', '红冲作废必须保留原票、申请原因和审核日志'],
-    notes: ['开票管理是机构层模块，服务合同和收费管理产生开票申请。', '客户账套内经营发票仍在单账套的销项发票模块处理。'],
+    queue: ['服务费开票只处理机构自身收入，不混入客户账套经营发票', '收费与开票状态来自本地收费记录，不伪造抬头或税号', '红冲作废需接入合法开票 adapter 后才能执行'],
+    notes: ['开票管理与收费管理共用同一服务费台账，但只聚焦开票状态和异常跟进。', '客户账套内经营发票仍在单账套的销项发票模块处理。'],
   },
   healthCheck: {
     title: '健康体检',
@@ -549,6 +545,18 @@ function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLive
 }
 
 function summarizeAgencyTabRows(config: AgencyConfig, rows: AgencyRow[]) {
+  if (config.title === '开票管理') {
+    const pending = rows.filter((row) => row.values.invoice !== '已开票').length
+    const issued = rows.filter((row) => row.values.invoice === '已开票').length
+    const abnormal = rows.filter((row) => row.status === '异常').length
+    return [
+      { label: '服务费记录', value: `${rows.length} 条`, tone: 'blue' as const },
+      { label: '待开票', value: `${pending} 条`, tone: 'amber' as const },
+      { label: '已开票', value: `${issued} 条`, tone: 'green' as const },
+      { label: '异常状态', value: `${abnormal} 条`, tone: 'red' as const },
+    ]
+  }
+
   if (config.title === '收费管理') {
     const total = (key: string) => rows.reduce((sum, row) => sum + parseAgencyMoney(row.values[key]), 0)
     return [
@@ -872,6 +880,13 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       return
     }
 
+    if (kind === 'invoiceManagement') {
+      writeAgencyAudit('刷新开票队列', `${pageConfig.title}-${activeTab}`)
+      void loadRemoteRows()
+      setOperationNotice('正在读取本地服务费收费记录对应的开票状态。')
+      return
+    }
+
     if (kind !== 'batchOps') {
       writeAgencyAudit(pageConfig.primaryAction, `${pageConfig.title}-${activeTab}`, '中', '待审批')
       setOperationNotice(`${pageConfig.primaryAction} 已进入机构审计日志，等待后续表单和审批流接入。`)
@@ -1173,6 +1188,16 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
     return (response.data ?? []).map(mapAgencyAuthorizationRow)
   }
 
+  if (kind === 'invoiceManagement') {
+    const response = await agencyApi.getFeeCollections()
+    if (!response.success) throw new Error(response.error || '服务费开票记录读取失败')
+    const rows = (response.data ?? []).map(mapAgencyInvoiceManagementRow)
+    if (activeTab === '待开票') return rows.filter((row) => row.values.invoice !== '已开票')
+    if (activeTab === '已开票') return rows.filter((row) => row.values.invoice === '已开票')
+    if (activeTab === '异常状态') return rows.filter((row) => row.status === '异常')
+    return rows
+  }
+
   if (kind === 'serviceContracts' && activeTab === '收费管理') {
     const response = await agencyApi.getFeeCollections()
     if (!response.success) throw new Error(response.error || '收费记录读取失败')
@@ -1341,6 +1366,23 @@ function mapFeeCollectionRow(item: AgencyFeeCollection): AgencyRow {
   }
 }
 
+function mapAgencyInvoiceManagementRow(item: AgencyFeeCollection): AgencyRow {
+  return {
+    id: item.id,
+    status: mapAgencyStatus(item.status, `${item.invoiceStatus} ${item.paymentStatus}`),
+    values: {
+      customer: item.companyName || item.companyId,
+      period: item.period,
+      amount: formatMoney(item.receivableAmount),
+      received: formatMoney(item.receivedAmount),
+      invoice: formatAgencyInvoiceStatus(item.invoiceStatus),
+      payment: formatAgencyPaymentStatus(item.paymentStatus),
+      owner: item.collector || '-',
+      followUp: item.lastFollowUp || '-',
+    },
+  }
+}
+
 function mapCollaborationItemRow(item: AgencyCollaborationItem): AgencyRow {
   return {
     id: item.id,
@@ -1365,6 +1407,20 @@ function mapAgencyStatus(primary: string, secondary = ''): AgencyRow['status'] {
   if (value.includes('waiting') || value.includes('pending') || value.includes('待')) return '待确认'
   if (value.includes('active') || value.includes('processing') || value.includes('进行中')) return '进行中'
   return '待处理'
+}
+
+function formatAgencyInvoiceStatus(value: string) {
+  if (value === 'issued') return '已开票'
+  if (value === 'pending') return '待开票'
+  if (value === 'void' || value === 'reversed') return '红冲/作废'
+  return value || '未设置'
+}
+
+function formatAgencyPaymentStatus(value: string) {
+  if (value === 'paid') return '已收款'
+  if (value === 'pending') return '待收款'
+  if (value === 'overdue') return '逾期欠费'
+  return value || '未设置'
 }
 
 function mapAuthorizationStatus(authStatus: string, expiresAt: string | null, riskMessage: string | null): AgencyRow['status'] {

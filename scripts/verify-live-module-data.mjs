@@ -228,6 +228,8 @@ const requiredAgencyModuleSnippets = [
   ['agency automation data source', 'agencyApi.getAutomationJobs()'],
   ['agency automation row mapper', 'function mapAgencyAutomationJobRow(item: AutomationJob)'],
   ['agency automation live scope', "kind === 'automation'"],
+  ['agency invoice management row mapper', 'function mapAgencyInvoiceManagementRow(item: AgencyFeeCollection)'],
+  ['agency invoice management live scope', "kind === 'invoiceManagement'"],
   ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
 ]
 
