@@ -52,6 +52,7 @@ pub fn run() {
             commands::agency::get_agency_fee_collections,
             commands::agency::get_agency_collaboration_items,
             commands::agency::get_agency_delivery_tickets,
+            commands::agency::get_agency_adapter_authorizations,
             commands::agency::get_agency_operation_overview,
             // Automation, AI bookkeeping, tax adapter boundary, and audit commands
             commands::automation::get_automation_jobs,

@@ -215,6 +215,9 @@ const requiredAgencyModuleSnippets = [
   ['agency overview live scope', "kind === 'dataStats'"],
   ['agency overview row mapper', 'function mapAgencyOverviewRows(overview: AgencyOperationOverview, activeTab: string)'],
   ['agency overview summary mapper', 'function summarizeAgencyOverview(overview: AgencyOperationOverview)'],
+  ['agency authorization data source', 'agencyApi.getAuthorizations()'],
+  ['agency authorization row mapper', 'function mapAgencyAuthorizationRow(item: AdapterAuthorization)'],
+  ['agency authorization live scope', "kind === 'authorizationCenter'"],
   ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
 ]
 

@@ -20,6 +20,7 @@ import {
 import { cn } from '../../lib/utils'
 import {
   agencyApi,
+  type AdapterAuthorization,
   type AgencyCollaborationItem,
   type AgencyFeeCollection,
   type AgencyOperationOverview,
@@ -403,6 +404,36 @@ function exportJobToAgencyRow(job: ExportJob): AgencyRow {
 }
 
 function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLiveDesktopData: boolean): AgencyConfig {
+  if (useLiveDesktopData && baseConfig.title === '授权中心') {
+    return {
+      ...baseConfig,
+      description: '集中查看本地保存的税务、个税、银行、工商和票池授权状态；仅展示掩码账号和授权元数据。',
+      summary: [
+        { label: '授权记录', value: '0 条', tone: 'blue' },
+        { label: '授权有效', value: '0 条', tone: 'green' },
+        { label: '待确认', value: '0 条', tone: 'amber' },
+        { label: '授权异常', value: '0 条', tone: 'red' },
+      ],
+      keywordPlaceholder: '搜索客户、授权类型、掩码账号、登录身份、异常原因',
+      columns: [
+        { key: 'customer', label: '客户名称' },
+        { key: 'taxNo', label: '授权账号（掩码）' },
+        { key: 'type', label: '授权类型' },
+        { key: 'loginPerson', label: '登录身份' },
+        { key: 'identity', label: '授权范围' },
+        { key: 'method', label: 'Adapter' },
+        { key: 'statusText', label: '授权状态' },
+        { key: 'expireAt', label: '到期时间' },
+        { key: 'lastCollect', label: '最近校验' },
+        { key: 'risk', label: '风险说明' },
+      ],
+      rows: [],
+      queueTitle: '授权说明',
+      queue: ['授权中心只读取本地已保存的授权状态、范围和掩码账号。', '需要补授权或授权已失效时，必须在合法 adapter 流程内由人工完成。'],
+      notes: ['桌面端无授权记录时显示空表，不以样例授权填充。', '明文账号、密码、验证码和 Cookie 不会写入此列表或导出文件。'],
+    }
+  }
+
   if (useLiveDesktopData && (baseConfig.title === '客户总览' || baseConfig.title === '账套管理')) {
     const isAccountManagement = baseConfig.title === '账套管理'
     return {
@@ -549,6 +580,18 @@ function summarizeAgencyTabRows(config: AgencyConfig, rows: AgencyRow[]) {
       { label: '待客户答复', value: `${rows.filter((row) => row.status === '待确认' || row.status === '待处理').length} 项`, tone: 'amber' as const },
       { label: '已完成', value: `${completed} 项`, tone: 'green' as const },
       { label: '超时提醒', value: `${overdue} 项`, tone: 'red' as const },
+    ]
+  }
+
+  if (config.title === '授权中心') {
+    const valid = rows.filter((row) => row.status === '已完成').length
+    const pending = rows.filter((row) => row.status === '待确认' || row.status === '待处理').length
+    const abnormal = rows.filter((row) => row.status === '异常').length
+    return [
+      { label: '授权记录', value: `${rows.length} 条`, tone: 'blue' as const },
+      { label: '授权有效', value: `${valid} 条`, tone: 'green' as const },
+      { label: '待确认', value: `${pending} 条`, tone: 'amber' as const },
+      { label: '授权异常', value: `${abnormal} 条`, tone: 'red' as const },
     ]
   }
 
@@ -1049,6 +1092,12 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 }
 
 async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promise<AgencyRow[]> {
+  if (kind === 'authorizationCenter') {
+    const response = await agencyApi.getAuthorizations()
+    if (!response.success) throw new Error(response.error || '授权记录读取失败')
+    return (response.data ?? []).map(mapAgencyAuthorizationRow)
+  }
+
   if (kind === 'serviceContracts' && activeTab === '收费管理') {
     const response = await agencyApi.getFeeCollections()
     if (!response.success) throw new Error(response.error || '收费记录读取失败')
@@ -1067,6 +1116,26 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
     return response.data?.map(mapServiceContractRow) ?? []
   }
   return []
+}
+
+function mapAgencyAuthorizationRow(item: AdapterAuthorization): AgencyRow {
+  const authorizationStatus = mapAuthorizationStatus(item.authStatus, item.expiresAt, item.riskMessage)
+  return {
+    id: item.id,
+    status: authorizationStatus,
+    values: {
+      customer: item.companyName || item.companyId,
+      taxNo: item.accountMask || '-',
+      type: formatAdapterType(item.adapterType),
+      loginPerson: item.loginIdentity || '-',
+      identity: item.capabilityScope || '-',
+      method: item.adapterCode,
+      statusText: item.authStatus,
+      expireAt: item.expiresAt || '-',
+      lastCollect: item.lastCheckedAt || '-',
+      risk: item.riskMessage || '无',
+    },
+  }
 }
 
 function mapAgencyCompanyRow(item: Company, kind: AgencyModuleKind): AgencyRow {
@@ -1173,6 +1242,23 @@ function mapAgencyStatus(primary: string, secondary = ''): AgencyRow['status'] {
   if (value.includes('waiting') || value.includes('pending') || value.includes('待')) return '待确认'
   if (value.includes('active') || value.includes('processing') || value.includes('进行中')) return '进行中'
   return '待处理'
+}
+
+function mapAuthorizationStatus(authStatus: string, expiresAt: string | null, riskMessage: string | null): AgencyRow['status'] {
+  const value = `${authStatus} ${expiresAt || ''} ${riskMessage || ''}`.toLowerCase()
+  if (value.includes('expired') || value.includes('invalid') || value.includes('failed') || value.includes('异常') || value.includes('失效')) return '异常'
+  if (value.includes('pending') || value.includes('待')) return '待确认'
+  if (value.includes('valid') || value.includes('authorized') || value.includes('normal') || value.includes('有效') || value.includes('正常')) return '已完成'
+  return '待处理'
+}
+
+function formatAdapterType(value: string) {
+  if (value === 'tax') return '电子税务局'
+  if (value === 'individual_tax') return '自然人税收'
+  if (value === 'bank') return '银行流水'
+  if (value === 'industrial_commercial') return '工商系统'
+  if (value === 'invoice_pool') return '发票票池'
+  return value
 }
 
 function formatMoney(value: number) {

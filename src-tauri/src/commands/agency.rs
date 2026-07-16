@@ -1,6 +1,6 @@
 use crate::db::{
-    AgencyCollaborationItem, AgencyDeliveryTicket, AgencyFeeCollection, AgencyServiceContract,
-    Database,
+    AdapterAuthorization, AgencyCollaborationItem, AgencyDeliveryTicket, AgencyFeeCollection,
+    AgencyServiceContract, Database,
 };
 use serde::Serialize;
 use tauri::State;
@@ -184,6 +184,44 @@ pub async fn get_agency_delivery_tickets(
     .bind(&status)
     .bind(&status)
     .bind(&status)
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    Ok(rows)
+}
+
+#[tauri::command]
+pub async fn get_agency_adapter_authorizations(
+    adapter_type: Option<String>,
+    db: State<'_, Database>,
+) -> Result<Vec<AdapterAuthorization>, String> {
+    let rows: Vec<AdapterAuthorization> = sqlx::query_as(
+        r#"
+        SELECT
+            a.id,
+            a.company_id,
+            c.name AS company_name,
+            a.adapter_type,
+            a.adapter_code,
+            a.region,
+            a.auth_status,
+            a.account_mask,
+            a.login_identity,
+            a.capability_scope,
+            a.last_checked_at,
+            a.expires_at,
+            a.risk_message,
+            a.created_at,
+            a.updated_at
+        FROM adapter_authorizations a
+        LEFT JOIN companies c ON c.id = a.company_id
+        WHERE (? IS NULL OR a.adapter_type = ?)
+        ORDER BY a.updated_at DESC, c.name ASC, a.adapter_type ASC
+        "#,
+    )
+    .bind(&adapter_type)
+    .bind(&adapter_type)
     .fetch_all(db.pool())
     .await
     .map_err(|e| format!("Database error: {}", e))?;

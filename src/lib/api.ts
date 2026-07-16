@@ -1072,6 +1072,17 @@ export const agencyApi = {
     }
   },
 
+  getAuthorizations: async (filters: { adapterType?: string } = {}): Promise<ApiResponse<AdapterAuthorization[]>> => {
+    try {
+      const result = await invoke('get_agency_adapter_authorizations', {
+        adapterType: filters.adapterType,
+      }) as RawAdapterAuthorization[]
+      return { success: true, data: result.map(mapAdapterAuthorization) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
   getOverview: async (period = '2026-05'): Promise<ApiResponse<AgencyOperationOverview>> => {
     try {
       const result = await invoke('get_agency_operation_overview', { period }) as RawAgencyOperationOverview
