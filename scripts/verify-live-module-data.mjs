@@ -198,6 +198,12 @@ const requiredTaxWorkspaceSnippets = [
 ]
 
 const requiredAgencyModuleSnippets = [
+  ['agency company data source', 'useCompanyStore()'],
+  ['agency company refresh', 'await fetchCompanies()'],
+  ['agency company row mapper', 'function mapAgencyCompanyRow(item: Company, kind: AgencyModuleKind)'],
+  ['agency company tab presentation', "baseConfig.title === '客户总览' || baseConfig.title === '账套管理'"],
+  ['agency account selection binding', 'selectCompany(row.id)'],
+  ['agency account period refresh', 'await fetchPeriods(row.id)'],
   ['agency service contract data source', 'agencyApi.getServiceContracts()'],
   ['agency fee collection data source', 'agencyApi.getFeeCollections()'],
   ['agency collaboration data source', 'agencyApi.getCollaborationItems()'],

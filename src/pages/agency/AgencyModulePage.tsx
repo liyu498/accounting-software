@@ -25,6 +25,8 @@ import {
   type AgencyServiceContract,
 } from '../../lib/api'
 import { isTauri } from '../../lib/tauri'
+import { useCompanyStore, type Company } from '../../stores/companyStore'
+import { usePeriodStore } from '../../stores/periodStore'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useExportJobs, type ExportJob } from '../../lib/exportJobs'
@@ -407,7 +409,62 @@ function exportJobToAgencyRow(job: ExportJob): AgencyRow {
   }
 }
 
-function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string): AgencyConfig {
+function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLiveCompanyData: boolean): AgencyConfig {
+  if (useLiveCompanyData && (baseConfig.title === '客户总览' || baseConfig.title === '账套管理')) {
+    const isAccountManagement = baseConfig.title === '账套管理'
+    return {
+      ...baseConfig,
+      description: isAccountManagement
+        ? '维护本地企业档案、会计制度、启用账期和进入账套入口。采集、授权等外部能力由合法 adapter 单独接入。'
+        : '集中查看本地客户账套、纳税人性质、启用账期和账套状态；业务进度在进入对应账套后处理。',
+      summary: isAccountManagement
+        ? [
+            { label: '本地账套', value: '0 户', tone: 'blue' },
+            { label: '一般纳税人', value: '0 户', tone: 'green' },
+            { label: '小规模纳税人', value: '0 户', tone: 'amber' },
+            { label: '已停用', value: '0 户', tone: 'red' },
+          ]
+        : [
+            { label: '本地客户', value: '0 户', tone: 'blue' },
+            { label: '启用账套', value: '0 户', tone: 'green' },
+            { label: '一般纳税人', value: '0 户', tone: 'amber' },
+            { label: '已停用', value: '0 户', tone: 'red' },
+          ],
+      keywordPlaceholder: isAccountManagement
+        ? '搜索企业名称、编码、纳税人识别号、地区'
+        : '搜索客户名称、编码、纳税人识别号、行业',
+      columns: isAccountManagement
+        ? [
+            { key: 'code', label: '编码' },
+            { key: 'name', label: '企业名称' },
+            { key: 'taxId', label: '纳税人识别号' },
+            { key: 'region', label: '地区' },
+            { key: 'taxType', label: '纳税人资格' },
+            { key: 'accountingSystem', label: '会计制度' },
+            { key: 'enablePeriod', label: '启用账期', align: 'center' },
+            { key: 'industry', label: '会计行业' },
+            { key: 'createdAt', label: '建档时间' },
+            { key: 'accountStatus', label: '账套状态' },
+          ]
+        : [
+            { key: 'code', label: '客户编码' },
+            { key: 'name', label: '客户名称' },
+            { key: 'taxId', label: '纳税人识别号' },
+            { key: 'taxType', label: '纳税人资格' },
+            { key: 'enablePeriod', label: '启用账期', align: 'center' },
+            { key: 'accountingSystem', label: '会计制度' },
+            { key: 'industry', label: '会计行业' },
+            { key: 'accountStatus', label: '账套状态' },
+          ],
+      rows: [],
+      queueTitle: isAccountManagement ? '账套说明' : '客户说明',
+      queue: isAccountManagement
+        ? ['本地企业档案以 SQLite 公司表为准，启用账期由企业建档信息决定。', '税务采集、授权、主管税务机关等外部信息需通过合法 adapter 写入后再展示。']
+        : ['客户总览只列出本地企业事实，不伪造发票、凭证、申报或风险数量。', '进入账套后查看该客户的发票、凭证、报表和税务处理。'],
+      notes: ['桌面端无企业记录时显示空表，浏览器预览使用现有静态布局样例。'],
+    }
+  }
+
   if (baseConfig.title !== '服务合同') return baseConfig
 
   if (activeTab === '收费管理') {
@@ -511,6 +568,26 @@ function summarizeAgencyTabRows(config: AgencyConfig, rows: AgencyRow[]) {
     ]
   }
 
+  if (config.title === '客户总览' || config.title === '账套管理') {
+    const activeCount = rows.filter((row) => row.values.accountStatus === '启用').length
+    const generalTaxpayerCount = rows.filter((row) => row.values.taxType === '一般纳税人').length
+    const smallTaxpayerCount = rows.filter((row) => row.values.taxType === '小规模纳税人').length
+    const disabledCount = rows.filter((row) => row.values.accountStatus === '停用').length
+    return config.title === '账套管理'
+      ? [
+          { label: '本地账套', value: `${rows.length} 户`, tone: 'blue' as const },
+          { label: '一般纳税人', value: `${generalTaxpayerCount} 户`, tone: 'green' as const },
+          { label: '小规模纳税人', value: `${smallTaxpayerCount} 户`, tone: 'amber' as const },
+          { label: '已停用', value: `${disabledCount} 户`, tone: 'red' as const },
+        ]
+      : [
+          { label: '本地客户', value: `${rows.length} 户`, tone: 'blue' as const },
+          { label: '启用账套', value: `${activeCount} 户`, tone: 'green' as const },
+          { label: '一般纳税人', value: `${generalTaxpayerCount} 户`, tone: 'amber' as const },
+          { label: '已停用', value: `${disabledCount} 户`, tone: 'red' as const },
+        ]
+  }
+
   return config.summary
 }
 
@@ -521,6 +598,8 @@ function parseAgencyMoney(value = '') {
 
 export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const navigate = useNavigate()
+  const { fetchCompanies, selectCompany } = useCompanyStore()
+  const { fetchPeriods, fetchVoucherWords } = usePeriodStore()
   const baseConfig = configs[kind]
   const exportJobs = useExportJobs()
   const config = useMemo(() => {
@@ -544,7 +623,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [pageSize, setPageSize] = useState(20)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
   const [localRows, setLocalRows] = useState<AgencyRow[]>([])
-  const pageConfig = useMemo(() => getAgencyTabConfig(config, activeTab), [activeTab, config])
+  const pageConfig = useMemo(() => getAgencyTabConfig(config, activeTab, isTauri), [activeTab, config])
   const rows = [...localRows, ...(isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows)]
   const summary = useMemo(
     () => isTauri && remoteRows !== null ? summarizeAgencyTabRows(pageConfig, remoteRows) : pageConfig.summary,
@@ -575,6 +654,16 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const loadRemoteRows = async () => {
     setIsLoadingRows(true)
     try {
+      if (kind === 'clients' || kind === 'accountManagement') {
+        if (!isTauri) {
+          setRemoteRows(null)
+          return
+        }
+        await fetchCompanies()
+        const liveCompanies = useCompanyStore.getState().companies
+        setRemoteRows(liveCompanies.map((item) => mapAgencyCompanyRow(item, kind)))
+        return
+      }
       const nextRows = await fetchAgencyRows(kind, activeTab)
       setRemoteRows(nextRows)
     } catch {
@@ -589,7 +678,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     setLocalRows([])
     setOperationNotice(null)
     void loadRemoteRows()
-  }, [activeTab, kind])
+  }, [activeTab, fetchCompanies, kind])
 
   const writeAgencyAudit = (action: string, object: string, level: '普通' | '中' | '高' = '普通', result: '成功' | '待审批' | '失败' = '成功') => {
     recordAuditLog({
@@ -625,9 +714,14 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     )
   }
 
-  const handleEnterAccount = (row: AgencyRow) => {
+  const handleEnterAccount = async (row: AgencyRow) => {
     const object = rowObjectLabel(row)
     writeAgencyAudit('进入账套', `${pageConfig.title}-${object}`)
+    if (isTauri && (kind === 'clients' || kind === 'accountManagement')) {
+      selectCompany(row.id)
+      await fetchPeriods(row.id)
+      await fetchVoucherWords(row.id)
+    }
     navigate('/dashboard')
   }
 
@@ -918,6 +1012,49 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
     return response.data?.map(mapServiceContractRow) ?? []
   }
   return []
+}
+
+function mapAgencyCompanyRow(item: Company, kind: AgencyModuleKind): AgencyRow {
+  const taxType = item.tax_type === 'general' ? '一般纳税人' : item.tax_type === 'small' ? '小规模纳税人' : '未设置'
+  const accountingSystem = formatAccountingSystem(item.accounting_system)
+  const enablePeriod = item.enable_year && item.enable_month
+    ? `${item.enable_year}-${String(item.enable_month).padStart(2, '0')}`
+    : '未设置'
+  const accountStatus = item.is_active ? '启用' : '停用'
+  const values = {
+    code: item.code || '-',
+    name: item.name,
+    taxId: item.tax_id || '-',
+    region: [item.province, item.city].filter(Boolean).join(' ') || '-',
+    taxType,
+    accountingSystem,
+    enablePeriod,
+    industry: item.industry || '-',
+    createdAt: item.created_at ? item.created_at.slice(0, 16).replace('T', ' ') : '-',
+    accountStatus,
+  }
+
+  return {
+    id: item.id,
+    status: item.is_active ? '进行中' : '异常',
+    values: kind === 'accountManagement' ? values : {
+      code: values.code,
+      name: values.name,
+      taxId: values.taxId,
+      taxType: values.taxType,
+      enablePeriod: values.enablePeriod,
+      accountingSystem: values.accountingSystem,
+      industry: values.industry,
+      accountStatus: values.accountStatus,
+    },
+  }
+}
+
+function formatAccountingSystem(value: string | null) {
+  if (value === 'small_enterprise') return '小企业会计准则'
+  if (value === 'enterprise') return '企业会计准则'
+  if (value === 'government') return '政府会计准则'
+  return value || '未设置'
 }
 
 function mapServiceContractRow(item: AgencyServiceContract): AgencyRow {
