@@ -195,6 +195,20 @@ function buildCompanyAuthorizationInputs(companyId: string, company: CompanyForm
     })
   }
 
+  if ([company.businessContactId, company.businessContactPhone, company.businessContactEmail].some(Boolean)) {
+    inputs.push({
+      companyId,
+      adapterType: 'industrial_commercial',
+      adapterCode: 'agency-account-set',
+      region,
+      authStatus: 'pending',
+      accountMask: maskAuthorizationAccount(company.businessContactPhone),
+      loginIdentity: '工商联络员',
+      capabilityScope: '企业基础资料采集/工商联络信息校验',
+      riskMessage,
+    })
+  }
+
   return inputs
 }
 

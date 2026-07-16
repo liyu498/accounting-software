@@ -209,6 +209,8 @@ const requiredWelcomeSnippets = [
   ['company authorization persistence', 'persistCompanyAuthorizationMetadata(company.id, newCompany)'],
   ['company authorization masks account', 'accountMask: maskAuthorizationAccount(company.taxLoginAccount)'],
   ['company authorization password boundary', "riskMessage: '待完成合法授权验证；不保存密码、不执行真实提交'"],
+  ['company industrial authorization metadata', "adapterType: 'industrial_commercial'"],
+  ['company industrial contact masking', 'accountMask: maskAuthorizationAccount(company.businessContactPhone)'],
 ]
 
 const requiredCompanyPersistenceSnippets = [
