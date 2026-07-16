@@ -372,7 +372,7 @@ function exportJobToAgencyRow(job: ExportJob): AgencyRow {
       fileName: job.fileName,
       customer: job.moduleName.startsWith('机构-') ? '机构批量任务' : '当前账套/客户',
       type: job.format,
-      period: '2026-05',
+      period: extractAgencyExportPeriod(job),
       statusText: job.status,
       createdAt: job.createdAt,
       creator: job.operator,
@@ -380,6 +380,11 @@ function exportJobToAgencyRow(job: ExportJob): AgencyRow {
       hash: job.hash,
     },
   }
+}
+
+function extractAgencyExportPeriod(job: ExportJob) {
+  const match = `${job.fileName} ${job.scope}`.match(/(20\d{2})[-./年]?(\d{2})(?:月)?/)
+  return match ? `${match[1]}-${match[2]}` : '未标注'
 }
 
 function summarizeAgencyDownloadJobs(rows: AgencyRow[]) {

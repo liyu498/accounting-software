@@ -245,6 +245,7 @@ const requiredAgencyModuleSnippets = [
   ['agency download job source', 'const exportJobs = useExportJobs()'],
   ['agency download live rows', "kind === 'downloadCenter' ? pageConfig.rows"],
   ['agency download summary mapper', 'function summarizeAgencyDownloadJobs(rows: AgencyRow[])'],
+  ['agency download period mapper', 'function extractAgencyExportPeriod(job: ExportJob)'],
   ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
 ]
 
