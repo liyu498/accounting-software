@@ -75,8 +75,8 @@ interface AgencyConfig {
 const configs: Record<AgencyModuleKind, AgencyConfig> = {
   clients: {
     title: '客户总览',
-    description: '代理机构维度集中查看客户账套、收票、做账、报表、申报和风险进度。',
-    tabs: ['全部客户', '待收票', '待做账', '待申报', '高风险', '已结账'],
+    description: '代理机构维度集中查看本地客户账套、纳税人资格和启用状态；业务进度进入对应账套处理。',
+    tabs: ['全部客户', '启用账套', '停用账套', '一般纳税人', '小规模纳税人'],
     primaryAction: '新增客户',
     keywordPlaceholder: '搜索客户名称、编码、税号、负责人',
     summary: [
@@ -108,7 +108,7 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   accountManagement: {
     title: '账套管理',
     description: '按竞品账套管理方式维护多客户企业档案、采集状态、税务登录信息、服务期限、主办会计和进入账套入口。',
-    tabs: ['正常', '停用', '采集异常', '待授权', '服务到期', '异常原因'],
+    tabs: ['正常', '停用', '一般纳税人', '小规模纳税人'],
     primaryAction: '新增企业',
     keywordPlaceholder: '搜索企业名称、编码、纳税人识别号、登录人员',
     summary: [
@@ -864,7 +864,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         }
         await fetchCompanies()
         const liveCompanies = useCompanyStore.getState().companies
-        setRemoteRows(liveCompanies.map((item) => mapAgencyCompanyRow(item, kind)))
+        const companyRows = liveCompanies.map((item) => mapAgencyCompanyRow(item, kind))
+        setRemoteRows(filterAgencyCompanyRows(companyRows, activeTab))
         return
       }
 
@@ -1453,6 +1454,19 @@ function mapAgencyCompanyRow(item: Company, kind: AgencyModuleKind): AgencyRow {
       accountStatus: values.accountStatus,
     },
   }
+}
+
+function filterAgencyCompanyRows(rows: AgencyRow[], activeTab: string) {
+  if (activeTab === '启用账套' || activeTab === '正常') {
+    return rows.filter((row) => row.values.accountStatus === '启用')
+  }
+  if (activeTab === '停用账套' || activeTab === '停用') {
+    return rows.filter((row) => row.values.accountStatus === '停用')
+  }
+  if (activeTab === '一般纳税人' || activeTab === '小规模纳税人') {
+    return rows.filter((row) => row.values.taxType === activeTab)
+  }
+  return rows
 }
 
 function formatAccountingSystem(value: string | null) {
