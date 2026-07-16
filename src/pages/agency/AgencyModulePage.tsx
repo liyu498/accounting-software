@@ -260,7 +260,7 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   batchOps: {
     title: '批量操作',
     description: '集中执行批量采集发票、采集银行流水、生成凭证、结转结账、批量申报、回执归档、反结账审批和资料归档。',
-    tabs: ['操作任务', '批量采集', '批量生成', '批量结账', '批量申报', '申报回执', '审批记录', '执行日志'],
+    tabs: ['操作任务', '批量采集', '批量生成', '批量结账', '批量申报', '申报回执', '审批记录'],
     primaryAction: '新建任务',
     keywordPlaceholder: '搜索任务、客户、操作人、执行状态',
     summary: [
@@ -1301,7 +1301,7 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
   if (kind === 'batchOps') {
     const response = await agencyApi.getBatchTasks()
     if (!response.success) throw new Error(response.error || '批量任务读取失败')
-    return (response.data ?? []).map(mapAgencyBatchTaskRow)
+    return filterAgencyBatchTaskRows((response.data ?? []).map(mapAgencyBatchTaskRow), activeTab)
   }
 
   if (kind === 'authorizationCenter') {
@@ -1402,8 +1402,19 @@ function mapAgencyBatchTaskRow(item: AgencyBatchTask): AgencyRow {
       operator: item.operator || '-',
       started: item.createdAt,
       result: item.resultSummary || '-',
+      approval: item.requiresApproval ? '需审批' : '无需审批',
     },
   }
+}
+
+function filterAgencyBatchTaskRows(rows: AgencyRow[], activeTab: string) {
+  if (activeTab === '批量采集') return rows.filter((row) => row.values.task.includes('采集'))
+  if (activeTab === '批量生成') return rows.filter((row) => row.values.task.includes('生成'))
+  if (activeTab === '批量结账') return rows.filter((row) => row.values.task.includes('结账'))
+  if (activeTab === '批量申报') return rows.filter((row) => row.values.task.includes('申报') && !row.values.task.includes('回执'))
+  if (activeTab === '申报回执') return rows.filter((row) => /回执|缴款|扣款/.test(row.values.task))
+  if (activeTab === '审批记录') return rows.filter((row) => row.values.approval === '需审批')
+  return rows
 }
 
 function mapAgencyAuthorizationRow(item: AdapterAuthorization): AgencyRow {

@@ -231,6 +231,8 @@ const requiredAgencyModuleSnippets = [
   ['agency batch task data source', 'agencyApi.getBatchTasks()'],
   ['agency batch task create binding', 'agencyApi.createBatchTasks('],
   ['agency batch task row mapper', 'function mapAgencyBatchTaskRow(item: AgencyBatchTask)'],
+  ['agency batch task tab filter', 'function filterAgencyBatchTaskRows(rows: AgencyRow[], activeTab: string)'],
+  ['agency batch tab consolidation', "tabs: ['操作任务', '批量采集', '批量生成', '批量结账', '批量申报', '申报回执', '审批记录']"],
   ['agency batch task live scope', "kind === 'batchOps'"],
   ['agency health check data source', 'agencyApi.getHealthChecks()'],
   ['agency health check row mapper', 'function mapAgencyHealthCheckRow(item: AgencyHealthCheckItem)'],
