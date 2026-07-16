@@ -205,6 +205,10 @@ const requiredWelcomeSnippets = [
   ['company creation deep link', "new URLSearchParams(location.search).get('createCompany') === '1'"],
   ['company form metadata persistence', 'enterprise_type: newCompany.enterpriseType'],
   ['company service period persistence', 'service_start: newCompany.serviceStart'],
+  ['company authorization metadata helper', 'function buildCompanyAuthorizationInputs(companyId: string, company: CompanyForm)'],
+  ['company authorization persistence', 'persistCompanyAuthorizationMetadata(company.id, newCompany)'],
+  ['company authorization masks account', 'accountMask: maskAuthorizationAccount(company.taxLoginAccount)'],
+  ['company authorization password boundary', "riskMessage: '待完成合法授权验证；不保存密码、不执行真实提交'"],
 ]
 
 const requiredCompanyPersistenceSnippets = [

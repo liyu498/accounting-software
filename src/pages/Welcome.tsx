@@ -24,6 +24,7 @@ import { cn } from '../lib/utils'
 import { agencyNavItems } from './agency/agencyNav'
 import { recordAuditLog, recordExportJob } from '../lib/exportJobs'
 import { exportRowsToXlsx } from '../lib/xlsxExport'
+import { automationApi } from '../lib/api'
 
 interface SummaryMetric {
   label: string
@@ -154,6 +155,56 @@ const emptyCompanyForm = {
 
 type CompanyForm = typeof emptyCompanyForm
 
+function maskAuthorizationAccount(value: string) {
+  const normalized = value.trim()
+  if (!normalized) return '未维护账号'
+  if (normalized.length <= 2) return '*'.repeat(normalized.length)
+  return `${normalized.slice(0, 2)}${'*'.repeat(Math.max(2, normalized.length - 4))}${normalized.slice(-2)}`
+}
+
+function buildCompanyAuthorizationInputs(companyId: string, company: CompanyForm) {
+  const region = [company.province, company.city, company.district].filter(Boolean).join(' ')
+  const riskMessage = '待完成合法授权验证；不保存密码、不执行真实提交'
+  const inputs: Array<Parameters<typeof automationApi.upsertAdapterAuthorization>[0]> = []
+
+  if ([company.taxLoginPerson, company.taxLoginIdentity, company.taxLoginMethod, company.taxLoginAccount].some(Boolean)) {
+    inputs.push({
+      companyId,
+      adapterType: 'tax',
+      adapterCode: 'agency-account-set',
+      region,
+      authStatus: 'pending',
+      accountMask: maskAuthorizationAccount(company.taxLoginAccount),
+      loginIdentity: [company.taxLoginPerson, company.taxLoginIdentity, company.taxLoginMethod].filter(Boolean).join(' / ') || '待维护',
+      capabilityScope: '税务资料采集/税种认定/申报包生成/回执归档',
+      riskMessage: '待完成合法授权验证；不保存密码、不执行真实提交',
+    })
+  }
+
+  if (company.individualTaxPassword || company.individualVerifyMethod !== '申报密码登录') {
+    inputs.push({
+      companyId,
+      adapterType: 'individual_tax',
+      adapterCode: 'agency-account-set',
+      region,
+      authStatus: 'pending',
+      accountMask: '未维护账号',
+      loginIdentity: company.individualVerifyMethod,
+      capabilityScope: '个税验证/申报包生成/回执归档',
+      riskMessage,
+    })
+  }
+
+  return inputs
+}
+
+async function persistCompanyAuthorizationMetadata(companyId: string, company: CompanyForm) {
+  const inputs = buildCompanyAuthorizationInputs(companyId, company)
+  if (inputs.length === 0) return true
+  const results = await Promise.all(inputs.map((input) => automationApi.upsertAdapterAuthorization(input)))
+  return results.every((result) => result.success)
+}
+
 export function Welcome() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -268,7 +319,7 @@ export function Welcome() {
     }
 
     if (editingCompanyId) {
-      await updateCompany(editingCompanyId, {
+      const company = await updateCompany(editingCompanyId, {
         code: newCompany.code.trim() || `KH${Date.now().toString().slice(-6)}`,
         name: newCompany.name,
         tax_id: newCompany.taxId,
@@ -284,8 +335,9 @@ export function Welcome() {
         enable_year: newCompany.enableYear,
         enable_month: newCompany.enableMonth,
       })
+      const authorizationSaved = await persistCompanyAuthorizationMetadata(company.id, newCompany)
       recordWelcomeAudit('保存企业档案', newCompany.name, '中')
-      warningToast('企业档案已保存')
+      warningToast(authorizationSaved ? '企业档案已保存' : '企业档案已保存，授权元数据待后续补充')
       setShowAddModal(false)
       setEditingCompanyId(null)
       setNewCompany(emptyCompanyForm)
@@ -308,11 +360,12 @@ export function Welcome() {
       enable_year: newCompany.enableYear,
       enable_month: newCompany.enableMonth,
     })
+    const authorizationSaved = await persistCompanyAuthorizationMetadata(company.id, newCompany)
     recordWelcomeAudit('新增企业', newCompany.name, '中')
 
     if (shouldContinue) {
       setNewCompany(emptyCompanyForm)
-      warningToast('已保存，继续新增下一户客户')
+      warningToast(authorizationSaved ? '已保存，继续新增下一户客户' : '企业已保存，授权元数据待后续补充')
       return
     }
 
