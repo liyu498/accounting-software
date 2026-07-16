@@ -211,6 +211,10 @@ const requiredWelcomeSnippets = [
   ['company authorization password boundary', "riskMessage: '待完成合法授权验证；不保存密码、不执行真实提交'"],
   ['company industrial authorization metadata', "adapterType: 'industrial_commercial'"],
   ['company industrial contact masking', 'accountMask: maskAuthorizationAccount(company.businessContactPhone)'],
+  ['company authorization metadata parser', 'function parseTaxAuthorizationIdentity(value: string | null)'],
+  ['company edit authorization loading', 'automationApi.getAdapterAuthorizations({ companyId: company.id })'],
+  ['company edit authorization notice', '已载入授权元数据；账号、身份证号、邮箱和密码不会回填'],
+  ['company account update guard', 'if (company.taxLoginAccount.trim())'],
 ]
 
 const requiredCompanyPersistenceSnippets = [

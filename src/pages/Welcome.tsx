@@ -167,7 +167,7 @@ function buildCompanyAuthorizationInputs(companyId: string, company: CompanyForm
   const riskMessage = '待完成合法授权验证；不保存密码、不执行真实提交'
   const inputs: Array<Parameters<typeof automationApi.upsertAdapterAuthorization>[0]> = []
 
-  if ([company.taxLoginPerson, company.taxLoginIdentity, company.taxLoginMethod, company.taxLoginAccount].some(Boolean)) {
+  if (company.taxLoginAccount.trim()) {
     inputs.push({
       companyId,
       adapterType: 'tax',
@@ -217,6 +217,18 @@ async function persistCompanyAuthorizationMetadata(companyId: string, company: C
   if (inputs.length === 0) return true
   const results = await Promise.all(inputs.map((input) => automationApi.upsertAdapterAuthorization(input)))
   return results.every((result) => result.success)
+}
+
+function parseTaxAuthorizationIdentity(value: string | null) {
+  const [person = '', identity = '', method = ''] = value?.split(' / ') ?? []
+  const persons = ['法人', '财务负责人', '办税员']
+  const identities = ['法人', '财务负责人', '办税员', '代理记账人员']
+  const methods = ['电子税务局账号密码', '办税人手机号验证码', '代理记账登录']
+  return {
+    taxLoginPerson: persons.includes(person) ? person : '',
+    taxLoginIdentity: identities.includes(identity) ? identity : '',
+    taxLoginMethod: methods.includes(method) ? method : '',
+  }
 }
 
 export function Welcome() {
@@ -496,7 +508,26 @@ export function Welcome() {
     setOperationNotice(`${fileName} 已生成并写入下载中心；导出范围为当前账套管理筛选结果。`)
   }
 
-  const handleEditCompany = (company: AccountRow) => {
+  const handleEditCompany = async (company: AccountRow) => {
+    const persistedCompany = company.real ? companies.find((item) => item.id === company.id) : undefined
+    let taxAuthorization = { taxLoginPerson: '', taxLoginIdentity: '', taxLoginMethod: '' }
+    let individualVerifyMethod = emptyCompanyForm.individualVerifyMethod
+    let hasAuthorizationMetadata = false
+
+    if (company.real) {
+      try {
+        const response = await automationApi.getAdapterAuthorizations({ companyId: company.id })
+        const authorizations = response.success ? response.data || [] : []
+        const taxAuthorizationRow = authorizations.find((item) => item.adapterType === 'tax' && item.adapterCode === 'agency-account-set')
+        const individualAuthorizationRow = authorizations.find((item) => item.adapterType === 'individual_tax' && item.adapterCode === 'agency-account-set')
+        if (taxAuthorizationRow) taxAuthorization = parseTaxAuthorizationIdentity(taxAuthorizationRow.loginIdentity)
+        if (individualAuthorizationRow?.loginIdentity) individualVerifyMethod = individualAuthorizationRow.loginIdentity
+        hasAuthorizationMetadata = authorizations.length > 0
+      } catch {
+        hasAuthorizationMetadata = false
+      }
+    }
+
     setEditingCompanyId(company.real ? company.id : `demo:${company.id}`)
     setNewCompany({
       ...emptyCompanyForm,
@@ -505,13 +536,20 @@ export function Welcome() {
       taxId: company.taxId,
       taxpayerType: company.taxType.includes('小规模') ? 'small' : 'general',
       enterpriseType: company.enterpriseType,
-      district: company.real ? companies.find((item) => item.id === company.id)?.district || '市辖区' : '市辖区',
+      district: persistedCompany?.district || '市辖区',
       enableYear: Number(company.period.slice(0, 4)) || currentYear,
       enableMonth: Number(company.period.slice(5, 7)) || 1,
-      serviceStart: company.real ? companies.find((item) => item.id === company.id)?.service_start || '' : '',
-      serviceEnd: company.real ? companies.find((item) => item.id === company.id)?.service_end || '' : '',
+      serviceStart: persistedCompany?.service_start || '',
+      serviceEnd: persistedCompany?.service_end || '',
+      taxLoginPerson: taxAuthorization.taxLoginPerson,
+      taxLoginIdentity: taxAuthorization.taxLoginIdentity,
+      taxLoginMethod: taxAuthorization.taxLoginMethod,
+      individualVerifyMethod,
     })
     setShowAddModal(true)
+    if (hasAuthorizationMetadata) {
+      setOperationNotice('已载入授权元数据；账号、身份证号、邮箱和密码不会回填。若需更新授权账号，请重新输入并经合法 adapter 完成验证。')
+    }
     recordWelcomeAudit('编辑企业', `${company.code}-${company.name}`, '中')
   }
 
