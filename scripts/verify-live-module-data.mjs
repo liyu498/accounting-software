@@ -230,6 +230,9 @@ const requiredAgencyModuleSnippets = [
   ['agency automation live scope', "kind === 'automation'"],
   ['agency invoice management row mapper', 'function mapAgencyInvoiceManagementRow(item: AgencyFeeCollection)'],
   ['agency invoice management live scope', "kind === 'invoiceManagement'"],
+  ['agency download job source', 'const exportJobs = useExportJobs()'],
+  ['agency download live rows', "kind === 'downloadCenter' ? pageConfig.rows"],
+  ['agency download summary mapper', 'function summarizeAgencyDownloadJobs(rows: AgencyRow[])'],
   ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
 ]
 

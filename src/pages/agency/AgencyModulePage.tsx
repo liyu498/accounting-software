@@ -209,15 +209,15 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   },
   downloadCenter: {
     title: '下载中心',
-    description: '统一管理跨客户导出文件、账簿报表、申报包、回执缴款书、附件压缩包和归档下载。',
-    tabs: ['最近7天', 'Excel', 'PDF', 'ZIP归档包', '申报包', '回执缴款书', '失败任务'],
-    primaryAction: '批量下载',
+    description: '统一查看本机已生成的跨客户导出文件、账簿报表、申报包和归档文件记录。',
+    tabs: ['最近记录', 'Excel', 'PDF', 'ZIP归档包', '申报包', '异常任务'],
+    primaryAction: '刷新文件清单',
     keywordPlaceholder: '搜索文件名、客户、生成状态、发起人',
     summary: [
-      { label: '可下载文件', value: '64 个', tone: 'blue' },
-      { label: '今日生成', value: '18 个', tone: 'green' },
-      { label: '生成中', value: '5 个', tone: 'amber' },
-      { label: '失败', value: '2 个', tone: 'red' },
+      { label: '文件记录', value: '0 个', tone: 'blue' },
+      { label: '已生成', value: '0 个', tone: 'green' },
+      { label: '待确认', value: '0 个', tone: 'amber' },
+      { label: '异常', value: '0 个', tone: 'red' },
     ],
     columns: [
       { key: 'fileName', label: '文件名' },
@@ -230,14 +230,10 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { key: 'expireAt', label: '过期时间' },
       { key: 'hash', label: '文件哈希' },
     ],
-    rows: [
-      { id: 'dl-001', status: '已完成', values: { fileName: '科旋电气-记账凭证-202605.pdf', customer: '科旋电气（上海）有限公司', type: 'PDF', period: '2026-05', statusText: '已生成', createdAt: '06-26 16:59', creator: '张会计', expireAt: '7天后', hash: 'a8f2...19c' } },
-      { id: 'dl-002', status: '进行中', values: { fileName: '全部客户-申报包-202606.zip', customer: '36 户客户', type: 'ZIP', period: '2026-06', statusText: '生成中 68%', createdAt: '06-26 17:20', creator: '主管会计', expireAt: '7天后', hash: '生成中' } },
-      { id: 'dl-003', status: '异常', values: { fileName: '杭州辰光-明细账-202605.xlsx', customer: '杭州辰光贸易有限公司', type: 'Excel', period: '2026-05', statusText: '生成失败', createdAt: '06-26 15:42', creator: '王会计', expireAt: '-', hash: '缺少模板' } },
-    ],
+    rows: [],
     queueTitle: '下载规则',
-    queue: ['默认只展示最近 7 天生成文件，过期后需重新生成', '批量下载保留文件清单、生成状态、发起人和哈希摘要', '申报包和回执下载需受客户范围权限控制'],
-    notes: ['下载中心用于机构层跨客户文件，不替代单账套内当前模块的导出按钮。', '后续导出文件应接入固定 Excel/PDF 模板和归档目录。'],
+    queue: ['只展示本机已生成的导出任务记录；文件过期后需在原模块重新生成', '批量下载保留文件清单、生成状态、发起人和哈希摘要', '申报包和回执下载需受客户范围权限控制'],
+    notes: ['下载中心用于机构层跨客户文件，不替代单账套内当前模块的导出按钮。', '固定 Excel/PDF 模板在生成时写入本地导出记录；下载中心不伪造文件。'],
   },
   dataStats: {
     title: '数据统计',
@@ -386,7 +382,31 @@ function exportJobToAgencyRow(job: ExportJob): AgencyRow {
   }
 }
 
+function summarizeAgencyDownloadJobs(rows: AgencyRow[]) {
+  const completed = rows.filter((row) => row.status === '已完成').length
+  const pending = rows.filter((row) => row.status === '待确认').length
+  const abnormal = rows.filter((row) => row.status === '异常').length
+  return [
+    { label: '文件记录', value: `${rows.length} 个`, tone: 'blue' as const },
+    { label: '已生成', value: `${completed} 个`, tone: 'green' as const },
+    { label: '待确认', value: `${pending} 个`, tone: 'amber' as const },
+    { label: '异常', value: `${abnormal} 个`, tone: 'red' as const },
+  ]
+}
+
 function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLiveDesktopData: boolean): AgencyConfig {
+  if (baseConfig.title === '下载中心') {
+    const rows = baseConfig.rows.filter((row) => {
+      if (activeTab === 'Excel') return row.values.type === 'Excel'
+      if (activeTab === 'PDF') return row.values.type === 'PDF'
+      if (activeTab === 'ZIP归档包') return row.values.type === 'ZIP'
+      if (activeTab === '申报包') return row.values.fileName.includes('申报') || row.values.fileName.includes('回执')
+      if (activeTab === '异常任务') return row.status === '异常'
+      return true
+    })
+    return { ...baseConfig, rows }
+  }
+
   if (useLiveDesktopData && baseConfig.title === '授权中心') {
     return {
       ...baseConfig,
@@ -701,12 +721,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     const dynamicRows = exportJobs.map(exportJobToAgencyRow)
     return {
       ...baseConfig,
-      rows: [...dynamicRows, ...baseConfig.rows],
-      summary: baseConfig.summary.map((item) => {
-        if (item.label === '可下载文件') return { ...item, value: `${dynamicRows.length + baseConfig.rows.length} 个` }
-        if (item.label === '今日生成') return { ...item, value: `${dynamicRows.length + 18} 个` }
-        return item
-      }),
+      rows: dynamicRows,
+      summary: summarizeAgencyDownloadJobs(dynamicRows),
     }
   }, [baseConfig, exportJobs, kind])
   const [remoteRows, setRemoteRows] = useState<AgencyRow[] | null>(null)
@@ -725,7 +741,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   )
   const rows = [
     ...localRows,
-    ...(isTauri && kind === 'dataStats'
+    ...(kind === 'downloadCenter' ? pageConfig.rows : isTauri && kind === 'dataStats'
       ? overviewRows
       : isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows),
   ]
@@ -782,6 +798,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         if (!response.success) throw new Error(response.error || '机构统计读取失败')
         setAgencyOverview(response.data ?? null)
         setRemoteRows([])
+        return
+      }
+
+      if (kind === 'downloadCenter') {
+        setRemoteRows(null)
         return
       }
 
@@ -884,6 +905,12 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       writeAgencyAudit('刷新开票队列', `${pageConfig.title}-${activeTab}`)
       void loadRemoteRows()
       setOperationNotice('正在读取本地服务费收费记录对应的开票状态。')
+      return
+    }
+
+    if (kind === 'downloadCenter') {
+      writeAgencyAudit('刷新文件清单', `${pageConfig.title}-${activeTab}`)
+      setOperationNotice('已刷新本机导出文件记录；过期文件需回到原模块重新生成。')
       return
     }
 
