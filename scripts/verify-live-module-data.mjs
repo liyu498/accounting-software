@@ -5,6 +5,9 @@ const pageSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', '
 const taxWorkspaceSource = readFileSync('src/pages/tax/TaxWorkspace.tsx', 'utf8')
 const agencyModuleSource = readFileSync('src/pages/agency/AgencyModulePage.tsx', 'utf8')
 const welcomeSource = readFileSync('src/pages/Welcome.tsx', 'utf8')
+const companyStoreSource = readFileSync('src/stores/companyStore.ts', 'utf8')
+const companyCommandSource = readFileSync('src-tauri/src/commands/companies.rs', 'utf8')
+const databaseSource = readFileSync('src-tauri/src/db.rs', 'utf8')
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -200,12 +203,24 @@ const requiredTaxWorkspaceSnippets = [
 
 const requiredWelcomeSnippets = [
   ['company creation deep link', "new URLSearchParams(location.search).get('createCompany') === '1'"],
+  ['company form metadata persistence', 'enterprise_type: newCompany.enterpriseType'],
+  ['company service period persistence', 'service_start: newCompany.serviceStart'],
+]
+
+const requiredCompanyPersistenceSnippets = [
+  ['company store extended archive fields', 'enterprise_type?: string'],
+  ['company store service period fields', 'service_start?: string'],
+  ['company command persists extended archive fields', 'enterprise_type, service_start, service_end'],
+  ['company database enterprise type migration', 'ALTER TABLE companies ADD COLUMN enterprise_type TEXT'],
+  ['company database service period migration', 'ALTER TABLE companies ADD COLUMN service_start TEXT'],
 ]
 
 const requiredAgencyModuleSnippets = [
   ['agency company data source', 'useCompanyStore()'],
   ['agency company refresh', 'await fetchCompanies()'],
   ['agency company row mapper', 'function mapAgencyCompanyRow(item: Company, kind: AgencyModuleKind)'],
+  ['agency account enterprise type mapping', 'type: item.enterprise_type ||'],
+  ['agency account service period mapping', 'serviceEnd: item.service_start || item.service_end'],
   ['agency company tab filter', 'function filterAgencyCompanyRows(rows: AgencyRow[], activeTab: string)'],
   ['agency company creation deep link', "navigate('/?createCompany=1')"],
   ['agency client tab consolidation', "tabs: ['全部客户', '启用账套', '停用账套', '一般纳税人', '小规模纳税人']"],
@@ -266,6 +281,9 @@ const errors = [
   ...verify(pageSource, requiredPageSnippets, 'business module page'),
   ...verify(taxWorkspaceSource, requiredTaxWorkspaceSnippets, 'tax workspace'),
   ...verify(welcomeSource, requiredWelcomeSnippets, 'welcome page'),
+  ...verify(companyStoreSource, requiredCompanyPersistenceSnippets.slice(0, 2), 'company store'),
+  ...verify(companyCommandSource, requiredCompanyPersistenceSnippets.slice(2, 3), 'company commands'),
+  ...verify(databaseSource, requiredCompanyPersistenceSnippets.slice(3), 'database schema'),
   ...verify(agencyModuleSource, requiredAgencyModuleSnippets, 'agency module page'),
 ]
 

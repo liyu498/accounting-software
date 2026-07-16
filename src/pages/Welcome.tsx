@@ -187,13 +187,15 @@ export function Welcome() {
         code: company.code,
         name: company.name,
         taxId: company.tax_id || '',
-        enterpriseType: '私营有限责任公司',
+        enterpriseType: company.enterprise_type || '未设置',
         taxType: company.tax_type === 'general' ? '一般纳税人' : '小规模纳税人',
         collectStatus: '待采集',
         credit: 'M',
         importedAt: company.created_at?.slice(0, 16).replace('T', ' ') || '-',
         accountant: '未分配',
-        servicePeriod: '-',
+        servicePeriod: company.service_start || company.service_end
+          ? `${company.service_start || '-'} 至 ${company.service_end || '-'}`
+          : '-',
         supervisor: '未分配',
         period: `${company.enable_year || currentYear}-${String(company.enable_month || 1).padStart(2, '0')}`,
         taxOffice: company.city ? `${company.city}主管税务机关` : '-',
@@ -275,6 +277,10 @@ export function Welcome() {
         accounting_system: newCompany.accountingSystem,
         province: newCompany.province,
         city: newCompany.city,
+        district: newCompany.district,
+        enterprise_type: newCompany.enterpriseType,
+        service_start: newCompany.serviceStart,
+        service_end: newCompany.serviceEnd,
         enable_year: newCompany.enableYear,
         enable_month: newCompany.enableMonth,
       })
@@ -295,6 +301,10 @@ export function Welcome() {
       accounting_system: newCompany.accountingSystem,
       province: newCompany.province,
       city: newCompany.city,
+      district: newCompany.district,
+      enterprise_type: newCompany.enterpriseType,
+      service_start: newCompany.serviceStart,
+      service_end: newCompany.serviceEnd,
       enable_year: newCompany.enableYear,
       enable_month: newCompany.enableMonth,
     })
@@ -428,10 +438,11 @@ export function Welcome() {
       taxId: company.taxId,
       taxpayerType: company.taxType.includes('小规模') ? 'small' : 'general',
       enterpriseType: company.enterpriseType,
+      district: company.real ? companies.find((item) => item.id === company.id)?.district || '市辖区' : '市辖区',
       enableYear: Number(company.period.slice(0, 4)) || currentYear,
       enableMonth: Number(company.period.slice(5, 7)) || 1,
-      serviceStart: '',
-      serviceEnd: '',
+      serviceStart: company.real ? companies.find((item) => item.id === company.id)?.service_start || '' : '',
+      serviceEnd: company.real ? companies.find((item) => item.id === company.id)?.service_end || '' : '',
     })
     setShowAddModal(true)
     recordWelcomeAudit('编辑企业', `${company.code}-${company.name}`, '中')

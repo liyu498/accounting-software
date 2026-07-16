@@ -89,6 +89,10 @@ impl Database {
                 accounting_system TEXT DEFAULT 'small_enterprise',
                 province TEXT,
                 city TEXT,
+                district TEXT,
+                enterprise_type TEXT,
+                service_start TEXT,
+                service_end TEXT,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
@@ -510,6 +514,25 @@ impl Database {
             .await
             .ok();
         sqlx::query("ALTER TABLE companies ADD COLUMN deleted_at TEXT")
+            .execute(pool)
+            .await
+            .ok();
+
+        // Company archive fields collected from the agency account-set form.
+        // Credentials remain outside this table and are handled by adapter authorization metadata.
+        sqlx::query("ALTER TABLE companies ADD COLUMN district TEXT")
+            .execute(pool)
+            .await
+            .ok();
+        sqlx::query("ALTER TABLE companies ADD COLUMN enterprise_type TEXT")
+            .execute(pool)
+            .await
+            .ok();
+        sqlx::query("ALTER TABLE companies ADD COLUMN service_start TEXT")
+            .execute(pool)
+            .await
+            .ok();
+        sqlx::query("ALTER TABLE companies ADD COLUMN service_end TEXT")
             .execute(pool)
             .await
             .ok();
@@ -2242,6 +2265,10 @@ pub struct Company {
     pub accounting_system: Option<String>,
     pub province: Option<String>,
     pub city: Option<String>,
+    pub district: Option<String>,
+    pub enterprise_type: Option<String>,
+    pub service_start: Option<String>,
+    pub service_end: Option<String>,
     pub enable_year: Option<i32>,
     pub enable_month: Option<i32>,
     pub is_active: i32,
@@ -2466,6 +2493,10 @@ pub struct CreateCompanyInput {
     pub accounting_system: Option<String>,
     pub province: Option<String>,
     pub city: Option<String>,
+    pub district: Option<String>,
+    pub enterprise_type: Option<String>,
+    pub service_start: Option<String>,
+    pub service_end: Option<String>,
     pub enable_year: Option<i32>,
     pub enable_month: Option<i32>,
 }

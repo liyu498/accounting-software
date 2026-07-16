@@ -1471,17 +1471,30 @@ function mapAgencyCompanyRow(item: Company, kind: AgencyModuleKind): AgencyRow {
   const enablePeriod = item.enable_year && item.enable_month
     ? `${item.enable_year}-${String(item.enable_month).padStart(2, '0')}`
     : '未设置'
+  const servicePeriod = item.service_start || item.service_end
+    ? `${item.service_start || '-'} 至 ${item.service_end || '-'}`
+    : '-'
   const accountStatus = item.is_active ? '启用' : '停用'
   const values = {
+    tag: '-',
     code: item.code || '-',
     name: item.name,
     taxId: item.tax_id || '-',
-    region: [item.province, item.city].filter(Boolean).join(' ') || '-',
+    type: item.enterprise_type || '-',
+    region: [item.province, item.city, item.district].filter(Boolean).join(' ') || '-',
     taxType,
+    collect: '未采集',
+    credit: '-',
     accountingSystem,
     enablePeriod,
     industry: item.industry || '-',
     createdAt: item.created_at ? item.created_at.slice(0, 16).replace('T', ' ') : '-',
+    importedAt: item.created_at ? item.created_at.slice(0, 16).replace('T', ' ') : '-',
+    owner: '-',
+    serviceEnd: item.service_start || item.service_end ? servicePeriod : '-',
+    manager: '-',
+    period: enablePeriod,
+    taxOffice: '未采集',
     accountStatus,
   }
 

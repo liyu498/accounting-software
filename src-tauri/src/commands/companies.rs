@@ -45,8 +45,12 @@ pub async fn create_company(
 
     sqlx::query(
         r#"
-        INSERT INTO companies (id, code, name, tax_id, tax_type, industry, accounting_system, province, city, enable_year, enable_month)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO companies (
+            id, code, name, tax_id, tax_type, industry, accounting_system,
+            province, city, district, enterprise_type, service_start, service_end,
+            enable_year, enable_month
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         "#,
     )
     .bind(&id)
@@ -58,6 +62,10 @@ pub async fn create_company(
     .bind(input.accounting_system.as_deref().unwrap_or("small_enterprise"))
     .bind(&input.province)
     .bind(&input.city)
+    .bind(&input.district)
+    .bind(&input.enterprise_type)
+    .bind(&input.service_start)
+    .bind(&input.service_end)
     .bind(input.enable_year)
     .bind(input.enable_month)
     .execute(db.pool())
@@ -162,17 +170,24 @@ pub async fn update_company(
     sqlx::query(
         r#"
         UPDATE companies
-        SET name = ?, tax_id = ?, tax_type = ?, industry = ?, province = ?, city = ?,
+        SET code = ?, name = ?, tax_id = ?, tax_type = ?, industry = ?, accounting_system = ?,
+            province = ?, city = ?, district = ?, enterprise_type = ?, service_start = ?, service_end = ?,
             enable_year = ?, enable_month = ?, updated_at = ?
         WHERE id = ?
         "#,
     )
+    .bind(&input.code)
     .bind(&input.name)
     .bind(&input.tax_id)
     .bind(&input.tax_type)
     .bind(&input.industry)
+    .bind(&input.accounting_system)
     .bind(&input.province)
     .bind(&input.city)
+    .bind(&input.district)
+    .bind(&input.enterprise_type)
+    .bind(&input.service_start)
+    .bind(&input.service_end)
     .bind(input.enable_year)
     .bind(input.enable_month)
     .bind(&now)

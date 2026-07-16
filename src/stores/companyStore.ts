@@ -17,6 +17,10 @@ export interface Company {
   accounting_system: string | null
   province: string | null
   city: string | null
+  district: string | null
+  enterprise_type: string | null
+  service_start: string | null
+  service_end: string | null
   enable_year: number | null
   enable_month: number | null
   is_active: number
@@ -43,6 +47,10 @@ interface CompanyState {
     accounting_system?: string
     province?: string
     city?: string
+    district?: string
+    enterprise_type?: string
+    service_start?: string
+    service_end?: string
     enable_year?: number
     enable_month?: number
   }) => Promise<Company>
@@ -57,6 +65,10 @@ interface CompanyState {
       accounting_system?: string
       province?: string
       city?: string
+      district?: string
+      enterprise_type?: string
+      service_start?: string
+      service_end?: string
       enable_year?: number
       enable_month?: number
     },
