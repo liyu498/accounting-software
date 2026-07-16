@@ -270,6 +270,110 @@ export function summarizeLiveRiskChecks(vouchers: Voucher[], invoices: Invoice[]
   ]
 }
 
+export function mapLiveClosingTaskRows(
+  period: AccountingPeriod | undefined,
+  vouchers: Voucher[],
+  trialBalance: TrialBalanceResult | null,
+  balanceSheet: BalanceSheetResult | null,
+): LiveModuleRow[] {
+  if (!period) return []
+
+  const unbalancedVouchers = vouchers.filter((voucher) => voucher.status === 'error' || voucher.total_debit !== voucher.total_credit)
+  const draftVouchers = vouchers.filter((voucher) => voucher.status === 'draft')
+  const voucherStatus: LiveModuleStatus = unbalancedVouchers.length > 0 ? '异常' : draftVouchers.length > 0 ? '待确认' : '已通过'
+  const trialStatus: LiveModuleStatus = !trialBalance ? '待处理' : trialBalance.is_balanced ? '已通过' : '异常'
+  const balanceStatus: LiveModuleStatus = !balanceSheet ? '待处理' : balanceSheet.is_balanced ? '已通过' : '异常'
+  const hasBlocker = [voucherStatus, trialStatus, balanceStatus].includes('异常')
+  const periodStatus: LiveModuleStatus = period.status === 'closed' ? '已通过' : hasBlocker ? '异常' : '待确认'
+  const periodLabel = `${period.period_year}-${String(period.period_month).padStart(2, '0')}`
+  const updated = period.closed_at || period.updated_at || '未记录'
+
+  return [
+    {
+      id: `closing-voucher-review-${period.id}`,
+      status: voucherStatus,
+      voucher: draftVouchers.length > 0 ? `待审核 ${draftVouchers.length} 张` : `已检查 ${vouchers.length} 张`,
+      attachment: `账期 ${periodLabel}`,
+      values: {
+        order: '1',
+        name: '凭证审核',
+        source: '会计凭证',
+        template: '不生成凭证',
+        amount: '—',
+        condition: '无草稿且借贷平衡',
+        lastRun: updated,
+        blocker: unbalancedVouchers.length > 0 ? `${unbalancedVouchers.length} 张借贷不平` : draftVouchers.length > 0 ? `${draftVouchers.length} 张待审核` : '无',
+      },
+    },
+    {
+      id: `closing-trial-balance-${period.id}`,
+      status: trialStatus,
+      voucher: trialBalance?.is_balanced ? '试算平衡' : '待试算',
+      attachment: `账期 ${periodLabel}`,
+      values: {
+        order: '2',
+        name: '科目余额试算',
+        source: '科目余额表',
+        template: '不生成凭证',
+        amount: trialBalance ? currency(trialBalance.total_period_debit) : '未取数',
+        condition: '本期借贷平衡',
+        lastRun: updated,
+        blocker: !trialBalance ? '尚未取数' : trialBalance.is_balanced ? '无' : '试算不平',
+      },
+    },
+    {
+      id: `closing-balance-sheet-${period.id}`,
+      status: balanceStatus,
+      voucher: balanceSheet?.is_balanced ? '报表平衡' : '待校验',
+      attachment: `账期 ${periodLabel}`,
+      values: {
+        order: '3',
+        name: '资产负债表校验',
+        source: '资产负债表',
+        template: '不生成凭证',
+        amount: balanceSheet ? currency(balanceSheet.total_assets) : '未取数',
+        condition: '资产=负债+权益',
+        lastRun: updated,
+        blocker: !balanceSheet ? '尚未取数' : balanceSheet.is_balanced ? '无' : '资产负债不平',
+      },
+    },
+    {
+      id: `closing-period-lock-${period.id}`,
+      status: periodStatus,
+      voucher: period.status === 'closed' ? '账期已锁定' : '待人工结账',
+      attachment: `账期 ${periodLabel}`,
+      values: {
+        order: '4',
+        name: '账期结账',
+        source: '账期管理',
+        template: '结账锁定',
+        amount: '—',
+        condition: '结账前检查通过',
+        lastRun: updated,
+        blocker: period.status === 'closed' ? '已结账' : hasBlocker ? '存在阻断项' : '需人工确认',
+      },
+    },
+  ]
+}
+
+export function summarizeLiveClosingTasks(
+  period: AccountingPeriod | undefined,
+  vouchers: Voucher[],
+  trialBalance: TrialBalanceResult | null,
+  balanceSheet: BalanceSheetResult | null,
+): LiveSummaryItem[] {
+  const rows = mapLiveClosingTaskRows(period, vouchers, trialBalance, balanceSheet)
+  const completed = rows.filter((row) => row.status === '已通过').length
+  const pending = rows.filter((row) => row.status === '待处理' || row.status === '待确认').length
+  const blockers = rows.filter((row) => row.status === '异常').length
+  return [
+    { label: '结转任务', value: `${rows.length} 项`, tone: rows.length > 0 ? 'blue' : 'gray' },
+    { label: '已完成', value: `${completed} 项`, tone: completed > 0 ? 'green' : 'gray' },
+    { label: '待确认', value: `${pending} 项`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '阻断', value: `${blockers} 项`, tone: blockers > 0 ? 'red' : 'gray' },
+  ]
+}
+
 export function mapLiveVoucherRecycleRows(vouchers: Voucher[]): LiveModuleRow[] {
   return [...vouchers]
     .sort((left, right) => (right.deleted_at || '').localeCompare(left.deleted_at || ''))

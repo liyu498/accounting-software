@@ -47,6 +47,7 @@ import {
   mapLivePeriodManagementRows,
   mapLiveReportFormulaRows,
   mapLiveRiskCheckRows,
+  mapLiveClosingTaskRows,
   mapLiveSubjectRows,
   mapLiveSubsidiaryLedgerRows,
   mapLiveIncomeStatementRows,
@@ -86,6 +87,7 @@ import {
   summarizeLivePeriodManagement,
   summarizeLiveReportFormulas,
   summarizeLiveRiskChecks,
+  summarizeLiveClosingTasks,
   summarizeLiveSubjects,
   summarizeLiveSubsidiaryLedger,
   summarizeLiveIncomeStatement,
@@ -1378,10 +1380,10 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     keywordPlaceholder: '搜索结转项目、取数来源、凭证模板、阻断原因',
     primaryAction: '执行结转',
     importLabel: '导入规则',
-    statusOptions: ['全部', '待处理', '待确认', '已生成凭证', '异常'],
+    statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
     summary: [
       { label: '结转任务', value: '9 项', tone: 'blue' },
-      { label: '已生成凭证', value: '5 项', tone: 'green' },
+      { label: '已完成', value: '5 项', tone: 'green' },
       { label: '待确认', value: '3 项', tone: 'amber' },
       { label: '阻断', value: '1 项', tone: 'red' },
     ],
@@ -3436,6 +3438,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const selectedCompany = useCompanyStore((state) => state.companies.find((company) => company.id === state.selectedCompanyId))
   const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
   const periods = usePeriodStore((state) => state.periods)
+  const currentPeriod = useMemo(() => periods.find((period) => period.id === currentPeriodId), [currentPeriodId, periods])
   const fetchPeriods = usePeriodStore((state) => state.fetchPeriods)
   const fetchTrialBalance = usePeriodStore((state) => state.fetchTrialBalance)
   const getGeneralLedger = usePeriodStore((state) => state.getGeneralLedger)
@@ -3490,6 +3493,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveTaxReportData = Boolean(isTauri && selectedCompanyId && kind === 'taxReport')
   const usesLiveFinanceTaxReportData = Boolean(isTauri && selectedCompanyId && kind === 'financeTaxReport')
   const usesLiveFinancialOverviewData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'financialReport')
+  const usesLiveClosingTaskData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'closingTasks')
   const usesLiveAutomationJobData = Boolean(isTauri && selectedCompanyId && ['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions'].includes(kind))
   const usesLiveHistoryReportData = Boolean(
     isTauri &&
@@ -3669,6 +3673,24 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       active = false
     }
   }, [currentPeriodId, getBalanceSheet, getCashFlowStatement, getIncomeStatement, usesLiveFinancialOverviewData])
+
+  useEffect(() => {
+    if (!usesLiveClosingTaskData || !selectedCompanyId || !currentPeriodId) return
+    let active = true
+    void fetchPeriods(selectedCompanyId)
+    setLiveReports((reports) => ({ ...reports, trialBalance: null, balanceSheet: null }))
+    void Promise.all([
+      queryVouchers({ company_id: selectedCompanyId, period_id: currentPeriodId, page: 1, page_size: 100 }),
+      fetchTrialBalance(currentPeriodId),
+      getBalanceSheet(currentPeriodId),
+    ]).then(([, trialBalance, balanceSheet]) => {
+      if (active) setLiveReports((reports) => ({ ...reports, trialBalance, balanceSheet }))
+    }).catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [currentPeriodId, fetchPeriods, fetchTrialBalance, getBalanceSheet, queryVouchers, selectedCompanyId, usesLiveClosingTaskData])
 
   useEffect(() => {
     if (!usesLiveArchiveData || !selectedCompanyId) return
@@ -3944,6 +3966,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveRiskCheckRows(vouchers, invoices),
         summary: summarizeLiveRiskChecks(vouchers, invoices),
+      }
+    }
+
+    if (kind === 'closingTasks' && usesLiveClosingTaskData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveClosingTaskRows(currentPeriod, vouchers, liveReports.trialBalance, liveReports.balanceSheet),
+        summary: summarizeLiveClosingTasks(currentPeriod, vouchers, liveReports.trialBalance, liveReports.balanceSheet),
       }
     }
 
@@ -4291,7 +4321,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
