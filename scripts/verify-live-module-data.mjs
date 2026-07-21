@@ -199,8 +199,12 @@ const requiredTaxWorkspaceSnippets = [
   ['tax workspace task mapping', 'mapTaxDeclarationTaskToRow'],
   ['tax workspace visible rows', 'visibleDeclarationRows'],
   ['tax workspace live list refresh', 'getTaxDeclarationTasks({ companyId, period: currentPeriod })'],
+  ['tax workspace selected period store', 'const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)'],
+  ['tax workspace selected period label', 'const currentPeriodLabel = currentPeriodRecord'],
+  ['tax workspace live period scope', 'Boolean(isTauri && selectedCompanyId && currentPeriodId)'],
+  ['tax workspace dynamic export file', '税务申报包-${currentPeriod}.pdf'],
   ['tax workspace table binding', 'visibleDeclarationRows.map((row) =>'],
-  ['tax workspace export binding', 'buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows)'],
+  ['tax workspace export binding', 'buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata)'],
 ]
 
 const requiredWelcomeSnippets = [

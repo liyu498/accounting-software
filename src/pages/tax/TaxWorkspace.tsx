@@ -12,13 +12,14 @@ import {
   ShieldAlert,
   Upload,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { cn } from '../../lib/utils'
 import { isTauri } from '../../lib/tauri'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { recordAuditLog, recordExportJob } from '../../lib/exportJobs'
 import { automationApi, type TaxDeclarationTask } from '../../lib/api'
 import { useCompanyStore } from '../../stores/companyStore'
+import { usePeriodStore } from '../../stores/periodStore'
 
 const declarationRows = [
   {
@@ -176,7 +177,11 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#039;')
 }
 
-function buildTaxDeclarationPackageHtml(exportedAt: string, rows: DeclarationRow[]) {
+function buildTaxDeclarationPackageHtml(
+  exportedAt: string,
+  rows: DeclarationRow[],
+  metadata: { companyName: string; taxId: string; period: string },
+) {
   const declarationBody = rows.map((row) => `
     <tr>
       <td>${escapeHtml(row.category)}</td>
@@ -200,7 +205,7 @@ function buildTaxDeclarationPackageHtml(exportedAt: string, rows: DeclarationRow
     <tr><td>${escapeHtml(time)}</td><td>${escapeHtml(action)}</td><td>${escapeHtml(detail)}</td></tr>
   `).join('')
 
-  return `<!doctype html><html><head><meta charset="utf-8"><title>税务申报包-2026-05</title><style>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>税务申报包-${escapeHtml(metadata.period)}</title><style>
     body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:22px;color:#111827}
     h1{text-align:center;font-size:20px;margin:0 0 8px} h2{font-size:15px;margin:18px 0 8px}
     .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 16px;margin:10px 0 14px;font-size:12px;color:#334155}
@@ -212,7 +217,7 @@ function buildTaxDeclarationPackageHtml(exportedAt: string, rows: DeclarationRow
   </style></head><body>
     <h1>税务申报包</h1>
     <div class="meta">
-      <span>纳税人: 科旋电气（上海）有限公司</span><span>纳税人识别号: 91310115MA1K3****X</span><span>所属期: 2026-05</span>
+      <span>纳税人: ${escapeHtml(metadata.companyName)}</span><span>纳税人识别号: ${escapeHtml(metadata.taxId)}</span><span>所属期: ${escapeHtml(metadata.period)}</span>
       <span>申报状态: 待人工确认</span><span>生成时间: ${escapeHtml(exportedAt)}</span><span>生成来源: 税务申报工作台</span>
     </div>
     <h2>一、申报清单</h2>
@@ -251,9 +256,22 @@ function riskBadge(value: string) {
 
 export function TaxWorkspace() {
   const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
+  const companies = useCompanyStore((state) => state.companies)
   const companyId = selectedCompanyId ?? 'mock-1'
-  const currentPeriod = '2026-05'
-  const usesLiveTaxDeclarationData = Boolean(isTauri && selectedCompanyId)
+  const periods = usePeriodStore((state) => state.periods)
+  const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
+  const currentPeriodRecord = useMemo(() => periods.find((period) => period.id === currentPeriodId), [currentPeriodId, periods])
+  const currentPeriodLabel = currentPeriodRecord
+    ? `${currentPeriodRecord.period_year}-${String(currentPeriodRecord.period_month).padStart(2, '0')}`
+    : '2026-05'
+  const currentPeriod = currentPeriodLabel
+  const selectedCompany = useMemo(() => companies.find((company) => company.id === selectedCompanyId), [companies, selectedCompanyId])
+  const taxPackageMetadata = useMemo(() => ({
+    companyName: selectedCompany?.name || '当前账套',
+    taxId: selectedCompany?.tax_id || '未维护',
+    period: currentPeriod,
+  }), [currentPeriod, selectedCompany])
+  const usesLiveTaxDeclarationData = Boolean(isTauri && selectedCompanyId && currentPeriodId)
   const [showRulesLog, setShowRulesLog] = useState(false)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
@@ -286,7 +304,7 @@ export function TaxWorkspace() {
     return () => {
       cancelled = true
     }
-  }, [companyId])
+  }, [companyId, currentPeriod])
 
   const visibleDeclarationRows = usesLiveTaxDeclarationData
     ? taxDeclarationTasks.map(mapTaxDeclarationTaskToRow)
@@ -336,7 +354,7 @@ export function TaxWorkspace() {
   const writeTaxAudit = (input: Omit<Parameters<typeof recordAuditLog>[0], 'module' | 'voucher'>) => {
     recordAuditLog({
       module: '税务申报工作台',
-      voucher: '2026-05/全部税种',
+      voucher: `${currentPeriod}/全部税种`,
       ...input,
     })
     void automationApi.writeOperationAuditLog({
@@ -373,7 +391,7 @@ export function TaxWorkspace() {
     })
     writeTaxAudit({
       action: '重新取数',
-      object: '2026-05申报取数快照',
+      object: `${currentPeriod}申报取数快照`,
       level: '普通',
       result: '成功',
       status: '已通过',
@@ -409,7 +427,7 @@ export function TaxWorkspace() {
       if (blockers.length > 0) {
         writeTaxAudit({
           action: '确认申报',
-          object: `税务申报包-2026-05 阻断${blockers.length}项`,
+          object: `税务申报包-${currentPeriod} 阻断${blockers.length}项`,
           level: '高',
           result: '待审批',
           status: '待确认',
@@ -425,7 +443,7 @@ export function TaxWorkspace() {
         .map((task) => automationApi.confirmTaxDeclarationTask({ id: task!.id, companyId, confirmedBy: 'admin' })))
       writeTaxAudit({
         action: '确认申报',
-        object: '税务申报包-2026-05 本地确认',
+        object: `税务申报包-${currentPeriod} 本地确认`,
         level: '高',
         result: '待审批',
         status: '待确认',
@@ -470,10 +488,10 @@ export function TaxWorkspace() {
       attachment: '模板版本',
     })
     recordExportJob({
-      fileName: '税务申报初始化模板-2026-05.xlsx',
+      fileName: `税务申报初始化模板-${currentPeriod}.xlsx`,
       moduleName: '税务申报工作台',
       format: 'Excel模板',
-      scope: '2026-05/初始化',
+      scope: `${currentPeriod}/初始化`,
       templateKind: 'tax',
       rowCount: 0,
     })
@@ -536,8 +554,8 @@ export function TaxWorkspace() {
 
   const exportTaxPackage = () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const fileName = '税务申报包-2026-05.html'
-    const html = buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows)
+    const fileName = `税务申报包-${currentPeriod}.html`
+    const html = buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata)
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
@@ -551,7 +569,7 @@ export function TaxWorkspace() {
       fileName,
       moduleName: '税务申报工作台',
       format: '申报包HTML',
-      scope: '2026-05/全部税种',
+      scope: `${currentPeriod}/全部税种`,
       templateKind: 'tax',
       rowCount: visibleDeclarationRows.length,
     })
@@ -559,10 +577,10 @@ export function TaxWorkspace() {
 
   const printTaxPackage = () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const fileName = '税务申报包-2026-05-print'
+    const fileName = `税务申报包-${currentPeriod}-print`
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
-    printWindow.document.write(buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows))
+    printWindow.document.write(buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata))
     printWindow.document.close()
     printWindow.focus()
     printWindow.print()
@@ -570,7 +588,7 @@ export function TaxWorkspace() {
       fileName,
       moduleName: '税务申报工作台',
       format: '打印预览',
-      scope: '2026-05/全部税种',
+      scope: `${currentPeriod}/全部税种`,
       templateKind: 'tax',
       rowCount: visibleDeclarationRows.length,
     })
@@ -578,17 +596,17 @@ export function TaxWorkspace() {
 
   const exportTaxPackagePdf = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const fileName = '税务申报包-2026-05.pdf'
+    const fileName = `税务申报包-${currentPeriod}.pdf`
     await exportHtmlToPdf({
-      html: buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows),
+      html: buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata),
       fileName,
-      pageTitle: '税务申报包 2026-05',
+      pageTitle: `税务申报包 ${currentPeriod}`,
     })
     recordExportJob({
       fileName,
       moduleName: '税务申报工作台',
       format: 'PDF',
-      scope: '2026-05/全部税种',
+      scope: `${currentPeriod}/全部税种`,
       templateKind: 'tax',
       rowCount: visibleDeclarationRows.length,
     })
