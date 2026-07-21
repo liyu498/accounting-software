@@ -463,6 +463,12 @@ const requiredWithholdingPageSnippets = [
   ['withholding summary mapper', 'summarizeLiveWithholdingTax(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords)'],
 ]
 
+const requiredSocialSecurityTaxPageSnippets = [
+  ['social security tax local data boundary', "const usesLiveSocialSecurityTaxData = Boolean(isTauri && selectedCompanyId && kind === 'socialSecurityTaxReport')"],
+  ['social security tax row mapper', 'mapLiveSocialSecurityTaxRows(socialSecurityRecords)'],
+  ['social security tax summary mapper', 'summarizeLiveSocialSecurityTax(socialSecurityRecords)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -496,6 +502,7 @@ const errors = [
   ...verify(specialDeductionCommandSource, requiredSpecialDeductionCommandSnippets.slice(1), 'special deduction commands'),
   ...verify(pageSource, requiredSpecialDeductionPageSnippets, 'special deduction module page'),
   ...verify(pageSource, requiredWithholdingPageSnippets, 'withholding tax module page'),
+  ...verify(pageSource, requiredSocialSecurityTaxPageSnippets, 'social security tax module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
