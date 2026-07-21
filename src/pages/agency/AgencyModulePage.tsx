@@ -339,7 +339,7 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
   automation: {
     title: '财税自动化',
     description: '集中查看各客户账套已保存的 OCR、识别和凭证建议任务；不在机构页直接执行外部动作。',
-    tabs: ['任务看板', '识别任务', '凭证建议'],
+    tabs: ['任务看板', '采集预检', '识别任务', '凭证建议'],
     primaryAction: '刷新任务',
     keywordPlaceholder: '搜索任务、客户、来源模块、执行结果',
     summary: [
@@ -1294,6 +1294,7 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
     const response = await agencyApi.getAutomationJobs()
     if (!response.success) throw new Error(response.error || '自动化任务读取失败')
     const rows = (response.data ?? []).map(mapAgencyAutomationJobRow)
+    if (activeTab === '采集预检') return rows.filter((row) => row.values.name.includes('采集预检'))
     if (activeTab === '识别任务') return rows.filter((row) => row.values.name.includes('识别'))
     if (activeTab === '凭证建议') return rows.filter((row) => row.values.name.includes('凭证'))
     return rows
