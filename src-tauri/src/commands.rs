@@ -12,4 +12,5 @@ pub mod vouchers;
 pub mod invoices;
 pub mod settlement;
 pub mod currencies;
+pub mod employees;
 pub mod roles;

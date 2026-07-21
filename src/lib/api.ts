@@ -30,6 +30,21 @@ export interface LocalBackupVerification {
   message: string
 }
 
+export interface Employee {
+  id: string
+  companyId: string
+  employeeCode: string
+  name: string
+  idNo: string | null
+  department: string | null
+  position: string | null
+  mobile: string | null
+  entryDate: string | null
+  employmentStatus: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface PaginatedResponse<T> extends ApiResponse<T> {
   meta?: ApiMeta
 }
@@ -951,6 +966,21 @@ type RawOperationAuditLog = {
   created_at: string
 }
 
+type RawEmployee = {
+  id: string
+  company_id: string
+  employee_code: string
+  name: string
+  id_no: string | null
+  department: string | null
+  position: string | null
+  mobile: string | null
+  entry_date: string | null
+  employment_status: string
+  created_at: string
+  updated_at: string
+}
+
 const mapAgencyServiceContract = (item: RawAgencyServiceContract): AgencyServiceContract => ({
   id: item.id,
   companyId: item.company_id,
@@ -1128,6 +1158,21 @@ const mapOperationAuditLog = (item: RawOperationAuditLog): OperationAuditLog => 
   detail: item.detail,
   operator: item.operator,
   createdAt: item.created_at,
+})
+
+const mapEmployee = (item: RawEmployee): Employee => ({
+  id: item.id,
+  companyId: item.company_id,
+  employeeCode: item.employee_code,
+  name: item.name,
+  idNo: item.id_no,
+  department: item.department,
+  position: item.position,
+  mobile: item.mobile,
+  entryDate: item.entry_date,
+  employmentStatus: item.employment_status,
+  createdAt: item.created_at,
+  updatedAt: item.updated_at,
 })
 
 // ============================================
@@ -1494,6 +1539,48 @@ export const backupApi = {
     try {
       const result = await invoke('verify_local_backup', { backupId }) as LocalBackupVerification
       return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
+
+export const employeeApi = {
+  getEmployees: async (companyId: string): Promise<ApiResponse<Employee[]>> => {
+    try {
+      const result = await invoke('get_employees', { companyId }) as RawEmployee[]
+      return { success: true, data: result.map(mapEmployee) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  createEmployee: async (input: {
+    companyId: string
+    employeeCode: string
+    name: string
+    idNo?: string
+    department?: string
+    position?: string
+    mobile?: string
+    entryDate?: string
+    employmentStatus?: string
+  }): Promise<ApiResponse<Employee>> => {
+    try {
+      const result = await invoke('create_employee', {
+        input: {
+          company_id: input.companyId,
+          employee_code: input.employeeCode,
+          name: input.name,
+          id_no: input.idNo || undefined,
+          department: input.department || undefined,
+          position: input.position || undefined,
+          mobile: input.mobile || undefined,
+          entry_date: input.entryDate || undefined,
+          employment_status: input.employmentStatus || undefined,
+        },
+      }) as RawEmployee
+      return { success: true, data: mapEmployee(result) }
     } catch (error) {
       return { success: false, error: String(error) }
     }

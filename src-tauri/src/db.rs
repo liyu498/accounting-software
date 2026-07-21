@@ -76,6 +76,30 @@ impl Database {
         .execute(pool)
         .await?;
 
+        // Employee archives are the shared source for payroll, social security, and withholding tax.
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS employees (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                employee_code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                id_no TEXT,
+                department TEXT,
+                position TEXT,
+                mobile TEXT,
+                entry_date TEXT,
+                employment_status TEXT NOT NULL DEFAULT '在职',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, employee_code)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
         // Companies (business entities / tenants)
         sqlx::query(
             r#"
@@ -1045,6 +1069,10 @@ impl Database {
 
         // Auxiliary: category lookups
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_aux_items_category ON auxiliary_items(category_id)")
+            .execute(pool)
+            .await?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_employees_company_status ON employees(company_id, employment_status)")
             .execute(pool)
             .await?;
 
@@ -2656,6 +2684,37 @@ pub struct LinkAccountAuxiliaryInput {
     pub company_id: String,
     pub auxiliary_category_id: String,
     pub is_required: Option<i32>,
+}
+
+// ==================== Employee Structs ====================
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct Employee {
+    pub id: String,
+    pub company_id: String,
+    pub employee_code: String,
+    pub name: String,
+    pub id_no: Option<String>,
+    pub department: Option<String>,
+    pub position: Option<String>,
+    pub mobile: Option<String>,
+    pub entry_date: Option<String>,
+    pub employment_status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateEmployeeInput {
+    pub company_id: String,
+    pub employee_code: String,
+    pub name: String,
+    pub id_no: Option<String>,
+    pub department: Option<String>,
+    pub position: Option<String>,
+    pub mobile: Option<String>,
+    pub entry_date: Option<String>,
+    pub employment_status: Option<String>,
 }
 
 // ==================== Currency Structs ====================

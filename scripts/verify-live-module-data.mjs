@@ -14,6 +14,9 @@ const databaseSource = readFileSync('src-tauri/src/db.rs', 'utf8')
 const backupCommandSource = existsSync('src-tauri/src/commands/backups.rs')
   ? readFileSync('src-tauri/src/commands/backups.rs', 'utf8')
   : ''
+const employeeCommandSource = existsSync('src-tauri/src/commands/employees.rs')
+  ? readFileSync('src-tauri/src/commands/employees.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -391,6 +394,20 @@ const requiredBackupPageSnippets = [
   ['backup verification audit', "writeModuleAudit('核验备份'"],
 ]
 
+const requiredEmployeeCommandSnippets = [
+  ['employee table schema', 'CREATE TABLE IF NOT EXISTS employees'],
+  ['employee list command', 'pub async fn get_employees'],
+  ['employee create command', 'pub async fn create_employee'],
+  ['employee company scope', 'WHERE company_id = ?'],
+]
+
+const requiredEmployeePageSnippets = [
+  ['employee api list binding', 'employeeApi.getEmployees(selectedCompanyId)'],
+  ['employee api create binding', 'employeeApi.createEmployee({'],
+  ['employee row mapper', 'mapLiveEmployeeRows(employees)'],
+  ['employee summary mapper', 'summarizeLiveEmployees(employees)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -411,6 +428,9 @@ const errors = [
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),
   ...verify(backupCommandSource, requiredBackupCommandSnippets, 'backup commands'),
   ...verify(pageSource, requiredBackupPageSnippets, 'backup module page'),
+  ...verify(databaseSource, requiredEmployeeCommandSnippets.slice(0, 1), 'database schema'),
+  ...verify(employeeCommandSource, requiredEmployeeCommandSnippets.slice(1), 'employee commands'),
+  ...verify(pageSource, requiredEmployeePageSnippets, 'employee module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

@@ -20,7 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { automationApi, backupApi, type AdapterAuthorization, type AutomationJob, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type TaxDeclarationTask } from '../../lib/api'
+import { automationApi, backupApi, employeeApi, type AdapterAuthorization, type AutomationJob, type Employee, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type TaxDeclarationTask } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -979,7 +979,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     keywordPlaceholder: '搜索姓名、证件号、部门、手机号',
     primaryAction: '新增人员',
     importLabel: '导入人员',
-    statusOptions: ['全部', '在职', '离职', '停用'],
+    statusOptions: ['全部', '启用', '停用', '异常'],
     summary: [
       { label: '在职人数', value: '42 人', tone: 'blue' },
       { label: '本月入职', value: '3 人', tone: 'green' },
@@ -3537,6 +3537,41 @@ function summarizeLocalBackups(snapshots: LocalBackupSnapshot[], validations: Re
   ]
 }
 
+function maskEmployeeId(value: string | null) {
+  if (!value) return '待补'
+  if (value.length <= 7) return value
+  return `${value.slice(0, 3)}********${value.slice(-4)}`
+}
+
+function mapLiveEmployeeRows(employees: Employee[]): ModuleRow[] {
+  return employees.map((employee) => ({
+    id: employee.id,
+    status: employee.employmentStatus === '在职' ? '启用' : '停用',
+    voucher: '-',
+    attachment: employee.idNo ? '身份证信息' : '待补资料',
+    values: {
+      name: employee.name,
+      idNo: maskEmployeeId(employee.idNo),
+      department: employee.department || '未分配',
+      position: employee.position || '未设置',
+      mobile: employee.mobile || '待补',
+      entryDate: employee.entryDate || '待补',
+    },
+  }))
+}
+
+function summarizeLiveEmployees(employees: Employee[]): ModuleConfig['summary'] {
+  const active = employees.filter((employee) => employee.employmentStatus === '在职').length
+  const missing = employees.filter((employee) => !employee.idNo || !employee.entryDate).length
+  const inactive = employees.length - active
+  return [
+    { label: '在职人数', value: `${active} 人`, tone: 'blue' },
+    { label: '本月入职', value: `${employees.filter((employee) => employee.entryDate?.startsWith(new Date().toISOString().slice(0, 7))).length} 人`, tone: 'green' },
+    { label: '待补资料', value: `${missing} 人`, tone: missing > 0 ? 'amber' : 'gray' },
+    { label: '离职/停用', value: `${inactive} 人`, tone: inactive > 0 ? 'red' : 'gray' },
+  ]
+}
+
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
     id: log.id,
@@ -3619,6 +3654,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
   const usesLiveExportData = Boolean(isTauri && selectedCompanyId && kind === 'exportCenter')
   const usesLiveImportData = Boolean(isTauri && selectedCompanyId && kind === 'importCenter')
+  const usesLiveEmployeeData = Boolean(isTauri && selectedCompanyId && kind === 'employee')
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -3651,6 +3687,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
   const [localBackups, setLocalBackups] = useState<LocalBackupSnapshot[]>([])
   const [backupValidations, setBackupValidations] = useState<Record<string, LocalBackupVerification>>({})
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
+  const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
@@ -3906,6 +3945,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [usesLiveBackupData])
 
   useEffect(() => {
+    if (!usesLiveEmployeeData || !selectedCompanyId) return
+    let active = true
+    void employeeApi.getEmployees(selectedCompanyId).then((result) => {
+      if (active) setEmployees(result.success ? result.data || [] : [])
+    })
+    return () => {
+      active = false
+    }
+  }, [selectedCompanyId, usesLiveEmployeeData])
+
+  useEffect(() => {
     if (!usesLiveVoucherRecycleData || !selectedCompanyId) return
     let active = true
     void getDeletedVouchers(selectedCompanyId).then((result) => {
@@ -4154,6 +4204,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLocalBackupRows(localBackups, backupValidations),
         summary: summarizeLocalBackups(localBackups, backupValidations),
+      }
+    }
+
+    if (kind === 'employee' && usesLiveEmployeeData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveEmployeeRows(employees),
+        summary: summarizeLiveEmployees(employees),
       }
     }
 
@@ -4523,7 +4581,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, employees, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -4648,6 +4706,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handlePrimaryAction = async () => {
+    if (kind === 'employee' && isTauri && selectedCompanyId) {
+      setShowEmployeeDialog(true)
+      return
+    }
     if (kind === 'backupRestore' && isTauri && selectedCompanyId) {
       try {
         const result = await backupApi.createLocalBackup()
@@ -4710,6 +4772,32 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ? `${config.primaryAction} 已进入高风险待确认留痕；当前不会自动提交税局、银行或覆盖账套数据。`
         : `${config.primaryAction} 已记录到审计日志；后续会接入对应表单、规则校验和附件快照。`
     )
+  }
+
+  const handleCreateEmployee = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    try {
+      const result = await employeeApi.createEmployee({
+        companyId: selectedCompanyId,
+        employeeCode: employeeDraft.employeeCode,
+        name: employeeDraft.name,
+        idNo: employeeDraft.idNo,
+        department: employeeDraft.department,
+        position: employeeDraft.position,
+        mobile: employeeDraft.mobile,
+        entryDate: employeeDraft.entryDate,
+        employmentStatus: employeeDraft.employmentStatus,
+      })
+      if (!result.success || !result.data) throw new Error(result.error || '未返回人员档案')
+      setEmployees((items) => [result.data!, ...items])
+      writeModuleAudit('新增人员', `${result.data.employeeCode}｜${result.data.name}`, '中', '成功')
+      setOperationNotice(`已新增人员 ${result.data.name}。`)
+      setEmployeeDraft({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
+      setShowEmployeeDialog(false)
+    } catch (error) {
+      setOperationNotice(`新增人员失败：${String(error)}`)
+    }
   }
 
   const rowObjectLabel = (row: ModuleRow) => {
@@ -5104,6 +5192,61 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
         </section>
       </div>
+      {showEmployeeDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增人员">
+          <form onSubmit={handleCreateEmployee} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <h2 className="text-sm font-semibold text-slate-900">新增人员</h2>
+              <button type="button" onClick={() => setShowEmployeeDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              {([
+                { field: 'employeeCode', label: '人员编码', required: true },
+                { field: 'name', label: '姓名', required: true },
+                { field: 'department', label: '部门', required: false },
+                { field: 'position', label: '岗位', required: false },
+                { field: 'mobile', label: '手机号', required: false },
+                { field: 'idNo', label: '证件号', required: false },
+              ] as Array<{ field: keyof typeof employeeDraft; label: string; required: boolean }>).map(({ field, label, required }) => (
+                <label key={field} className="grid gap-1 text-xs text-slate-600">
+                  {label}{required ? ' *' : ''}
+                  <input
+                    required={required}
+                    value={employeeDraft[field]}
+                    onChange={(event) => setEmployeeDraft((draft) => ({ ...draft, [field]: event.target.value }))}
+                    className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"
+                  />
+                </label>
+              ))}
+              <label className="grid gap-1 text-xs text-slate-600">
+                入职日期
+                <input
+                  type="date"
+                  value={employeeDraft.entryDate}
+                  onChange={(event) => setEmployeeDraft((draft) => ({ ...draft, entryDate: event.target.value }))}
+                  className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"
+                />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">
+                任职状态
+                <select
+                  value={employeeDraft.employmentStatus}
+                  onChange={(event) => setEmployeeDraft((draft) => ({ ...draft, employmentStatus: event.target.value }))}
+                  className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"
+                >
+                  <option value="在职">在职</option>
+                  <option value="离职">离职</option>
+                  <option value="停用">停用</option>
+                </select>
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowEmployeeDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700 hover:border-slate-400">取消</button>
+              <button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存人员</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

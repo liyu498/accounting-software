@@ -73,6 +73,9 @@ pub fn run() {
             commands::backups::create_local_backup,
             commands::backups::list_local_backups,
             commands::backups::verify_local_backup,
+            // Employee archive commands
+            commands::employees::get_employees,
+            commands::employees::create_employee,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,
