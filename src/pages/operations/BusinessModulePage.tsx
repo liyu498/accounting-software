@@ -108,7 +108,7 @@ import {
 import { useCompanyStore } from '../../stores/companyStore'
 import { useAccountStore } from '../../stores/accountStore'
 import { useAuxiliaryStore, type AuxiliaryBalanceRow, type AuxiliaryLedgerRow } from '../../stores/auxiliaryStore'
-import { useInvoiceStore } from '../../stores/invoiceStore'
+import { useInvoiceStore, type Invoice } from '../../stores/invoiceStore'
 import {
   usePeriodStore,
   type BalanceSheetResult,
@@ -3766,6 +3766,45 @@ function summarizeLiveIncomeTax(incomeStatement: IncomeStatementResult): ModuleC
   ]
 }
 
+function vatPreviewInputs(invoices: Invoice[]) {
+  const outputInvoices = invoices.filter((invoice) => invoice.invoice_type === 'output')
+  const inputInvoices = invoices.filter((invoice) => invoice.invoice_type === 'input')
+  const deductibleInvoices = inputInvoices.filter((invoice) => ['confirmed', 'matched', 'verified'].includes(invoice.status))
+  const blockedInvoices = inputInvoices.filter((invoice) => !['confirmed', 'matched', 'verified'].includes(invoice.status))
+  const outputAmount = outputInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+  const outputTax = outputInvoices.reduce((sum, invoice) => sum + invoice.tax_amount, 0)
+  const deductibleTax = deductibleInvoices.reduce((sum, invoice) => sum + invoice.tax_amount, 0)
+  return { outputInvoices, inputInvoices, blockedInvoices, outputAmount, outputTax, deductibleTax, payable: Math.max(outputTax - deductibleTax, 0) }
+}
+
+function mapLiveVatTaxRows(invoices: Invoice[]): ModuleRow[] {
+  const preview = vatPreviewInputs(invoices)
+  return [
+    {
+      id: 'vat-output', status: preview.outputInvoices.some((invoice) => ['void', 'rejected', 'error'].includes(invoice.status)) ? '异常' : '待确认', voucher: '增值税预览', attachment: '本地销项发票',
+      values: { line: '1', item: '按适用税率计税销售额', source: `销项发票 ${preview.outputInvoices.length} 张`, salesAmount: payrollCurrency(preview.outputAmount), outputTax: payrollCurrency(preview.outputTax), deduction: '-', payable: '-', check: '待人工复核' },
+    },
+    {
+      id: 'vat-deduction', status: preview.blockedInvoices.length > 0 ? '待确认' : '已通过', voucher: '增值税预览', attachment: '本地进项发票',
+      values: { line: '12', item: '本期认证相符且本期申报抵扣', source: `进项发票 ${preview.inputInvoices.length} 张`, salesAmount: '-', outputTax: '-', deduction: payrollCurrency(preview.deductibleTax), payable: '-', check: preview.blockedInvoices.length > 0 ? `${preview.blockedInvoices.length} 张待勾选或异常` : '待人工复核' },
+    },
+    {
+      id: 'vat-payable', status: '待确认', voucher: '增值税预览', attachment: '取数说明',
+      values: { line: '主表', item: '本期应纳税额预览', source: '销项税额-已认证进项', salesAmount: '-', outputTax: payrollCurrency(preview.outputTax), deduction: payrollCurrency(preview.deductibleTax), payable: payrollCurrency(preview.payable), check: preview.blockedInvoices.length > 0 ? '进项未全部确认' : '待人工确认' },
+    },
+  ]
+}
+
+function summarizeLiveVatTax(invoices: Invoice[]): ModuleConfig['summary'] {
+  const preview = vatPreviewInputs(invoices)
+  return [
+    { label: '销项税额', value: payrollCurrency(preview.outputTax), tone: 'blue' },
+    { label: '进项抵扣', value: payrollCurrency(preview.deductibleTax), tone: 'green' },
+    { label: '应纳税额预览', value: payrollCurrency(preview.payable), tone: 'amber' },
+    { label: '待确认发票', value: `${preview.blockedInvoices.length} 张`, tone: preview.blockedInvoices.length > 0 ? 'red' : 'gray' },
+  ]
+}
+
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
     id: log.id,
@@ -3854,6 +3893,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveSpecialDeductionData = Boolean(isTauri && selectedCompanyId && kind === 'specialDeduction')
   const usesLiveWithholdingTaxData = Boolean(isTauri && selectedCompanyId && kind === 'withholdingTaxReport')
   const usesLiveSocialSecurityTaxData = Boolean(isTauri && selectedCompanyId && kind === 'socialSecurityTaxReport')
+  const usesLiveVatTaxData = Boolean(isTauri && selectedCompanyId && kind === 'vatTaxReport')
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -3976,6 +4016,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     void fetchInvoices({ company_id: selectedCompanyId, period_id: currentPeriodId || undefined })
     void queryVouchers({ company_id: selectedCompanyId, period_id: currentPeriodId || undefined, page: 1, page_size: 100 })
   }, [currentPeriodId, fetchInvoices, queryVouchers, selectedCompanyId, usesLiveInvoiceVoucherMatchingData])
+
+  useEffect(() => {
+    if (!usesLiveVatTaxData || !selectedCompanyId) return
+    void fetchInvoices({ company_id: selectedCompanyId, period_id: currentPeriodId || undefined })
+  }, [currentPeriodId, fetchInvoices, selectedCompanyId, usesLiveVatTaxData])
 
   useEffect(() => {
     if (!usesLiveReportData || !currentPeriodId) return
@@ -4443,6 +4488,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'withholdingTaxReport' && usesLiveWithholdingTaxData) return { ...baseConfig, rows: mapLiveWithholdingTaxRows(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords), summary: summarizeLiveWithholdingTax(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords) }
     if (kind === 'socialSecurityTaxReport' && usesLiveSocialSecurityTaxData) return { ...baseConfig, rows: mapLiveSocialSecurityTaxRows(socialSecurityRecords), summary: summarizeLiveSocialSecurityTax(socialSecurityRecords) }
     if (kind === 'incomeTaxReport' && usesLiveReportData && liveReports.incomeStatement) return { ...baseConfig, rows: mapLiveIncomeTaxRows(liveReports.incomeStatement), summary: summarizeLiveIncomeTax(liveReports.incomeStatement) }
+    if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {

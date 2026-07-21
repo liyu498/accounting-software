@@ -475,6 +475,13 @@ const requiredIncomeTaxPageSnippets = [
   ['income tax summary mapper', 'summarizeLiveIncomeTax(liveReports.incomeStatement)'],
 ]
 
+const requiredVatTaxPageSnippets = [
+  ['vat tax local data boundary', "const usesLiveVatTaxData = Boolean(isTauri && selectedCompanyId && kind === 'vatTaxReport')"],
+  ['vat tax invoice fetch', 'if (!usesLiveVatTaxData || !selectedCompanyId) return'],
+  ['vat tax row mapper', 'mapLiveVatTaxRows(invoices)'],
+  ['vat tax summary mapper', 'summarizeLiveVatTax(invoices)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -510,6 +517,7 @@ const errors = [
   ...verify(pageSource, requiredWithholdingPageSnippets, 'withholding tax module page'),
   ...verify(pageSource, requiredSocialSecurityTaxPageSnippets, 'social security tax module page'),
   ...verify(pageSource, requiredIncomeTaxPageSnippets, 'income tax module page'),
+  ...verify(pageSource, requiredVatTaxPageSnippets, 'vat tax module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
