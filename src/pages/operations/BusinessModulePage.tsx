@@ -3725,6 +3725,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [employees, setEmployees] = useState<Employee[]>([])
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([])
   const [socialSecurityRecords, setSocialSecurityRecords] = useState<SocialSecurityRecord[]>([])
+  const [showSocialSecurityDialog, setShowSocialSecurityDialog] = useState(false)
+  const [socialSecurityDraft, setSocialSecurityDraft] = useState({ employeeId: '', city: '', base: '', company: '', personal: '', fund: '' })
   const [showPayrollDialog, setShowPayrollDialog] = useState(false)
   const [payrollDraft, setPayrollDraft] = useState({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
@@ -4893,6 +4895,24 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const handleCreateSocialSecurityRecord = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    try {
+      const result = await socialSecurityApi.createSocialSecurityRecord({
+        companyId: selectedCompanyId, employeeId: socialSecurityDraft.employeeId, period: currentPeriodLabel,
+        city: socialSecurityDraft.city, contributionBase: Number(socialSecurityDraft.base || 0),
+        companyAmount: Number(socialSecurityDraft.company || 0), personalAmount: Number(socialSecurityDraft.personal || 0), fundAmount: Number(socialSecurityDraft.fund || 0),
+      })
+      if (!result.success || !result.data) throw new Error(result.error || '未返回社保明细')
+      setSocialSecurityRecords((records) => [result.data!, ...records])
+      writeModuleAudit('新增社保明细', `${result.data.employeeName}｜${currentPeriodLabel}`, '中', '成功')
+      setOperationNotice(`已新增 ${result.data.employeeName} 的社保公积金明细，等待确认。`)
+      setSocialSecurityDraft({ employeeId: '', city: '', base: '', company: '', personal: '', fund: '' })
+      setShowSocialSecurityDialog(false)
+    } catch (error) { setOperationNotice(`新增社保明细失败：${String(error)}`) }
+  }
+
   const rowObjectLabel = (row: ModuleRow) => {
     const firstValue = Object.values(row.values).find(Boolean)
     return row.voucher && row.voucher !== '-' ? row.voucher : firstValue || row.id
@@ -5047,6 +5067,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
             {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => setShowPayrollDialog(true)} />}
+            {kind === 'socialSecurity' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={() => setShowSocialSecurityDialog(true)} />}
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" onClick={handleRefreshAction} />
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="模板" onClick={handleTemplateAction} />
             <ToolbarButton icon={<FileDown className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
@@ -5374,6 +5395,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowPayrollDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存薪酬行</button></div>
           </form>
+        </div>
+      )}
+      {showSocialSecurityDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增社保明细">
+          <form onSubmit={handleCreateSocialSecurityRecord} className="w-full max-w-lg border border-slate-300 bg-white shadow-xl"><div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold">新增社保明细</h2><button type="button" onClick={() => setShowSocialSecurityDialog(false)} className="text-xs text-slate-500">取消</button></div><div className="grid gap-3 p-4 sm:grid-cols-2"><label className="grid gap-1 text-xs sm:col-span-2">人员 *<select required value={socialSecurityDraft.employeeId} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, employeeId: event.target.value }))} className="h-8 border border-slate-300 px-2"><option value="">选择在职人员</option>{employees.filter((employee) => employee.employmentStatus === '在职').map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} {employee.name}</option>)}</select></label>{([{ field: 'city', label: '缴费城市', type: 'text' }, { field: 'base', label: '缴费基数', type: 'number' }, { field: 'company', label: '单位部分', type: 'number' }, { field: 'personal', label: '个人部分', type: 'number' }, { field: 'fund', label: '公积金', type: 'number' }] as Array<{ field: keyof typeof socialSecurityDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs">{label}<input type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={socialSecurityDraft[field]} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 border border-slate-300 px-2" /></label>)}</div><div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowSocialSecurityDialog(false)} className="h-8 border border-slate-300 px-3 text-xs">取消</button><button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs text-white">保存明细</button></div></form>
         </div>
       )}
     </div>

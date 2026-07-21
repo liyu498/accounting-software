@@ -438,6 +438,7 @@ const requiredSocialSecurityCommandSnippets = [
 
 const requiredSocialSecurityPageSnippets = [
   ['social security api list binding', 'socialSecurityApi.getSocialSecurityRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['social security api create binding', 'socialSecurityApi.createSocialSecurityRecord({'],
   ['social security row mapper', 'mapLiveSocialSecurityRows(socialSecurityRecords)'],
 ]
 
