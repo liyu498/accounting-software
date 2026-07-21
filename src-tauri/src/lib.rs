@@ -72,6 +72,7 @@ pub fn run() {
             // Local backup snapshots. Restore remains an explicit manual workflow.
             commands::backups::create_local_backup,
             commands::backups::list_local_backups,
+            commands::backups::verify_local_backup,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,

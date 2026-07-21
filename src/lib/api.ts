@@ -23,6 +23,13 @@ export interface LocalBackupSnapshot {
   sizeBytes: number
 }
 
+export interface LocalBackupVerification {
+  id: string
+  fileName: string
+  valid: boolean
+  message: string
+}
+
 export interface PaginatedResponse<T> extends ApiResponse<T> {
   meta?: ApiMeta
 }
@@ -1477,6 +1484,15 @@ export const backupApi = {
   listLocalBackups: async (): Promise<ApiResponse<LocalBackupSnapshot[]>> => {
     try {
       const result = await invoke('list_local_backups') as LocalBackupSnapshot[]
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  verifyLocalBackup: async (backupId: string): Promise<ApiResponse<LocalBackupVerification>> => {
+    try {
+      const result = await invoke('verify_local_backup', { backupId }) as LocalBackupVerification
       return { success: true, data: result }
     } catch (error) {
       return { success: false, error: String(error) }

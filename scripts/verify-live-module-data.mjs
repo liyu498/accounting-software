@@ -376,15 +376,19 @@ const requiredDashboardSnippets = [
 const requiredBackupCommandSnippets = [
   ['backup command creates snapshot', 'pub async fn create_local_backup'],
   ['backup command lists snapshots', 'pub async fn list_local_backups'],
+  ['backup command verifies snapshot', 'pub async fn verify_local_backup'],
   ['backup snapshot uses sqlite vacuum', 'VACUUM INTO'],
   ['backup storage directory', 'join("backups")'],
+  ['backup verification checks sqlite header', 'SQLite format 3'],
 ]
 
 const requiredBackupPageSnippets = [
   ['backup api create binding', 'backupApi.createLocalBackup()'],
   ['backup api list binding', 'backupApi.listLocalBackups()'],
+  ['backup api verification binding', 'backupApi.verifyLocalBackup(row.id)'],
   ['backup local data scope', "kind === 'backupRestore'"],
   ['backup snapshot audit', "writeModuleAudit('立即备份'"],
+  ['backup verification audit', "writeModuleAudit('核验备份'"],
 ]
 
 function verify(source, checks, sourceName) {

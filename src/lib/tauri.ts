@@ -180,6 +180,7 @@ const EMPTY_RESULTS: Record<string, unknown> = {
   get_operation_audit_logs: [],
   create_local_backup: { id: 'backup-dev-1', file_name: 'accounting-preview.db', created_at: new Date().toISOString(), size_bytes: 0 },
   list_local_backups: [],
+  verify_local_backup: { id: 'backup-dev-1', file_name: 'accounting-preview.db', valid: true, message: '浏览器预览 mock' },
   check_permission: { allowed: true },
   get_initial_balance: null,
   suggest_summary: [],

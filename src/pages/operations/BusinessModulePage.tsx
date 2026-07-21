@@ -20,7 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { automationApi, backupApi, type AdapterAuthorization, type AutomationJob, type LocalBackupSnapshot, type OperationAuditLog, type TaxDeclarationTask } from '../../lib/api'
+import { automationApi, backupApi, type AdapterAuthorization, type AutomationJob, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type TaxDeclarationTask } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -325,7 +325,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'type', label: '文件类型' },
       { key: 'module', label: '来源模块' },
       { key: 'related', label: '关联单据' },
-      { key: 'hash', label: '文件哈希' },
+      { key: 'hash', label: '文件校验' },
       { key: 'uploader', label: '上传人' },
       { key: 'time', label: '上传时间' },
       { key: 'archive', label: '归档状态' },
@@ -2926,7 +2926,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'bk-002', status: '待确认', voucher: '-', attachment: 'zip', values: { name: '申报前手工备份', company: '科旋电气（上海）有限公司', type: '手工备份', size: '136 MB', hash: '生成中', operator: '王会计', time: '06-26 21:30', restore: '待验证' } },
       { id: 'bk-003', status: '异常', voucher: '-', attachment: '错误日志', values: { name: '历史账套迁移备份', company: '杭州辰光贸易有限公司', type: '迁移备份', size: '失败', hash: '校验失败', operator: '李会计', time: '06-26 19:12', restore: '不可恢复' } },
     ],
-    notes: ['备份恢复是桌面端交付的基础能力，后续需要接 Tauri app data 目录、SQLite 文件、附件目录和恢复前二次确认。', '恢复操作必须进入审计日志，避免覆盖现有账套数据。'],
+    notes: ['立即备份会生成本机 SQLite 全库快照；快照列表不使用模拟数据。', '导入恢复仅进入待确认和文件核验流程，不会自动覆盖本机账套。'],
   },
   settlementRules: {
     keywordPlaceholder: '搜索结转类型、执行顺序、取数来源、凭证模板',
@@ -3507,10 +3507,10 @@ function formatBackupSize(sizeBytes: number) {
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function mapLocalBackupRows(snapshots: LocalBackupSnapshot[]): ModuleRow[] {
+function mapLocalBackupRows(snapshots: LocalBackupSnapshot[], validations: Record<string, LocalBackupVerification>): ModuleRow[] {
   return snapshots.map((snapshot) => ({
     id: snapshot.id,
-    status: '已通过',
+    status: validations[snapshot.id]?.valid === false ? '异常' : '已通过',
     voucher: '-',
     attachment: 'SQLite',
     values: {
@@ -3518,21 +3518,22 @@ function mapLocalBackupRows(snapshots: LocalBackupSnapshot[]): ModuleRow[] {
       company: '本机全部账套',
       type: 'SQLite 快照',
       size: formatBackupSize(snapshot.sizeBytes),
-      hash: '本地文件，下载后校验',
+      hash: validations[snapshot.id]?.valid === true ? 'SQLite 文件头通过' : validations[snapshot.id]?.valid === false ? '校验失败，禁止恢复' : '未核验',
       operator: '系统',
       time: snapshot.createdAt.replace('T', ' ').slice(0, 16),
-      restore: '恢复需人工确认',
+      restore: validations[snapshot.id]?.valid === false ? '不可恢复' : validations[snapshot.id]?.valid ? '恢复需人工确认' : '需先核验',
     },
   }))
 }
 
-function summarizeLocalBackups(snapshots: LocalBackupSnapshot[]): ModuleConfig['summary'] {
+function summarizeLocalBackups(snapshots: LocalBackupSnapshot[], validations: Record<string, LocalBackupVerification>): ModuleConfig['summary'] {
   const totalSize = snapshots.reduce((total, snapshot) => total + snapshot.sizeBytes, 0)
+  const invalidCount = Object.values(validations).filter((verification) => !verification.valid).length
   return [
     { label: '备份文件', value: `${snapshots.length} 个`, tone: 'blue' },
     { label: '本地容量', value: formatBackupSize(totalSize), tone: 'green' },
-    { label: '待恢复确认', value: '0 个', tone: 'amber' },
-    { label: '异常', value: '0 个', tone: 'red' },
+    { label: '待恢复确认', value: `${Object.values(validations).filter((verification) => verification.valid).length} 个`, tone: 'amber' },
+    { label: '异常', value: `${invalidCount} 个`, tone: 'red' },
   ]
 }
 
@@ -3649,6 +3650,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [adapterAuthorizations, setAdapterAuthorizations] = useState<AdapterAuthorization[]>([])
   const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
   const [localBackups, setLocalBackups] = useState<LocalBackupSnapshot[]>([])
+  const [backupValidations, setBackupValidations] = useState<Record<string, LocalBackupVerification>>({})
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
@@ -4150,8 +4152,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'backupRestore' && usesLiveBackupData) {
       return {
         ...baseConfig,
-        rows: mapLocalBackupRows(localBackups),
-        summary: summarizeLocalBackups(localBackups),
+        rows: mapLocalBackupRows(localBackups, backupValidations),
+        summary: summarizeLocalBackups(localBackups, backupValidations),
       }
     }
 
@@ -4521,7 +4523,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -4715,7 +4717,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     return row.voucher && row.voucher !== '-' ? row.voucher : firstValue || row.id
   }
 
-  const handleViewRow = (row: ModuleRow) => {
+  const handleViewRow = async (row: ModuleRow) => {
+    if (kind === 'backupRestore' && isTauri) {
+      try {
+        const result = await backupApi.verifyLocalBackup(row.id)
+        if (!result.success || !result.data) throw new Error(result.error || '未返回核验结果')
+        setBackupValidations((validations) => ({ ...validations, [row.id]: result.data! }))
+        writeModuleAudit('核验备份', row.id, result.data.valid ? '中' : '高', result.data.valid ? '成功' : '失败')
+        setOperationNotice(result.data.message)
+      } catch (error) {
+        writeModuleAudit('核验备份', row.id, '高', '失败')
+        setOperationNotice(`备份核验失败：${String(error)}`)
+      }
+      return
+    }
     const object = rowObjectLabel(row)
     writeModuleAudit('查看明细', `${title}-${object}`)
     setOperationNotice(`已打开 ${object} 的明细留痕；后续将接入附件、来源单据和操作快照。`)
@@ -5037,7 +5052,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        查看
+                        {kind === 'backupRestore' ? '核验' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         生成凭证
