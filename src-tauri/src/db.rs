@@ -111,6 +111,33 @@ impl Database {
 
         sqlx::query(
             r#"
+            CREATE TABLE IF NOT EXISTS bank_transactions (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                period TEXT NOT NULL,
+                account_name TEXT NOT NULL,
+                serial_no TEXT NOT NULL,
+                transaction_date TEXT NOT NULL,
+                counterparty TEXT,
+                summary TEXT,
+                income_amount REAL NOT NULL DEFAULT 0,
+                expense_amount REAL NOT NULL DEFAULT 0,
+                balance REAL,
+                receipt_status TEXT NOT NULL DEFAULT '待上传',
+                match_result TEXT,
+                status TEXT NOT NULL DEFAULT '待处理',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, serial_no)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            r#"
             CREATE TABLE IF NOT EXISTS payroll_records (
                 id TEXT PRIMARY KEY,
                 company_id TEXT NOT NULL,
@@ -2852,6 +2879,41 @@ pub struct CreateSpecialDeductionRecordInput {
     pub end_month: Option<String>,
     pub monthly_amount: f64,
     pub source: Option<String>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct BankTransaction {
+    pub id: String,
+    pub company_id: String,
+    pub period: String,
+    pub account_name: String,
+    pub serial_no: String,
+    pub transaction_date: String,
+    pub counterparty: Option<String>,
+    pub summary: Option<String>,
+    pub income_amount: f64,
+    pub expense_amount: f64,
+    pub balance: Option<f64>,
+    pub receipt_status: String,
+    pub match_result: Option<String>,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateBankTransactionInput {
+    pub company_id: String,
+    pub period: String,
+    pub account_name: String,
+    pub serial_no: String,
+    pub transaction_date: String,
+    pub counterparty: Option<String>,
+    pub summary: Option<String>,
+    pub income_amount: f64,
+    pub expense_amount: f64,
+    pub balance: Option<f64>,
+    pub receipt_status: Option<String>,
 }
 
 // ==================== Currency Structs ====================

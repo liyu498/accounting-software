@@ -20,7 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { automationApi, backupApi, employeeApi, payrollApi, socialSecurityApi, specialDeductionApi, type AdapterAuthorization, type AutomationJob, type Employee, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
+import { automationApi, backupApi, bankTransactionApi, employeeApi, payrollApi, socialSecurityApi, specialDeductionApi, type AdapterAuthorization, type AutomationJob, type BankTransaction, type Employee, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -3805,6 +3805,48 @@ function summarizeLiveVatTax(invoices: Invoice[]): ModuleConfig['summary'] {
   ]
 }
 
+function mapLiveBankTransactionRows(bankTransactions: BankTransaction[], kind: ModuleKind): ModuleRow[] {
+  return bankTransactions.map((record) => ({
+    id: record.id,
+    status: record.status === '异常' ? '异常' : record.status === '已生成凭证' ? '已生成凭证' : record.status === '已匹配' ? '已匹配' : '待处理',
+    voucher: record.status === '已生成凭证' ? '已关联' : '未生成',
+    attachment: record.receiptStatus,
+    values: {
+      source: '本机录入',
+      account: record.accountName,
+      serialNo: record.serialNo,
+      date: record.transactionDate,
+      counterparty: record.counterparty || '待补对方户名',
+      summary: record.summary || '待补摘要',
+      income: record.incomeAmount > 0 ? payrollCurrency(record.incomeAmount) : '-',
+      expense: record.expenseAmount > 0 ? payrollCurrency(record.expenseAmount) : '-',
+      balance: record.balance === null ? '待补余额' : payrollCurrency(record.balance),
+      receiptStatus: record.receiptStatus,
+      matchResult: record.matchResult || (kind === 'bankStatement' ? '待规则匹配' : '待匹配'),
+    },
+  }))
+}
+
+function summarizeLiveBankTransactions(bankTransactions: BankTransaction[], kind: ModuleKind): ModuleConfig['summary'] {
+  const income = bankTransactions.reduce((sum, record) => sum + record.incomeAmount, 0)
+  const expense = bankTransactions.reduce((sum, record) => sum + record.expenseAmount, 0)
+  const pending = bankTransactions.filter((record) => !['已匹配', '已生成凭证'].includes(record.status)).length
+  if (kind === 'bankStatement') {
+    return [
+      { label: '银行流水', value: `${bankTransactions.length} 笔`, tone: 'blue' },
+      { label: '已匹配', value: `${bankTransactions.filter((record) => record.status === '已匹配').length} 笔`, tone: 'green' },
+      { label: '待回单', value: `${bankTransactions.filter((record) => record.receiptStatus !== '已归档').length} 笔`, tone: 'amber' },
+      { label: '待处理', value: `${pending} 笔`, tone: pending > 0 ? 'red' : 'gray' },
+    ]
+  }
+  return [
+    { label: '本期流水', value: `${bankTransactions.length} 笔`, tone: 'blue' },
+    { label: '收入金额', value: payrollCurrency(income), tone: 'green' },
+    { label: '支出金额', value: payrollCurrency(expense), tone: 'amber' },
+    { label: '待匹配', value: `${pending} 笔`, tone: pending > 0 ? 'red' : 'gray' },
+  ]
+}
+
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
     id: log.id,
@@ -3894,6 +3936,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveWithholdingTaxData = Boolean(isTauri && selectedCompanyId && kind === 'withholdingTaxReport')
   const usesLiveSocialSecurityTaxData = Boolean(isTauri && selectedCompanyId && kind === 'socialSecurityTaxReport')
   const usesLiveVatTaxData = Boolean(isTauri && selectedCompanyId && kind === 'vatTaxReport')
+  const usesLiveBankTransactionData = Boolean(isTauri && selectedCompanyId && ['billList', 'bankStatement'].includes(kind))
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -3930,10 +3973,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([])
   const [socialSecurityRecords, setSocialSecurityRecords] = useState<SocialSecurityRecord[]>([])
   const [specialDeductionRecords, setSpecialDeductionRecords] = useState<SpecialDeductionRecord[]>([])
+  const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])
   const [showSocialSecurityDialog, setShowSocialSecurityDialog] = useState(false)
   const [socialSecurityDraft, setSocialSecurityDraft] = useState({ employeeId: '', city: '', base: '', company: '', personal: '', fund: '' })
   const [showSpecialDeductionDialog, setShowSpecialDeductionDialog] = useState(false)
   const [specialDeductionDraft, setSpecialDeductionDraft] = useState({ employeeId: '', deductionType: '子女教育', startMonth: '', endMonth: '', monthlyAmount: '', source: '手工' })
+  const [showBankTransactionDialog, setShowBankTransactionDialog] = useState(false)
+  const [bankTransactionDraft, setBankTransactionDraft] = useState({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' })
   const [showPayrollDialog, setShowPayrollDialog] = useState(false)
   const [payrollDraft, setPayrollDraft] = useState({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
@@ -4021,6 +4067,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!usesLiveVatTaxData || !selectedCompanyId) return
     void fetchInvoices({ company_id: selectedCompanyId, period_id: currentPeriodId || undefined })
   }, [currentPeriodId, fetchInvoices, selectedCompanyId, usesLiveVatTaxData])
+
+  useEffect(() => {
+    if (!usesLiveBankTransactionData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    void bankTransactionApi.getBankTransactions({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setBankTransactions(result.success ? result.data || [] : []))
+  }, [currentPeriodLabel, selectedCompanyId, usesLiveBankTransactionData])
 
   useEffect(() => {
     if (!usesLiveReportData || !currentPeriodId) return
@@ -4489,6 +4540,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'socialSecurityTaxReport' && usesLiveSocialSecurityTaxData) return { ...baseConfig, rows: mapLiveSocialSecurityTaxRows(socialSecurityRecords), summary: summarizeLiveSocialSecurityTax(socialSecurityRecords) }
     if (kind === 'incomeTaxReport' && usesLiveReportData && liveReports.incomeStatement) return { ...baseConfig, rows: mapLiveIncomeTaxRows(liveReports.incomeStatement), summary: summarizeLiveIncomeTax(liveReports.incomeStatement) }
     if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
+    if ((kind === 'billList' || kind === 'bankStatement') && usesLiveBankTransactionData) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {
@@ -4856,7 +4908,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, employees, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, employees, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -5155,6 +5207,34 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const handleCreateBankTransaction = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    try {
+      const result = await bankTransactionApi.createBankTransaction({
+        companyId: selectedCompanyId,
+        period: currentPeriodLabel,
+        accountName: bankTransactionDraft.accountName,
+        serialNo: bankTransactionDraft.serialNo,
+        transactionDate: bankTransactionDraft.transactionDate,
+        counterparty: bankTransactionDraft.counterparty || undefined,
+        summary: bankTransactionDraft.summary || undefined,
+        incomeAmount: Number(bankTransactionDraft.incomeAmount || 0),
+        expenseAmount: Number(bankTransactionDraft.expenseAmount || 0),
+        balance: bankTransactionDraft.balance ? Number(bankTransactionDraft.balance) : undefined,
+        receiptStatus: bankTransactionDraft.receiptStatus,
+      })
+      if (!result.success || !result.data) throw new Error(result.error || '未返回银行流水')
+      setBankTransactions((records) => [result.data!, ...records])
+      writeModuleAudit('新增银行流水', `${result.data.accountName}｜${result.data.serialNo}`, '中', '成功')
+      setOperationNotice(`已新增 ${result.data.accountName} 的银行流水，等待匹配和人工确认。`)
+      setBankTransactionDraft({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' })
+      setShowBankTransactionDialog(false)
+    } catch (error) {
+      setOperationNotice(`新增银行流水失败：${String(error)}`)
+    }
+  }
+
   const rowObjectLabel = (row: ModuleRow) => {
     const firstValue = Object.values(row.values).find(Boolean)
     return row.voucher && row.voucher !== '-' ? row.voucher : firstValue || row.id
@@ -5311,6 +5391,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => setShowPayrollDialog(true)} />}
             {kind === 'socialSecurity' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={() => setShowSocialSecurityDialog(true)} />}
             {kind === 'specialDeduction' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={() => setShowSpecialDeductionDialog(true)} />}
+            {(kind === 'billList' || kind === 'bankStatement') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={() => setShowBankTransactionDialog(true)} />}
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" onClick={handleRefreshAction} />
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="模板" onClick={handleTemplateAction} />
             <ToolbarButton icon={<FileDown className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
@@ -5668,6 +5749,26 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">月扣除额 *<input required type="number" min="0" step="0.01" value={specialDeductionDraft.monthlyAmount} onChange={(event) => setSpecialDeductionDraft((draft) => ({ ...draft, monthlyAmount: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowSpecialDeductionDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存扣除资料</button></div>
+          </form>
+        </div>
+      )}
+      {showBankTransactionDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增银行流水">
+          <form onSubmit={handleCreateBankTransaction} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">新增银行流水</h2><button type="button" onClick={() => setShowBankTransactionDialog(false)} className="text-xs text-slate-500">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              {([
+                { field: 'accountName', label: '银行账户 *', type: 'text', required: true }, { field: 'serialNo', label: '流水号 *', type: 'text', required: true },
+                { field: 'transactionDate', label: '交易日期 *', type: 'date', required: true }, { field: 'counterparty', label: '对方户名', type: 'text' },
+                { field: 'summary', label: '摘要', type: 'text' }, { field: 'balance', label: '账户余额', type: 'number' },
+                { field: 'incomeAmount', label: '收入金额', type: 'number' }, { field: 'expenseAmount', label: '支出金额', type: 'number' },
+              ] as Array<{ field: keyof typeof bankTransactionDraft; label: string; type: string; required?: boolean }>).map(({ field, label, type, required }) => (
+                <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={required} type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={bankTransactionDraft[field]} onChange={(event) => setBankTransactionDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              ))}
+              <label className="grid gap-1 text-xs text-slate-600">回单状态<select value={bankTransactionDraft.receiptStatus} onChange={(event) => setBankTransactionDraft((draft) => ({ ...draft, receiptStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="待上传">待上传</option><option value="已归档">已归档</option></select></label>
+              <p className="self-end text-xs leading-5 text-slate-500">收入与支出必须二选一；保存后仅进入待匹配清单。</p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowBankTransactionDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存流水</button></div>
           </form>
         </div>
       )}

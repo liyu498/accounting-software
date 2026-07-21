@@ -83,6 +83,8 @@ pub fn run() {
             commands::social_security::create_social_security_record,
             commands::special_deductions::get_special_deduction_records,
             commands::special_deductions::create_special_deduction_record,
+            commands::bank_transactions::get_bank_transactions,
+            commands::bank_transactions::create_bank_transaction,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,

@@ -26,6 +26,9 @@ const socialSecurityCommandSource = existsSync('src-tauri/src/commands/social_se
 const specialDeductionCommandSource = existsSync('src-tauri/src/commands/special_deductions.rs')
   ? readFileSync('src-tauri/src/commands/special_deductions.rs', 'utf8')
   : ''
+const bankTransactionCommandSource = existsSync('src-tauri/src/commands/bank_transactions.rs')
+  ? readFileSync('src-tauri/src/commands/bank_transactions.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -482,6 +485,18 @@ const requiredVatTaxPageSnippets = [
   ['vat tax summary mapper', 'summarizeLiveVatTax(invoices)'],
 ]
 
+const requiredBankTransactionCommandSnippets = [
+  ['bank transaction table schema', 'CREATE TABLE IF NOT EXISTS bank_transactions'],
+  ['bank transaction list command', 'pub async fn get_bank_transactions'],
+  ['bank transaction create command', 'pub async fn create_bank_transaction'],
+]
+
+const requiredBankTransactionPageSnippets = [
+  ['bank transaction api list binding', 'bankTransactionApi.getBankTransactions({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['bank transaction api create binding', 'bankTransactionApi.createBankTransaction({'],
+  ['bank transaction row mapper', 'mapLiveBankTransactionRows(bankTransactions, kind)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -518,6 +533,9 @@ const errors = [
   ...verify(pageSource, requiredSocialSecurityTaxPageSnippets, 'social security tax module page'),
   ...verify(pageSource, requiredIncomeTaxPageSnippets, 'income tax module page'),
   ...verify(pageSource, requiredVatTaxPageSnippets, 'vat tax module page'),
+  ...verify(databaseSource, requiredBankTransactionCommandSnippets.slice(0, 1), 'database schema'),
+  ...verify(bankTransactionCommandSource, requiredBankTransactionCommandSnippets.slice(1), 'bank transaction commands'),
+  ...verify(pageSource, requiredBankTransactionPageSnippets, 'bank transaction module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

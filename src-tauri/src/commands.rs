@@ -16,4 +16,5 @@ pub mod employees;
 pub mod payroll;
 pub mod social_security;
 pub mod special_deductions;
+pub mod bank_transactions;
 pub mod roles;
