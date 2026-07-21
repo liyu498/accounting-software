@@ -3493,6 +3493,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveReportFormulaData = Boolean(isTauri && selectedCompanyId && kind === 'reportFormulaSettings')
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings', 'taxInit'].includes(kind))
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
+  const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
   const usesLiveDeclarationReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'declarationReceipt')
   const usesLiveTaxInitData = Boolean(isTauri && selectedCompanyId && kind === 'taxInit')
@@ -3751,16 +3752,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [kind, selectedCompanyId, usesLiveAdapterAuthorizationData])
 
   useEffect(() => {
-    if (!usesLiveOperationAuditData || !selectedCompanyId) return
+    if (!usesLiveRuleLogData || !selectedCompanyId) return
     let active = true
-    void automationApi.getOperationAuditLogs({ companyId: selectedCompanyId })
+    void automationApi.getOperationAuditLogs(kind === 'auditLog'
+      ? { companyId: selectedCompanyId }
+      : { companyId: selectedCompanyId, moduleName: title })
       .then((result) => {
         if (active) setOperationAuditLogs(result.success ? result.data || [] : [])
       })
     return () => {
       active = false
     }
-  }, [selectedCompanyId, usesLiveOperationAuditData])
+  }, [kind, selectedCompanyId, title, usesLiveRuleLogData])
 
   useEffect(() => {
     if (!usesLiveVoucherRecycleData || !selectedCompanyId) return
@@ -4374,6 +4377,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [page, totalPages])
 
   const auditScope = `${status}/${keyword.trim() || '全部'}`
+  const exportPeriodLabel = currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel
+  const scopedOperationAuditLogs = useMemo(() => operationAuditLogs.filter((log) => log.objectRef?.includes(currentPeriodLabel)), [currentPeriodLabel, operationAuditLogs])
+  const visibleRuleLogs = useMemo(() => {
+    if (!usesLiveRuleLogData) return []
+    return scopedOperationAuditLogs.map((log) => ({
+      time: log.createdAt.replace('T', ' ').slice(5, 16),
+      action: log.action,
+      detail: log.detail || log.objectRef || '未记录说明',
+    }))
+  }, [scopedOperationAuditLogs, usesLiveRuleLogData])
   const isHighRiskAction = [
     'closingTasks',
     'periodManagement',
@@ -4393,15 +4406,32 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   ].includes(kind)
 
   const writeModuleAudit = (action: string, object: string, level: '普通' | '中' | '高' = '普通', result: '成功' | '待审批' | '失败' = '成功') => {
+    const status = result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过'
     recordAuditLog({
       module: title,
       action,
       object,
       level,
       result,
-      status: result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过',
+      status,
       voucher: auditScope,
       attachment: '操作快照',
+    })
+    if (!isTauri || !selectedCompanyId) return
+
+    void automationApi.writeOperationAuditLog({
+      companyId: selectedCompanyId,
+      moduleName: title,
+      action,
+      objectRef: `${currentPeriodLabel}｜${object}`,
+      riskLevel: level,
+      result,
+      detail: `${status}｜${auditScope}`,
+      operator: 'admin',
+    }).then((response) => {
+      if (response.success && response.data) {
+        setOperationAuditLogs((logs) => [response.data!, ...logs])
+      }
     })
   }
 
@@ -4496,7 +4526,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleExportExcel = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const fileName = `${title}-2026-05.xlsx`
+    const fileName = `${title}-${exportPeriodLabel}.xlsx`
     const exportScope = `${status}/${keyword.trim() || '全部'}`
     const templateKind = printTemplateKind(kind)
     const { sheetRows, columnWidths, merges } = buildExcelTemplate({
@@ -4523,11 +4553,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       templateKind,
       rowCount: filteredRows.length,
     })
+    writeModuleAudit('导出Excel', fileName, '普通', '成功')
   }
 
   const handlePrint = () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const fileName = `${title}-2026-05-print`
+    const fileName = `${title}-${exportPeriodLabel}-print`
     const exportScope = `${status}/${keyword.trim() || '全部'}`
     const templateKind = printTemplateKind(kind)
     const html = buildPrintHtml({
@@ -4553,11 +4584,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       templateKind,
       rowCount: filteredRows.length,
     })
+    writeModuleAudit('打印', fileName, '普通', '成功')
   }
 
   const handleExportPdf = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const fileName = `${title}-2026-05.pdf`
+    const fileName = `${title}-${exportPeriodLabel}.pdf`
     const exportScope = `${status}/${keyword.trim() || '全部'}`
     const templateKind = printTemplateKind(kind)
     const html = buildPrintHtml({
@@ -4572,7 +4604,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     await exportHtmlToPdf({
       html,
       fileName,
-      pageTitle: `${title} 2026-05`,
+      pageTitle: `${title} ${exportPeriodLabel}`,
     })
     recordExportJob({
       fileName,
@@ -4582,6 +4614,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       templateKind,
       rowCount: filteredRows.length,
     })
+    writeModuleAudit('导出PDF', fileName, '普通', '成功')
   }
 
   const tabs = ['列表', '明细', '凭证草稿', '匹配规则', '附件', '操作日志']
@@ -4744,7 +4777,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </div>
       </div>
 
-      {showRulesLog && <RulesLogPanel notes={config.notes} />}
+      {showRulesLog && <RulesLogPanel notes={config.notes} logs={visibleRuleLogs} usesLiveData={usesLiveRuleLogData} />}
 
       <div className="min-w-0 pt-3">
         <section className="min-w-0 border border-slate-200 bg-white">
@@ -4847,7 +4880,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   )
 }
 
-function RulesLogPanel({ notes }: { notes: string[] }) {
+function RulesLogPanel({
+  notes,
+  logs,
+  usesLiveData,
+}: {
+  notes: string[]
+  logs: Array<{ time: string; action: string; detail: string }>
+  usesLiveData: boolean
+}) {
+  const previewLogs = [
+    { time: '09:30', action: '刷新列表', detail: '系统记录操作人、账期、筛选条件和导出文件名称。' },
+    { time: '09:36', action: '执行筛选', detail: '系统记录操作人、账期、筛选条件和导出文件名称。' },
+    { time: '09:42', action: '导出文件', detail: '系统记录操作人、账期、筛选条件和导出文件名称。' },
+  ]
+  const visibleLogs = usesLiveData ? logs : previewLogs
+
   return (
     <section className="mt-3 border border-slate-200 bg-white">
       <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
@@ -4869,13 +4917,14 @@ function RulesLogPanel({ notes }: { notes: string[] }) {
         </div>
         <div>
           <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">操作日志</div>
-          {['刷新列表', '执行筛选', '导出文件'].map((action, index) => (
-            <div key={action} className="border-b border-slate-100 p-3 text-xs last:border-b-0">
+          {visibleLogs.length === 0 && <div className="p-3 text-xs text-slate-500">当前账期无本地操作日志。</div>}
+          {visibleLogs.map((log) => (
+            <div key={`${log.time}-${log.action}`} className="border-b border-slate-100 p-3 text-xs last:border-b-0">
               <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-800">{action}</span>
-                <span className="font-mono text-slate-400">09:{30 + index * 6}</span>
+                <span className="font-medium text-slate-800">{log.action}</span>
+                <span className="font-mono text-slate-400">{log.time}</span>
               </div>
-              <div className="mt-1 text-slate-500">系统记录操作人、账期、筛选条件和导出文件名称。</div>
+              <div className="mt-1 text-slate-500">{log.detail}</div>
             </div>
           ))}
         </div>
