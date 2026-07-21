@@ -2717,6 +2717,20 @@ pub struct CreateEmployeeInput {
     pub employment_status: Option<String>,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateEmployeeInput {
+    pub id: String,
+    pub company_id: String,
+    pub employee_code: String,
+    pub name: String,
+    pub id_no: Option<String>,
+    pub department: Option<String>,
+    pub position: Option<String>,
+    pub mobile: Option<String>,
+    pub entry_date: Option<String>,
+    pub employment_status: Option<String>,
+}
+
 // ==================== Currency Structs ====================
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]

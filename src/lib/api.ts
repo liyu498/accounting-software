@@ -1585,4 +1585,37 @@ export const employeeApi = {
       return { success: false, error: String(error) }
     }
   },
+
+  updateEmployee: async (input: {
+    id: string
+    companyId: string
+    employeeCode: string
+    name: string
+    idNo?: string
+    department?: string
+    position?: string
+    mobile?: string
+    entryDate?: string
+    employmentStatus?: string
+  }): Promise<ApiResponse<Employee>> => {
+    try {
+      const result = await invoke('update_employee', {
+        input: {
+          id: input.id,
+          company_id: input.companyId,
+          employee_code: input.employeeCode,
+          name: input.name,
+          id_no: input.idNo || undefined,
+          department: input.department || undefined,
+          position: input.position || undefined,
+          mobile: input.mobile || undefined,
+          entry_date: input.entryDate || undefined,
+          employment_status: input.employmentStatus || undefined,
+        },
+      }) as RawEmployee
+      return { success: true, data: mapEmployee(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
 }

@@ -76,6 +76,7 @@ pub fn run() {
             // Employee archive commands
             commands::employees::get_employees,
             commands::employees::create_employee,
+            commands::employees::update_employee,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,

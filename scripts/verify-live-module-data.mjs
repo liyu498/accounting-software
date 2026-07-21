@@ -398,12 +398,14 @@ const requiredEmployeeCommandSnippets = [
   ['employee table schema', 'CREATE TABLE IF NOT EXISTS employees'],
   ['employee list command', 'pub async fn get_employees'],
   ['employee create command', 'pub async fn create_employee'],
+  ['employee update command', 'pub async fn update_employee'],
   ['employee company scope', 'WHERE company_id = ?'],
 ]
 
 const requiredEmployeePageSnippets = [
   ['employee api list binding', 'employeeApi.getEmployees(selectedCompanyId)'],
-  ['employee api create binding', 'employeeApi.createEmployee({'],
+  ['employee api create binding', 'employeeApi.createEmployee(input)'],
+  ['employee api update binding', 'employeeApi.updateEmployee({'],
   ['employee row mapper', 'mapLiveEmployeeRows(employees)'],
   ['employee summary mapper', 'summarizeLiveEmployees(employees)'],
 ]

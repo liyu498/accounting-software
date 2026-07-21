@@ -3689,6 +3689,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [backupValidations, setBackupValidations] = useState<Record<string, LocalBackupVerification>>({})
   const [employees, setEmployees] = useState<Employee[]>([])
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
+  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
   const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
@@ -4707,6 +4708,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handlePrimaryAction = async () => {
     if (kind === 'employee' && isTauri && selectedCompanyId) {
+      setEditingEmployeeId(null)
       setShowEmployeeDialog(true)
       return
     }
@@ -4778,7 +4780,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!selectedCompanyId) return
     try {
-      const result = await employeeApi.createEmployee({
+      const input = {
         companyId: selectedCompanyId,
         employeeCode: employeeDraft.employeeCode,
         name: employeeDraft.name,
@@ -4788,12 +4790,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         mobile: employeeDraft.mobile,
         entryDate: employeeDraft.entryDate,
         employmentStatus: employeeDraft.employmentStatus,
-      })
+      }
+      const result = editingEmployeeId
+        ? await employeeApi.updateEmployee({ id: editingEmployeeId, ...input })
+        : await employeeApi.createEmployee(input)
       if (!result.success || !result.data) throw new Error(result.error || '未返回人员档案')
-      setEmployees((items) => [result.data!, ...items])
-      writeModuleAudit('新增人员', `${result.data.employeeCode}｜${result.data.name}`, '中', '成功')
-      setOperationNotice(`已新增人员 ${result.data.name}。`)
+      setEmployees((items) => editingEmployeeId ? items.map((item) => item.id === result.data!.id ? result.data! : item) : [result.data!, ...items])
+      writeModuleAudit(editingEmployeeId ? '编辑人员' : '新增人员', `${result.data.employeeCode}｜${result.data.name}`, '中', '成功')
+      setOperationNotice(`${editingEmployeeId ? '已更新' : '已新增'}人员 ${result.data.name}。`)
       setEmployeeDraft({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
+      setEditingEmployeeId(null)
       setShowEmployeeDialog(false)
     } catch (error) {
       setOperationNotice(`新增人员失败：${String(error)}`)
@@ -4806,6 +4812,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleViewRow = async (row: ModuleRow) => {
+    if (kind === 'employee' && isTauri) {
+      const employee = employees.find((item) => item.id === row.id)
+      if (!employee) return
+      setEditingEmployeeId(employee.id)
+      setEmployeeDraft({ employeeCode: employee.employeeCode, name: employee.name, idNo: employee.idNo || '', department: employee.department || '', position: employee.position || '', mobile: employee.mobile || '', entryDate: employee.entryDate || '', employmentStatus: employee.employmentStatus })
+      setShowEmployeeDialog(true)
+      return
+    }
     if (kind === 'backupRestore' && isTauri) {
       try {
         const result = await backupApi.verifyLocalBackup(row.id)
@@ -5140,7 +5154,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' ? '编辑' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         生成凭证
@@ -5196,7 +5210,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增人员">
           <form onSubmit={handleCreateEmployee} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
-              <h2 className="text-sm font-semibold text-slate-900">新增人员</h2>
+              <h2 className="text-sm font-semibold text-slate-900">{editingEmployeeId ? '编辑人员' : '新增人员'}</h2>
               <button type="button" onClick={() => setShowEmployeeDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
             </div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">

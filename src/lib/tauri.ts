@@ -42,6 +42,7 @@ const EMPTY_RESULTS: Record<string, unknown> = {
   get_all_auxiliary_items: [],
   get_employees: [],
   create_employee: { id: 'employee-dev-1', company_id: 'mock-1', employee_code: 'EMP-001', name: '开发预览人员', id_no: null, department: null, position: null, mobile: null, entry_date: null, employment_status: '在职', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  update_employee: { id: 'employee-dev-1', company_id: 'mock-1', employee_code: 'EMP-001', name: '开发预览人员', id_no: null, department: null, position: null, mobile: null, entry_date: null, employment_status: '在职', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
   get_account_auxiliary_links: [],
   get_accounts_with_auxiliary: [],
   get_voucher_entry_auxiliaries: [],
