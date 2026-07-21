@@ -16,6 +16,13 @@ export interface ApiMeta {
   limit: number
 }
 
+export interface LocalBackupSnapshot {
+  id: string
+  fileName: string
+  createdAt: string
+  sizeBytes: number
+}
+
 export interface PaginatedResponse<T> extends ApiResponse<T> {
   meta?: ApiMeta
 }
@@ -1451,6 +1458,26 @@ export const automationApi = {
         moduleName: filters.moduleName,
       }) as RawOperationAuditLog[]
       return { success: true, data: result.map(mapOperationAuditLog) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
+
+export const backupApi = {
+  createLocalBackup: async (): Promise<ApiResponse<LocalBackupSnapshot>> => {
+    try {
+      const result = await invoke('create_local_backup') as LocalBackupSnapshot
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  listLocalBackups: async (): Promise<ApiResponse<LocalBackupSnapshot[]>> => {
+    try {
+      const result = await invoke('list_local_backups') as LocalBackupSnapshot[]
+      return { success: true, data: result }
     } catch (error) {
       return { success: false, error: String(error) }
     }

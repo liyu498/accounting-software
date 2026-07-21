@@ -69,6 +69,9 @@ pub fn run() {
             commands::automation::upsert_adapter_authorization,
             commands::automation::write_operation_audit_log,
             commands::automation::get_operation_audit_logs,
+            // Local backup snapshots. Restore remains an explicit manual workflow.
+            commands::backups::create_local_backup,
+            commands::backups::list_local_backups,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 const adapterSource = readFileSync('src/lib/liveModuleRows.ts', 'utf8')
 const pageSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', 'utf8')
@@ -11,6 +11,9 @@ const shellSource = readFileSync('src/components/layout/AppShell.tsx', 'utf8')
 const companyStoreSource = readFileSync('src/stores/companyStore.ts', 'utf8')
 const companyCommandSource = readFileSync('src-tauri/src/commands/companies.rs', 'utf8')
 const databaseSource = readFileSync('src-tauri/src/db.rs', 'utf8')
+const backupCommandSource = existsSync('src-tauri/src/commands/backups.rs')
+  ? readFileSync('src-tauri/src/commands/backups.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -370,6 +373,20 @@ const requiredDashboardSnippets = [
   ['dashboard AI task source', 'automationApi.getAutomationJobs({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
 ]
 
+const requiredBackupCommandSnippets = [
+  ['backup command creates snapshot', 'pub async fn create_local_backup'],
+  ['backup command lists snapshots', 'pub async fn list_local_backups'],
+  ['backup snapshot uses sqlite vacuum', 'VACUUM INTO'],
+  ['backup storage directory', 'join("backups")'],
+]
+
+const requiredBackupPageSnippets = [
+  ['backup api create binding', 'backupApi.createLocalBackup()'],
+  ['backup api list binding', 'backupApi.listLocalBackups()'],
+  ['backup local data scope', "kind === 'backupRestore'"],
+  ['backup snapshot audit', "writeModuleAudit('立即备份'"],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -388,6 +405,8 @@ const errors = [
   ...verify(appSource, requiredAppSnippets, 'application routes'),
   ...verify(shellSource, requiredShellSnippets, 'application shell'),
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),
+  ...verify(backupCommandSource, requiredBackupCommandSnippets, 'backup commands'),
+  ...verify(pageSource, requiredBackupPageSnippets, 'backup module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

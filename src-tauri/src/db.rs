@@ -20,6 +20,7 @@ pub type DbPool = Pool<Sqlite>;
 #[derive(Clone)]
 pub struct Database {
     pool: Arc<DbPool>,
+    app_data_dir: Arc<PathBuf>,
 }
 
 impl Database {
@@ -41,11 +42,16 @@ impl Database {
 
         Ok(Self {
             pool: Arc::new(pool),
+            app_data_dir: Arc::new(app_data_dir),
         })
     }
 
     pub fn pool(&self) -> &DbPool {
         &self.pool
+    }
+
+    pub fn app_data_dir(&self) -> PathBuf {
+        self.app_data_dir.as_ref().clone()
     }
 
     async fn run_migrations(pool: &DbPool) -> Result<(), DbError> {

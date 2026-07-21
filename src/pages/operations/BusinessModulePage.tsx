@@ -20,7 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { automationApi, type AdapterAuthorization, type AutomationJob, type OperationAuditLog, type TaxDeclarationTask } from '../../lib/api'
+import { automationApi, backupApi, type AdapterAuthorization, type AutomationJob, type LocalBackupSnapshot, type OperationAuditLog, type TaxDeclarationTask } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -3501,6 +3501,41 @@ function mapOperationAuditImportRows(logs: OperationAuditLog[]): ModuleRow[] {
     })
 }
 
+function formatBackupSize(sizeBytes: number) {
+  if (sizeBytes < 1024) return `${sizeBytes} B`
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function mapLocalBackupRows(snapshots: LocalBackupSnapshot[]): ModuleRow[] {
+  return snapshots.map((snapshot) => ({
+    id: snapshot.id,
+    status: '已通过',
+    voucher: '-',
+    attachment: 'SQLite',
+    values: {
+      name: snapshot.fileName,
+      company: '本机全部账套',
+      type: 'SQLite 快照',
+      size: formatBackupSize(snapshot.sizeBytes),
+      hash: '本地文件，下载后校验',
+      operator: '系统',
+      time: snapshot.createdAt.replace('T', ' ').slice(0, 16),
+      restore: '恢复需人工确认',
+    },
+  }))
+}
+
+function summarizeLocalBackups(snapshots: LocalBackupSnapshot[]): ModuleConfig['summary'] {
+  const totalSize = snapshots.reduce((total, snapshot) => total + snapshot.sizeBytes, 0)
+  return [
+    { label: '备份文件', value: `${snapshots.length} 个`, tone: 'blue' },
+    { label: '本地容量', value: formatBackupSize(totalSize), tone: 'green' },
+    { label: '待恢复确认', value: '0 个', tone: 'amber' },
+    { label: '异常', value: '0 个', tone: 'red' },
+  ]
+}
+
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
     id: log.id,
@@ -3583,6 +3618,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
   const usesLiveExportData = Boolean(isTauri && selectedCompanyId && kind === 'exportCenter')
   const usesLiveImportData = Boolean(isTauri && selectedCompanyId && kind === 'importCenter')
+  const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
   const usesLiveDeclarationReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'declarationReceipt')
@@ -3612,6 +3648,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [liveReports, setLiveReports] = useState<LiveReportData>(emptyLiveReportData)
   const [adapterAuthorizations, setAdapterAuthorizations] = useState<AdapterAuthorization[]>([])
   const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
+  const [localBackups, setLocalBackups] = useState<LocalBackupSnapshot[]>([])
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
@@ -3856,6 +3893,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [kind, selectedCompanyId, title, usesLiveRuleLogData])
 
   useEffect(() => {
+    if (!usesLiveBackupData) return
+    let active = true
+    void backupApi.listLocalBackups().then((result) => {
+      if (active) setLocalBackups(result.success ? result.data || [] : [])
+    })
+    return () => {
+      active = false
+    }
+  }, [usesLiveBackupData])
+
+  useEffect(() => {
     if (!usesLiveVoucherRecycleData || !selectedCompanyId) return
     let active = true
     void getDeletedVouchers(selectedCompanyId).then((result) => {
@@ -4096,6 +4144,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveVoucherRecycleRows(deletedVouchers),
         summary: summarizeLiveVoucherRecycle(deletedVouchers),
+      }
+    }
+
+    if (kind === 'backupRestore' && usesLiveBackupData) {
+      return {
+        ...baseConfig,
+        rows: mapLocalBackupRows(localBackups),
+        summary: summarizeLocalBackups(localBackups),
       }
     }
 
@@ -4465,7 +4521,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -4590,6 +4646,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handlePrimaryAction = async () => {
+    if (kind === 'backupRestore' && isTauri && selectedCompanyId) {
+      try {
+        const result = await backupApi.createLocalBackup()
+        if (!result.success || !result.data) throw new Error(result.error || '未返回备份文件')
+        setLocalBackups((snapshots) => [result.data!, ...snapshots])
+        writeModuleAudit('立即备份', result.data.fileName, '高', '成功')
+        setOperationNotice(`已生成本机 SQLite 快照 ${result.data.fileName}；恢复仍需人工确认，不会自动覆盖账套。`)
+      } catch (error) {
+        writeModuleAudit('立即备份', `${title}-${auditScope}`, '高', '失败')
+        setOperationNotice(`备份失败：${String(error)}`)
+      }
+      return
+    }
+
     if (kind === 'closingTasks' && isTauri && currentPeriodId) {
       if (!currentPeriod) {
         writeModuleAudit(config.primaryAction, `${title}-${auditScope}`, '高', '失败')

@@ -178,6 +178,8 @@ const EMPTY_RESULTS: Record<string, unknown> = {
     created_at: new Date().toISOString(),
   },
   get_operation_audit_logs: [],
+  create_local_backup: { id: 'backup-dev-1', file_name: 'accounting-preview.db', created_at: new Date().toISOString(), size_bytes: 0 },
+  list_local_backups: [],
   check_permission: { allowed: true },
   get_initial_balance: null,
   suggest_summary: [],
