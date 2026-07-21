@@ -17,7 +17,7 @@ import { cn } from '../../lib/utils'
 import { isTauri } from '../../lib/tauri'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { recordAuditLog, recordExportJob } from '../../lib/exportJobs'
-import { automationApi, type TaxDeclarationTask } from '../../lib/api'
+import { automationApi, type OperationAuditLog, type TaxDeclarationTask } from '../../lib/api'
 import { useCompanyStore } from '../../stores/companyStore'
 import { usePeriodStore } from '../../stores/periodStore'
 
@@ -105,14 +105,16 @@ const declarationRows = [
 ]
 
 type DeclarationRow = (typeof declarationRows)[number]
+type RiskRow = [level: string, module: string, description: string, link: string]
+type RuleLog = [time: string, action: string, detail: string]
 
-const riskRows = [
+const riskRows: RiskRow[] = [
   ['阻断', '增值税及附加', '进项发票未完成勾选，抵扣税额不能进入申报主表', '发票勾选'],
   ['提示', '扣缴所得税', '员工王五专项附加扣除缺少结束月份', '专项附加扣除'],
   ['复核', '印花税', '合同台账金额与单据登记金额差异 20,000.00', '单据登记'],
 ]
 
-const logs = [
+const logs: RuleLog[] = [
   ['09:30', '重新取数', '系统从发票、凭证、工资和账簿生成本期申报快照'],
   ['09:32', '风险校验', '发现 1 条阻断、2 条需复核事项'],
   ['09:38', '人工确认', '企业所得税和社保费标记为待申报'],
@@ -181,6 +183,8 @@ function buildTaxDeclarationPackageHtml(
   exportedAt: string,
   rows: DeclarationRow[],
   metadata: { companyName: string; taxId: string; period: string },
+  risks: RiskRow[],
+  operationLogs: RuleLog[],
 ) {
   const declarationBody = rows.map((row) => `
     <tr>
@@ -198,10 +202,10 @@ function buildTaxDeclarationPackageHtml(
       <td>${escapeHtml(row.owner)}</td>
     </tr>
   `).join('')
-  const riskBody = riskRows.map(([level, module, desc, link]) => `
+  const riskBody = risks.map(([level, module, desc, link]) => `
     <tr><td>${escapeHtml(level)}</td><td>${escapeHtml(module)}</td><td>${escapeHtml(desc)}</td><td>${escapeHtml(link)}</td></tr>
   `).join('')
-  const logBody = logs.map(([time, action, detail]) => `
+  const logBody = operationLogs.map(([time, action, detail]) => `
     <tr><td>${escapeHtml(time)}</td><td>${escapeHtml(action)}</td><td>${escapeHtml(detail)}</td></tr>
   `).join('')
 
@@ -277,6 +281,7 @@ export function TaxWorkspace() {
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [backendTaskCount, setBackendTaskCount] = useState(0)
   const [backendAuditCount, setBackendAuditCount] = useState(0)
+  const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
   const [backendAdapterStatus, setBackendAdapterStatus] = useState('未配置')
 
   useEffect(() => {
@@ -294,7 +299,11 @@ export function TaxWorkspace() {
         setBackendTaskCount(tasks.length)
         setTaxDeclarationTasks(tasks)
       }
-      if (logsResult.success) setBackendAuditCount(logsResult.data?.length ?? 0)
+      if (logsResult.success) {
+        const auditLogs = logsResult.data ?? []
+        setBackendAuditCount(auditLogs.filter((log) => log.objectRef?.includes(currentPeriod)).length)
+        setOperationAuditLogs(auditLogs)
+      }
       if (adaptersResult.success) {
         setBackendAdapterStatus(adaptersResult.data?.[0]?.authStatus ?? '未配置')
       }
@@ -310,6 +319,30 @@ export function TaxWorkspace() {
     ? taxDeclarationTasks.map(mapTaxDeclarationTaskToRow)
     : declarationRows
   const currentRows = usesLiveTaxDeclarationData ? visibleDeclarationRows : declarationRows
+  const scopedOperationAuditLogs = useMemo(() => operationAuditLogs.filter((log) => log.objectRef?.includes(currentPeriod)), [currentPeriod, operationAuditLogs])
+  const visibleRiskRows = useMemo<RiskRow[]>(() => {
+    if (!usesLiveTaxDeclarationData) return riskRows
+
+    return visibleDeclarationRows
+      .filter((row) => row.risk !== '无' || row.collectStatus === '待补资料' || row.checkStatus !== '校验通过')
+      .map((row) => [
+        row.collectStatus === '待补资料' || row.checkStatus !== '校验通过' ? '阻断' : '提示',
+        row.category,
+        row.risk === '无'
+          ? `${row.collectStatus} / ${row.checkStatus}，需人工复核后再确认申报。`
+          : row.risk,
+        '申报清单',
+      ] as RiskRow)
+  }, [usesLiveTaxDeclarationData, visibleDeclarationRows])
+  const visibleRuleLogs = useMemo<RuleLog[]>(() => {
+    if (!usesLiveTaxDeclarationData) return logs
+
+    return scopedOperationAuditLogs.map((log) => [
+      log.createdAt.replace('T', ' ').slice(5, 16),
+      log.action,
+      log.detail || log.objectRef || '未记录说明',
+    ])
+  }, [scopedOperationAuditLogs, usesLiveTaxDeclarationData])
   const declarationMetrics = {
     total: visibleDeclarationRows.length,
     collected: visibleDeclarationRows.filter((row) => row.collectStatus === '已取数').length,
@@ -361,13 +394,16 @@ export function TaxWorkspace() {
       companyId,
       moduleName: '税务申报工作台',
       action: input.action,
-      objectRef: input.object,
+      objectRef: `${currentPeriod}｜${input.object}`,
       riskLevel: input.level,
       result: input.result,
       detail: `${input.status}｜${input.attachment ?? '无附件'}`,
       operator: 'admin',
     }).then((response) => {
-      if (response.success) setBackendAuditCount((count) => count + 1)
+      if (response.success && response.data) {
+        setBackendAuditCount((count) => count + 1)
+        setOperationAuditLogs((logs) => [response.data!, ...logs])
+      }
     })
   }
 
@@ -401,15 +437,17 @@ export function TaxWorkspace() {
   }
 
   const runRiskCheck = () => {
+    const blockerCount = visibleRiskRows.filter(([level]) => level === '阻断').length
+    const reviewCount = visibleRiskRows.length - blockerCount
     writeTaxAudit({
       action: '风险检查',
-      object: '1条阻断/2条需复核',
+      object: `${blockerCount}条阻断/${reviewCount}条需复核`,
       level: '中',
       result: '成功',
       status: '已通过',
       attachment: '风险清单',
     })
-    setOperationNotice('风险检查已记录：1 条阻断、2 条需复核，阻断项处理前不能提交。')
+    setOperationNotice(`风险检查已记录：${blockerCount} 条阻断、${reviewCount} 条需复核，阻断项处理前不能提交。`)
   }
 
   const confirmDeclaration = () => {
@@ -555,7 +593,7 @@ export function TaxWorkspace() {
   const exportTaxPackage = () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = `税务申报包-${currentPeriod}.html`
-    const html = buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata)
+    const html = buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata, visibleRiskRows, visibleRuleLogs)
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
@@ -580,7 +618,7 @@ export function TaxWorkspace() {
     const fileName = `税务申报包-${currentPeriod}-print`
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
-    printWindow.document.write(buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata))
+    printWindow.document.write(buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata, visibleRiskRows, visibleRuleLogs))
     printWindow.document.close()
     printWindow.focus()
     printWindow.print()
@@ -598,7 +636,7 @@ export function TaxWorkspace() {
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = `税务申报包-${currentPeriod}.pdf`
     await exportHtmlToPdf({
-      html: buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata),
+      html: buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata, visibleRiskRows, visibleRuleLogs),
       fileName,
       pageTitle: `税务申报包 ${currentPeriod}`,
     })
@@ -691,7 +729,7 @@ export function TaxWorkspace() {
         </div>
       </div>
 
-      {showRulesLog && <TaxRulesLogPanel onRiskLink={handleRiskLink} />}
+      {showRulesLog && <TaxRulesLogPanel riskRows={visibleRiskRows} logs={visibleRuleLogs} onRiskLink={handleRiskLink} />}
 
       <div className="min-w-0 pt-3">
         <section className="min-w-0 border border-slate-200 bg-white">
@@ -772,7 +810,15 @@ export function TaxWorkspace() {
   )
 }
 
-function TaxRulesLogPanel({ onRiskLink }: { onRiskLink: (module: string, desc: string) => void }) {
+function TaxRulesLogPanel({
+  riskRows,
+  logs,
+  onRiskLink,
+}: {
+  riskRows: RiskRow[]
+  logs: RuleLog[]
+  onRiskLink: (module: string, desc: string) => void
+}) {
   return (
     <section className="mt-3 border border-slate-200 bg-white">
       <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
@@ -783,6 +829,7 @@ function TaxRulesLogPanel({ onRiskLink }: { onRiskLink: (module: string, desc: s
         <div className="border-b border-slate-200 lg:border-b-0 lg:border-r">
           <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">风险与阻断</div>
           <div className="divide-y divide-slate-100">
+            {riskRows.length === 0 && <div className="p-3 text-xs text-slate-500">当前账期无已落库风险。</div>}
             {riskRows.map(([level, module, desc, link]) => (
               <div key={desc} className="p-3 text-xs">
                 <div className="flex items-center justify-between">
@@ -806,6 +853,7 @@ function TaxRulesLogPanel({ onRiskLink }: { onRiskLink: (module: string, desc: s
         <div>
           <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">操作日志</div>
           <div className="divide-y divide-slate-100">
+            {logs.length === 0 && <div className="p-3 text-xs text-slate-500">当前账期无本地操作日志。</div>}
             {logs.map(([time, action, detail]) => (
               <div key={`${time}-${action}`} className="p-3 text-xs">
                 <div className="flex items-center justify-between">

@@ -204,7 +204,12 @@ const requiredTaxWorkspaceSnippets = [
   ['tax workspace live period scope', 'Boolean(isTauri && selectedCompanyId && currentPeriodId)'],
   ['tax workspace dynamic export file', '税务申报包-${currentPeriod}.pdf'],
   ['tax workspace table binding', 'visibleDeclarationRows.map((row) =>'],
-  ['tax workspace export binding', 'buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata)'],
+  ['tax workspace operation audit state', 'const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])'],
+  ['tax workspace period scoped audits', 'const scopedOperationAuditLogs = useMemo(() => operationAuditLogs.filter((log) => log.objectRef?.includes(currentPeriod))'],
+  ['tax workspace live risk rows', 'const visibleRiskRows = useMemo<RiskRow[]>(() => {'],
+  ['tax workspace live rule logs', 'const visibleRuleLogs = useMemo<RuleLog[]>(() => {'],
+  ['tax workspace rules log binding', '<TaxRulesLogPanel riskRows={visibleRiskRows} logs={visibleRuleLogs} onRiskLink={handleRiskLink} />'],
+  ['tax workspace export binding', 'buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata, visibleRiskRows, visibleRuleLogs)'],
 ]
 
 const requiredWelcomeSnippets = [
