@@ -199,6 +199,12 @@ const requiredPageSnippets = [
   ['financial overview mapping', 'mapLiveFinancialOverviewRows(liveReports.balanceSheet, liveReports.incomeStatement, liveReports.cashFlow)'],
   ['financial overview live scope', 'usesLiveFinancialOverviewData'],
   ['browser mock fallback', 'isTauri && selectedCompanyId'],
+  ['document export context', 'const exportDocumentContext = {'],
+  ['document export company binding', 'companyName: selectedCompany?.name ||'],
+  ['document export period binding', 'periodLabel: exportPeriodLabel'],
+  ['document export taxpayer binding', 'taxpayerId: selectedCompany?.tax_id ||'],
+  ['print template context binding', 'context: params.context'],
+  ['excel template context binding', 'context: params.context'],
 ]
 
 const requiredTaxWorkspaceSnippets = [

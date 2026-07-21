@@ -3091,6 +3091,12 @@ function printableRows(config: ModuleConfig, rows: ModuleRow[]) {
   }))
 }
 
+type ExportDocumentContext = {
+  companyName: string
+  periodLabel: string
+  taxpayerId: string
+}
+
 function renderGenericPrintHtml(params: {
   title: string
   headers: string[]
@@ -3098,26 +3104,27 @@ function renderGenericPrintHtml(params: {
   exportedAt: string
   status: string
   keyword: string
+  context: ExportDocumentContext
 }) {
-  const { title, headers, rows, exportedAt, status, keyword } = params
+  const { title, headers, rows, exportedAt, status, keyword, context } = params
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
     body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:24px;color:#111827}
     h1{text-align:center;font-size:18px;margin:0 0 10px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 14px;font-size:12px;color:#334155;margin-bottom:14px}
     .meta span{border-bottom:1px solid #cbd5e1;padding-bottom:4px}
     table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #94a3b8;padding:6px 8px;white-space:nowrap}
     th{background:#e8eef6;text-align:left}.note{margin-top:12px;font-size:11px;color:#64748b}
-  </style></head><body><h1>${escapeHtml(title)}</h1><div class="meta"><span>公司: 科旋电气（上海）有限公司</span><span>所属期: 2026-05</span><span>导出时间: ${escapeHtml(exportedAt)}</span><span>筛选状态: ${escapeHtml(status)}</span><span>关键词: ${escapeHtml(keyword || '全部')}</span><span>记录数: ${rows.length} 条</span></div>
+  </style></head><body><h1>${escapeHtml(title)}</h1><div class="meta"><span>公司: ${escapeHtml(context.companyName)}</span><span>所属期: ${escapeHtml(context.periodLabel)}</span><span>导出时间: ${escapeHtml(exportedAt)}</span><span>筛选状态: ${escapeHtml(status)}</span><span>关键词: ${escapeHtml(keyword || '全部')}</span><span>记录数: ${rows.length} 条</span></div>
   <table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>
   ${rows.map(({ cells }) => `<tr>${cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}
   </tbody></table><div class="note">制表说明: 本打印件按当前列表筛选条件、列顺序和账期生成；正式导出需要保留操作日志和文件哈希。</div></body></html>`
 }
 
-function renderVoucherPrintHtml(title: string, rows: ReturnType<typeof printableRows>, exportedAt: string) {
+function renderVoucherPrintHtml(title: string, rows: ReturnType<typeof printableRows>, exportedAt: string, context: ExportDocumentContext) {
   const items = rows.map(({ row }) => {
     const values = row.values
     return `<section class="voucher">
       <div class="voucher-head"><div>记账凭证</div><div class="no">${escapeHtml(values.wordNo || row.voucher || row.id)}</div></div>
-      <div class="meta"><span>公司: 科旋电气（上海）有限公司</span><span>日期: ${escapeHtml(values.date || '2026-05')}</span><span>附件: ${escapeHtml(row.attachment || '-')}</span></div>
+      <div class="meta"><span>公司: ${escapeHtml(context.companyName)}</span><span>日期: ${escapeHtml(values.date || context.periodLabel)}</span><span>附件: ${escapeHtml(row.attachment || '-')}</span></div>
       <table><thead><tr><th>摘要</th><th>借方科目</th><th>贷方科目</th><th>借方金额</th><th>贷方金额</th></tr></thead><tbody>
         <tr><td>${escapeHtml(values.summary || '')}</td><td>${escapeHtml(values.debitAccount || '')}</td><td>${escapeHtml(values.creditAccount || '')}</td><td class="amount">${escapeHtml(values.debit || '')}</td><td class="amount">${escapeHtml(values.credit || '')}</td></tr>
       </tbody></table>
@@ -3135,37 +3142,37 @@ function renderVoucherPrintHtml(title: string, rows: ReturnType<typeof printable
   </style></head><body>${items}</body></html>`
 }
 
-function renderLedgerPrintHtml(title: string, headers: string[], rows: ReturnType<typeof printableRows>, exportedAt: string) {
+function renderLedgerPrintHtml(title: string, headers: string[], rows: ReturnType<typeof printableRows>, exportedAt: string, context: ExportDocumentContext) {
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
     body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:20px;color:#111827}
     h1{text-align:center;font-size:18px;margin:0 0 8px}.sub{display:flex;justify-content:space-between;font-size:12px;margin-bottom:10px;color:#334155}
     table{width:100%;border-collapse:collapse;font-size:11px} th,td{border:1px solid #64748b;padding:6px 7px;white-space:nowrap} th{background:#e8eef6}.amount{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
     tfoot td{background:#f8fafc;font-weight:700}
-  </style></head><body><h1>${escapeHtml(title)}</h1><div class="sub"><span>单位: 科旋电气（上海）有限公司</span><span>期间: 2026-05</span><span>打印: ${escapeHtml(exportedAt)}</span></div>
+  </style></head><body><h1>${escapeHtml(title)}</h1><div class="sub"><span>单位: ${escapeHtml(context.companyName)}</span><span>期间: ${escapeHtml(context.periodLabel)}</span><span>打印: ${escapeHtml(exportedAt)}</span></div>
   <table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>${rows.map(({ cells }) => `<tr>${cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
   <tfoot><tr><td colspan="${headers.length}">本页小计: 当前筛选 ${rows.length} 行，借贷平衡状态以系统试算结果为准。</td></tr></tfoot></table></body></html>`
 }
 
-function renderFinancialPrintHtml(title: string, rows: ReturnType<typeof printableRows>, exportedAt: string) {
+function renderFinancialPrintHtml(title: string, rows: ReturnType<typeof printableRows>, exportedAt: string, context: ExportDocumentContext) {
   const bodyRows = rows.map(({ row }) => `<tr><td>${escapeHtml(row.values.line || '')}</td><td>${escapeHtml(row.values.item || '')}</td><td>${escapeHtml(row.values.opening || '')}</td><td>${escapeHtml(row.values.ending || '')}</td><td>${escapeHtml(row.values.note || row.status)}</td></tr>`).join('')
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
     body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:22px;color:#111827}
     h1{text-align:center;font-size:19px;margin:0 0 8px}.meta{display:flex;justify-content:space-between;font-size:12px;margin-bottom:10px;color:#334155}
     table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #475569;padding:7px 8px} th{background:#e8eef6}.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
     .foot{display:flex;justify-content:space-between;margin-top:14px;font-size:12px}
-  </style></head><body><h1>${escapeHtml(title)}</h1><div class="meta"><span>编制单位: 科旋电气（上海）有限公司</span><span>所属期: 2026-05</span><span>单位: 元</span></div>
+  </style></head><body><h1>${escapeHtml(title)}</h1><div class="meta"><span>编制单位: ${escapeHtml(context.companyName)}</span><span>所属期: ${escapeHtml(context.periodLabel)}</span><span>单位: 元</span></div>
   <table><thead><tr><th>行次</th><th>项目</th><th>期初余额/本月数</th><th>期末余额/本年累计</th><th>说明</th></tr></thead><tbody>${bodyRows}</tbody></table>
   <div class="foot"><span>制表: 系统</span><span>复核: 未签章</span><span>打印时间: ${escapeHtml(exportedAt)}</span></div></body></html>`
 }
 
-function renderTaxPrintHtml(title: string, rows: ReturnType<typeof printableRows>, exportedAt: string) {
+function renderTaxPrintHtml(title: string, rows: ReturnType<typeof printableRows>, exportedAt: string, context: ExportDocumentContext) {
   const bodyRows = rows.map(({ row }) => `<tr><td>${escapeHtml(row.values.taxType || '')}</td><td>${escapeHtml(row.values.form || row.values.period || '')}</td><td>${escapeHtml(row.values.source || row.values.method || '')}</td><td class="num">${escapeHtml(row.values.amount || '')}</td><td class="num">${escapeHtml(row.values.tax || '')}</td><td>${escapeHtml(row.values.check || row.status)}</td></tr>`).join('')
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
     body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:22px;color:#111827}
     h1{text-align:center;font-size:18px;margin:0 0 8px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px;margin-bottom:12px;color:#334155}
     table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #475569;padding:7px 8px} th{background:#e8eef6}.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
     .notice{margin-top:12px;border:1px solid #cbd5e1;background:#f8fafc;padding:8px;font-size:11px;color:#475569}
-  </style></head><body><h1>${escapeHtml(title)}</h1><div class="meta"><span>纳税人: 科旋电气（上海）有限公司</span><span>税号: 91310115MA1K3****X</span><span>所属期: 2026-05</span><span>申报口径: 系统取数</span><span>状态: 待人工确认</span><span>打印: ${escapeHtml(exportedAt)}</span></div>
+  </style></head><body><h1>${escapeHtml(title)}</h1><div class="meta"><span>纳税人: ${escapeHtml(context.companyName)}</span><span>税号: ${escapeHtml(context.taxpayerId)}</span><span>所属期: ${escapeHtml(context.periodLabel)}</span><span>申报口径: 系统取数</span><span>状态: 待人工确认</span><span>打印: ${escapeHtml(exportedAt)}</span></div>
   <table><thead><tr><th>税种</th><th>申报表/周期</th><th>取数来源/方式</th><th>本期金额</th><th>税额</th><th>校验</th></tr></thead><tbody>${bodyRows}</tbody></table>
   <div class="notice">边界说明: 本打印件为申报预览和留档材料，不代表已向电子税务局提交。真实申报需要 adapter 授权、提交回执和人工确认。</div></body></html>`
 }
@@ -3178,15 +3185,16 @@ function buildPrintHtml(params: {
   exportedAt: string
   status: string
   keyword: string
+  context: ExportDocumentContext
 }) {
   const headers = [...params.config.columns.map((column) => column.label), '状态', '凭证', '附件']
   const rows = printableRows(params.config, params.rows)
   const template = printTemplateKind(params.kind)
 
-  if (template === 'voucher') return renderVoucherPrintHtml(params.title, rows, params.exportedAt)
-  if (template === 'ledger') return renderLedgerPrintHtml(params.title, headers, rows, params.exportedAt)
-  if (template === 'financial') return renderFinancialPrintHtml(params.title, rows, params.exportedAt)
-  if (template === 'tax') return renderTaxPrintHtml(params.title, rows, params.exportedAt)
+  if (template === 'voucher') return renderVoucherPrintHtml(params.title, rows, params.exportedAt, params.context)
+  if (template === 'ledger') return renderLedgerPrintHtml(params.title, headers, rows, params.exportedAt, params.context)
+  if (template === 'financial') return renderFinancialPrintHtml(params.title, rows, params.exportedAt, params.context)
+  if (template === 'tax') return renderTaxPrintHtml(params.title, rows, params.exportedAt, params.context)
 
   return renderGenericPrintHtml({
     title: params.title,
@@ -3195,6 +3203,7 @@ function buildPrintHtml(params: {
     exportedAt: params.exportedAt,
     status: params.status,
     keyword: params.keyword,
+    context: params.context,
   })
 }
 
@@ -3213,10 +3222,11 @@ function excelMetaRows(params: {
   status: string
   keyword: string
   rowCount: number
+  context: ExportDocumentContext
 }) {
   return [
     [`${params.title}导出表`],
-    ['公司', '科旋电气（上海）有限公司', '所属期', '2026-05', '导出时间', params.exportedAt],
+    ['公司', params.context.companyName, '所属期', params.context.periodLabel, '导出时间', params.exportedAt],
     ['筛选状态', params.status, '关键词', params.keyword || '全部', '记录数', `${params.rowCount} 条`],
     [],
   ]
@@ -3241,6 +3251,7 @@ function buildVoucherExcelTemplate(params: {
   exportedAt: string
   status: string
   keyword: string
+  context: ExportDocumentContext
 }): ExcelTemplateData {
   const headers = ['凭证日期', '凭证字号', '摘要', '借方科目', '贷方科目', '借方金额', '贷方金额', '来源单据', '附件', '制单人', '审核人', '状态']
   const rows = params.rows.map((row) => [
@@ -3258,7 +3269,7 @@ function buildVoucherExcelTemplate(params: {
     row.status,
   ])
   const sheetRows = [
-    ...excelMetaRows({ title: '记账凭证', exportedAt: params.exportedAt, status: params.status, keyword: params.keyword, rowCount: rows.length }),
+    ...excelMetaRows({ title: '记账凭证', exportedAt: params.exportedAt, status: params.status, keyword: params.keyword, rowCount: rows.length, context: params.context }),
     headers,
     ...rows,
     [],
@@ -3275,12 +3286,13 @@ function buildLedgerExcelTemplate(params: {
   exportedAt: string
   status: string
   keyword: string
+  context: ExportDocumentContext
 }): ExcelTemplateData {
   const headers = [...params.config.columns.map((column) => column.label), '状态', '凭证', '附件']
   const rows = rowsToExcelCells(params.config, params.rows)
   const sheetRows = [
-    ...excelMetaRows({ title: params.title, exportedAt: params.exportedAt, status: params.status, keyword: params.keyword, rowCount: rows.length }),
-    ['单位', '科旋电气（上海）有限公司', '期间', '2026-05', '币别', '人民币'],
+    ...excelMetaRows({ title: params.title, exportedAt: params.exportedAt, status: params.status, keyword: params.keyword, rowCount: rows.length, context: params.context }),
+    ['单位', params.context.companyName, '期间', params.context.periodLabel, '币别', '人民币'],
     [],
     headers,
     ...rows,
@@ -3297,6 +3309,7 @@ function buildFinancialExcelTemplate(params: {
   exportedAt: string
   status: string
   keyword: string
+  context: ExportDocumentContext
 }): ExcelTemplateData {
   const headers = ['行次', '报表项目', '取数公式/科目', '期初余额/本月数', '期末余额/本年累计', '重分类', '说明', '状态']
   const rows = params.rows.map((row) => [
@@ -3311,7 +3324,7 @@ function buildFinancialExcelTemplate(params: {
   ])
   const sheetRows = [
     [`${params.title}`],
-    ['编制单位', '科旋电气（上海）有限公司', '所属期', '2026-05', '单位', '元', '导出时间', params.exportedAt],
+    ['编制单位', params.context.companyName, '所属期', params.context.periodLabel, '单位', '元', '导出时间', params.exportedAt],
     ['筛选状态', params.status, '关键词', params.keyword || '全部', '记录数', `${rows.length} 行`],
     [],
     headers,
@@ -3329,6 +3342,7 @@ function buildTaxExcelTemplate(params: {
   exportedAt: string
   status: string
   keyword: string
+  context: ExportDocumentContext
 }): ExcelTemplateData {
   const headers = ['税种', '申报表/周期', '取数来源/计税方式', '本期金额', '税额', '校验', '状态', '凭证/快照', '附件']
   const rows = params.rows.map((row) => [
@@ -3344,7 +3358,7 @@ function buildTaxExcelTemplate(params: {
   ])
   const sheetRows = [
     [`${params.title}申报预览`],
-    ['纳税人', '科旋电气（上海）有限公司', '纳税人识别号', '91310115MA1K3****X', '所属期', '2026-05', '导出时间', params.exportedAt],
+    ['纳税人', params.context.companyName, '纳税人识别号', params.context.taxpayerId, '所属期', params.context.periodLabel, '导出时间', params.exportedAt],
     ['申报口径', '系统取数', '状态', '待人工确认', '记录数', `${rows.length} 行`],
     [],
     headers,
@@ -3363,11 +3377,12 @@ function buildGenericExcelTemplate(params: {
   exportedAt: string
   status: string
   keyword: string
+  context: ExportDocumentContext
 }): ExcelTemplateData {
   const headers = [...params.config.columns.map((column) => column.label), '状态', '凭证', '附件']
   const rows = rowsToExcelCells(params.config, params.rows)
   const sheetRows = [
-    ...excelMetaRows({ title: params.title, exportedAt: params.exportedAt, status: params.status, keyword: params.keyword, rowCount: rows.length }),
+    ...excelMetaRows({ title: params.title, exportedAt: params.exportedAt, status: params.status, keyword: params.keyword, rowCount: rows.length, context: params.context }),
     headers,
     ...rows,
     [],
@@ -3385,6 +3400,7 @@ function buildExcelTemplate(params: {
   exportedAt: string
   status: string
   keyword: string
+  context: ExportDocumentContext
 }): ExcelTemplateData {
   const template = printTemplateKind(params.kind)
   if (template === 'voucher') return buildVoucherExcelTemplate(params)
@@ -4378,6 +4394,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const auditScope = `${status}/${keyword.trim() || '全部'}`
   const exportPeriodLabel = currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel
+  const exportDocumentContext = {
+    companyName: selectedCompany?.name || '科旋电气（上海）有限公司',
+    periodLabel: exportPeriodLabel,
+    taxpayerId: selectedCompany?.tax_id || '91310115MA1K3****X',
+  }
   const scopedOperationAuditLogs = useMemo(() => operationAuditLogs.filter((log) => log.objectRef?.includes(currentPeriodLabel)), [currentPeriodLabel, operationAuditLogs])
   const visibleRuleLogs = useMemo(() => {
     if (!usesLiveRuleLogData) return []
@@ -4537,6 +4558,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       exportedAt,
       status,
       keyword: keyword.trim(),
+      context: exportDocumentContext,
     })
     await exportRowsToXlsx({
       sheetRows,
@@ -4569,6 +4591,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       exportedAt,
       status,
       keyword: keyword.trim(),
+      context: exportDocumentContext,
     })
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
@@ -4600,6 +4623,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       exportedAt,
       status,
       keyword: keyword.trim(),
+      context: exportDocumentContext,
     })
     await exportHtmlToPdf({
       html,
