@@ -3429,6 +3429,49 @@ function exportJobToModuleRow(job: ExportJob): ModuleRow {
   }
 }
 
+function isExportOperationAudit(log: OperationAuditLog) {
+  return log.action.includes('导出') || log.action.includes('打印')
+}
+
+function exportOperationAuditStatus(result: string): ModuleRow['status'] {
+  const normalized = result.toLowerCase()
+  if (result === '失败' || ['failed', 'error', 'rejected'].includes(normalized)) return '异常'
+  if (result === '待审批' || ['pending', 'review'].includes(normalized)) return '待确认'
+  return '已通过'
+}
+
+function exportOperationAuditFormat(action: string) {
+  if (action.includes('Excel')) return 'Excel'
+  if (action.includes('PDF')) return 'PDF'
+  if (action.includes('打印')) return '打印预览'
+  return '导出文件'
+}
+
+function mapOperationAuditExportRows(logs: OperationAuditLog[]): ModuleRow[] {
+  return logs
+    .filter(isExportOperationAudit)
+    .map((log) => {
+      const objectParts = (log.objectRef || '').split('｜')
+      const detailParts = (log.detail || '').split('｜')
+      return {
+        id: `operation-export-${log.id}`,
+        status: exportOperationAuditStatus(log.result),
+        voucher: '-',
+        attachment: exportOperationAuditFormat(log.action),
+        values: {
+          file: objectParts[objectParts.length - 1] || '未记录文件名称',
+          module: log.moduleName,
+          format: exportOperationAuditFormat(log.action),
+          scope: detailParts[detailParts.length - 1] || '已留痕',
+          hash: '审计留痕',
+          operator: log.operator || '系统',
+          time: log.createdAt.replace('T', ' ').slice(0, 16),
+          expire: '按本地归档策略',
+        },
+      }
+    })
+}
+
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
     id: log.id,
@@ -3509,6 +3552,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveReportFormulaData = Boolean(isTauri && selectedCompanyId && kind === 'reportFormulaSettings')
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings', 'taxInit'].includes(kind))
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
+  const usesLiveExportData = Boolean(isTauri && selectedCompanyId && kind === 'exportCenter')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
   const usesLiveDeclarationReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'declarationReceipt')
@@ -3770,7 +3814,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   useEffect(() => {
     if (!usesLiveRuleLogData || !selectedCompanyId) return
     let active = true
-    void automationApi.getOperationAuditLogs(kind === 'auditLog'
+    void automationApi.getOperationAuditLogs(kind === 'auditLog' || kind === 'exportCenter'
       ? { companyId: selectedCompanyId }
       : { companyId: selectedCompanyId, moduleName: title })
       .then((result) => {
@@ -4350,6 +4394,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'exportCenter' && usesLiveExportData) {
+      const dynamicRows = mapOperationAuditExportRows(operationAuditLogs)
+      return {
+        ...baseConfig,
+        rows: dynamicRows,
+        summary: baseConfig.summary.map((item) => {
+          if (item.label === '导出任务') return { ...item, value: `${dynamicRows.length} 个` }
+          if (item.label === '已完成') return { ...item, value: `${dynamicRows.filter((row) => row.status === '已通过').length} 个` }
+          if (item.label === '待下载') return { ...item, value: `${dynamicRows.filter((row) => row.status === '待确认').length} 个` }
+          if (item.label === '失败') return { ...item, value: `${dynamicRows.filter((row) => row.status === '异常').length} 个` }
+          return item
+        }),
+      }
+    }
+
     if (kind !== 'exportCenter') return baseConfig
     const dynamicRows = exportJobs.map(exportJobToModuleRow)
     return {
@@ -4361,7 +4420,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

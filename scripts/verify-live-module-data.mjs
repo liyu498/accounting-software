@@ -206,6 +206,11 @@ const requiredPageSnippets = [
   ['document export taxpayer binding', 'taxpayerId: selectedCompany?.tax_id ||'],
   ['print template context binding', 'context: params.context'],
   ['excel template context binding', 'context: params.context'],
+  ['export center live scope', "const usesLiveExportData = Boolean(isTauri && selectedCompanyId && kind === 'exportCenter')"],
+  ['export center audit mapper', 'function mapOperationAuditExportRows(logs: OperationAuditLog[]): ModuleRow[]'],
+  ['export center audit filter', 'function isExportOperationAudit(log: OperationAuditLog)'],
+  ['export center live rows', 'if (kind === \'exportCenter\' && usesLiveExportData)'],
+  ['export center audit fetch', "kind === 'auditLog' || kind === 'exportCenter'"],
 ]
 
 const requiredTaxWorkspaceSnippets = [
