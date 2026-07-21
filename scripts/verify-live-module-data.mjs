@@ -221,6 +221,10 @@ const requiredWelcomeSnippets = [
   ['company import duplicate tax guard', 'existingTaxIds.has(candidate.tax_id)'],
   ['company import secret column boundary', "const forbiddenImportHeaders = ['密码', '账号', '验证码', 'Cookie']"],
   ['company import create binding', 'await createCompany(candidate)'],
+  ['company collection preflight queue', "jobType: 'tax_profile_collection'"],
+  ['company collection duplicate query', "automationApi.getAutomationJobs({ companyId: target.id, period: target.period })"],
+  ['company collection duplicate guard', "job.jobType === 'tax_profile_collection' && ['queued', 'running', 'review'].includes(job.status)"],
+  ['company collection external boundary', '不执行真实税局登录、资料抓取或外部提交'],
 ]
 
 const requiredCompanyPersistenceSnippets = [

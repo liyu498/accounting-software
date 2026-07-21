@@ -569,11 +569,51 @@ export function Welcome() {
     setSelectedRows(new Set())
   }
 
-  const handleCollect = (company?: AccountRow) => {
-    const target = company ? `${company.code}-${company.name}` : `${selectedRows.size || '当前筛选'}户客户`
-    recordWelcomeAudit('采集税务资料', target, '高', '待审批')
-    setOperationNotice(`${target} 的采集任务已进入待审批队列；正式接入时只通过合法 adapter 采集税务登记、税种认定、主管税务机关和办税人员信息。`)
-    warningToast('采集入口已预留：正式接入时将按维护的办税登录方式采集税务登记、税种认定、主管税务机关和办税人员信息')
+  const handleCollect = async (company?: AccountRow) => {
+    const candidateRows = company
+      ? [company]
+      : selectedRows.size > 0
+        ? rows.filter((row) => selectedRows.has(row.id))
+        : rows
+    const targets = candidateRows.filter((row) => row.real)
+
+    if (targets.length === 0) {
+      warningToast('请选择至少一个本地账套后创建采集预检任务')
+      return
+    }
+
+    let created = 0
+    let skipped = 0
+    let failed = 0
+    for (const target of targets) {
+      const existing = await automationApi.getAutomationJobs({ companyId: target.id, period: target.period })
+      const hasActivePreflight = (existing.data || []).some(
+        (job) => job.jobType === 'tax_profile_collection' && ['queued', 'running', 'review'].includes(job.status),
+      )
+      if (hasActivePreflight) {
+        skipped += 1
+        continue
+      }
+
+      const result = await automationApi.createAutomationJob({
+        companyId: target.id,
+        period: target.period,
+        jobType: 'tax_profile_collection',
+        sourceModule: '机构-账套管理',
+        sourceId: target.id,
+        status: 'queued',
+        resultSummary: '待检查税务授权、办税人信息和采集范围；不执行真实税局登录、资料抓取或外部提交',
+        riskLevel: 'high',
+        createdBy: 'admin',
+      })
+      if (result.success) created += 1
+      else failed += 1
+    }
+
+    const targetLabel = company ? `${company.code}-${company.name}` : `${targets.length} 户账套`
+    recordWelcomeAudit('创建税务资料采集预检', `${targetLabel} / 新建${created} / 跳过${skipped} / 失败${failed}`, '高', '待审批')
+    setOperationNotice(`${targetLabel} 已创建 ${created} 个采集预检任务，跳过 ${skipped} 个已有队列任务，失败 ${failed} 个。任务仅用于授权与资料范围检查，不执行真实税局登录、资料抓取或外部提交。`)
+    warningToast(`采集预检：新建 ${created}，跳过 ${skipped}，失败 ${failed}`)
   }
 
   const handleImportCompanies = () => {
