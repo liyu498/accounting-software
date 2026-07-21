@@ -20,7 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { automationApi, backupApi, bankTransactionApi, documentRecordApi, employeeApi, payrollApi, socialSecurityApi, specialDeductionApi, type AdapterAuthorization, type AutomationJob, type BankTransaction, type DocumentRecord, type Employee, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
+import { accountTransferApi, automationApi, backupApi, bankTransactionApi, documentRecordApi, employeeApi, payrollApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankTransaction, type DocumentRecord, type Employee, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -3919,6 +3919,8 @@ function summarizeInvoiceManagement(invoices: Invoice[], invoiceType: 'input' | 
     { label: labels[3], value: `${exceptions} 单`, tone: 'red' },
   ]
 }
+function mapLiveAccountTransferRows(accountTransfers: AccountTransfer[]): ModuleRow[] { return accountTransfers.map((record) => ({ id: record.id, status: record.status === '异常' ? '异常' : record.status === '已生成凭证' ? '已生成凭证' : '待确认', voucher: record.status === '已生成凭证' ? '已关联' : '未生成', attachment: '本机转账记录', values: { date: record.transferDate, from: record.fromAccount, to: record.toAccount, amount: payrollCurrency(record.amount), fee: payrollCurrency(record.fee), serial: record.serialNo || '待补流水号' } })) }
+function summarizeLiveAccountTransfers(accountTransfers: AccountTransfer[]): ModuleConfig['summary'] { return [{ label: '本期转账', value: `${accountTransfers.length} 笔`, tone: 'blue' }, { label: '转账金额', value: payrollCurrency(accountTransfers.reduce((sum, record) => sum + record.amount, 0)), tone: 'green' }, { label: '待确认', value: `${accountTransfers.filter((record) => record.status !== '已生成凭证').length} 笔`, tone: 'amber' }, { label: '异常', value: `${accountTransfers.filter((record) => record.status === '异常').length} 笔`, tone: 'red' }] }
 
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
@@ -4014,6 +4016,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveExpenseReimbursementData = Boolean(isTauri && selectedCompanyId && kind === 'expenseReimbursement')
   const usesLivePurchaseManagementData = Boolean(isTauri && selectedCompanyId && kind === 'purchaseManagement')
   const usesLiveSalesManagementData = Boolean(isTauri && selectedCompanyId && kind === 'salesManagement')
+  const usesLiveAccountTransferData = Boolean(isTauri && selectedCompanyId && kind === 'transfer')
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -4052,6 +4055,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [specialDeductionRecords, setSpecialDeductionRecords] = useState<SpecialDeductionRecord[]>([])
   const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])
   const [documentRecords, setDocumentRecords] = useState<DocumentRecord[]>([])
+  const [accountTransfers, setAccountTransfers] = useState<AccountTransfer[]>([])
   const [showSocialSecurityDialog, setShowSocialSecurityDialog] = useState(false)
   const [socialSecurityDraft, setSocialSecurityDraft] = useState({ employeeId: '', city: '', base: '', company: '', personal: '', fund: '' })
   const [showSpecialDeductionDialog, setShowSpecialDeductionDialog] = useState(false)
@@ -4162,6 +4166,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!(usesLiveDocumentRecordData || usesLiveExpenseReimbursementData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return
     void documentRecordApi.getDocumentRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setDocumentRecords(result.success ? result.data || [] : []))
   }, [currentPeriodLabel, selectedCompanyId, usesLiveDocumentRecordData, usesLiveExpenseReimbursementData])
+  useEffect(() => { if (!usesLiveAccountTransferData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setAccountTransfers(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveAccountTransferData])
 
   useEffect(() => {
     if (!usesLiveReportData || !currentPeriodId) return
@@ -4635,6 +4640,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'expenseReimbursement' && usesLiveExpenseReimbursementData) return { ...baseConfig, rows: mapLiveExpenseReimbursementRows(documentRecords), summary: summarizeLiveExpenseReimbursements(documentRecords) }
     if (kind === 'purchaseManagement' && usesLivePurchaseManagementData) return { ...baseConfig, rows: mapLivePurchaseManagementRows(invoices), summary: summarizeInvoiceManagement(invoices, 'input', ['采购单', '已匹配', '待付款', '异常单']) }
     if (kind === 'salesManagement' && usesLiveSalesManagementData) return { ...baseConfig, rows: mapLiveSalesManagementRows(invoices), summary: summarizeInvoiceManagement(invoices, 'output', ['销售单', '已开票/凭证', '待收款', '异常单']) }
+    if (kind === 'transfer' && usesLiveAccountTransferData) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {
@@ -5002,7 +5008,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

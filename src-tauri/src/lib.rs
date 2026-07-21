@@ -87,6 +87,8 @@ pub fn run() {
             commands::bank_transactions::create_bank_transaction,
             commands::document_records::get_document_records,
             commands::document_records::create_document_record,
+            commands::account_transfers::get_account_transfers,
+            commands::account_transfers::create_account_transfer,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,

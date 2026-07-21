@@ -32,6 +32,9 @@ const bankTransactionCommandSource = existsSync('src-tauri/src/commands/bank_tra
 const documentRecordCommandSource = existsSync('src-tauri/src/commands/document_records.rs')
   ? readFileSync('src-tauri/src/commands/document_records.rs', 'utf8')
   : ''
+const accountTransferCommandSource = existsSync('src-tauri/src/commands/account_transfers.rs')
+  ? readFileSync('src-tauri/src/commands/account_transfers.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -525,6 +528,14 @@ const requiredOrderViewPageSnippets = [
   ['sales order row mapper', "mapLiveSalesManagementRows(invoices)"],
 ]
 
+const requiredAccountTransferPageSnippets = [
+  ['account transfer table schema', 'CREATE TABLE IF NOT EXISTS account_transfers'],
+  ['account transfer list command', 'pub async fn get_account_transfers'],
+  ['account transfer create command', 'pub async fn create_account_transfer'],
+  ['account transfer api list binding', 'accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['account transfer row mapper', 'mapLiveAccountTransferRows(accountTransfers)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -569,6 +580,9 @@ const errors = [
   ...verify(pageSource, requiredDocumentRecordPageSnippets, 'document register module page'),
   ...verify(pageSource, requiredExpenseReimbursementPageSnippets, 'expense reimbursement module page'),
   ...verify(pageSource, requiredOrderViewPageSnippets, 'purchase and sales module pages'),
+  ...verify(databaseSource, requiredAccountTransferPageSnippets.slice(0, 1), 'database schema'),
+  ...verify(accountTransferCommandSource, requiredAccountTransferPageSnippets.slice(1, 3), 'account transfer commands'),
+  ...verify(pageSource, requiredAccountTransferPageSnippets.slice(3), 'account transfer module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

@@ -64,6 +64,7 @@ export interface SocialSecurityRecord { id: string; companyId: string; employeeI
 export interface SpecialDeductionRecord { id: string; companyId: string; employeeId: string; employeeName: string; deductionType: string; startMonth: string; endMonth: string | null; monthlyAmount: number; source: string; status: string; createdAt: string; updatedAt: string }
 export interface BankTransaction { id: string; companyId: string; period: string; accountName: string; serialNo: string; transactionDate: string; counterparty: string | null; summary: string | null; incomeAmount: number; expenseAmount: number; balance: number | null; receiptStatus: string; matchResult: string | null; status: string; createdAt: string; updatedAt: string }
 export interface DocumentRecord { id: string; companyId: string; period: string; businessDate: string; documentCode: string; businessType: string; partner: string | null; amount: number; owner: string | null; attachmentStatus: string; status: string; createdAt: string; updatedAt: string }
+export interface AccountTransfer { id: string; companyId: string; period: string; transferDate: string; fromAccount: string; toAccount: string; amount: number; fee: number; serialNo: string | null; status: string; createdAt: string; updatedAt: string }
 
 export interface PaginatedResponse<T> extends ApiResponse<T> {
   meta?: ApiMeta
@@ -1020,6 +1021,7 @@ type RawSocialSecurityRecord = { id: string; company_id: string; employee_id: st
 type RawSpecialDeductionRecord = { id: string; company_id: string; employee_id: string; employee_name: string; deduction_type: string; start_month: string; end_month: string | null; monthly_amount: number; source: string; status: string; created_at: string; updated_at: string }
 type RawBankTransaction = { id: string; company_id: string; period: string; account_name: string; serial_no: string; transaction_date: string; counterparty: string | null; summary: string | null; income_amount: number; expense_amount: number; balance: number | null; receipt_status: string; match_result: string | null; status: string; created_at: string; updated_at: string }
 type RawDocumentRecord = { id: string; company_id: string; period: string; business_date: string; document_code: string; business_type: string; partner: string | null; amount: number; owner: string | null; attachment_status: string; status: string; created_at: string; updated_at: string }
+type RawAccountTransfer = { id: string; company_id: string; period: string; transfer_date: string; from_account: string; to_account: string; amount: number; fee: number; serial_no: string | null; status: string; created_at: string; updated_at: string }
 
 const mapAgencyServiceContract = (item: RawAgencyServiceContract): AgencyServiceContract => ({
   id: item.id,
@@ -1234,6 +1236,7 @@ const mapSocialSecurityRecord = (item: RawSocialSecurityRecord): SocialSecurityR
 const mapSpecialDeductionRecord = (item: RawSpecialDeductionRecord): SpecialDeductionRecord => ({ id: item.id, companyId: item.company_id, employeeId: item.employee_id, employeeName: item.employee_name, deductionType: item.deduction_type, startMonth: item.start_month, endMonth: item.end_month, monthlyAmount: item.monthly_amount, source: item.source, status: item.status, createdAt: item.created_at, updatedAt: item.updated_at })
 const mapBankTransaction = (item: RawBankTransaction): BankTransaction => ({ id: item.id, companyId: item.company_id, period: item.period, accountName: item.account_name, serialNo: item.serial_no, transactionDate: item.transaction_date, counterparty: item.counterparty, summary: item.summary, incomeAmount: item.income_amount, expenseAmount: item.expense_amount, balance: item.balance, receiptStatus: item.receipt_status, matchResult: item.match_result, status: item.status, createdAt: item.created_at, updatedAt: item.updated_at })
 const mapDocumentRecord = (item: RawDocumentRecord): DocumentRecord => ({ id: item.id, companyId: item.company_id, period: item.period, businessDate: item.business_date, documentCode: item.document_code, businessType: item.business_type, partner: item.partner, amount: item.amount, owner: item.owner, attachmentStatus: item.attachment_status, status: item.status, createdAt: item.created_at, updatedAt: item.updated_at })
+const mapAccountTransfer = (item: RawAccountTransfer): AccountTransfer => ({ id: item.id, companyId: item.company_id, period: item.period, transferDate: item.transfer_date, fromAccount: item.from_account, toAccount: item.to_account, amount: item.amount, fee: item.fee, serialNo: item.serial_no, status: item.status, createdAt: item.created_at, updatedAt: item.updated_at })
 
 // ============================================
 // Agency operation API (机构运营)
@@ -1780,4 +1783,9 @@ export const documentRecordApi = {
       return { success: true, data: mapDocumentRecord(result) }
     } catch (error) { return { success: false, error: String(error) } }
   },
+}
+
+export const accountTransferApi = {
+  getAccountTransfers: async (filters: { companyId: string; period: string }): Promise<ApiResponse<AccountTransfer[]>> => { try { const result = await invoke('get_account_transfers', { companyId: filters.companyId, period: filters.period }) as RawAccountTransfer[]; return { success: true, data: result.map(mapAccountTransfer) } } catch (error) { return { success: false, error: String(error) } } },
+  createAccountTransfer: async (input: { companyId: string; period: string; transferDate: string; fromAccount: string; toAccount: string; amount: number; fee?: number; serialNo?: string }): Promise<ApiResponse<AccountTransfer>> => { try { const result = await invoke('create_account_transfer', { input: { company_id: input.companyId, period: input.period, transfer_date: input.transferDate, from_account: input.fromAccount, to_account: input.toAccount, amount: input.amount, fee: input.fee, serial_no: input.serialNo } }) as RawAccountTransfer; return { success: true, data: mapAccountTransfer(result) } } catch (error) { return { success: false, error: String(error) } } },
 }

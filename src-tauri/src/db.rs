@@ -77,6 +77,15 @@ impl Database {
         .await?;
 
         sqlx::query(r#"
+            CREATE TABLE IF NOT EXISTS account_transfers (
+                id TEXT PRIMARY KEY, company_id TEXT NOT NULL, period TEXT NOT NULL, transfer_date TEXT NOT NULL,
+                from_account TEXT NOT NULL, to_account TEXT NOT NULL, amount REAL NOT NULL, fee REAL NOT NULL DEFAULT 0,
+                serial_no TEXT, status TEXT NOT NULL DEFAULT '待确认', created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (company_id) REFERENCES companies(id)
+            )
+        "#).execute(pool).await?;
+
+        sqlx::query(r#"
             CREATE TABLE IF NOT EXISTS social_security_records (
                 id TEXT PRIMARY KEY, company_id TEXT NOT NULL, employee_id TEXT NOT NULL, period TEXT NOT NULL,
                 city TEXT, contribution_base REAL NOT NULL DEFAULT 0, company_amount REAL NOT NULL DEFAULT 0,
@@ -2969,6 +2978,11 @@ pub struct CreateDocumentRecordInput {
     pub owner: Option<String>,
     pub attachment_status: Option<String>,
 }
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct AccountTransfer { pub id: String, pub company_id: String, pub period: String, pub transfer_date: String, pub from_account: String, pub to_account: String, pub amount: f64, pub fee: f64, pub serial_no: Option<String>, pub status: String, pub created_at: String, pub updated_at: String }
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateAccountTransferInput { pub company_id: String, pub period: String, pub transfer_date: String, pub from_account: String, pub to_account: String, pub amount: f64, pub fee: Option<f64>, pub serial_no: Option<String> }
 
 // ==================== Currency Structs ====================
 
