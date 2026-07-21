@@ -20,7 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { automationApi, backupApi, employeeApi, payrollApi, type AdapterAuthorization, type AutomationJob, type Employee, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type TaxDeclarationTask } from '../../lib/api'
+import { automationApi, backupApi, employeeApi, payrollApi, socialSecurityApi, type AdapterAuthorization, type AutomationJob, type Employee, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type TaxDeclarationTask } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -3603,6 +3603,7 @@ function summarizeLivePayroll(payrollRecords: PayrollRecord[]): ModuleConfig['su
     { label: '待确认行', value: `${pending} 行`, tone: pending > 0 ? 'red' : 'gray' },
   ]
 }
+function mapLiveSocialSecurityRows(socialSecurityRecords: SocialSecurityRecord[]): ModuleRow[] { return socialSecurityRecords.map((record) => ({ id: record.id, status: '待确认', voucher: '未生成', attachment: '本地社保明细', values: { name: record.employeeName, city: record.city || '待补', base: payrollCurrency(record.contributionBase), company: payrollCurrency(record.companyAmount), personal: payrollCurrency(record.personalAmount), fund: payrollCurrency(record.fundAmount) } })) }
 
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
@@ -3688,6 +3689,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveImportData = Boolean(isTauri && selectedCompanyId && kind === 'importCenter')
   const usesLiveEmployeeData = Boolean(isTauri && selectedCompanyId && kind === 'employee')
   const usesLivePayrollData = Boolean(isTauri && selectedCompanyId && kind === 'payroll')
+  const usesLiveSocialSecurityData = Boolean(isTauri && selectedCompanyId && kind === 'socialSecurity')
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -3722,6 +3724,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [backupValidations, setBackupValidations] = useState<Record<string, LocalBackupVerification>>({})
   const [employees, setEmployees] = useState<Employee[]>([])
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([])
+  const [socialSecurityRecords, setSocialSecurityRecords] = useState<SocialSecurityRecord[]>([])
   const [showPayrollDialog, setShowPayrollDialog] = useState(false)
   const [payrollDraft, setPayrollDraft] = useState({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
@@ -4000,6 +4003,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     })
     return () => { active = false }
   }, [currentPeriodLabel, selectedCompanyId, usesLivePayrollData])
+  useEffect(() => { if (!usesLiveSocialSecurityData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void socialSecurityApi.getSocialSecurityRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setSocialSecurityRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveSocialSecurityData])
 
   useEffect(() => {
     if (!usesLiveVoucherRecycleData || !selectedCompanyId) return
@@ -4264,6 +4268,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'payroll' && usesLivePayrollData) {
       return { ...baseConfig, rows: mapLivePayrollRows(payrollRecords), summary: summarizeLivePayroll(payrollRecords) }
     }
+    if (kind === 'socialSecurity' && usesLiveSocialSecurityData) return { ...baseConfig, rows: mapLiveSocialSecurityRows(socialSecurityRecords), summary: baseConfig.summary.map((item) => item.label === '参保人数' ? { ...item, value: `${socialSecurityRecords.length} 人` } : item) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {
@@ -4631,7 +4636,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, employees, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, employees, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

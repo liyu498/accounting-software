@@ -76,6 +76,16 @@ impl Database {
         .execute(pool)
         .await?;
 
+        sqlx::query(r#"
+            CREATE TABLE IF NOT EXISTS social_security_records (
+                id TEXT PRIMARY KEY, company_id TEXT NOT NULL, employee_id TEXT NOT NULL, period TEXT NOT NULL,
+                city TEXT, contribution_base REAL NOT NULL DEFAULT 0, company_amount REAL NOT NULL DEFAULT 0,
+                personal_amount REAL NOT NULL DEFAULT 0, fund_amount REAL NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT '待确认', created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE (company_id, employee_id, period)
+            )
+        "#).execute(pool).await?;
+
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS payroll_records (
@@ -2788,6 +2798,11 @@ pub struct CreatePayrollRecordInput {
     pub tax_amount: Option<f64>,
     pub social_personal: Option<f64>,
 }
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct SocialSecurityRecord { pub id: String, pub company_id: String, pub employee_id: String, pub employee_name: String, pub period: String, pub city: Option<String>, pub contribution_base: f64, pub company_amount: f64, pub personal_amount: f64, pub fund_amount: f64, pub status: String, pub created_at: String, pub updated_at: String }
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateSocialSecurityRecordInput { pub company_id: String, pub employee_id: String, pub period: String, pub city: Option<String>, pub contribution_base: f64, pub company_amount: f64, pub personal_amount: f64, pub fund_amount: f64 }
 
 // ==================== Currency Structs ====================
 

@@ -1,0 +1,19 @@
+use crate::db::{CreateSocialSecurityRecordInput, Database, SocialSecurityRecord};
+use tauri::State;
+
+#[tauri::command]
+pub async fn get_social_security_records(company_id: String, period: String, db: State<'_, Database>) -> Result<Vec<SocialSecurityRecord>, String> {
+    sqlx::query_as("SELECT s.*, e.name AS employee_name FROM social_security_records s INNER JOIN employees e ON e.id = s.employee_id AND e.company_id = s.company_id WHERE s.company_id = ? AND s.period = ? ORDER BY e.employee_code")
+        .bind(company_id).bind(period).fetch_all(db.pool()).await.map_err(|error| format!("查询社保明细失败: {error}"))
+}
+
+#[tauri::command]
+pub async fn create_social_security_record(input: CreateSocialSecurityRecordInput, db: State<'_, Database>) -> Result<SocialSecurityRecord, String> {
+    if input.period.trim().is_empty() || [input.contribution_base, input.company_amount, input.personal_amount, input.fund_amount].iter().any(|value| *value < 0.0) { return Err("所属期不能为空且社保金额不能为负数".to_string()); }
+    let id = uuid::Uuid::new_v4().to_string();
+    sqlx::query("INSERT INTO social_security_records (id, company_id, employee_id, period, city, contribution_base, company_amount, personal_amount, fund_amount) SELECT ?, ?, e.id, ?, ?, ?, ?, ?, ? FROM employees e WHERE e.id = ? AND e.company_id = ?")
+        .bind(&id).bind(&input.company_id).bind(input.period.trim()).bind(&input.city).bind(input.contribution_base).bind(input.company_amount).bind(input.personal_amount).bind(input.fund_amount).bind(&input.employee_id).bind(&input.company_id)
+        .execute(db.pool()).await.map_err(|error| format!("新增社保明细失败: {error}"))?;
+    sqlx::query_as("SELECT s.*, e.name AS employee_name FROM social_security_records s INNER JOIN employees e ON e.id = s.employee_id WHERE s.id = ? AND s.company_id = ?")
+        .bind(id).bind(&input.company_id).fetch_one(db.pool()).await.map_err(|error| format!("查询新增社保明细失败: {error}"))
+}

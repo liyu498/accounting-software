@@ -60,6 +60,7 @@ export interface PayrollRecord {
   createdAt: string
   updatedAt: string
 }
+export interface SocialSecurityRecord { id: string; companyId: string; employeeId: string; employeeName: string; period: string; city: string | null; contributionBase: number; companyAmount: number; personalAmount: number; fundAmount: number; status: string; createdAt: string; updatedAt: string }
 
 export interface PaginatedResponse<T> extends ApiResponse<T> {
   meta?: ApiMeta
@@ -1012,6 +1013,7 @@ type RawPayrollRecord = {
   created_at: string
   updated_at: string
 }
+type RawSocialSecurityRecord = { id: string; company_id: string; employee_id: string; employee_name: string; period: string; city: string | null; contribution_base: number; company_amount: number; personal_amount: number; fund_amount: number; status: string; created_at: string; updated_at: string }
 
 const mapAgencyServiceContract = (item: RawAgencyServiceContract): AgencyServiceContract => ({
   id: item.id,
@@ -1222,6 +1224,7 @@ const mapPayrollRecord = (item: RawPayrollRecord): PayrollRecord => ({
   createdAt: item.created_at,
   updatedAt: item.updated_at,
 })
+const mapSocialSecurityRecord = (item: RawSocialSecurityRecord): SocialSecurityRecord => ({ id: item.id, companyId: item.company_id, employeeId: item.employee_id, employeeName: item.employee_name, period: item.period, city: item.city, contributionBase: item.contribution_base, companyAmount: item.company_amount, personalAmount: item.personal_amount, fundAmount: item.fund_amount, status: item.status, createdAt: item.created_at, updatedAt: item.updated_at })
 
 // ============================================
 // Agency operation API (机构运营)
@@ -1692,6 +1695,22 @@ export const payrollApi = {
         },
       }) as RawPayrollRecord
       return { success: true, data: mapPayrollRecord(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
+
+export const socialSecurityApi = {
+  getSocialSecurityRecords: async (filters: { companyId: string; period: string }): Promise<ApiResponse<SocialSecurityRecord[]>> => {
+    try { const result = await invoke('get_social_security_records', { companyId: filters.companyId, period: filters.period }) as RawSocialSecurityRecord[]; return { success: true, data: result.map(mapSocialSecurityRecord) } } catch (error) { return { success: false, error: String(error) } }
+  },
+  createSocialSecurityRecord: async (input: { companyId: string; employeeId: string; period: string; city?: string; contributionBase: number; companyAmount: number; personalAmount: number; fundAmount: number }): Promise<ApiResponse<SocialSecurityRecord>> => {
+    try {
+      const result = await invoke('create_social_security_record', {
+        input: { company_id: input.companyId, employee_id: input.employeeId, period: input.period, city: input.city, contribution_base: input.contributionBase, company_amount: input.companyAmount, personal_amount: input.personalAmount, fund_amount: input.fundAmount },
+      }) as RawSocialSecurityRecord
+      return { success: true, data: mapSocialSecurityRecord(result) }
     } catch (error) {
       return { success: false, error: String(error) }
     }

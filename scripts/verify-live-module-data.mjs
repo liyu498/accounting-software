@@ -20,6 +20,9 @@ const employeeCommandSource = existsSync('src-tauri/src/commands/employees.rs')
 const payrollCommandSource = existsSync('src-tauri/src/commands/payroll.rs')
   ? readFileSync('src-tauri/src/commands/payroll.rs', 'utf8')
   : ''
+const socialSecurityCommandSource = existsSync('src-tauri/src/commands/social_security.rs')
+  ? readFileSync('src-tauri/src/commands/social_security.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -427,6 +430,17 @@ const requiredPayrollPageSnippets = [
   ['payroll summary mapper', 'summarizeLivePayroll(payrollRecords)'],
 ]
 
+const requiredSocialSecurityCommandSnippets = [
+  ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
+  ['social security list command', 'pub async fn get_social_security_records'],
+  ['social security create command', 'pub async fn create_social_security_record'],
+]
+
+const requiredSocialSecurityPageSnippets = [
+  ['social security api list binding', 'socialSecurityApi.getSocialSecurityRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['social security row mapper', 'mapLiveSocialSecurityRows(socialSecurityRecords)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -453,6 +467,9 @@ const errors = [
   ...verify(databaseSource, requiredPayrollCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(payrollCommandSource, requiredPayrollCommandSnippets.slice(1), 'payroll commands'),
   ...verify(pageSource, requiredPayrollPageSnippets, 'payroll module page'),
+  ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
+  ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
+  ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
