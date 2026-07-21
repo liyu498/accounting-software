@@ -518,6 +518,13 @@ const requiredExpenseReimbursementPageSnippets = [
   ['expense reimbursement summary mapper', 'summarizeLiveExpenseReimbursements(documentRecords)'],
 ]
 
+const requiredOrderViewPageSnippets = [
+  ['purchase management invoice source', "const usesLivePurchaseManagementData = Boolean(isTauri && selectedCompanyId && kind === 'purchaseManagement')"],
+  ['sales management invoice source', "const usesLiveSalesManagementData = Boolean(isTauri && selectedCompanyId && kind === 'salesManagement')"],
+  ['purchase order row mapper', "mapLivePurchaseManagementRows(invoices)"],
+  ['sales order row mapper', "mapLiveSalesManagementRows(invoices)"],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -561,6 +568,7 @@ const errors = [
   ...verify(documentRecordCommandSource, requiredDocumentRecordCommandSnippets.slice(1), 'document record commands'),
   ...verify(pageSource, requiredDocumentRecordPageSnippets, 'document register module page'),
   ...verify(pageSource, requiredExpenseReimbursementPageSnippets, 'expense reimbursement module page'),
+  ...verify(pageSource, requiredOrderViewPageSnippets, 'purchase and sales module pages'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

@@ -3891,6 +3891,35 @@ function summarizeLiveExpenseReimbursements(documentRecords: DocumentRecord[]): 
   ]
 }
 
+function mapLivePurchaseManagementRows(invoices: Invoice[]): ModuleRow[] {
+  return invoices.filter((invoice) => invoice.invoice_type === 'input').map((invoice) => ({
+    id: invoice.id,
+    status: ['void', 'rejected', 'error'].includes(invoice.status) ? '异常' : ['matched', 'confirmed'].includes(invoice.status) ? '已匹配' : '待确认',
+    voucher: invoice.voucher_id || '未生成', attachment: invoice.invoice_code ? '进项发票' : '待补附件',
+    values: { date: invoice.invoice_date, orderNo: invoice.invoice_no, supplier: invoice.seller_name || '待补供应商', goods: invoice.remarks || '待补商品/服务', amount: payrollCurrency(invoice.total_amount), stock: '待人工确认', invoice: ['matched', 'confirmed'].includes(invoice.status) ? '进项已匹配' : '待收票/待勾选', payment: '待付款确认' },
+  }))
+}
+
+function mapLiveSalesManagementRows(invoices: Invoice[]): ModuleRow[] {
+  return invoices.filter((invoice) => invoice.invoice_type === 'output').map((invoice) => ({
+    id: invoice.id,
+    status: ['void', 'rejected', 'error'].includes(invoice.status) ? '异常' : invoice.voucher_id ? '已生成凭证' : '待确认',
+    voucher: invoice.voucher_id || '未生成', attachment: invoice.invoice_code ? '销项发票' : '待补附件',
+    values: { date: invoice.invoice_date, orderNo: invoice.invoice_no, customer: invoice.buyer_name || '待补客户', goods: invoice.remarks || '待补商品/服务', amount: payrollCurrency(invoice.total_amount), delivery: '待人工确认', invoice: '销项已开', receipt: '待收款确认' },
+  }))
+}
+
+function summarizeInvoiceManagement(invoices: Invoice[], invoiceType: 'input' | 'output', labels: [string, string, string, string]): ModuleConfig['summary'] {
+  const rows = invoices.filter((invoice) => invoice.invoice_type === invoiceType)
+  const exceptions = rows.filter((invoice) => ['void', 'rejected', 'error'].includes(invoice.status)).length
+  return [
+    { label: labels[0], value: `${rows.length} 单`, tone: 'blue' },
+    { label: labels[1], value: `${rows.filter((invoice) => invoice.voucher_id).length} 单`, tone: 'green' },
+    { label: labels[2], value: `${rows.filter((invoice) => !invoice.voucher_id).length} 单`, tone: 'amber' },
+    { label: labels[3], value: `${exceptions} 单`, tone: 'red' },
+  ]
+}
+
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
     id: log.id,
@@ -3983,6 +4012,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveBankTransactionData = Boolean(isTauri && selectedCompanyId && ['billList', 'bankStatement'].includes(kind))
   const usesLiveDocumentRecordData = Boolean(isTauri && selectedCompanyId && kind === 'documentRegister')
   const usesLiveExpenseReimbursementData = Boolean(isTauri && selectedCompanyId && kind === 'expenseReimbursement')
+  const usesLivePurchaseManagementData = Boolean(isTauri && selectedCompanyId && kind === 'purchaseManagement')
+  const usesLiveSalesManagementData = Boolean(isTauri && selectedCompanyId && kind === 'salesManagement')
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -4116,6 +4147,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!usesLiveVatTaxData || !selectedCompanyId) return
     void fetchInvoices({ company_id: selectedCompanyId, period_id: currentPeriodId || undefined })
   }, [currentPeriodId, fetchInvoices, selectedCompanyId, usesLiveVatTaxData])
+
+  useEffect(() => {
+    if (!(usesLivePurchaseManagementData || usesLiveSalesManagementData) || !selectedCompanyId) return
+    void fetchInvoices({ company_id: selectedCompanyId, period_id: currentPeriodId || undefined })
+  }, [currentPeriodId, fetchInvoices, selectedCompanyId, usesLivePurchaseManagementData, usesLiveSalesManagementData])
 
   useEffect(() => {
     if (!usesLiveBankTransactionData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
@@ -4597,6 +4633,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if ((kind === 'billList' || kind === 'bankStatement') && usesLiveBankTransactionData) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
     if (kind === 'documentRegister' && usesLiveDocumentRecordData) return { ...baseConfig, rows: mapLiveDocumentRecordRows(documentRecords), summary: summarizeLiveDocumentRecords(documentRecords) }
     if (kind === 'expenseReimbursement' && usesLiveExpenseReimbursementData) return { ...baseConfig, rows: mapLiveExpenseReimbursementRows(documentRecords), summary: summarizeLiveExpenseReimbursements(documentRecords) }
+    if (kind === 'purchaseManagement' && usesLivePurchaseManagementData) return { ...baseConfig, rows: mapLivePurchaseManagementRows(invoices), summary: summarizeInvoiceManagement(invoices, 'input', ['采购单', '已匹配', '待付款', '异常单']) }
+    if (kind === 'salesManagement' && usesLiveSalesManagementData) return { ...baseConfig, rows: mapLiveSalesManagementRows(invoices), summary: summarizeInvoiceManagement(invoices, 'output', ['销售单', '已开票/凭证', '待收款', '异常单']) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {
