@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -4471,6 +4471,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [showRulesLog, setShowRulesLog] = useState(false)
+  const importFileRef = useRef<HTMLInputElement>(null)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
 
   const filteredRows = useMemo(() => {
@@ -4497,6 +4498,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [page, totalPages])
 
   const auditScope = `${status}/${keyword.trim() || '全部'}`
+  const supportsFileImport = /导入|采集|上传/.test(config.importLabel)
   const exportPeriodLabel = currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel
   const exportDocumentContext = {
     companyName: selectedCompany?.name || '科旋电气（上海）有限公司',
@@ -4561,8 +4563,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleImportAction = () => {
+    if (supportsFileImport) {
+      importFileRef.current?.click()
+      return
+    }
     writeModuleAudit(config.importLabel, `${title}-导入批次`, '中', '待审批')
     setOperationNotice(`${config.importLabel} 已进入待确认留痕；后续接入文件选择、字段映射、错误清单和回滚记录。`)
+  }
+
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    writeModuleAudit(config.importLabel, `${title}-${file.name}`, '中', '待审批')
+    setOperationNotice(`${file.name} 已进入待确认导入批次；需完成字段映射、错误校验和人工确认后才会写入账套。`)
+    event.target.value = ''
   }
 
   const handleRefreshAction = () => {
@@ -4749,6 +4763,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   return (
     <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
+      <input ref={importFileRef} type="file" accept=".xlsx,.xls,.csv,.pdf,.ofd,.zip" onChange={handleImportFile} className="hidden" aria-label={`${config.importLabel}文件`} />
       <div className="border border-slate-200 bg-white">
         <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-1.5">
           <div className="flex min-w-0 items-center gap-3">

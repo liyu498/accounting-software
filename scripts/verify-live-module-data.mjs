@@ -216,6 +216,11 @@ const requiredPageSnippets = [
   ['import center audit filter', 'function isImportOperationAudit(log: OperationAuditLog)'],
   ['import center live rows', "if (kind === 'importCenter' && usesLiveImportData)"],
   ['import center audit fetch', "kind === 'auditLog' || kind === 'exportCenter' || kind === 'importCenter'"],
+  ['module import file ref', 'const importFileRef = useRef<HTMLInputElement>(null)'],
+  ['module import capability guard', "const supportsFileImport = /导入|采集|上传/.test(config.importLabel)"],
+  ['module import file selection', 'importFileRef.current?.click()'],
+  ['module import file audit', '`${title}-${file.name}`'],
+  ['module import hidden input', 'ref={importFileRef}'],
 ]
 
 const requiredTaxWorkspaceSnippets = [
