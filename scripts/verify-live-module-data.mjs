@@ -6,6 +6,7 @@ const taxWorkspaceSource = readFileSync('src/pages/tax/TaxWorkspace.tsx', 'utf8'
 const agencyModuleSource = readFileSync('src/pages/agency/AgencyModulePage.tsx', 'utf8')
 const welcomeSource = readFileSync('src/pages/Welcome.tsx', 'utf8')
 const appSource = readFileSync('src/App.tsx', 'utf8')
+const dashboardSource = readFileSync('src/pages/Dashboard.tsx', 'utf8')
 const companyStoreSource = readFileSync('src/stores/companyStore.ts', 'utf8')
 const companyCommandSource = readFileSync('src-tauri/src/commands/companies.rs', 'utf8')
 const databaseSource = readFileSync('src-tauri/src/db.rs', 'utf8')
@@ -297,6 +298,14 @@ const requiredAppSnippets = [
   ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
 ]
 
+const requiredDashboardSnippets = [
+  ['dashboard current company scope', 'const usesLiveDashboardData = Boolean(isTauri && selectedCompanyId && currentPeriodId)'],
+  ['dashboard invoice refresh', 'fetchInvoices({ company_id: selectedCompanyId, period_id: currentPeriodId })'],
+  ['dashboard voucher refresh', 'queryVouchers({ company_id: selectedCompanyId, period_id: currentPeriodId, page: 1, page_size: 100 })'],
+  ['dashboard tax task source', 'automationApi.getTaxDeclarationTasks({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['dashboard AI task source', 'automationApi.getAutomationJobs({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -313,6 +322,7 @@ const errors = [
   ...verify(databaseSource, requiredCompanyPersistenceSnippets.slice(3), 'database schema'),
   ...verify(agencyModuleSource, requiredAgencyModuleSnippets, 'agency module page'),
   ...verify(appSource, requiredAppSnippets, 'application routes'),
+  ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
