@@ -3867,6 +3867,30 @@ function summarizeLiveDocumentRecords(documentRecords: DocumentRecord[]): Module
   ]
 }
 
+function reimbursementRecords(documentRecords: DocumentRecord[]) {
+  return documentRecords.filter((record) => record.businessType.includes('报销'))
+}
+
+function mapLiveExpenseReimbursementRows(documentRecords: DocumentRecord[]): ModuleRow[] {
+  return reimbursementRecords(documentRecords).map((record) => ({
+    id: record.id,
+    status: record.status === '已生成凭证' ? '已生成凭证' : record.status === '异常' ? '异常' : '待确认',
+    voucher: record.status === '已生成凭证' ? '已关联' : '未生成',
+    attachment: record.attachmentStatus,
+    values: { date: record.businessDate, code: record.documentCode, employee: record.owner || '待补报销人', department: '单据登记', expenseType: record.businessType, amount: payrollCurrency(record.amount), payStatus: record.status === '已生成凭证' ? '待付款确认' : '未付款', approval: record.status === '已审核' ? '已审核' : '待审核' },
+  }))
+}
+
+function summarizeLiveExpenseReimbursements(documentRecords: DocumentRecord[]): ModuleConfig['summary'] {
+  const rows = reimbursementRecords(documentRecords)
+  return [
+    { label: '报销单', value: `${rows.length} 张`, tone: 'blue' },
+    { label: '已审批', value: `${rows.filter((record) => record.status === '已审核').length} 张`, tone: 'green' },
+    { label: '待付款', value: `${rows.filter((record) => record.status !== '已生成凭证').length} 张`, tone: 'amber' },
+    { label: '附件异常', value: `${rows.filter((record) => record.attachmentStatus !== '已归档').length} 张`, tone: 'red' },
+  ]
+}
+
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
     id: log.id,
@@ -3958,6 +3982,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveVatTaxData = Boolean(isTauri && selectedCompanyId && kind === 'vatTaxReport')
   const usesLiveBankTransactionData = Boolean(isTauri && selectedCompanyId && ['billList', 'bankStatement'].includes(kind))
   const usesLiveDocumentRecordData = Boolean(isTauri && selectedCompanyId && kind === 'documentRegister')
+  const usesLiveExpenseReimbursementData = Boolean(isTauri && selectedCompanyId && kind === 'expenseReimbursement')
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -4098,9 +4123,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodLabel, selectedCompanyId, usesLiveBankTransactionData])
 
   useEffect(() => {
-    if (!usesLiveDocumentRecordData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!(usesLiveDocumentRecordData || usesLiveExpenseReimbursementData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return
     void documentRecordApi.getDocumentRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setDocumentRecords(result.success ? result.data || [] : []))
-  }, [currentPeriodLabel, selectedCompanyId, usesLiveDocumentRecordData])
+  }, [currentPeriodLabel, selectedCompanyId, usesLiveDocumentRecordData, usesLiveExpenseReimbursementData])
 
   useEffect(() => {
     if (!usesLiveReportData || !currentPeriodId) return
@@ -4571,6 +4596,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
     if ((kind === 'billList' || kind === 'bankStatement') && usesLiveBankTransactionData) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
     if (kind === 'documentRegister' && usesLiveDocumentRecordData) return { ...baseConfig, rows: mapLiveDocumentRecordRows(documentRecords), summary: summarizeLiveDocumentRecords(documentRecords) }
+    if (kind === 'expenseReimbursement' && usesLiveExpenseReimbursementData) return { ...baseConfig, rows: mapLiveExpenseReimbursementRows(documentRecords), summary: summarizeLiveExpenseReimbursements(documentRecords) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {
@@ -5066,6 +5092,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'employee' && isTauri && selectedCompanyId) {
       setEditingEmployeeId(null)
       setShowEmployeeDialog(true)
+      return
+    }
+    if (kind === 'expenseReimbursement' && isTauri && selectedCompanyId) {
+      setDocumentRecordDraft((draft) => ({ ...draft, businessType: '费用报销' }))
+      setShowDocumentRecordDialog(true)
       return
     }
     if (kind === 'payroll' && isTauri && selectedCompanyId) {

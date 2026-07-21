@@ -512,6 +512,12 @@ const requiredDocumentRecordPageSnippets = [
   ['document record row mapper', 'mapLiveDocumentRecordRows(documentRecords)'],
 ]
 
+const requiredExpenseReimbursementPageSnippets = [
+  ['expense reimbursement document source', "const usesLiveExpenseReimbursementData = Boolean(isTauri && selectedCompanyId && kind === 'expenseReimbursement')"],
+  ['expense reimbursement row mapper', 'mapLiveExpenseReimbursementRows(documentRecords)'],
+  ['expense reimbursement summary mapper', 'summarizeLiveExpenseReimbursements(documentRecords)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -554,6 +560,7 @@ const errors = [
   ...verify(databaseSource, requiredDocumentRecordCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(documentRecordCommandSource, requiredDocumentRecordCommandSnippets.slice(1), 'document record commands'),
   ...verify(pageSource, requiredDocumentRecordPageSnippets, 'document register module page'),
+  ...verify(pageSource, requiredExpenseReimbursementPageSnippets, 'expense reimbursement module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
