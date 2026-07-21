@@ -210,6 +210,9 @@ const requiredTaxWorkspaceSnippets = [
   ['tax workspace live rule logs', 'const visibleRuleLogs = useMemo<RuleLog[]>(() => {'],
   ['tax workspace rules log binding', '<TaxRulesLogPanel riskRows={visibleRiskRows} logs={visibleRuleLogs} onRiskLink={handleRiskLink} />'],
   ['tax workspace export binding', 'buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata, visibleRiskRows, visibleRuleLogs)'],
+  ['tax workspace html export audit', "action: '导出申报包'"],
+  ['tax workspace pdf export audit', "action: '导出申报包 PDF'"],
+  ['tax workspace print export audit', "action: '打印申报包'"],
 ]
 
 const requiredWelcomeSnippets = [

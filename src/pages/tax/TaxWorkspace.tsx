@@ -611,6 +611,14 @@ export function TaxWorkspace() {
       templateKind: 'tax',
       rowCount: visibleDeclarationRows.length,
     })
+    writeTaxAudit({
+      action: '导出申报包',
+      object: fileName,
+      level: visibleRiskRows.length > 0 ? '中' : '普通',
+      result: '成功',
+      status: '已通过',
+      attachment: `${visibleDeclarationRows.length} 个税种 / ${visibleRiskRows.length} 项风险`,
+    })
   }
 
   const printTaxPackage = () => {
@@ -630,6 +638,14 @@ export function TaxWorkspace() {
       templateKind: 'tax',
       rowCount: visibleDeclarationRows.length,
     })
+    writeTaxAudit({
+      action: '打印申报包',
+      object: fileName,
+      level: visibleRiskRows.length > 0 ? '中' : '普通',
+      result: '成功',
+      status: '已通过',
+      attachment: `${visibleDeclarationRows.length} 个税种 / ${visibleRiskRows.length} 项风险`,
+    })
   }
 
   const exportTaxPackagePdf = async () => {
@@ -647,6 +663,14 @@ export function TaxWorkspace() {
       scope: `${currentPeriod}/全部税种`,
       templateKind: 'tax',
       rowCount: visibleDeclarationRows.length,
+    })
+    writeTaxAudit({
+      action: '导出申报包 PDF',
+      object: fileName,
+      level: visibleRiskRows.length > 0 ? '中' : '普通',
+      result: '成功',
+      status: '已通过',
+      attachment: `${visibleDeclarationRows.length} 个税种 / ${visibleRiskRows.length} 项风险`,
     })
   }
 
