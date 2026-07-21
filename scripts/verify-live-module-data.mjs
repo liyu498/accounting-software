@@ -23,6 +23,9 @@ const payrollCommandSource = existsSync('src-tauri/src/commands/payroll.rs')
 const socialSecurityCommandSource = existsSync('src-tauri/src/commands/social_security.rs')
   ? readFileSync('src-tauri/src/commands/social_security.rs', 'utf8')
   : ''
+const specialDeductionCommandSource = existsSync('src-tauri/src/commands/special_deductions.rs')
+  ? readFileSync('src-tauri/src/commands/special_deductions.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -442,6 +445,18 @@ const requiredSocialSecurityPageSnippets = [
   ['social security row mapper', 'mapLiveSocialSecurityRows(socialSecurityRecords)'],
 ]
 
+const requiredSpecialDeductionCommandSnippets = [
+  ['special deduction table schema', 'CREATE TABLE IF NOT EXISTS special_deduction_records'],
+  ['special deduction list command', 'pub async fn get_special_deduction_records'],
+  ['special deduction create command', 'pub async fn create_special_deduction_record'],
+]
+
+const requiredSpecialDeductionPageSnippets = [
+  ['special deduction api list binding', 'specialDeductionApi.getSpecialDeductionRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['special deduction api create binding', 'specialDeductionApi.createSpecialDeductionRecord({'],
+  ['special deduction row mapper', 'mapLiveSpecialDeductionRows(specialDeductionRecords)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -471,6 +486,9 @@ const errors = [
   ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
   ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),
+  ...verify(databaseSource, requiredSpecialDeductionCommandSnippets.slice(0, 1), 'database schema'),
+  ...verify(specialDeductionCommandSource, requiredSpecialDeductionCommandSnippets.slice(1), 'special deduction commands'),
+  ...verify(pageSource, requiredSpecialDeductionPageSnippets, 'special deduction module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

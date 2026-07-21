@@ -81,6 +81,8 @@ pub fn run() {
             commands::payroll::create_payroll_record,
             commands::social_security::get_social_security_records,
             commands::social_security::create_social_security_record,
+            commands::special_deductions::get_special_deduction_records,
+            commands::special_deductions::create_special_deduction_record,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,

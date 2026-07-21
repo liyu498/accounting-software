@@ -88,6 +88,29 @@ impl Database {
 
         sqlx::query(
             r#"
+            CREATE TABLE IF NOT EXISTS special_deduction_records (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                employee_id TEXT NOT NULL,
+                deduction_type TEXT NOT NULL,
+                start_month TEXT NOT NULL,
+                end_month TEXT,
+                monthly_amount REAL NOT NULL DEFAULT 0,
+                source TEXT NOT NULL DEFAULT '手工',
+                status TEXT NOT NULL DEFAULT '待确认',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                FOREIGN KEY (employee_id) REFERENCES employees(id),
+                UNIQUE (company_id, employee_id, deduction_type, start_month)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            r#"
             CREATE TABLE IF NOT EXISTS payroll_records (
                 id TEXT PRIMARY KEY,
                 company_id TEXT NOT NULL,
@@ -2803,6 +2826,33 @@ pub struct CreatePayrollRecordInput {
 pub struct SocialSecurityRecord { pub id: String, pub company_id: String, pub employee_id: String, pub employee_name: String, pub period: String, pub city: Option<String>, pub contribution_base: f64, pub company_amount: f64, pub personal_amount: f64, pub fund_amount: f64, pub status: String, pub created_at: String, pub updated_at: String }
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CreateSocialSecurityRecordInput { pub company_id: String, pub employee_id: String, pub period: String, pub city: Option<String>, pub contribution_base: f64, pub company_amount: f64, pub personal_amount: f64, pub fund_amount: f64 }
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct SpecialDeductionRecord {
+    pub id: String,
+    pub company_id: String,
+    pub employee_id: String,
+    pub employee_name: String,
+    pub deduction_type: String,
+    pub start_month: String,
+    pub end_month: Option<String>,
+    pub monthly_amount: f64,
+    pub source: String,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateSpecialDeductionRecordInput {
+    pub company_id: String,
+    pub employee_id: String,
+    pub deduction_type: String,
+    pub start_month: String,
+    pub end_month: Option<String>,
+    pub monthly_amount: f64,
+    pub source: Option<String>,
+}
 
 // ==================== Currency Structs ====================
 

@@ -20,7 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { automationApi, backupApi, employeeApi, payrollApi, socialSecurityApi, type AdapterAuthorization, type AutomationJob, type Employee, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type TaxDeclarationTask } from '../../lib/api'
+import { automationApi, backupApi, employeeApi, payrollApi, socialSecurityApi, specialDeductionApi, type AdapterAuthorization, type AutomationJob, type Employee, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -3604,6 +3604,18 @@ function summarizeLivePayroll(payrollRecords: PayrollRecord[]): ModuleConfig['su
   ]
 }
 function mapLiveSocialSecurityRows(socialSecurityRecords: SocialSecurityRecord[]): ModuleRow[] { return socialSecurityRecords.map((record) => ({ id: record.id, status: '待确认', voucher: '未生成', attachment: '本地社保明细', values: { name: record.employeeName, city: record.city || '待补', base: payrollCurrency(record.contributionBase), company: payrollCurrency(record.companyAmount), personal: payrollCurrency(record.personalAmount), fund: payrollCurrency(record.fundAmount) } })) }
+function mapLiveSpecialDeductionRows(specialDeductionRecords: SpecialDeductionRecord[]): ModuleRow[] { return specialDeductionRecords.map((record) => ({ id: record.id, status: record.status === '有效' ? '启用' : record.status === '异常' ? '异常' : '待确认', voucher: '-', attachment: '本地扣除资料', values: { name: record.employeeName, type: record.deductionType, start: record.startMonth, end: record.endMonth || '长期有效', amount: payrollCurrency(record.monthlyAmount), source: record.source } })) }
+
+function summarizeLiveSpecialDeductions(specialDeductionRecords: SpecialDeductionRecord[]): ModuleConfig['summary'] {
+  const total = specialDeductionRecords.reduce((sum, record) => sum + record.monthlyAmount, 0)
+  const pending = specialDeductionRecords.filter((record) => record.status !== '有效').length
+  return [
+    { label: '专项扣除', value: `${specialDeductionRecords.length} 条`, tone: 'blue' },
+    { label: '月扣除额', value: payrollCurrency(total), tone: 'green' },
+    { label: '待确认', value: `${pending} 条`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '异常', value: '0 条', tone: 'gray' },
+  ]
+}
 
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
@@ -3690,6 +3702,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveEmployeeData = Boolean(isTauri && selectedCompanyId && kind === 'employee')
   const usesLivePayrollData = Boolean(isTauri && selectedCompanyId && kind === 'payroll')
   const usesLiveSocialSecurityData = Boolean(isTauri && selectedCompanyId && kind === 'socialSecurity')
+  const usesLiveSpecialDeductionData = Boolean(isTauri && selectedCompanyId && kind === 'specialDeduction')
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -3725,8 +3738,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [employees, setEmployees] = useState<Employee[]>([])
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([])
   const [socialSecurityRecords, setSocialSecurityRecords] = useState<SocialSecurityRecord[]>([])
+  const [specialDeductionRecords, setSpecialDeductionRecords] = useState<SpecialDeductionRecord[]>([])
   const [showSocialSecurityDialog, setShowSocialSecurityDialog] = useState(false)
   const [socialSecurityDraft, setSocialSecurityDraft] = useState({ employeeId: '', city: '', base: '', company: '', personal: '', fund: '' })
+  const [showSpecialDeductionDialog, setShowSpecialDeductionDialog] = useState(false)
+  const [specialDeductionDraft, setSpecialDeductionDraft] = useState({ employeeId: '', deductionType: '子女教育', startMonth: '', endMonth: '', monthlyAmount: '', source: '手工' })
   const [showPayrollDialog, setShowPayrollDialog] = useState(false)
   const [payrollDraft, setPayrollDraft] = useState({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
@@ -3987,7 +4003,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [usesLiveBackupData])
 
   useEffect(() => {
-    if (!(usesLiveEmployeeData || usesLivePayrollData) || !selectedCompanyId) return
+    if (!(usesLiveEmployeeData || usesLivePayrollData || usesLiveSocialSecurityData || usesLiveSpecialDeductionData) || !selectedCompanyId) return
     let active = true
     void employeeApi.getEmployees(selectedCompanyId).then((result) => {
       if (active) setEmployees(result.success ? result.data || [] : [])
@@ -3995,7 +4011,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     return () => {
       active = false
     }
-  }, [selectedCompanyId, usesLiveEmployeeData, usesLivePayrollData])
+  }, [selectedCompanyId, usesLiveEmployeeData, usesLivePayrollData, usesLiveSocialSecurityData, usesLiveSpecialDeductionData])
 
   useEffect(() => {
     if (!usesLivePayrollData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
@@ -4006,6 +4022,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     return () => { active = false }
   }, [currentPeriodLabel, selectedCompanyId, usesLivePayrollData])
   useEffect(() => { if (!usesLiveSocialSecurityData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void socialSecurityApi.getSocialSecurityRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setSocialSecurityRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveSocialSecurityData])
+  useEffect(() => { if (!usesLiveSpecialDeductionData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void specialDeductionApi.getSpecialDeductionRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setSpecialDeductionRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveSpecialDeductionData])
 
   useEffect(() => {
     if (!usesLiveVoucherRecycleData || !selectedCompanyId) return
@@ -4271,6 +4288,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return { ...baseConfig, rows: mapLivePayrollRows(payrollRecords), summary: summarizeLivePayroll(payrollRecords) }
     }
     if (kind === 'socialSecurity' && usesLiveSocialSecurityData) return { ...baseConfig, rows: mapLiveSocialSecurityRows(socialSecurityRecords), summary: baseConfig.summary.map((item) => item.label === '参保人数' ? { ...item, value: `${socialSecurityRecords.length} 人` } : item) }
+    if (kind === 'specialDeduction' && usesLiveSpecialDeductionData) return { ...baseConfig, rows: mapLiveSpecialDeductionRows(specialDeductionRecords), summary: summarizeLiveSpecialDeductions(specialDeductionRecords) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {
@@ -4913,6 +4931,30 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     } catch (error) { setOperationNotice(`新增社保明细失败：${String(error)}`) }
   }
 
+  const handleCreateSpecialDeductionRecord = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    try {
+      const result = await specialDeductionApi.createSpecialDeductionRecord({
+        companyId: selectedCompanyId,
+        employeeId: specialDeductionDraft.employeeId,
+        deductionType: specialDeductionDraft.deductionType,
+        startMonth: specialDeductionDraft.startMonth,
+        endMonth: specialDeductionDraft.endMonth || undefined,
+        monthlyAmount: Number(specialDeductionDraft.monthlyAmount || 0),
+        source: specialDeductionDraft.source,
+      })
+      if (!result.success || !result.data) throw new Error(result.error || '未返回扣除明细')
+      setSpecialDeductionRecords((records) => [result.data!, ...records])
+      writeModuleAudit('新增专项附加扣除', `${result.data.employeeName}｜${result.data.deductionType}`, '中', '成功')
+      setOperationNotice(`已新增 ${result.data.employeeName} 的${result.data.deductionType}扣除资料，等待确认。`)
+      setSpecialDeductionDraft({ employeeId: '', deductionType: '子女教育', startMonth: '', endMonth: '', monthlyAmount: '', source: '手工' })
+      setShowSpecialDeductionDialog(false)
+    } catch (error) {
+      setOperationNotice(`新增专项附加扣除失败：${String(error)}`)
+    }
+  }
+
   const rowObjectLabel = (row: ModuleRow) => {
     const firstValue = Object.values(row.values).find(Boolean)
     return row.voucher && row.voucher !== '-' ? row.voucher : firstValue || row.id
@@ -5068,6 +5110,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
             {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => setShowPayrollDialog(true)} />}
             {kind === 'socialSecurity' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={() => setShowSocialSecurityDialog(true)} />}
+            {kind === 'specialDeduction' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={() => setShowSpecialDeductionDialog(true)} />}
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" onClick={handleRefreshAction} />
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="模板" onClick={handleTemplateAction} />
             <ToolbarButton icon={<FileDown className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
@@ -5400,6 +5443,32 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       {showSocialSecurityDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增社保明细">
           <form onSubmit={handleCreateSocialSecurityRecord} className="w-full max-w-lg border border-slate-300 bg-white shadow-xl"><div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold">新增社保明细</h2><button type="button" onClick={() => setShowSocialSecurityDialog(false)} className="text-xs text-slate-500">取消</button></div><div className="grid gap-3 p-4 sm:grid-cols-2"><label className="grid gap-1 text-xs sm:col-span-2">人员 *<select required value={socialSecurityDraft.employeeId} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, employeeId: event.target.value }))} className="h-8 border border-slate-300 px-2"><option value="">选择在职人员</option>{employees.filter((employee) => employee.employmentStatus === '在职').map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} {employee.name}</option>)}</select></label>{([{ field: 'city', label: '缴费城市', type: 'text' }, { field: 'base', label: '缴费基数', type: 'number' }, { field: 'company', label: '单位部分', type: 'number' }, { field: 'personal', label: '个人部分', type: 'number' }, { field: 'fund', label: '公积金', type: 'number' }] as Array<{ field: keyof typeof socialSecurityDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs">{label}<input type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={socialSecurityDraft[field]} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 border border-slate-300 px-2" /></label>)}</div><div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowSocialSecurityDialog(false)} className="h-8 border border-slate-300 px-3 text-xs">取消</button><button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs text-white">保存明细</button></div></form>
+        </div>
+      )}
+      {showSpecialDeductionDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增专项附加扣除">
+          <form onSubmit={handleCreateSpecialDeductionRecord} className="w-full max-w-lg border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">新增专项附加扣除</h2><button type="button" onClick={() => setShowSpecialDeductionDialog(false)} className="text-xs text-slate-500">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">人员 *
+                <select required value={specialDeductionDraft.employeeId} onChange={(event) => setSpecialDeductionDraft((draft) => ({ ...draft, employeeId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="">选择在职人员</option>{employees.filter((employee) => employee.employmentStatus === '在职').map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} {employee.name}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">扣除类型 *
+                <select value={specialDeductionDraft.deductionType} onChange={(event) => setSpecialDeductionDraft((draft) => ({ ...draft, deductionType: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  {['子女教育', '继续教育', '大病医疗', '住房贷款利息', '住房租金', '赡养老人', '3岁以下婴幼儿照护'].map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">资料来源
+                <select value={specialDeductionDraft.source} onChange={(event) => setSpecialDeductionDraft((draft) => ({ ...draft, source: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="手工">手工</option><option value="导入">导入</option><option value="客户确认">客户确认</option></select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">起始月份 *<input required type="month" value={specialDeductionDraft.startMonth} onChange={(event) => setSpecialDeductionDraft((draft) => ({ ...draft, startMonth: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">结束月份<input type="month" value={specialDeductionDraft.endMonth} onChange={(event) => setSpecialDeductionDraft((draft) => ({ ...draft, endMonth: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">月扣除额 *<input required type="number" min="0" step="0.01" value={specialDeductionDraft.monthlyAmount} onChange={(event) => setSpecialDeductionDraft((draft) => ({ ...draft, monthlyAmount: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowSpecialDeductionDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存扣除资料</button></div>
+          </form>
         </div>
       )}
     </div>
