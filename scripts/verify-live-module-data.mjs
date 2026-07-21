@@ -312,6 +312,16 @@ const requiredAgencyModuleSnippets = [
   ['agency download summary mapper', 'function summarizeAgencyDownloadJobs(rows: AgencyRow[])'],
   ['agency download period mapper', 'function extractAgencyExportPeriod(job: ExportJob)'],
   ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
+  ['agency selected period store', 'const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)'],
+  ['agency dynamic period label', 'const agencyPeriodLabel = currentPeriod'],
+  ['agency batch task period binding', 'agencyApi.createBatchTasks({ period: agencyPeriodLabel, operator: \'admin\' })'],
+  ['agency audit persistence', 'automationApi.writeOperationAuditLog({'],
+  ['agency excel current period export', 'const fileName = `${pageConfig.title}-${agencyPeriodLabel}.xlsx`'],
+  ['agency pdf current period export', 'const fileName = `${pageConfig.title}-${agencyPeriodLabel}.pdf`'],
+  ['agency print current period export', 'const fileName = `${pageConfig.title}-${agencyPeriodLabel}-print`'],
+  ['agency export audit', "writeAgencyAudit('导出Excel', fileName"],
+  ['agency print audit', "writeAgencyAudit('打印', fileName"],
+  ['agency pdf audit', "writeAgencyAudit('导出PDF', fileName"],
 ]
 
 const requiredAppSnippets = [

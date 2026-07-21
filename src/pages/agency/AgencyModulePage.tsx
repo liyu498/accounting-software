@@ -28,6 +28,7 @@ import {
   type AgencyOperationOverview,
   type AgencyServiceContract,
   type AutomationJob,
+  automationApi,
 } from '../../lib/api'
 import { isTauri } from '../../lib/tauri'
 import { useCompanyStore, type Company } from '../../stores/companyStore'
@@ -799,6 +800,12 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const navigate = useNavigate()
   const { fetchCompanies, selectCompany } = useCompanyStore()
   const { fetchPeriods, fetchVoucherWords } = usePeriodStore()
+  const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
+  const periods = usePeriodStore((state) => state.periods)
+  const currentPeriod = useMemo(() => periods.find((period) => period.id === currentPeriodId), [currentPeriodId, periods])
+  const agencyPeriodLabel = currentPeriod
+    ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}`
+    : new Date().toISOString().slice(0, 7)
   const baseConfig = configs[kind]
   const exportJobs = useExportJobs()
   const config = useMemo(() => {
@@ -911,15 +918,27 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }, [activeTab, fetchCompanies, kind])
 
   const writeAgencyAudit = (action: string, object: string, level: '普通' | '中' | '高' = '普通', result: '成功' | '待审批' | '失败' = '成功') => {
+    const status = result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过'
     recordAuditLog({
       module: `机构-${pageConfig.title}`,
       action,
       object,
       level,
       result,
-      status: result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过',
+      status,
       voucher: `${activeTab}/${query.trim() || '全部'}`,
       attachment: '操作快照',
+    })
+    if (!isTauri) return
+
+    void automationApi.writeOperationAuditLog({
+      moduleName: `机构-${pageConfig.title}`,
+      action,
+      objectRef: `${agencyPeriodLabel}｜${object}`,
+      riskLevel: level,
+      result,
+      detail: `${status}｜${activeTab}/${query.trim() || '全部'}`,
+      operator: 'admin',
     })
   }
 
@@ -1027,7 +1046,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     }
 
     if (isTauri) {
-      const response = await agencyApi.createBatchTasks({ period: '2026-05', operator: 'admin' })
+      const response = await agencyApi.createBatchTasks({ period: agencyPeriodLabel, operator: 'admin' })
       if (!response.success) {
         setOperationNotice(response.error || '批量预检任务创建失败。')
         return
@@ -1040,10 +1059,10 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
     const started = new Date().toLocaleString('zh-CN')
     const nextRows: AgencyRow[] = [
-      { id: `local-batch-invoice-${Date.now()}`, status: '进行中', values: { task: '批量采集发票', scope: '全部授权客户', period: '2026-05', progress: '0/待计算', operator: 'admin', started, result: '检查税局授权后执行' } },
-      { id: `local-batch-bank-${Date.now()}`, status: '进行中', values: { task: '批量采集银行流水', scope: '已授权银行客户', period: '2026-05', progress: '0/待计算', operator: 'admin', started, result: '检查银行授权后执行' } },
-      { id: `local-batch-close-${Date.now()}`, status: '待确认', values: { task: '批量结账预检', scope: '待结账客户', period: '2026-05', progress: '待预检', operator: 'admin', started, result: '需完成风险检查' } },
-      { id: `local-batch-tax-${Date.now()}`, status: '待确认', values: { task: '批量申报预检', scope: '待申报税种', period: '2026-05', progress: '待预检', operator: 'admin', started, result: '只生成申报包，不自动提交税局' } },
+      { id: `local-batch-invoice-${Date.now()}`, status: '进行中', values: { task: '批量采集发票', scope: '全部授权客户', period: agencyPeriodLabel, progress: '0/待计算', operator: 'admin', started, result: '检查税局授权后执行' } },
+      { id: `local-batch-bank-${Date.now()}`, status: '进行中', values: { task: '批量采集银行流水', scope: '已授权银行客户', period: agencyPeriodLabel, progress: '0/待计算', operator: 'admin', started, result: '检查银行授权后执行' } },
+      { id: `local-batch-close-${Date.now()}`, status: '待确认', values: { task: '批量结账预检', scope: '待结账客户', period: agencyPeriodLabel, progress: '待预检', operator: 'admin', started, result: '需完成风险检查' } },
+      { id: `local-batch-tax-${Date.now()}`, status: '待确认', values: { task: '批量申报预检', scope: '待申报税种', period: agencyPeriodLabel, progress: '待预检', operator: 'admin', started, result: '只生成申报包，不自动提交税局' } },
     ]
     setLocalRows((current) => [...nextRows, ...current].slice(0, 12))
     writeAgencyAudit('新建批量任务', '批量采集发票/流水/结账预检/申报预检', '高', '待审批')
@@ -1052,10 +1071,10 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   const handleExportExcel = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const fileName = `${pageConfig.title}-2026-05.xlsx`
-    const scope = `${activeTab}/${query.trim() || '全部'}`
+    const fileName = `${pageConfig.title}-${agencyPeriodLabel}.xlsx`
+    const scope = `${agencyPeriodLabel}/${activeTab}/${query.trim() || '全部'}`
     await exportRowsToXlsx({
-      sheetRows: buildAgencySheetRows(pageConfig, filteredRows, exportedAt, activeTab, query.trim()),
+      sheetRows: buildAgencySheetRows(pageConfig, filteredRows, exportedAt, activeTab, query.trim(), agencyPeriodLabel),
       columnWidths: [{ wch: 18 }, { wch: 12 }, ...pageConfig.columns.map((column) => ({ wch: Math.max(14, column.label.length * 3) }))],
       sheetName: pageConfig.title,
       fileName,
@@ -1068,13 +1087,14 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       templateKind: 'agency',
       rowCount: filteredRows.length,
     })
+    writeAgencyAudit('导出Excel', fileName)
   }
 
   const handlePrint = () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const fileName = `${pageConfig.title}-2026-05-print`
-    const scope = `${activeTab}/${query.trim() || '全部'}`
-    const html = buildAgencyPrintHtml(pageConfig, filteredRows, exportedAt, activeTab, query.trim())
+    const fileName = `${pageConfig.title}-${agencyPeriodLabel}-print`
+    const scope = `${agencyPeriodLabel}/${activeTab}/${query.trim() || '全部'}`
+    const html = buildAgencyPrintHtml(pageConfig, filteredRows, exportedAt, activeTab, query.trim(), agencyPeriodLabel)
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
     printWindow.document.write(html)
@@ -1089,16 +1109,17 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       templateKind: 'agency',
       rowCount: filteredRows.length,
     })
+    writeAgencyAudit('打印', fileName)
   }
 
   const handleExportPdf = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
-    const fileName = `${pageConfig.title}-2026-05.pdf`
-    const scope = `${activeTab}/${query.trim() || '全部'}`
+    const fileName = `${pageConfig.title}-${agencyPeriodLabel}.pdf`
+    const scope = `${agencyPeriodLabel}/${activeTab}/${query.trim() || '全部'}`
     await exportHtmlToPdf({
-      html: buildAgencyPrintHtml(pageConfig, filteredRows, exportedAt, activeTab, query.trim()),
+      html: buildAgencyPrintHtml(pageConfig, filteredRows, exportedAt, activeTab, query.trim(), agencyPeriodLabel),
       fileName,
-      pageTitle: `${pageConfig.title} 2026-05`,
+      pageTitle: `${pageConfig.title} ${agencyPeriodLabel}`,
     })
     recordExportJob({
       fileName,
@@ -1108,6 +1129,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       templateKind: 'agency',
       rowCount: filteredRows.length,
     })
+    writeAgencyAudit('导出PDF', fileName)
   }
 
   return (
@@ -1779,10 +1801,10 @@ function alignClass(align: 'left' | 'right' | 'center' = 'left') {
   return 'text-left'
 }
 
-function buildAgencySheetRows(config: AgencyConfig, rows: AgencyRow[], exportedAt: string, activeTab: string, keyword: string) {
+function buildAgencySheetRows(config: AgencyConfig, rows: AgencyRow[], exportedAt: string, activeTab: string, keyword: string, periodLabel: string) {
   return [
     [config.title],
-    ['机构', 'AI 代理记账', '所属期', '2026-05', '当前视图', activeTab],
+    ['机构', 'AI 代理记账', '所属期', periodLabel, '当前视图', activeTab],
     ['导出时间', exportedAt, '筛选关键字', keyword || '全部', '记录数', `${rows.length}`],
     [],
     ['状态', ...config.columns.map((column) => column.label)],
@@ -1792,7 +1814,7 @@ function buildAgencySheetRows(config: AgencyConfig, rows: AgencyRow[], exportedA
   ]
 }
 
-function buildAgencyPrintHtml(config: AgencyConfig, rows: AgencyRow[], exportedAt: string, activeTab: string, keyword: string) {
+function buildAgencyPrintHtml(config: AgencyConfig, rows: AgencyRow[], exportedAt: string, activeTab: string, keyword: string, periodLabel: string) {
   const headerCells = ['状态', ...config.columns.map((column) => column.label)]
   const rowHtml = rows.map((row) => `
     <tr>
@@ -1824,7 +1846,7 @@ function buildAgencyPrintHtml(config: AgencyConfig, rows: AgencyRow[], exportedA
   <h1>${escapeHtml(config.title)}</h1>
   <div class="meta">
     <span>机构: AI 代理记账</span>
-    <span>所属期: 2026-05</span>
+    <span>所属期: ${escapeHtml(periodLabel)}</span>
     <span>当前视图: ${escapeHtml(activeTab)}</span>
     <span>导出时间: ${escapeHtml(exportedAt)}</span>
     <span>筛选关键字: ${escapeHtml(keyword || '全部')}</span>
