@@ -3617,6 +3617,73 @@ function summarizeLiveSpecialDeductions(specialDeductionRecords: SpecialDeductio
   ]
 }
 
+function maskIdNo(idNo: string | null) {
+  if (!idNo) return '待补'
+  if (idNo.length <= 8) return `${idNo.slice(0, 2)}****`
+  return `${idNo.slice(0, 3)}********${idNo.slice(-4)}`
+}
+
+function previewIndividualIncomeTax(taxableIncome: number) {
+  if (taxableIncome <= 3000) return taxableIncome * 0.03
+  if (taxableIncome <= 12000) return taxableIncome * 0.1 - 210
+  if (taxableIncome <= 25000) return taxableIncome * 0.2 - 1410
+  if (taxableIncome <= 35000) return taxableIncome * 0.25 - 2660
+  if (taxableIncome <= 55000) return taxableIncome * 0.3 - 4410
+  if (taxableIncome <= 80000) return taxableIncome * 0.35 - 7160
+  return taxableIncome * 0.45 - 15160
+}
+
+function withholdingPreviewInputs(
+  payrollRecords: PayrollRecord[],
+  employees: Employee[],
+  socialSecurityRecords: SocialSecurityRecord[],
+  specialDeductionRecords: SpecialDeductionRecord[],
+) {
+  return payrollRecords.map((payroll) => {
+    const employee = employees.find((item) => item.id === payroll.employeeId)
+    const socialSecurity = socialSecurityRecords.find((item) => item.employeeId === payroll.employeeId)
+    const specialDeduction = specialDeductionRecords
+      .filter((item) => item.employeeId === payroll.employeeId)
+      .reduce((sum, item) => sum + item.monthlyAmount, 0)
+    const socialAmount = socialSecurity ? socialSecurity.personalAmount + socialSecurity.fundAmount : payroll.socialPersonal
+    const income = payroll.baseSalary + payroll.bonus
+    const taxable = Math.max(income - socialAmount - specialDeduction - 5000, 0)
+    const hasMissingIdNo = !employee?.idNo
+    const hasPendingSource = payroll.status !== '已生成凭证' || socialSecurity?.status === '待确认' || specialDeductionRecords.some((item) => item.employeeId === payroll.employeeId && item.status !== '有效')
+    const status: ModuleRow['status'] = hasMissingIdNo || payroll.status === '异常' ? '异常' : hasPendingSource ? '待确认' : '已通过'
+    return { payroll, employee, socialAmount, specialDeduction, income, taxable, tax: Math.max(previewIndividualIncomeTax(taxable), 0), status, hasMissingIdNo, hasPendingSource }
+  })
+}
+
+function mapLiveWithholdingTaxRows(payrollRecords: PayrollRecord[], employees: Employee[], socialSecurityRecords: SocialSecurityRecord[], specialDeductionRecords: SpecialDeductionRecord[]): ModuleRow[] {
+  return withholdingPreviewInputs(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords).map((item) => ({
+    id: item.payroll.id,
+    status: item.status,
+    voucher: '个税预览',
+    attachment: item.specialDeduction > 0 ? '工资/扣除资料' : '工资资料',
+    values: {
+      employee: item.employee?.name || item.payroll.employeeName,
+      idNo: maskIdNo(item.employee?.idNo || null),
+      income: payrollCurrency(item.income),
+      social: payrollCurrency(item.socialAmount),
+      special: payrollCurrency(item.specialDeduction),
+      taxable: payrollCurrency(item.taxable),
+      tax: payrollCurrency(item.tax),
+      check: item.hasMissingIdNo ? '证件资料缺失' : item.hasPendingSource ? '来源待确认' : '待人工复核',
+    },
+  }))
+}
+
+function summarizeLiveWithholdingTax(payrollRecords: PayrollRecord[], employees: Employee[], socialSecurityRecords: SocialSecurityRecord[], specialDeductionRecords: SpecialDeductionRecord[]): ModuleConfig['summary'] {
+  const rows = withholdingPreviewInputs(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords)
+  return [
+    { label: '申报人数', value: `${rows.length} 人`, tone: 'blue' },
+    { label: '工资薪金', value: payrollCurrency(rows.reduce((sum, item) => sum + item.income, 0)), tone: 'green' },
+    { label: '专项扣除', value: payrollCurrency(rows.reduce((sum, item) => sum + item.specialDeduction, 0)), tone: 'amber' },
+    { label: '待复核人员', value: `${rows.filter((item) => item.status !== '已通过').length} 人`, tone: 'red' },
+  ]
+}
+
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
     id: log.id,
@@ -3703,6 +3770,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLivePayrollData = Boolean(isTauri && selectedCompanyId && kind === 'payroll')
   const usesLiveSocialSecurityData = Boolean(isTauri && selectedCompanyId && kind === 'socialSecurity')
   const usesLiveSpecialDeductionData = Boolean(isTauri && selectedCompanyId && kind === 'specialDeduction')
+  const usesLiveWithholdingTaxData = Boolean(isTauri && selectedCompanyId && kind === 'withholdingTaxReport')
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -4003,7 +4071,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [usesLiveBackupData])
 
   useEffect(() => {
-    if (!(usesLiveEmployeeData || usesLivePayrollData || usesLiveSocialSecurityData || usesLiveSpecialDeductionData) || !selectedCompanyId) return
+    if (!(usesLiveEmployeeData || usesLivePayrollData || usesLiveSocialSecurityData || usesLiveSpecialDeductionData || usesLiveWithholdingTaxData) || !selectedCompanyId) return
     let active = true
     void employeeApi.getEmployees(selectedCompanyId).then((result) => {
       if (active) setEmployees(result.success ? result.data || [] : [])
@@ -4011,18 +4079,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     return () => {
       active = false
     }
-  }, [selectedCompanyId, usesLiveEmployeeData, usesLivePayrollData, usesLiveSocialSecurityData, usesLiveSpecialDeductionData])
+  }, [selectedCompanyId, usesLiveEmployeeData, usesLivePayrollData, usesLiveSocialSecurityData, usesLiveSpecialDeductionData, usesLiveWithholdingTaxData])
 
   useEffect(() => {
-    if (!usesLivePayrollData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!(usesLivePayrollData || usesLiveWithholdingTaxData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return
     let active = true
     void payrollApi.getPayrollRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => {
       if (active) setPayrollRecords(result.success ? result.data || [] : [])
     })
     return () => { active = false }
-  }, [currentPeriodLabel, selectedCompanyId, usesLivePayrollData])
-  useEffect(() => { if (!usesLiveSocialSecurityData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void socialSecurityApi.getSocialSecurityRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setSocialSecurityRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveSocialSecurityData])
-  useEffect(() => { if (!usesLiveSpecialDeductionData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void specialDeductionApi.getSpecialDeductionRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setSpecialDeductionRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveSpecialDeductionData])
+  }, [currentPeriodLabel, selectedCompanyId, usesLivePayrollData, usesLiveWithholdingTaxData])
+  useEffect(() => { if (!(usesLiveSocialSecurityData || usesLiveWithholdingTaxData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void socialSecurityApi.getSocialSecurityRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setSocialSecurityRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveSocialSecurityData, usesLiveWithholdingTaxData])
+  useEffect(() => { if (!(usesLiveSpecialDeductionData || usesLiveWithholdingTaxData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void specialDeductionApi.getSpecialDeductionRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setSpecialDeductionRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveSpecialDeductionData, usesLiveWithholdingTaxData])
 
   useEffect(() => {
     if (!usesLiveVoucherRecycleData || !selectedCompanyId) return
@@ -4289,6 +4357,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (kind === 'socialSecurity' && usesLiveSocialSecurityData) return { ...baseConfig, rows: mapLiveSocialSecurityRows(socialSecurityRecords), summary: baseConfig.summary.map((item) => item.label === '参保人数' ? { ...item, value: `${socialSecurityRecords.length} 人` } : item) }
     if (kind === 'specialDeduction' && usesLiveSpecialDeductionData) return { ...baseConfig, rows: mapLiveSpecialDeductionRows(specialDeductionRecords), summary: summarizeLiveSpecialDeductions(specialDeductionRecords) }
+    if (kind === 'withholdingTaxReport' && usesLiveWithholdingTaxData) return { ...baseConfig, rows: mapLiveWithholdingTaxRows(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords), summary: summarizeLiveWithholdingTax(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {
