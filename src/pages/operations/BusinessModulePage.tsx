@@ -3473,7 +3473,7 @@ function mapOperationAuditExportRows(logs: OperationAuditLog[]): ModuleRow[] {
 }
 
 function isImportOperationAudit(log: OperationAuditLog) {
-  return log.action.includes('导入')
+  return log.action.includes('导入') || log.action.includes('上传')
 }
 
 function mapOperationAuditImportRows(logs: OperationAuditLog[]): ModuleRow[] {

@@ -214,6 +214,7 @@ const requiredPageSnippets = [
   ['import center live scope', "const usesLiveImportData = Boolean(isTauri && selectedCompanyId && kind === 'importCenter')"],
   ['import center audit mapper', 'function mapOperationAuditImportRows(logs: OperationAuditLog[]): ModuleRow[]'],
   ['import center audit filter', 'function isImportOperationAudit(log: OperationAuditLog)'],
+  ['import center upload audit filter', "log.action.includes('上传')"],
   ['import center live rows', "if (kind === 'importCenter' && usesLiveImportData)"],
   ['import center audit fetch', "kind === 'auditLog' || kind === 'exportCenter' || kind === 'importCenter'"],
   ['module import file ref', 'const importFileRef = useRef<HTMLInputElement>(null)'],
