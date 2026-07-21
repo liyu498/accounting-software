@@ -29,6 +29,9 @@ const specialDeductionCommandSource = existsSync('src-tauri/src/commands/special
 const bankTransactionCommandSource = existsSync('src-tauri/src/commands/bank_transactions.rs')
   ? readFileSync('src-tauri/src/commands/bank_transactions.rs', 'utf8')
   : ''
+const documentRecordCommandSource = existsSync('src-tauri/src/commands/document_records.rs')
+  ? readFileSync('src-tauri/src/commands/document_records.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -497,6 +500,18 @@ const requiredBankTransactionPageSnippets = [
   ['bank transaction row mapper', 'mapLiveBankTransactionRows(bankTransactions, kind)'],
 ]
 
+const requiredDocumentRecordCommandSnippets = [
+  ['document record table schema', 'CREATE TABLE IF NOT EXISTS document_records'],
+  ['document record list command', 'pub async fn get_document_records'],
+  ['document record create command', 'pub async fn create_document_record'],
+]
+
+const requiredDocumentRecordPageSnippets = [
+  ['document record api list binding', 'documentRecordApi.getDocumentRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['document record api create binding', 'documentRecordApi.createDocumentRecord({'],
+  ['document record row mapper', 'mapLiveDocumentRecordRows(documentRecords)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -536,6 +551,9 @@ const errors = [
   ...verify(databaseSource, requiredBankTransactionCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(bankTransactionCommandSource, requiredBankTransactionCommandSnippets.slice(1), 'bank transaction commands'),
   ...verify(pageSource, requiredBankTransactionPageSnippets, 'bank transaction module page'),
+  ...verify(databaseSource, requiredDocumentRecordCommandSnippets.slice(0, 1), 'database schema'),
+  ...verify(documentRecordCommandSource, requiredDocumentRecordCommandSnippets.slice(1), 'document record commands'),
+  ...verify(pageSource, requiredDocumentRecordPageSnippets, 'document register module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

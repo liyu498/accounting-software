@@ -138,6 +138,30 @@ impl Database {
 
         sqlx::query(
             r#"
+            CREATE TABLE IF NOT EXISTS document_records (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                period TEXT NOT NULL,
+                business_date TEXT NOT NULL,
+                document_code TEXT NOT NULL,
+                business_type TEXT NOT NULL,
+                partner TEXT,
+                amount REAL NOT NULL DEFAULT 0,
+                owner TEXT,
+                attachment_status TEXT NOT NULL DEFAULT '待补附件',
+                status TEXT NOT NULL DEFAULT '待审核',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, document_code)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            r#"
             CREATE TABLE IF NOT EXISTS payroll_records (
                 id TEXT PRIMARY KEY,
                 company_id TEXT NOT NULL,
@@ -2914,6 +2938,36 @@ pub struct CreateBankTransactionInput {
     pub expense_amount: f64,
     pub balance: Option<f64>,
     pub receipt_status: Option<String>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct DocumentRecord {
+    pub id: String,
+    pub company_id: String,
+    pub period: String,
+    pub business_date: String,
+    pub document_code: String,
+    pub business_type: String,
+    pub partner: Option<String>,
+    pub amount: f64,
+    pub owner: Option<String>,
+    pub attachment_status: String,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateDocumentRecordInput {
+    pub company_id: String,
+    pub period: String,
+    pub business_date: String,
+    pub document_code: String,
+    pub business_type: String,
+    pub partner: Option<String>,
+    pub amount: f64,
+    pub owner: Option<String>,
+    pub attachment_status: Option<String>,
 }
 
 // ==================== Currency Structs ====================

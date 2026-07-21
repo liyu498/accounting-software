@@ -63,6 +63,7 @@ export interface PayrollRecord {
 export interface SocialSecurityRecord { id: string; companyId: string; employeeId: string; employeeName: string; period: string; city: string | null; contributionBase: number; companyAmount: number; personalAmount: number; fundAmount: number; status: string; createdAt: string; updatedAt: string }
 export interface SpecialDeductionRecord { id: string; companyId: string; employeeId: string; employeeName: string; deductionType: string; startMonth: string; endMonth: string | null; monthlyAmount: number; source: string; status: string; createdAt: string; updatedAt: string }
 export interface BankTransaction { id: string; companyId: string; period: string; accountName: string; serialNo: string; transactionDate: string; counterparty: string | null; summary: string | null; incomeAmount: number; expenseAmount: number; balance: number | null; receiptStatus: string; matchResult: string | null; status: string; createdAt: string; updatedAt: string }
+export interface DocumentRecord { id: string; companyId: string; period: string; businessDate: string; documentCode: string; businessType: string; partner: string | null; amount: number; owner: string | null; attachmentStatus: string; status: string; createdAt: string; updatedAt: string }
 
 export interface PaginatedResponse<T> extends ApiResponse<T> {
   meta?: ApiMeta
@@ -1018,6 +1019,7 @@ type RawPayrollRecord = {
 type RawSocialSecurityRecord = { id: string; company_id: string; employee_id: string; employee_name: string; period: string; city: string | null; contribution_base: number; company_amount: number; personal_amount: number; fund_amount: number; status: string; created_at: string; updated_at: string }
 type RawSpecialDeductionRecord = { id: string; company_id: string; employee_id: string; employee_name: string; deduction_type: string; start_month: string; end_month: string | null; monthly_amount: number; source: string; status: string; created_at: string; updated_at: string }
 type RawBankTransaction = { id: string; company_id: string; period: string; account_name: string; serial_no: string; transaction_date: string; counterparty: string | null; summary: string | null; income_amount: number; expense_amount: number; balance: number | null; receipt_status: string; match_result: string | null; status: string; created_at: string; updated_at: string }
+type RawDocumentRecord = { id: string; company_id: string; period: string; business_date: string; document_code: string; business_type: string; partner: string | null; amount: number; owner: string | null; attachment_status: string; status: string; created_at: string; updated_at: string }
 
 const mapAgencyServiceContract = (item: RawAgencyServiceContract): AgencyServiceContract => ({
   id: item.id,
@@ -1231,6 +1233,7 @@ const mapPayrollRecord = (item: RawPayrollRecord): PayrollRecord => ({
 const mapSocialSecurityRecord = (item: RawSocialSecurityRecord): SocialSecurityRecord => ({ id: item.id, companyId: item.company_id, employeeId: item.employee_id, employeeName: item.employee_name, period: item.period, city: item.city, contributionBase: item.contribution_base, companyAmount: item.company_amount, personalAmount: item.personal_amount, fundAmount: item.fund_amount, status: item.status, createdAt: item.created_at, updatedAt: item.updated_at })
 const mapSpecialDeductionRecord = (item: RawSpecialDeductionRecord): SpecialDeductionRecord => ({ id: item.id, companyId: item.company_id, employeeId: item.employee_id, employeeName: item.employee_name, deductionType: item.deduction_type, startMonth: item.start_month, endMonth: item.end_month, monthlyAmount: item.monthly_amount, source: item.source, status: item.status, createdAt: item.created_at, updatedAt: item.updated_at })
 const mapBankTransaction = (item: RawBankTransaction): BankTransaction => ({ id: item.id, companyId: item.company_id, period: item.period, accountName: item.account_name, serialNo: item.serial_no, transactionDate: item.transaction_date, counterparty: item.counterparty, summary: item.summary, incomeAmount: item.income_amount, expenseAmount: item.expense_amount, balance: item.balance, receiptStatus: item.receipt_status, matchResult: item.match_result, status: item.status, createdAt: item.created_at, updatedAt: item.updated_at })
+const mapDocumentRecord = (item: RawDocumentRecord): DocumentRecord => ({ id: item.id, companyId: item.company_id, period: item.period, businessDate: item.business_date, documentCode: item.document_code, businessType: item.business_type, partner: item.partner, amount: item.amount, owner: item.owner, attachmentStatus: item.attachment_status, status: item.status, createdAt: item.created_at, updatedAt: item.updated_at })
 
 // ============================================
 // Agency operation API (机构运营)
@@ -1762,5 +1765,19 @@ export const bankTransactionApi = {
     } catch (error) {
       return { success: false, error: String(error) }
     }
+  },
+}
+
+export const documentRecordApi = {
+  getDocumentRecords: async (filters: { companyId: string; period: string }): Promise<ApiResponse<DocumentRecord[]>> => {
+    try { const result = await invoke('get_document_records', { companyId: filters.companyId, period: filters.period }) as RawDocumentRecord[]; return { success: true, data: result.map(mapDocumentRecord) } } catch (error) { return { success: false, error: String(error) } }
+  },
+  createDocumentRecord: async (input: { companyId: string; period: string; businessDate: string; documentCode: string; businessType: string; partner?: string; amount: number; owner?: string; attachmentStatus?: string }): Promise<ApiResponse<DocumentRecord>> => {
+    try {
+      const result = await invoke('create_document_record', {
+        input: { company_id: input.companyId, period: input.period, business_date: input.businessDate, document_code: input.documentCode, business_type: input.businessType, partner: input.partner, amount: input.amount, owner: input.owner, attachment_status: input.attachmentStatus },
+      }) as RawDocumentRecord
+      return { success: true, data: mapDocumentRecord(result) }
+    } catch (error) { return { success: false, error: String(error) } }
   },
 }

@@ -85,6 +85,8 @@ pub fn run() {
             commands::special_deductions::create_special_deduction_record,
             commands::bank_transactions::get_bank_transactions,
             commands::bank_transactions::create_bank_transaction,
+            commands::document_records::get_document_records,
+            commands::document_records::create_document_record,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,
