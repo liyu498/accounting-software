@@ -45,6 +45,8 @@ import {
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '../../lib/utils'
 import { useAuthStore } from '../../stores/authStore'
+import { useCompanyStore } from '../../stores/companyStore'
+import { usePeriodStore } from '../../stores/periodStore'
 import { useThemeStore, type ThemeMode } from '../../stores/themeStore'
 import { CompanySelector } from '../settings/CompanySelector'
 import { recordAuditLog } from '../../lib/exportJobs'
@@ -210,6 +212,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
   const { user, logout } = useAuthStore()
+  const selectedCompany = useCompanyStore((state) => state.companies.find((company) => company.id === state.selectedCompanyId))
+  const currentPeriod = usePeriodStore((state) => state.periods.find((period) => period.id === state.currentPeriodId))
+  const auditCompanyLabel = selectedCompany?.name || '当前账套'
+  const auditPeriodLabel = currentPeriod
+    ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}`
+    : new Date().toISOString().slice(0, 7)
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -237,7 +245,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       object,
       level,
       result,
-      voucher: '2026-05/科旋电气（上海）有限公司',
+      voucher: `${auditPeriodLabel}/${auditCompanyLabel}`,
       attachment: '顶栏操作快照',
       operator: user?.username || 'admin',
     })

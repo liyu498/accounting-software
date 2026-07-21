@@ -7,6 +7,7 @@ const agencyModuleSource = readFileSync('src/pages/agency/AgencyModulePage.tsx',
 const welcomeSource = readFileSync('src/pages/Welcome.tsx', 'utf8')
 const appSource = readFileSync('src/App.tsx', 'utf8')
 const dashboardSource = readFileSync('src/pages/Dashboard.tsx', 'utf8')
+const shellSource = readFileSync('src/components/layout/AppShell.tsx', 'utf8')
 const companyStoreSource = readFileSync('src/stores/companyStore.ts', 'utf8')
 const companyCommandSource = readFileSync('src-tauri/src/commands/companies.rs', 'utf8')
 const databaseSource = readFileSync('src-tauri/src/db.rs', 'utf8')
@@ -334,6 +335,14 @@ const requiredAppSnippets = [
   ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
 ]
 
+const requiredShellSnippets = [
+  ['shell selected company binding', 'const selectedCompany = useCompanyStore((state) => state.companies.find((company) => company.id === state.selectedCompanyId))'],
+  ['shell selected period binding', 'const currentPeriod = usePeriodStore((state) => state.periods.find((period) => period.id === state.currentPeriodId))'],
+  ['shell audit company label', 'const auditCompanyLabel = selectedCompany?.name ||'],
+  ['shell audit period label', 'const auditPeriodLabel = currentPeriod'],
+  ['shell audit scope binding', 'voucher: `${auditPeriodLabel}/${auditCompanyLabel}`'],
+]
+
 const requiredDashboardSnippets = [
   ['dashboard current company scope', 'const usesLiveDashboardData = Boolean(isTauri && selectedCompanyId && currentPeriodId)'],
   ['dashboard invoice refresh', 'fetchInvoices({ company_id: selectedCompanyId, period_id: currentPeriodId })'],
@@ -358,6 +367,7 @@ const errors = [
   ...verify(databaseSource, requiredCompanyPersistenceSnippets.slice(3), 'database schema'),
   ...verify(agencyModuleSource, requiredAgencyModuleSnippets, 'agency module page'),
   ...verify(appSource, requiredAppSnippets, 'application routes'),
+  ...verify(shellSource, requiredShellSnippets, 'application shell'),
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),
 ]
 
