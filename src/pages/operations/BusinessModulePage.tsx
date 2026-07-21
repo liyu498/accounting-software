@@ -3472,6 +3472,35 @@ function mapOperationAuditExportRows(logs: OperationAuditLog[]): ModuleRow[] {
     })
 }
 
+function isImportOperationAudit(log: OperationAuditLog) {
+  return log.action.includes('导入')
+}
+
+function mapOperationAuditImportRows(logs: OperationAuditLog[]): ModuleRow[] {
+  return logs
+    .filter(isImportOperationAudit)
+    .map((log) => {
+      const status = exportOperationAuditStatus(log.result)
+      const objectParts = (log.objectRef || '').split('｜')
+      return {
+        id: `operation-import-${log.id}`,
+        status,
+        voucher: '-',
+        attachment: '导入审计',
+        values: {
+          template: log.action,
+          module: log.moduleName,
+          file: objectParts[objectParts.length - 1] || '未记录文件名称',
+          rows: '未记录',
+          success: status === '已通过' ? '已完成' : '0',
+          failed: status === '异常' ? '1' : '0',
+          operator: log.operator || '系统',
+          time: log.createdAt.replace('T', ' ').slice(0, 16),
+        },
+      }
+    })
+}
+
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
     id: log.id,
@@ -3553,6 +3582,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings', 'taxInit'].includes(kind))
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
   const usesLiveExportData = Boolean(isTauri && selectedCompanyId && kind === 'exportCenter')
+  const usesLiveImportData = Boolean(isTauri && selectedCompanyId && kind === 'importCenter')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
   const usesLiveDeclarationReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'declarationReceipt')
@@ -3814,7 +3844,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   useEffect(() => {
     if (!usesLiveRuleLogData || !selectedCompanyId) return
     let active = true
-    void automationApi.getOperationAuditLogs(kind === 'auditLog' || kind === 'exportCenter'
+    void automationApi.getOperationAuditLogs(kind === 'auditLog' || kind === 'exportCenter' || kind === 'importCenter'
       ? { companyId: selectedCompanyId }
       : { companyId: selectedCompanyId, moduleName: title })
       .then((result) => {
@@ -4394,6 +4424,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'importCenter' && usesLiveImportData) {
+      const dynamicRows = mapOperationAuditImportRows(operationAuditLogs)
+      return {
+        ...baseConfig,
+        rows: dynamicRows,
+        summary: baseConfig.summary.map((item) => {
+          if (item.label === '导入批次') return { ...item, value: `${dynamicRows.length} 批` }
+          if (item.label === '成功') return { ...item, value: `${dynamicRows.filter((row) => row.status === '已通过').length} 批` }
+          if (item.label === '待确认') return { ...item, value: `${dynamicRows.filter((row) => row.status === '待确认').length} 批` }
+          if (item.label === '失败') return { ...item, value: `${dynamicRows.filter((row) => row.status === '异常').length} 批` }
+          return item
+        }),
+      }
+    }
+
     if (kind === 'exportCenter' && usesLiveExportData) {
       const dynamicRows = mapOperationAuditExportRows(operationAuditLogs)
       return {
@@ -4420,7 +4465,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, exportJobs, invoices, kind, liveReports, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)

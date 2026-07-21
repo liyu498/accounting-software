@@ -211,6 +211,11 @@ const requiredPageSnippets = [
   ['export center audit filter', 'function isExportOperationAudit(log: OperationAuditLog)'],
   ['export center live rows', 'if (kind === \'exportCenter\' && usesLiveExportData)'],
   ['export center audit fetch', "kind === 'auditLog' || kind === 'exportCenter'"],
+  ['import center live scope', "const usesLiveImportData = Boolean(isTauri && selectedCompanyId && kind === 'importCenter')"],
+  ['import center audit mapper', 'function mapOperationAuditImportRows(logs: OperationAuditLog[]): ModuleRow[]'],
+  ['import center audit filter', 'function isImportOperationAudit(log: OperationAuditLog)'],
+  ['import center live rows', "if (kind === 'importCenter' && usesLiveImportData)"],
+  ['import center audit fetch', "kind === 'auditLog' || kind === 'exportCenter' || kind === 'importCenter'"],
 ]
 
 const requiredTaxWorkspaceSnippets = [
