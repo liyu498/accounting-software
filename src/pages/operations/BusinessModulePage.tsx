@@ -3717,6 +3717,55 @@ function summarizeLiveSocialSecurityTax(socialSecurityRecords: SocialSecurityRec
   ]
 }
 
+function findIncomeStatementItem(items: IncomeStatementResult['items'], keyword: string): IncomeStatementResult['items'][number] | undefined {
+  for (const item of items) {
+    if (item.item_name.includes(keyword)) return item
+    const child = findIncomeStatementItem(item.children || [], keyword)
+    if (child) return child
+  }
+  return undefined
+}
+
+function mapLiveIncomeTaxRows(incomeStatement: IncomeStatementResult): ModuleRow[] {
+  const totalProfit = findIncomeStatementItem(incomeStatement.items, '利润总额')
+  const currentProfit = totalProfit?.current_amount
+  const hasProfit = typeof currentProfit === 'number'
+  return [
+    {
+      id: `income-tax-profit-${incomeStatement.period_id}`,
+      status: hasProfit ? '待确认' : '异常',
+      voucher: '所得税预览',
+      attachment: '本机利润表',
+      values: {
+        line: '13',
+        item: '利润总额',
+        source: hasProfit ? '本机利润表' : '利润表未取数',
+        bookAmount: hasProfit ? payrollCurrency(currentProfit) : '待取数',
+        taxAmount: '待人工确认',
+        adjustment: '待填写',
+        check: hasProfit ? '纳税调整待确认' : '需先生成利润表',
+      },
+    },
+    {
+      id: `income-tax-adjustment-${incomeStatement.period_id}`,
+      status: '待确认',
+      voucher: '所得税预览',
+      attachment: '调整说明',
+      values: { line: '附表', item: '纳税调整项目', source: '人工维护', bookAmount: '-', taxAmount: '待填写', adjustment: '待填写', check: '不可自动认定' },
+    },
+  ]
+}
+
+function summarizeLiveIncomeTax(incomeStatement: IncomeStatementResult): ModuleConfig['summary'] {
+  const totalProfit = findIncomeStatementItem(incomeStatement.items, '利润总额')
+  return [
+    { label: '利润总额', value: totalProfit ? payrollCurrency(totalProfit.current_amount) : '待取数', tone: totalProfit ? 'blue' : 'red' },
+    { label: '纳税调整', value: '待人工填写', tone: 'amber' },
+    { label: '应纳税所得额', value: '待确认', tone: 'green' },
+    { label: '待复核', value: '2 项', tone: 'red' },
+  ]
+}
+
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
     id: log.id,
@@ -3786,7 +3835,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     isTauri &&
       selectedCompanyId &&
       currentPeriodId &&
-      ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport'].includes(kind),
+      ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'incomeTaxReport', 'cashFlowReport'].includes(kind),
   )
   const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
   const usesLiveCompanyBankAccountData = Boolean(isTauri && selectedCompanyId && kind === 'accountArchive')
@@ -3954,7 +4003,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           return
         }
 
-        if (kind === 'incomeStatementReport') {
+        if (kind === 'incomeStatementReport' || kind === 'incomeTaxReport') {
           const incomeStatement = await getIncomeStatement(currentPeriodId)
           if (active) setLiveReports((reports) => ({ ...reports, incomeStatement }))
           return
@@ -4393,6 +4442,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'specialDeduction' && usesLiveSpecialDeductionData) return { ...baseConfig, rows: mapLiveSpecialDeductionRows(specialDeductionRecords), summary: summarizeLiveSpecialDeductions(specialDeductionRecords) }
     if (kind === 'withholdingTaxReport' && usesLiveWithholdingTaxData) return { ...baseConfig, rows: mapLiveWithholdingTaxRows(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords), summary: summarizeLiveWithholdingTax(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords) }
     if (kind === 'socialSecurityTaxReport' && usesLiveSocialSecurityTaxData) return { ...baseConfig, rows: mapLiveSocialSecurityTaxRows(socialSecurityRecords), summary: summarizeLiveSocialSecurityTax(socialSecurityRecords) }
+    if (kind === 'incomeTaxReport' && usesLiveReportData && liveReports.incomeStatement) return { ...baseConfig, rows: mapLiveIncomeTaxRows(liveReports.incomeStatement), summary: summarizeLiveIncomeTax(liveReports.incomeStatement) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {

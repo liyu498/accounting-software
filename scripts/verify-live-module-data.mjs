@@ -469,6 +469,12 @@ const requiredSocialSecurityTaxPageSnippets = [
   ['social security tax summary mapper', 'summarizeLiveSocialSecurityTax(socialSecurityRecords)'],
 ]
 
+const requiredIncomeTaxPageSnippets = [
+  ['income tax report loader', "if (kind === 'incomeStatementReport' || kind === 'incomeTaxReport')"],
+  ['income tax row mapper', 'mapLiveIncomeTaxRows(liveReports.incomeStatement)'],
+  ['income tax summary mapper', 'summarizeLiveIncomeTax(liveReports.incomeStatement)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -503,6 +509,7 @@ const errors = [
   ...verify(pageSource, requiredSpecialDeductionPageSnippets, 'special deduction module page'),
   ...verify(pageSource, requiredWithholdingPageSnippets, 'withholding tax module page'),
   ...verify(pageSource, requiredSocialSecurityTaxPageSnippets, 'social security tax module page'),
+  ...verify(pageSource, requiredIncomeTaxPageSnippets, 'income tax module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
