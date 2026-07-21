@@ -25,6 +25,7 @@ import { agencyNavItems } from './agency/agencyNav'
 import { recordAuditLog, recordExportJob } from '../lib/exportJobs'
 import { exportRowsToXlsx } from '../lib/xlsxExport'
 import { automationApi } from '../lib/api'
+import { isTauri } from '../lib/tauri'
 
 interface SummaryMetric {
   label: string
@@ -443,15 +444,27 @@ export function Welcome() {
   ]
 
   const recordWelcomeAudit = (action: string, object: string, level: '普通' | '中' | '高' = '普通', result: '成功' | '待审批' | '失败' = '成功') => {
+    const status = result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过'
     recordAuditLog({
       module: '机构-账套管理',
       action,
       object,
       level,
       result,
-      status: result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过',
+      status,
       voucher: `${statusFilter}/${searchQuery.trim() || '全部'}`,
       attachment: '操作快照',
+    })
+    if (!isTauri) return
+
+    void automationApi.writeOperationAuditLog({
+      moduleName: '机构-账套管理',
+      action,
+      objectRef: `机构账套｜${object}`,
+      riskLevel: level,
+      result,
+      detail: `${status}｜${statusFilter}/${searchQuery.trim() || '全部'}`,
+      operator: 'admin',
     })
   }
 

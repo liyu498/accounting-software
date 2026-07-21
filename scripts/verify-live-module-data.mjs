@@ -254,6 +254,9 @@ const requiredWelcomeSnippets = [
   ['company collection duplicate query', "automationApi.getAutomationJobs({ companyId: target.id, period: target.period })"],
   ['company collection duplicate guard', "job.jobType === 'tax_profile_collection' && ['queued', 'running', 'review'].includes(job.status)"],
   ['company collection external boundary', '不执行真实税局登录、资料抓取或外部提交'],
+  ['welcome desktop audit boundary', 'if (!isTauri) return'],
+  ['welcome desktop audit persistence', 'moduleName: \'机构-账套管理\''],
+  ['welcome desktop audit scope', 'objectRef: `机构账套｜${object}`'],
 ]
 
 const requiredCompanyPersistenceSnippets = [
