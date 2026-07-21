@@ -1725,6 +1725,7 @@ function formatAgencyAutomationJobType(jobType: string) {
   if (jobType === 'voucher_suggestion') return 'AI 凭证建议'
   if (jobType === 'invoice_collection') return '发票采集任务'
   if (jobType === 'bank_collection') return '银行流水采集任务'
+  if (jobType === 'tax_profile_collection') return '税务资料采集预检'
   return jobType
 }
 

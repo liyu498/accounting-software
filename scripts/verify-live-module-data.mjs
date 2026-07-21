@@ -280,6 +280,7 @@ const requiredAgencyModuleSnippets = [
   ['agency health check live scope', "kind === 'healthCheck'"],
   ['agency automation data source', 'agencyApi.getAutomationJobs()'],
   ['agency automation row mapper', 'function mapAgencyAutomationJobRow(item: AutomationJob)'],
+  ['agency collection preflight label', "if (jobType === 'tax_profile_collection') return '税务资料采集预检'"],
   ['agency automation live scope', "kind === 'automation'"],
   ['agency invoice management row mapper', 'function mapAgencyInvoiceManagementRow(item: AgencyFeeCollection)'],
   ['agency invoice management live scope', "kind === 'invoiceManagement'"],
