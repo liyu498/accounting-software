@@ -77,6 +77,8 @@ pub fn run() {
             commands::employees::get_employees,
             commands::employees::create_employee,
             commands::employees::update_employee,
+            commands::payroll::get_payroll_records,
+            commands::payroll::create_payroll_record,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,

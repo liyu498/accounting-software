@@ -20,7 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { automationApi, backupApi, employeeApi, type AdapterAuthorization, type AutomationJob, type Employee, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type TaxDeclarationTask } from '../../lib/api'
+import { automationApi, backupApi, employeeApi, payrollApi, type AdapterAuthorization, type AutomationJob, type Employee, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type TaxDeclarationTask } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -3572,6 +3572,38 @@ function summarizeLiveEmployees(employees: Employee[]): ModuleConfig['summary'] 
   ]
 }
 
+function payrollCurrency(value: number) {
+  return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 2 }).format(value)
+}
+
+function mapLivePayrollRows(payrollRecords: PayrollRecord[]): ModuleRow[] {
+  return payrollRecords.map((record) => ({
+    id: record.id,
+    status: record.status === '已生成凭证' ? '已生成凭证' : record.status === '异常' ? '异常' : '待确认',
+    voucher: record.status === '已生成凭证' ? '已关联' : '未生成',
+    attachment: '本地薪酬行',
+    values: {
+      name: record.employeeName,
+      department: '人员档案维护',
+      base: payrollCurrency(record.baseSalary),
+      bonus: payrollCurrency(record.bonus),
+      tax: payrollCurrency(record.taxAmount),
+      net: payrollCurrency(record.netSalary),
+    },
+  }))
+}
+
+function summarizeLivePayroll(payrollRecords: PayrollRecord[]): ModuleConfig['summary'] {
+  const sum = (key: keyof PayrollRecord) => payrollRecords.reduce((total, record) => total + Number(record[key] || 0), 0)
+  const pending = payrollRecords.filter((record) => record.status !== '已生成凭证').length
+  return [
+    { label: '应发工资', value: payrollCurrency(sum('baseSalary') + sum('bonus')), tone: 'blue' },
+    { label: '个税', value: payrollCurrency(sum('taxAmount')), tone: 'amber' },
+    { label: '实发工资', value: payrollCurrency(sum('netSalary')), tone: 'green' },
+    { label: '待确认行', value: `${pending} 行`, tone: pending > 0 ? 'red' : 'gray' },
+  ]
+}
+
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
     id: log.id,
@@ -3655,6 +3687,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveExportData = Boolean(isTauri && selectedCompanyId && kind === 'exportCenter')
   const usesLiveImportData = Boolean(isTauri && selectedCompanyId && kind === 'importCenter')
   const usesLiveEmployeeData = Boolean(isTauri && selectedCompanyId && kind === 'employee')
+  const usesLivePayrollData = Boolean(isTauri && selectedCompanyId && kind === 'payroll')
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -3688,6 +3721,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [localBackups, setLocalBackups] = useState<LocalBackupSnapshot[]>([])
   const [backupValidations, setBackupValidations] = useState<Record<string, LocalBackupVerification>>({})
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([])
+  const [showPayrollDialog, setShowPayrollDialog] = useState(false)
+  const [payrollDraft, setPayrollDraft] = useState({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
   const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
@@ -3946,7 +3982,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [usesLiveBackupData])
 
   useEffect(() => {
-    if (!usesLiveEmployeeData || !selectedCompanyId) return
+    if (!(usesLiveEmployeeData || usesLivePayrollData) || !selectedCompanyId) return
     let active = true
     void employeeApi.getEmployees(selectedCompanyId).then((result) => {
       if (active) setEmployees(result.success ? result.data || [] : [])
@@ -3954,7 +3990,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     return () => {
       active = false
     }
-  }, [selectedCompanyId, usesLiveEmployeeData])
+  }, [selectedCompanyId, usesLiveEmployeeData, usesLivePayrollData])
+
+  useEffect(() => {
+    if (!usesLivePayrollData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    let active = true
+    void payrollApi.getPayrollRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => {
+      if (active) setPayrollRecords(result.success ? result.data || [] : [])
+    })
+    return () => { active = false }
+  }, [currentPeriodLabel, selectedCompanyId, usesLivePayrollData])
 
   useEffect(() => {
     if (!usesLiveVoucherRecycleData || !selectedCompanyId) return
@@ -4214,6 +4259,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         rows: mapLiveEmployeeRows(employees),
         summary: summarizeLiveEmployees(employees),
       }
+    }
+
+    if (kind === 'payroll' && usesLivePayrollData) {
+      return { ...baseConfig, rows: mapLivePayrollRows(payrollRecords), summary: summarizeLivePayroll(payrollRecords) }
     }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
@@ -4582,7 +4631,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, employees, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, employees, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -4712,6 +4761,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowEmployeeDialog(true)
       return
     }
+    if (kind === 'payroll' && isTauri && selectedCompanyId) {
+      if (payrollRecords.length === 0) {
+        setOperationNotice('当前账期没有薪酬行，请先新增或导入薪酬表。')
+        return
+      }
+      writeModuleAudit('生成工资凭证', `${currentPeriodLabel}｜${payrollRecords.length} 条薪酬行`, '高', '待审批')
+      setOperationNotice('工资凭证已进入待确认队列；需人工核验金额、个税和社保后才会生成会计凭证。')
+      return
+    }
     if (kind === 'backupRestore' && isTauri && selectedCompanyId) {
       try {
         const result = await backupApi.createLocalBackup()
@@ -4803,6 +4861,30 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowEmployeeDialog(false)
     } catch (error) {
       setOperationNotice(`新增人员失败：${String(error)}`)
+    }
+  }
+
+  const handleCreatePayrollRecord = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    try {
+      const result = await payrollApi.createPayrollRecord({
+        companyId: selectedCompanyId,
+        employeeId: payrollDraft.employeeId,
+        period: currentPeriodLabel,
+        baseSalary: Number(payrollDraft.baseSalary || 0),
+        bonus: Number(payrollDraft.bonus || 0),
+        taxAmount: Number(payrollDraft.taxAmount || 0),
+        socialPersonal: Number(payrollDraft.socialPersonal || 0),
+      })
+      if (!result.success || !result.data) throw new Error(result.error || '未返回薪酬行')
+      setPayrollRecords((records) => [result.data!, ...records])
+      writeModuleAudit('新增薪酬行', `${result.data.employeeName}｜${currentPeriodLabel}`, '中', '成功')
+      setOperationNotice(`已新增 ${result.data.employeeName} 的薪酬行，实发 ${payrollCurrency(result.data.netSalary)}。`)
+      setPayrollDraft({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
+      setShowPayrollDialog(false)
+    } catch (error) {
+      setOperationNotice(`新增薪酬行失败：${String(error)}`)
     }
   }
 
@@ -4959,6 +5041,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
+            {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => setShowPayrollDialog(true)} />}
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" onClick={handleRefreshAction} />
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="模板" onClick={handleTemplateAction} />
             <ToolbarButton icon={<FileDown className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
@@ -5258,6 +5341,33 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <button type="button" onClick={() => setShowEmployeeDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700 hover:border-slate-400">取消</button>
               <button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存人员</button>
             </div>
+          </form>
+        </div>
+      )}
+      {showPayrollDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增薪酬行">
+          <form onSubmit={handleCreatePayrollRecord} className="w-full max-w-lg border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <h2 className="text-sm font-semibold text-slate-900">新增薪酬行</h2>
+              <button type="button" onClick={() => setShowPayrollDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">人员 *
+                <select required value={payrollDraft.employeeId} onChange={(event) => setPayrollDraft((draft) => ({ ...draft, employeeId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]">
+                  <option value="">选择在职人员</option>
+                  {employees.filter((employee) => employee.employmentStatus === '在职').map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} {employee.name}</option>)}
+                </select>
+              </label>
+              {([
+                { field: 'baseSalary', label: '基本工资' }, { field: 'bonus', label: '奖金' },
+                { field: 'taxAmount', label: '个税' }, { field: 'socialPersonal', label: '个人社保' },
+              ] as Array<{ field: keyof typeof payrollDraft; label: string }>).map(({ field, label }) => (
+                <label key={field} className="grid gap-1 text-xs text-slate-600">{label}
+                  <input type="number" min="0" step="0.01" required={field === 'baseSalary'} value={payrollDraft[field]} onChange={(event) => setPayrollDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" />
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowPayrollDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存薪酬行</button></div>
           </form>
         </div>
       )}

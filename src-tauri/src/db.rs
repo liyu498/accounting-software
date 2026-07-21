@@ -76,6 +76,30 @@ impl Database {
         .execute(pool)
         .await?;
 
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS payroll_records (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                employee_id TEXT NOT NULL,
+                period TEXT NOT NULL,
+                base_salary REAL NOT NULL DEFAULT 0,
+                bonus REAL NOT NULL DEFAULT 0,
+                tax_amount REAL NOT NULL DEFAULT 0,
+                social_personal REAL NOT NULL DEFAULT 0,
+                net_salary REAL NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT '待确认',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                FOREIGN KEY (employee_id) REFERENCES employees(id),
+                UNIQUE (company_id, employee_id, period)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
         // Employee archives are the shared source for payroll, social security, and withholding tax.
         sqlx::query(
             r#"
@@ -1073,6 +1097,10 @@ impl Database {
             .await?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_employees_company_status ON employees(company_id, employment_status)")
+            .execute(pool)
+            .await?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_payroll_company_period ON payroll_records(company_id, period)")
             .execute(pool)
             .await?;
 
@@ -2729,6 +2757,36 @@ pub struct UpdateEmployeeInput {
     pub mobile: Option<String>,
     pub entry_date: Option<String>,
     pub employment_status: Option<String>,
+}
+
+// ==================== Payroll Structs ====================
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct PayrollRecord {
+    pub id: String,
+    pub company_id: String,
+    pub employee_id: String,
+    pub employee_name: String,
+    pub period: String,
+    pub base_salary: f64,
+    pub bonus: f64,
+    pub tax_amount: f64,
+    pub social_personal: f64,
+    pub net_salary: f64,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreatePayrollRecordInput {
+    pub company_id: String,
+    pub employee_id: String,
+    pub period: String,
+    pub base_salary: f64,
+    pub bonus: Option<f64>,
+    pub tax_amount: Option<f64>,
+    pub social_personal: Option<f64>,
 }
 
 // ==================== Currency Structs ====================

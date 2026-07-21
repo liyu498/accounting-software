@@ -17,6 +17,9 @@ const backupCommandSource = existsSync('src-tauri/src/commands/backups.rs')
 const employeeCommandSource = existsSync('src-tauri/src/commands/employees.rs')
   ? readFileSync('src-tauri/src/commands/employees.rs', 'utf8')
   : ''
+const payrollCommandSource = existsSync('src-tauri/src/commands/payroll.rs')
+  ? readFileSync('src-tauri/src/commands/payroll.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -410,6 +413,20 @@ const requiredEmployeePageSnippets = [
   ['employee summary mapper', 'summarizeLiveEmployees(employees)'],
 ]
 
+const requiredPayrollCommandSnippets = [
+  ['payroll table schema', 'CREATE TABLE IF NOT EXISTS payroll_records'],
+  ['payroll list command', 'pub async fn get_payroll_records'],
+  ['payroll create command', 'pub async fn create_payroll_record'],
+  ['payroll current period filter', 'AND p.period = ?'],
+]
+
+const requiredPayrollPageSnippets = [
+  ['payroll api list binding', 'payrollApi.getPayrollRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['payroll api create binding', 'payrollApi.createPayrollRecord({'],
+  ['payroll row mapper', 'mapLivePayrollRows(payrollRecords)'],
+  ['payroll summary mapper', 'summarizeLivePayroll(payrollRecords)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -433,6 +450,9 @@ const errors = [
   ...verify(databaseSource, requiredEmployeeCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(employeeCommandSource, requiredEmployeeCommandSnippets.slice(1), 'employee commands'),
   ...verify(pageSource, requiredEmployeePageSnippets, 'employee module page'),
+  ...verify(databaseSource, requiredPayrollCommandSnippets.slice(0, 1), 'database schema'),
+  ...verify(payrollCommandSource, requiredPayrollCommandSnippets.slice(1), 'payroll commands'),
+  ...verify(pageSource, requiredPayrollPageSnippets, 'payroll module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

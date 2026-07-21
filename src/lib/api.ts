@@ -45,6 +45,22 @@ export interface Employee {
   updatedAt: string
 }
 
+export interface PayrollRecord {
+  id: string
+  companyId: string
+  employeeId: string
+  employeeName: string
+  period: string
+  baseSalary: number
+  bonus: number
+  taxAmount: number
+  socialPersonal: number
+  netSalary: number
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface PaginatedResponse<T> extends ApiResponse<T> {
   meta?: ApiMeta
 }
@@ -981,6 +997,22 @@ type RawEmployee = {
   updated_at: string
 }
 
+type RawPayrollRecord = {
+  id: string
+  company_id: string
+  employee_id: string
+  employee_name: string
+  period: string
+  base_salary: number
+  bonus: number
+  tax_amount: number
+  social_personal: number
+  net_salary: number
+  status: string
+  created_at: string
+  updated_at: string
+}
+
 const mapAgencyServiceContract = (item: RawAgencyServiceContract): AgencyServiceContract => ({
   id: item.id,
   companyId: item.company_id,
@@ -1171,6 +1203,22 @@ const mapEmployee = (item: RawEmployee): Employee => ({
   mobile: item.mobile,
   entryDate: item.entry_date,
   employmentStatus: item.employment_status,
+  createdAt: item.created_at,
+  updatedAt: item.updated_at,
+})
+
+const mapPayrollRecord = (item: RawPayrollRecord): PayrollRecord => ({
+  id: item.id,
+  companyId: item.company_id,
+  employeeId: item.employee_id,
+  employeeName: item.employee_name,
+  period: item.period,
+  baseSalary: item.base_salary,
+  bonus: item.bonus,
+  taxAmount: item.tax_amount,
+  socialPersonal: item.social_personal,
+  netSalary: item.net_salary,
+  status: item.status,
   createdAt: item.created_at,
   updatedAt: item.updated_at,
 })
@@ -1614,6 +1662,36 @@ export const employeeApi = {
         },
       }) as RawEmployee
       return { success: true, data: mapEmployee(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
+
+export const payrollApi = {
+  getPayrollRecords: async (filters: { companyId: string; period: string }): Promise<ApiResponse<PayrollRecord[]>> => {
+    try {
+      const result = await invoke('get_payroll_records', { companyId: filters.companyId, period: filters.period }) as RawPayrollRecord[]
+      return { success: true, data: result.map(mapPayrollRecord) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  createPayrollRecord: async (input: { companyId: string; employeeId: string; period: string; baseSalary: number; bonus?: number; taxAmount?: number; socialPersonal?: number }): Promise<ApiResponse<PayrollRecord>> => {
+    try {
+      const result = await invoke('create_payroll_record', {
+        input: {
+          company_id: input.companyId,
+          employee_id: input.employeeId,
+          period: input.period,
+          base_salary: input.baseSalary,
+          bonus: input.bonus,
+          tax_amount: input.taxAmount,
+          social_personal: input.socialPersonal,
+        },
+      }) as RawPayrollRecord
+      return { success: true, data: mapPayrollRecord(result) }
     } catch (error) {
       return { success: false, error: String(error) }
     }
