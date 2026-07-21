@@ -4,7 +4,6 @@ import { useAuthStore } from './stores/authStore'
 import { LoginPage } from './pages/LoginPage'
 import { Dashboard } from './pages/Dashboard'
 import { Welcome } from './pages/Welcome'
-import { AIBookkeeping } from './pages/AIBookkeeping'
 import { AppShell } from './components/layout/AppShell'
 import { ToastProvider } from './components/ui/Toast'
 import { BusinessModulePage } from './pages/operations/BusinessModulePage'
@@ -115,7 +114,7 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/ai" element={<AIBookkeeping />} />
+            <Route path="/ai" element={businessPage('aiJobQueue', 'AI做账', '跟踪当前账套的 OCR、流水分类、凭证建议和人工确认任务。')} />
             <Route path="/notifications" element={businessPage('notificationCenter', '通知待办', '集中处理资料采集、AI确认、凭证异常、报表重算和申报截止提醒。')} />
             <Route path="/settings" element={businessPage('settingsData', '设置总览', '维护企业资料、期初、历史账簿、基础档案、匹配规则和权限。')} />
 

@@ -5,6 +5,7 @@ const pageSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', '
 const taxWorkspaceSource = readFileSync('src/pages/tax/TaxWorkspace.tsx', 'utf8')
 const agencyModuleSource = readFileSync('src/pages/agency/AgencyModulePage.tsx', 'utf8')
 const welcomeSource = readFileSync('src/pages/Welcome.tsx', 'utf8')
+const appSource = readFileSync('src/App.tsx', 'utf8')
 const companyStoreSource = readFileSync('src/stores/companyStore.ts', 'utf8')
 const companyCommandSource = readFileSync('src-tauri/src/commands/companies.rs', 'utf8')
 const databaseSource = readFileSync('src-tauri/src/db.rs', 'utf8')
@@ -292,6 +293,10 @@ const requiredAgencyModuleSnippets = [
   ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
 ]
 
+const requiredAppSnippets = [
+  ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -307,6 +312,7 @@ const errors = [
   ...verify(companyCommandSource, requiredCompanyPersistenceSnippets.slice(2, 3), 'company commands'),
   ...verify(databaseSource, requiredCompanyPersistenceSnippets.slice(3), 'database schema'),
   ...verify(agencyModuleSource, requiredAgencyModuleSnippets, 'agency module page'),
+  ...verify(appSource, requiredAppSnippets, 'application routes'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
