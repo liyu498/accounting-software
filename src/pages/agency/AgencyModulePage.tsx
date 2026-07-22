@@ -1019,7 +1019,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }
 
   const handlePrimaryAction = async () => {
-    if (kind === 'serviceContracts' && activeTab === '服务合同') { setShowContractDialog(true); return }
+    if (kind === 'serviceContracts' && activeTab === '服务合同') {
+      if (isTauri && companies.length === 0) await fetchCompanies()
+      setShowContractDialog(true)
+      return
+    }
     if (kind === 'authorizationCenter') {
       if (isTauri && companies.length === 0) await fetchCompanies()
       setAuthorizationDraft((draft) => ({
@@ -1187,7 +1191,25 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     writeAgencyAudit('导出PDF', fileName)
   }
 
-  const handleCreateContract = async (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); const result = await agencyApi.createServiceContract({ companyId: contractDraft.companyId, contractNo: contractDraft.contractNo, servicePackage: contractDraft.servicePackage, serviceStart: contractDraft.serviceStart, serviceEnd: contractDraft.serviceEnd, monthlyFee: Number(contractDraft.monthlyFee || 0), owner: contractDraft.owner || undefined }); if (!result.success || !result.data) { setOperationNotice(`新增合同失败：${result.error || '未知错误'}`); return }; setShowContractDialog(false); setOperationNotice('服务合同已保存，收费、协同与归档标签将读取该合同记录。'); void loadRemoteRows() }
+  const handleCreateContract = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const result = await agencyApi.createServiceContract({
+      companyId: contractDraft.companyId,
+      contractNo: contractDraft.contractNo,
+      servicePackage: contractDraft.servicePackage,
+      serviceStart: contractDraft.serviceStart,
+      serviceEnd: contractDraft.serviceEnd,
+      monthlyFee: Number(contractDraft.monthlyFee || 0),
+      owner: contractDraft.owner || undefined,
+    })
+    if (!result.success || !result.data) {
+      setOperationNotice(`新增合同失败：${result.error || '未知错误'}`)
+      return
+    }
+    setShowContractDialog(false)
+    setOperationNotice('服务合同已保存，收费、协同与归档标签将读取该合同记录。')
+    void loadRemoteRows()
+  }
 
   const handleCreateFeeCollection = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -1253,7 +1275,56 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   return (
     <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
-      {showContractDialog && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4"><form onSubmit={handleCreateContract} className="w-full max-w-xl border border-slate-300 bg-white p-4 shadow-xl"><h2 className="mb-3 text-sm font-semibold">新增服务合同</h2>{(['companyId','contractNo','servicePackage','serviceStart','serviceEnd','monthlyFee','owner'] as Array<keyof typeof contractDraft>).map((field) => <input key={field} required={field !== 'owner'} placeholder={field} value={contractDraft[field]} onChange={(event) => setContractDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="mb-2 h-8 w-full border px-2 text-sm" />)}<div className="flex justify-end gap-2"><button type="button" onClick={() => setShowContractDialog(false)} className="h-8 border px-3 text-xs">取消</button><button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs text-white">保存</button></div></form></div>}
+      {showContractDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+          <form onSubmit={handleCreateContract} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">新增服务合同</h2>
+                <p className="mt-1 text-xs text-slate-500">服务合同是机构服务交付台账，收费、协同、续费和归档均引用同一份合同记录。</p>
+              </div>
+              <button type="button" onClick={() => setShowContractDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>客户账套</span>
+                <select required value={contractDraft.companyId} onChange={(event) => setContractDraft((draft) => ({ ...draft, companyId: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="">请选择客户账套</option>
+                  {companies.map((company) => <option key={company.id} value={company.id}>{company.code} | {company.name}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>合同编号</span>
+                <input required value={contractDraft.contractNo} onChange={(event) => setContractDraft((draft) => ({ ...draft, contractNo: event.target.value }))} placeholder="例如：HT-2026-0001" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>服务套餐</span>
+                <input required value={contractDraft.servicePackage} onChange={(event) => setContractDraft((draft) => ({ ...draft, servicePackage: event.target.value }))} placeholder="例如：小规模纳税人标准代账" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>月服务费</span>
+                <input required min="0" step="0.01" type="number" value={contractDraft.monthlyFee} onChange={(event) => setContractDraft((draft) => ({ ...draft, monthlyFee: event.target.value }))} className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>服务开始</span>
+                <input required type="date" value={contractDraft.serviceStart} onChange={(event) => setContractDraft((draft) => ({ ...draft, serviceStart: event.target.value }))} className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>服务结束</span>
+                <input required type="date" value={contractDraft.serviceEnd} onChange={(event) => setContractDraft((draft) => ({ ...draft, serviceEnd: event.target.value }))} className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                <span>负责人</span>
+                <input value={contractDraft.owner} onChange={(event) => setContractDraft((draft) => ({ ...draft, owner: event.target.value }))} placeholder="例如：李会计" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowContractDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存服务合同</button>
+            </div>
+          </form>
+        </div>
+      )}
       {showFeeDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
           <form onSubmit={handleCreateFeeCollection} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">

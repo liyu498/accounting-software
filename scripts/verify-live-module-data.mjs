@@ -420,6 +420,12 @@ const requiredAgencyAuthorizationEntryPageSnippets = [
   ['agency authorization secret boundary', '不录入密码、验证码、Cookie 或税务局会话信息'],
 ]
 
+const requiredAgencyServiceContractEntryPageSnippets = [
+  ['agency service contract create dialog', '新增服务合同'],
+  ['agency service contract structured form', '<span>服务开始</span>'],
+  ['agency service contract create binding', 'agencyApi.createServiceContract({'],
+]
+
 const requiredAppSnippets = [
   ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
 ]
@@ -667,6 +673,7 @@ const errors = [
   ...verify(apiSource, requiredAgencyCollaborationEntryApiSnippets, 'api bindings'),
   ...verify(agencyModuleSource, requiredAgencyCollaborationEntryPageSnippets, 'agency collaboration entry page'),
   ...verify(agencyModuleSource, requiredAgencyAuthorizationEntryPageSnippets, 'agency authorization entry page'),
+  ...verify(agencyModuleSource, requiredAgencyServiceContractEntryPageSnippets, 'agency service contract entry page'),
   ...verify(appSource, requiredAppSnippets, 'application routes'),
   ...verify(shellSource, requiredShellSnippets, 'application shell'),
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),
