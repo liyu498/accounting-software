@@ -454,6 +454,10 @@ const requiredVoucherEntryPageSnippets = [
   ['voucher create action', 'await addVoucher({'],
   ['voucher client balance guard', '借贷金额不平衡'],
   ['voucher list new navigation', "navigate('/vouchers/new')"],
+  ['voucher edit source binding', 'const updateVoucher = useVoucherStore((state) => state.updateVoucher)'],
+  ['voucher edit load binding', 'await getVoucher(voucherId, selectedCompanyId)'],
+  ['voucher edit action', 'await updateVoucher({'],
+  ['voucher edit workspace', "kind === 'voucherCreate' || kind === 'voucherEdit'"],
 ]
 
 const requiredAppSnippets = [

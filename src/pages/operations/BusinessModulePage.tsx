@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -3960,6 +3960,7 @@ function auditLogToModuleRow(log: AuditLog): ModuleRow {
 
 export function BusinessModulePage({ kind, title, description }: BusinessModulePageProps) {
   const navigate = useNavigate()
+  const { id: voucherId } = useParams()
   const baseConfig = moduleConfigs[kind]
   const exportJobs = useExportJobs()
   const auditLogs = useAuditLogs()
@@ -3995,7 +3996,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const createInvoice = useInvoiceStore((state) => state.createInvoice)
   const vouchers = useVoucherStore((state) => state.vouchers)
   const queryVouchers = useVoucherStore((state) => state.queryVouchers)
+  const getVoucher = useVoucherStore((state) => state.getVoucher)
   const addVoucher = useVoucherStore((state) => state.addVoucher)
+  const updateVoucher = useVoucherStore((state) => state.updateVoucher)
   const getDeletedVouchers = useVoucherStore((state) => state.getDeletedVouchers)
   const settlementRules = useSettlementRuleStore((state) => state.rules)
   const fetchSettlementRules = useSettlementRuleStore((state) => state.fetchSettlementRules)
@@ -4123,6 +4126,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       { accountCode: '', direction: 'credit' as const, amount: '' },
     ],
   })
+  const [loadedVoucher, setLoadedVoucher] = useState<Voucher | null>(null)
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
@@ -4196,7 +4200,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodId, fetchInvoices, kind, queryVouchers, selectedCompanyId, usesLiveModuleData])
 
   useEffect(() => {
-    if (kind !== 'voucherCreate' || !isTauri || !selectedCompanyId) return
+    if (!['voucherCreate', 'voucherEdit'].includes(kind) || !isTauri || !selectedCompanyId) return
     void Promise.all([fetchAccounts(selectedCompanyId), fetchVoucherWords(selectedCompanyId)])
   }, [fetchAccounts, fetchVoucherWords, kind, selectedCompanyId])
 
@@ -4208,6 +4212,29 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       voucherWordId: draft.voucherWordId || voucherWords[0]?.id || '',
     }))
   }, [currentPeriod, kind, voucherWords])
+
+  useEffect(() => {
+    if (kind !== 'voucherEdit' || !isTauri || !selectedCompanyId || !voucherId) return
+    void (async () => {
+      const voucher = await getVoucher(voucherId, selectedCompanyId)
+      if (!voucher) {
+        setOperationNotice('未找到该凭证，或凭证不属于当前账套。')
+        return
+      }
+      setLoadedVoucher(voucher)
+      setVoucherDraft({
+        voucherWordId: voucher.voucher_word_id,
+        voucherDate: voucher.voucher_date,
+        summary: voucher.summary || '',
+        attachmentCount: String(voucher.attachment_count || 0),
+        entries: voucher.entries.map((entry) => ({
+          accountCode: entry.account_code,
+          direction: entry.direction === 'credit' ? 'credit' : 'debit',
+          amount: String(entry.amount),
+        })),
+      })
+    })()
+  }, [getVoucher, kind, selectedCompanyId, voucherId])
 
   useEffect(() => {
     if (!usesLiveInvoiceVoucherMatchingData || !selectedCompanyId) return
@@ -5757,7 +5784,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveVoucherDraft = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!selectedCompanyId || !currentPeriodId) return
+    if (!selectedCompanyId || (kind === 'voucherCreate' && !currentPeriodId)) return
     const entries = voucherDraft.entries.filter((entry) => entry.accountCode && Number(entry.amount) > 0)
     if (entries.length < 2) {
       setOperationNotice('凭证至少需要两条有效分录。')
@@ -5768,6 +5795,34 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     try {
+      if (kind === 'voucherEdit') {
+        if (!loadedVoucher) {
+          setOperationNotice('凭证尚未加载完成，无法保存修改。')
+          return
+        }
+        const voucher = await updateVoucher({
+          id: loadedVoucher.id,
+          voucher_date: voucherDraft.voucherDate,
+          summary: voucherDraft.summary,
+          attachment_count: Number(voucherDraft.attachmentCount || 0),
+          modified_by: 'admin',
+          version: loadedVoucher.version,
+          entries: entries.map((entry) => {
+            const account = detailedAccounts.find((item) => item.code === entry.accountCode)
+            return {
+              account_code: entry.accountCode,
+              account_name: account?.name || entry.accountCode,
+              direction: entry.direction,
+              amount: Number(entry.amount),
+              summary: voucherDraft.summary || undefined,
+            }
+          }),
+        }, selectedCompanyId)
+        setLoadedVoucher(voucher)
+        writeModuleAudit('保存凭证修改', voucher.voucher_number, '中', '成功')
+        setOperationNotice(`凭证 ${voucher.voucher_number} 已保存修改。`)
+        return
+      }
       const voucher = await addVoucher({
         company_id: selectedCompanyId,
         period_id: currentPeriodId,
@@ -5795,18 +5850,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
-  if (kind === 'voucherCreate') {
+  if (kind === 'voucherCreate' || kind === 'voucherEdit') {
+    const isVoucherEdit = kind === 'voucherEdit'
     return (
       <div className="h-full min-w-0 bg-[#f3f6fa] p-3 text-slate-900">
         <form onSubmit={handleSaveVoucherDraft} className="min-h-full border border-slate-200 bg-white">
           <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-2">
             <div>
-              <h1 className="text-base font-semibold">新增会计凭证</h1>
+              <h1 className="text-base font-semibold">{isVoucherEdit ? '编辑会计凭证' : '新增会计凭证'}</h1>
               <p className="mt-0.5 text-xs text-slate-500">当前账套：{selectedCompany?.name || '未选择'}，账期：{currentPeriodLabel}</p>
             </div>
             <div className="flex items-center gap-2">
+              {isVoucherEdit && loadedVoucher && <span className="text-xs text-slate-500">凭证号：{loadedVoucher.voucher_number}</span>}
               <span className={cn('text-xs font-medium', voucherBalanced ? 'text-emerald-700' : 'text-red-600')}>借贷{voucherBalanced ? '平衡' : '不平衡'}</span>
-              <button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存凭证草稿</button>
+              <button type="submit" disabled={isVoucherEdit && !loadedVoucher} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82] disabled:bg-slate-300">{isVoucherEdit ? '保存修改' : '保存凭证草稿'}</button>
             </div>
           </div>
           {operationNotice && <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">{operationNotice}</div>}
