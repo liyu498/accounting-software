@@ -4012,6 +4012,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const getDeletedVouchers = useVoucherStore((state) => state.getDeletedVouchers)
   const settlementRules = useSettlementRuleStore((state) => state.rules)
   const fetchSettlementRules = useSettlementRuleStore((state) => state.fetchSettlementRules)
+  const createSettlementRule = useSettlementRuleStore((state) => state.createSettlementRule)
+  const updateSettlementRule = useSettlementRuleStore((state) => state.updateSettlementRule)
+  const deleteSettlementRule = useSettlementRuleStore((state) => state.deleteSettlementRule)
   const currencies = useCurrencyStore((state) => state.currencies)
   const fetchCurrencies = useCurrencyStore((state) => state.fetchCurrencies)
   const commonDigests = useTemplateStore((state) => state.commonDigests)
@@ -4131,6 +4134,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showPayrollDialog, setShowPayrollDialog] = useState(false)
   const [editingPayrollId, setEditingPayrollId] = useState<string | null>(null)
   const [payrollDraft, setPayrollDraft] = useState({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
+  const [showSettlementRuleDialog, setShowSettlementRuleDialog] = useState(false)
+  const [editingSettlementRuleId, setEditingSettlementRuleId] = useState<string | null>(null)
+  const [settlementRuleDraft, setSettlementRuleDraft] = useState({ name: '', ruleType: 'profit_loss', sourceFormula: '', targetAccountCode: '', voucherWordId: '', summaryTemplate: '', priority: '10', isEnabled: true })
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
   const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
@@ -5570,6 +5576,53 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const resetSettlementRuleDraft = () => {
+    setEditingSettlementRuleId(null)
+    setSettlementRuleDraft({ name: '', ruleType: 'profit_loss', sourceFormula: '', targetAccountCode: '', voucherWordId: '', summaryTemplate: '', priority: '10', isEnabled: true })
+  }
+
+  const handleSaveSettlementRule = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    try {
+      const input = {
+        companyId: selectedCompanyId,
+        name: settlementRuleDraft.name.trim(),
+        ruleType: settlementRuleDraft.ruleType,
+        sourceFormula: settlementRuleDraft.sourceFormula,
+        targetAccountCode: settlementRuleDraft.targetAccountCode,
+        voucherWordId: settlementRuleDraft.voucherWordId,
+        summaryTemplate: settlementRuleDraft.summaryTemplate,
+        priority: Number(settlementRuleDraft.priority || 0),
+        isEnabled: settlementRuleDraft.isEnabled,
+      }
+      const rule = editingSettlementRuleId
+        ? await updateSettlementRule({ id: editingSettlementRuleId, ...input })
+        : await createSettlementRule({ ...input, sourceFormula: input.sourceFormula || undefined, targetAccountCode: input.targetAccountCode || undefined, voucherWordId: input.voucherWordId || undefined, summaryTemplate: input.summaryTemplate || undefined })
+      writeModuleAudit(editingSettlementRuleId ? '编辑结转规则' : '新增结转规则', `${rule.name}｜优先级 ${rule.priority}`, '中', '成功')
+      setOperationNotice(editingSettlementRuleId ? `已更新结转规则“${rule.name}”；执行结转前仍需人工复核。` : `已新增结转规则“${rule.name}”；执行结转前仍需人工复核。`)
+      resetSettlementRuleDraft()
+      setShowSettlementRuleDialog(false)
+    } catch (error) {
+      setOperationNotice(`${editingSettlementRuleId ? '编辑' : '新增'}结转规则失败：${String(error)}`)
+    }
+  }
+
+  const handleDeleteSettlementRule = async () => {
+    if (!selectedCompanyId || !editingSettlementRuleId) return
+    const rule = settlementRules.find((item) => item.id === editingSettlementRuleId)
+    if (!window.confirm(`确认删除结转规则“${rule?.name || ''}”吗？`)) return
+    try {
+      await deleteSettlementRule(editingSettlementRuleId, selectedCompanyId)
+      writeModuleAudit('删除结转规则', rule?.name || editingSettlementRuleId, '高', '成功')
+      setOperationNotice('结转规则已删除；不会影响已经生成的历史凭证。')
+      resetSettlementRuleDraft()
+      setShowSettlementRuleDialog(false)
+    } catch (error) {
+      setOperationNotice(`删除结转规则失败：${String(error)}`)
+    }
+  }
+
   const handleSaveSocialSecurityRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
@@ -5824,6 +5877,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingPayrollId(payroll.id)
       setPayrollDraft({ employeeId: payroll.employeeId, baseSalary: String(payroll.baseSalary), bonus: String(payroll.bonus), taxAmount: String(payroll.taxAmount), socialPersonal: String(payroll.socialPersonal) })
       setShowPayrollDialog(true)
+      return
+    }
+    if (kind === 'settlementRules' && isTauri && selectedCompanyId) {
+      const rule = settlementRules.find((item) => `settlement-rule-${item.id}` === row.id)
+      if (!rule) {
+        setOperationNotice('未找到当前账套的结转规则。')
+        return
+      }
+      setEditingSettlementRuleId(rule.id)
+      setSettlementRuleDraft({ name: rule.name, ruleType: rule.rule_type, sourceFormula: rule.source_formula || '', targetAccountCode: rule.target_account_code || '', voucherWordId: rule.voucher_word_id || '', summaryTemplate: rule.summary_template || '', priority: String(rule.priority), isEnabled: rule.is_enabled === 1 })
+      setShowSettlementRuleDialog(true)
       return
     }
     if (kind === 'socialSecurity' && isTauri && selectedCompanyId) { const record=socialSecurityRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSocialSecurityId(record.id);setSocialSecurityDraft({employeeId:record.employeeId,city:record.city||'',base:String(record.contributionBase),company:String(record.companyAmount),personal:String(record.personalAmount),fund:String(record.fundAmount)});setShowSocialSecurityDialog(true);return }
@@ -6213,6 +6277,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
             {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => { setEditingPayrollId(null); setPayrollDraft({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' }); setShowPayrollDialog(true) }} />}
+            {kind === 'settlementRules' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
             {kind === 'socialSecurity' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={() => { setEditingSocialSecurityId(null); setShowSocialSecurityDialog(true) }} />}
             {kind === 'specialDeduction' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={() => { setEditingSpecialDeductionId(null); setShowSpecialDeductionDialog(true) }} />}
             {(kind === 'billList' || kind === 'bankStatement') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={() => setShowBankTransactionDialog(true)} />}
@@ -6433,7 +6498,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -6660,6 +6725,58 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               ))}
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowPayrollDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingPayrollId ? '保存修改' : '保存薪酬行'}</button></div>
+          </form>
+        </div>
+      )}
+      {showSettlementRuleDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingSettlementRuleId ? '编辑结转规则' : '新增结转规则'}>
+          <form onSubmit={handleSaveSettlementRule} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">{editingSettlementRuleId ? '编辑结转规则' : '新增结转规则'}</h2>
+                <p className="mt-0.5 text-xs text-slate-500">规则仅配置期末结转取数和凭证草稿参数，实际执行仍需人工复核。</p>
+              </div>
+              <button type="button" onClick={() => setShowSettlementRuleDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">规则名称 *
+                <input required value={settlementRuleDraft.name} onChange={(event) => setSettlementRuleDraft((draft) => ({ ...draft, name: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">结转类型 *
+                <select value={settlementRuleDraft.ruleType} onChange={(event) => setSettlementRuleDraft((draft) => ({ ...draft, ruleType: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]">
+                  <option value="profit_loss">结转损益</option>
+                  <option value="tax">计提所得税</option>
+                  <option value="vat">转出未交增值税</option>
+                  <option value="custom">自定义结转</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">取数公式
+                <input value={settlementRuleDraft.sourceFormula} onChange={(event) => setSettlementRuleDraft((draft) => ({ ...draft, sourceFormula: event.target.value }))} placeholder="如：损益类科目期末余额" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">目标科目
+                <select value={settlementRuleDraft.targetAccountCode} onChange={(event) => setSettlementRuleDraft((draft) => ({ ...draft, targetAccountCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]">
+                  <option value="">请选择目标科目</option>
+                  {detailedAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">凭证字
+                <select value={settlementRuleDraft.voucherWordId} onChange={(event) => setSettlementRuleDraft((draft) => ({ ...draft, voucherWordId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]">
+                  <option value="">使用默认凭证字</option>
+                  {voucherWords.filter((word) => word.is_enabled === 1).map((word) => <option key={word.id} value={word.id}>{word.word_name}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">执行顺序
+                <input type="number" min="0" step="1" value={settlementRuleDraft.priority} onChange={(event) => setSettlementRuleDraft((draft) => ({ ...draft, priority: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">凭证摘要模板
+                <input value={settlementRuleDraft.summaryTemplate} onChange={(event) => setSettlementRuleDraft((draft) => ({ ...draft, summaryTemplate: event.target.value }))} placeholder="如：结转本期损益" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" />
+              </label>
+              {editingSettlementRuleId && <label className="inline-flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={settlementRuleDraft.isEnabled} onChange={(event) => setSettlementRuleDraft((draft) => ({ ...draft, isEnabled: event.target.checked }))} />启用该规则</label>}
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3">
+              <div>{editingSettlementRuleId && <button type="button" onClick={() => void handleDeleteSettlementRule()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除规则</button>}</div>
+              <div className="flex gap-2"><button type="button" onClick={() => setShowSettlementRuleDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingSettlementRuleId ? '保存修改' : '保存规则'}</button></div>
+            </div>
           </form>
         </div>
       )}

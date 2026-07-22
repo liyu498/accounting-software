@@ -14,11 +14,26 @@ export interface SettlementRule {
   is_enabled: number
 }
 
+export interface SettlementRuleInput {
+  companyId: string
+  name: string
+  ruleType: string
+  sourceFormula?: string
+  targetAccountCode?: string
+  voucherWordId?: string
+  summaryTemplate?: string
+  priority?: number
+  isEnabled?: boolean
+}
+
 interface SettlementRuleState {
   rules: SettlementRule[]
   isLoading: boolean
   error: string | null
   fetchSettlementRules: (companyId: string) => Promise<void>
+  createSettlementRule: (input: SettlementRuleInput) => Promise<SettlementRule>
+  updateSettlementRule: (input: SettlementRuleInput & { id: string }) => Promise<SettlementRule>
+  deleteSettlementRule: (id: string, companyId: string) => Promise<void>
 }
 
 export const useSettlementRuleStore = create<SettlementRuleState>((set) => ({
@@ -33,6 +48,62 @@ export const useSettlementRuleStore = create<SettlementRuleState>((set) => ({
       set({ rules, isLoading: false })
     } catch (error) {
       set({ error: String(error), isLoading: false })
+    }
+  },
+
+  createSettlementRule: async (input) => {
+    try {
+      const rule = await invoke<SettlementRule>('create_settlement_rule', {
+        input: {
+          company_id: input.companyId,
+          name: input.name,
+          rule_type: input.ruleType,
+          source_formula: input.sourceFormula,
+          target_account_code: input.targetAccountCode,
+          voucher_word_id: input.voucherWordId,
+          summary_template: input.summaryTemplate,
+          priority: input.priority,
+        },
+      })
+      set((state) => ({ rules: [...state.rules, rule].sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name)) }))
+      return rule
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
+  updateSettlementRule: async (input) => {
+    try {
+      const rule = await invoke<SettlementRule>('update_settlement_rule', {
+        input: {
+          id: input.id,
+          company_id: input.companyId,
+          name: input.name,
+          rule_type: input.ruleType,
+          source_formula: input.sourceFormula,
+          target_account_code: input.targetAccountCode,
+          voucher_word_id: input.voucherWordId,
+          summary_template: input.summaryTemplate,
+          priority: input.priority,
+          is_enabled: input.isEnabled === undefined ? undefined : input.isEnabled ? 1 : 0,
+        },
+      })
+      set((state) => ({ rules: state.rules.map((item) => item.id === rule.id ? rule : item).sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name)) }))
+      return rule
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
+  deleteSettlementRule: async (id, companyId) => {
+    try {
+      await invoke('delete_settlement_rule', { id, companyId })
+      set((state) => ({ rules: state.rules.filter((item) => item.id !== id) }))
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
     }
   },
 }))

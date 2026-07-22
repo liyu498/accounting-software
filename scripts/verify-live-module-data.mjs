@@ -49,6 +49,7 @@ const inventoryItemCommandSource = existsSync('src-tauri/src/commands/inventory_
 const unitCommandSource = existsSync('src-tauri/src/commands/units.rs')
   ? readFileSync('src-tauri/src/commands/units.rs', 'utf8')
   : ''
+const settlementRuleStoreSource = readFileSync('src/stores/settlementRuleStore.ts', 'utf8')
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -563,6 +564,18 @@ const requiredPayrollPageSnippets = [
   ['payroll summary mapper', 'summarizeLivePayroll(payrollRecords)'],
 ]
 
+const requiredSettlementRuleEntrySnippets = [
+  ['settlement rule create action', 'createSettlementRule: async'],
+  ['settlement rule update action', 'updateSettlementRule: async'],
+  ['settlement rule delete action', 'deleteSettlementRule: async'],
+]
+
+const requiredSettlementRulePageSnippets = [
+  ['settlement rule edit state', 'const [editingSettlementRuleId, setEditingSettlementRuleId] = useState<string | null>(null)'],
+  ['settlement rule create binding', 'createSettlementRule({'],
+  ['settlement rule update binding', 'updateSettlementRule({'],
+]
+
 const requiredSocialSecurityCommandSnippets = [
   ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
   ['social security list command', 'pub async fn get_social_security_records'],
@@ -790,6 +803,8 @@ const errors = [
   ...verify(databaseSource, requiredPayrollCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(payrollCommandSource, requiredPayrollCommandSnippets.slice(1), 'payroll commands'),
   ...verify(pageSource, requiredPayrollPageSnippets, 'payroll module page'),
+  ...verify(settlementRuleStoreSource, requiredSettlementRuleEntrySnippets, 'settlement rule store'),
+  ...verify(pageSource, requiredSettlementRulePageSnippets, 'settlement rule module page'),
   ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
   ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),
