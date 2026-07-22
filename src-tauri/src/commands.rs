@@ -19,4 +19,5 @@ pub mod special_deductions;
 pub mod bank_transactions;
 pub mod document_records;
 pub mod account_transfers;
+pub mod fixed_assets;
 pub mod roles;

@@ -35,6 +35,9 @@ const documentRecordCommandSource = existsSync('src-tauri/src/commands/document_
 const accountTransferCommandSource = existsSync('src-tauri/src/commands/account_transfers.rs')
   ? readFileSync('src-tauri/src/commands/account_transfers.rs', 'utf8')
   : ''
+const fixedAssetCommandSource = existsSync('src-tauri/src/commands/fixed_assets.rs')
+  ? readFileSync('src-tauri/src/commands/fixed_assets.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -537,6 +540,18 @@ const requiredAccountTransferPageSnippets = [
   ['account transfer row mapper', 'mapLiveAccountTransferRows(accountTransfers)'],
 ]
 
+const requiredFixedAssetCommandSnippets = [
+  ['fixed asset table schema', 'CREATE TABLE IF NOT EXISTS fixed_assets'],
+  ['fixed asset list command', 'pub async fn get_fixed_assets'],
+  ['fixed asset create command', 'pub async fn create_fixed_asset'],
+]
+
+const requiredFixedAssetPageSnippets = [
+  ['fixed asset api list binding', 'fixedAssetApi.getFixedAssets({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['fixed asset api create binding', 'fixedAssetApi.createFixedAsset({'],
+  ['fixed asset row mapper', 'mapLiveFixedAssetRows(fixedAssets)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -584,6 +599,9 @@ const errors = [
   ...verify(databaseSource, requiredAccountTransferPageSnippets.slice(0, 1), 'database schema'),
   ...verify(accountTransferCommandSource, requiredAccountTransferPageSnippets.slice(1, 3), 'account transfer commands'),
   ...verify(pageSource, requiredAccountTransferPageSnippets.slice(3), 'account transfer module page'),
+  ...verify(databaseSource, requiredFixedAssetCommandSnippets.slice(0, 1), 'database schema'),
+  ...verify(fixedAssetCommandSource, requiredFixedAssetCommandSnippets.slice(1), 'fixed asset commands'),
+  ...verify(pageSource, requiredFixedAssetPageSnippets, 'fixed asset module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

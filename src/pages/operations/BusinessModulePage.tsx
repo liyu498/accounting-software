@@ -20,7 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { accountTransferApi, automationApi, backupApi, bankTransactionApi, documentRecordApi, employeeApi, payrollApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankTransaction, type DocumentRecord, type Employee, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
+import { accountTransferApi, automationApi, backupApi, bankTransactionApi, documentRecordApi, employeeApi, fixedAssetApi, payrollApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankTransaction, type DocumentRecord, type Employee, type FixedAsset, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -1081,7 +1081,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   },
   depreciation: {
     keywordPlaceholder: '搜索资产名称、编号、类别',
-    primaryAction: '计提折旧',
+    primaryAction: '新增资产',
     importLabel: '导入资产',
     statusOptions: ['全部', '使用中', '已清理', '异常'],
     summary: [
@@ -3921,6 +3921,9 @@ function summarizeInvoiceManagement(invoices: Invoice[], invoiceType: 'input' | 
 }
 function mapLiveAccountTransferRows(accountTransfers: AccountTransfer[]): ModuleRow[] { return accountTransfers.map((record) => ({ id: record.id, status: record.status === '异常' ? '异常' : record.status === '已生成凭证' ? '已生成凭证' : '待确认', voucher: record.status === '已生成凭证' ? '已关联' : '未生成', attachment: '本机转账记录', values: { date: record.transferDate, from: record.fromAccount, to: record.toAccount, amount: payrollCurrency(record.amount), fee: payrollCurrency(record.fee), serial: record.serialNo || '待补流水号' } })) }
 function summarizeLiveAccountTransfers(accountTransfers: AccountTransfer[]): ModuleConfig['summary'] { return [{ label: '本期转账', value: `${accountTransfers.length} 笔`, tone: 'blue' }, { label: '转账金额', value: payrollCurrency(accountTransfers.reduce((sum, record) => sum + record.amount, 0)), tone: 'green' }, { label: '待确认', value: `${accountTransfers.filter((record) => record.status !== '已生成凭证').length} 笔`, tone: 'amber' }, { label: '异常', value: `${accountTransfers.filter((record) => record.status === '异常').length} 笔`, tone: 'red' }] }
+function fixedAssetMonthlyDepreciation(asset: FixedAsset) { return asset.originalValue * (1 - asset.residualRate) / asset.usefulLifeMonths }
+function mapLiveFixedAssetRows(fixedAssets: FixedAsset[]): ModuleRow[] { return fixedAssets.map((asset) => ({ id: asset.id, status: asset.status === '异常' ? '异常' : asset.status === '已生成凭证' ? '已生成凭证' : '待确认', voucher: asset.status === '已生成凭证' ? '已关联' : '未生成', attachment: asset.sourceDocument || '待补附件', values: { code: asset.assetCode, name: asset.assetName, category: asset.category, start: asset.startDate.slice(0, 7), original: payrollCurrency(asset.originalValue), depreciation: payrollCurrency(fixedAssetMonthlyDepreciation(asset)) } })) }
+function summarizeLiveFixedAssets(fixedAssets: FixedAsset[]): ModuleConfig['summary'] { return [{ label: '资产数量', value: `${fixedAssets.length} 项`, tone: 'blue' }, { label: '资产原值', value: payrollCurrency(fixedAssets.reduce((sum, asset) => sum + asset.originalValue, 0)), tone: 'green' }, { label: '本月折旧', value: payrollCurrency(fixedAssets.reduce((sum, asset) => sum + fixedAssetMonthlyDepreciation(asset), 0)), tone: 'amber' }, { label: '待计提', value: `${fixedAssets.filter((asset) => asset.status !== '已生成凭证').length} 项`, tone: 'red' }] }
 
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
@@ -4017,6 +4020,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLivePurchaseManagementData = Boolean(isTauri && selectedCompanyId && kind === 'purchaseManagement')
   const usesLiveSalesManagementData = Boolean(isTauri && selectedCompanyId && kind === 'salesManagement')
   const usesLiveAccountTransferData = Boolean(isTauri && selectedCompanyId && kind === 'transfer')
+  const usesLiveFixedAssetData = Boolean(isTauri && selectedCompanyId && kind === 'depreciation')
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -4056,6 +4060,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])
   const [documentRecords, setDocumentRecords] = useState<DocumentRecord[]>([])
   const [accountTransfers, setAccountTransfers] = useState<AccountTransfer[]>([])
+  const [fixedAssets, setFixedAssets] = useState<FixedAsset[]>([])
+  const [showFixedAssetDialog, setShowFixedAssetDialog] = useState(false)
+  const [fixedAssetDraft, setFixedAssetDraft] = useState({ assetCode: '', assetName: '', category: '', startDate: '', originalValue: '', usefulLifeMonths: '', residualRate: '5', sourceDocument: '' })
   const [showAccountTransferDialog, setShowAccountTransferDialog] = useState(false)
   const [accountTransferDraft, setAccountTransferDraft] = useState({ transferDate: '', fromAccount: '', toAccount: '', amount: '', fee: '', serialNo: '' })
   const [showSocialSecurityDialog, setShowSocialSecurityDialog] = useState(false)
@@ -4169,6 +4176,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     void documentRecordApi.getDocumentRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setDocumentRecords(result.success ? result.data || [] : []))
   }, [currentPeriodLabel, selectedCompanyId, usesLiveDocumentRecordData, usesLiveExpenseReimbursementData])
   useEffect(() => { if (!usesLiveAccountTransferData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setAccountTransfers(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveAccountTransferData])
+  useEffect(() => { if (!usesLiveFixedAssetData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void fixedAssetApi.getFixedAssets({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setFixedAssets(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveFixedAssetData])
 
   useEffect(() => {
     if (!usesLiveReportData || !currentPeriodId) return
@@ -4643,6 +4651,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'purchaseManagement' && usesLivePurchaseManagementData) return { ...baseConfig, rows: mapLivePurchaseManagementRows(invoices), summary: summarizeInvoiceManagement(invoices, 'input', ['采购单', '已匹配', '待付款', '异常单']) }
     if (kind === 'salesManagement' && usesLiveSalesManagementData) return { ...baseConfig, rows: mapLiveSalesManagementRows(invoices), summary: summarizeInvoiceManagement(invoices, 'output', ['销售单', '已开票/凭证', '待收款', '异常单']) }
     if (kind === 'transfer' && usesLiveAccountTransferData) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
+    if (kind === 'depreciation' && usesLiveFixedAssetData) return { ...baseConfig, rows: mapLiveFixedAssetRows(fixedAssets), summary: summarizeLiveFixedAssets(fixedAssets) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {
@@ -5010,7 +5019,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, invoices, kind, liveReports, localBackups, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, invoices, kind, liveReports, localBackups, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -5142,6 +5151,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (kind === 'transfer' && isTauri && selectedCompanyId) {
       setShowAccountTransferDialog(true)
+      return
+    }
+    if (kind === 'depreciation' && isTauri && selectedCompanyId) {
+      setShowFixedAssetDialog(true)
       return
     }
     if (kind === 'expenseReimbursement' && isTauri && selectedCompanyId) {
@@ -5381,6 +5394,25 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setAccountTransferDraft({ transferDate: '', fromAccount: '', toAccount: '', amount: '', fee: '', serialNo: '' })
       setShowAccountTransferDialog(false)
     } catch (error) { setOperationNotice(`新增账户转账失败：${String(error)}`) }
+  }
+
+  const handleCreateFixedAsset = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    try {
+      const result = await fixedAssetApi.createFixedAsset({
+        companyId: selectedCompanyId, period: currentPeriodLabel, assetCode: fixedAssetDraft.assetCode, assetName: fixedAssetDraft.assetName,
+        category: fixedAssetDraft.category, startDate: fixedAssetDraft.startDate, originalValue: Number(fixedAssetDraft.originalValue || 0),
+        usefulLifeMonths: Number(fixedAssetDraft.usefulLifeMonths || 0), residualRate: Number(fixedAssetDraft.residualRate || 0) / 100,
+        sourceDocument: fixedAssetDraft.sourceDocument || undefined,
+      })
+      if (!result.success || !result.data) throw new Error(result.error || '未返回固定资产')
+      setFixedAssets((records) => [result.data!, ...records])
+      writeModuleAudit('新增固定资产', result.data.assetName, '中', '成功')
+      setOperationNotice('固定资产已保存。本月折旧按平均年限法预览，需在期末结转人工确认后再生成凭证。')
+      setFixedAssetDraft({ assetCode: '', assetName: '', category: '', startDate: '', originalValue: '', usefulLifeMonths: '', residualRate: '5', sourceDocument: '' })
+      setShowFixedAssetDialog(false)
+    } catch (error) { setOperationNotice(`新增固定资产失败：${String(error)}`) }
   }
 
   const rowObjectLabel = (row: ModuleRow) => {
@@ -5940,6 +5972,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">新增账户转账</h2><button type="button" onClick={() => setShowAccountTransferDialog(false)} className="text-xs text-slate-500">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">{([{ field: 'transferDate', label: '转账日期 *', type: 'date' }, { field: 'fromAccount', label: '转出账户 *', type: 'text' }, { field: 'toAccount', label: '转入账户 *', type: 'text' }, { field: 'amount', label: '金额 *', type: 'number' }, { field: 'fee', label: '手续费', type: 'number' }, { field: 'serialNo', label: '流水号', type: 'text' }] as Array<{ field: keyof typeof accountTransferDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['transferDate', 'fromAccount', 'toAccount', 'amount'].includes(field)} type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={accountTransferDraft[field]} onChange={(event) => setAccountTransferDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}</div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowAccountTransferDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存转账</button></div>
+          </form>
+        </div>
+      )}
+      {showFixedAssetDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增固定资产">
+          <form onSubmit={handleCreateFixedAsset} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">新增固定资产</h2><button type="button" onClick={() => setShowFixedAssetDialog(false)} className="text-xs text-slate-500">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">{([{ field: 'assetCode', label: '资产编号 *', type: 'text' }, { field: 'assetName', label: '资产名称 *', type: 'text' }, { field: 'category', label: '资产类别 *', type: 'text' }, { field: 'startDate', label: '开始使用日期 *', type: 'date' }, { field: 'originalValue', label: '资产原值 *', type: 'number' }, { field: 'usefulLifeMonths', label: '折旧期限（月）*', type: 'number' }, { field: 'residualRate', label: '残值率（%）', type: 'number' }, { field: 'sourceDocument', label: '来源凭据', type: 'text' }] as Array<{ field: keyof typeof fixedAssetDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['assetCode', 'assetName', 'category', 'startDate', 'originalValue', 'usefulLifeMonths'].includes(field)} type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={fixedAssetDraft[field]} onChange={(event) => setFixedAssetDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}</div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowFixedAssetDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存资产</button></div>
           </form>
         </div>
       )}

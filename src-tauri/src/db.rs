@@ -86,6 +86,17 @@ impl Database {
         "#).execute(pool).await?;
 
         sqlx::query(r#"
+            CREATE TABLE IF NOT EXISTS fixed_assets (
+                id TEXT PRIMARY KEY, company_id TEXT NOT NULL, period TEXT NOT NULL, asset_code TEXT NOT NULL,
+                asset_name TEXT NOT NULL, category TEXT NOT NULL, start_date TEXT NOT NULL, original_value REAL NOT NULL,
+                useful_life_months INTEGER NOT NULL, residual_rate REAL NOT NULL DEFAULT 0, source_document TEXT,
+                status TEXT NOT NULL DEFAULT '待计提', created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, asset_code)
+            )
+        "#).execute(pool).await?;
+
+        sqlx::query(r#"
             CREATE TABLE IF NOT EXISTS social_security_records (
                 id TEXT PRIMARY KEY, company_id TEXT NOT NULL, employee_id TEXT NOT NULL, period TEXT NOT NULL,
                 city TEXT, contribution_base REAL NOT NULL DEFAULT 0, company_amount REAL NOT NULL DEFAULT 0,
@@ -2983,6 +2994,12 @@ pub struct CreateDocumentRecordInput {
 pub struct AccountTransfer { pub id: String, pub company_id: String, pub period: String, pub transfer_date: String, pub from_account: String, pub to_account: String, pub amount: f64, pub fee: f64, pub serial_no: Option<String>, pub status: String, pub created_at: String, pub updated_at: String }
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CreateAccountTransferInput { pub company_id: String, pub period: String, pub transfer_date: String, pub from_account: String, pub to_account: String, pub amount: f64, pub fee: Option<f64>, pub serial_no: Option<String> }
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct FixedAsset { pub id: String, pub company_id: String, pub period: String, pub asset_code: String, pub asset_name: String, pub category: String, pub start_date: String, pub original_value: f64, pub useful_life_months: i64, pub residual_rate: f64, pub source_document: Option<String>, pub status: String, pub created_at: String, pub updated_at: String }
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateFixedAssetInput { pub company_id: String, pub period: String, pub asset_code: String, pub asset_name: String, pub category: String, pub start_date: String, pub original_value: f64, pub useful_life_months: i64, pub residual_rate: Option<f64>, pub source_document: Option<String> }
 
 // ==================== Currency Structs ====================
 

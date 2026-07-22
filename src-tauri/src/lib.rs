@@ -89,6 +89,8 @@ pub fn run() {
             commands::document_records::create_document_record,
             commands::account_transfers::get_account_transfers,
             commands::account_transfers::create_account_transfer,
+            commands::fixed_assets::get_fixed_assets,
+            commands::fixed_assets::create_fixed_asset,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,
