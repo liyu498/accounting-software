@@ -4017,6 +4017,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const deleteSettlementRule = useSettlementRuleStore((state) => state.deleteSettlementRule)
   const currencies = useCurrencyStore((state) => state.currencies)
   const fetchCurrencies = useCurrencyStore((state) => state.fetchCurrencies)
+  const createCurrency = useCurrencyStore((state) => state.createCurrency)
+  const updateCurrency = useCurrencyStore((state) => state.updateCurrency)
+  const deleteCurrency = useCurrencyStore((state) => state.deleteCurrency)
   const commonDigests = useTemplateStore((state) => state.commonDigests)
   const voucherTemplateTypes = useTemplateStore((state) => state.voucherTemplateTypes)
   const voucherTemplates = useTemplateStore((state) => state.voucherTemplates)
@@ -4137,6 +4140,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showSettlementRuleDialog, setShowSettlementRuleDialog] = useState(false)
   const [editingSettlementRuleId, setEditingSettlementRuleId] = useState<string | null>(null)
   const [settlementRuleDraft, setSettlementRuleDraft] = useState({ name: '', ruleType: 'profit_loss', sourceFormula: '', targetAccountCode: '', voucherWordId: '', summaryTemplate: '', priority: '10', isEnabled: true })
+  const [showCurrencyDialog, setShowCurrencyDialog] = useState(false)
+  const [editingCurrencyId, setEditingCurrencyId] = useState<string | null>(null)
+  const [currencyDraft, setCurrencyDraft] = useState({ code: '', name: '', exchangeRate: '1', isBase: false })
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
   const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
@@ -5623,6 +5629,49 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const resetCurrencyDraft = () => {
+    setEditingCurrencyId(null)
+    setCurrencyDraft({ code: '', name: '', exchangeRate: '1', isBase: false })
+  }
+
+  const handleSaveCurrency = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    try {
+      const input = {
+        company_id: selectedCompanyId,
+        code: currencyDraft.code.trim().toUpperCase(),
+        name: currencyDraft.name.trim(),
+        exchange_rate: Number(currencyDraft.exchangeRate || 0),
+        is_base: currencyDraft.isBase ? 1 : 0,
+      }
+      const currency = editingCurrencyId
+        ? await updateCurrency({ id: editingCurrencyId, ...input })
+        : await createCurrency({ ...input })
+      writeModuleAudit(editingCurrencyId ? '编辑币别' : '新增币别', `${currency.code}｜${currency.exchange_rate}`, '中', '成功')
+      setOperationNotice(editingCurrencyId ? `已更新币别 ${currency.code} 的记账汇率。` : `已新增币别 ${currency.code}，可用于外币业务和期末调汇。`)
+      resetCurrencyDraft()
+      setShowCurrencyDialog(false)
+    } catch (error) {
+      setOperationNotice(`${editingCurrencyId ? '编辑' : '新增'}币别失败：${String(error)}`)
+    }
+  }
+
+  const handleDeleteCurrency = async () => {
+    if (!selectedCompanyId || !editingCurrencyId) return
+    const currency = currencies.find((item) => item.id === editingCurrencyId)
+    if (!window.confirm(`确认删除币别 ${currency?.code || ''} 吗？`)) return
+    try {
+      await deleteCurrency(editingCurrencyId, selectedCompanyId)
+      writeModuleAudit('删除币别', currency?.code || editingCurrencyId, '高', '成功')
+      setOperationNotice(`币别 ${currency?.code || ''} 已删除。`)
+      resetCurrencyDraft()
+      setShowCurrencyDialog(false)
+    } catch (error) {
+      setOperationNotice(`删除币别失败：${String(error)}`)
+    }
+  }
+
   const handleSaveSocialSecurityRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
@@ -5888,6 +5937,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingSettlementRuleId(rule.id)
       setSettlementRuleDraft({ name: rule.name, ruleType: rule.rule_type, sourceFormula: rule.source_formula || '', targetAccountCode: rule.target_account_code || '', voucherWordId: rule.voucher_word_id || '', summaryTemplate: rule.summary_template || '', priority: String(rule.priority), isEnabled: rule.is_enabled === 1 })
       setShowSettlementRuleDialog(true)
+      return
+    }
+    if (kind === 'currencySettings' && isTauri && selectedCompanyId) {
+      const currency = currencies.find((item) => `currency-${item.id}` === row.id)
+      if (!currency) {
+        setOperationNotice('未找到当前账套的币别。')
+        return
+      }
+      setEditingCurrencyId(currency.id)
+      setCurrencyDraft({ code: currency.code, name: currency.name, exchangeRate: String(currency.exchange_rate), isBase: currency.is_base === 1 })
+      setShowCurrencyDialog(true)
       return
     }
     if (kind === 'socialSecurity' && isTauri && selectedCompanyId) { const record=socialSecurityRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSocialSecurityId(record.id);setSocialSecurityDraft({employeeId:record.employeeId,city:record.city||'',base:String(record.contributionBase),company:String(record.companyAmount),personal:String(record.personalAmount),fund:String(record.fundAmount)});setShowSocialSecurityDialog(true);return }
@@ -6278,6 +6338,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
             {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => { setEditingPayrollId(null); setPayrollDraft({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' }); setShowPayrollDialog(true) }} />}
             {kind === 'settlementRules' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
+            {kind === 'currencySettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
             {kind === 'socialSecurity' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={() => { setEditingSocialSecurityId(null); setShowSocialSecurityDialog(true) }} />}
             {kind === 'specialDeduction' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={() => { setEditingSpecialDeductionId(null); setShowSpecialDeductionDialog(true) }} />}
             {(kind === 'billList' || kind === 'bankStatement') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={() => setShowBankTransactionDialog(true)} />}
@@ -6498,7 +6559,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -6776,6 +6837,26 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3">
               <div>{editingSettlementRuleId && <button type="button" onClick={() => void handleDeleteSettlementRule()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除规则</button>}</div>
               <div className="flex gap-2"><button type="button" onClick={() => setShowSettlementRuleDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingSettlementRuleId ? '保存修改' : '保存规则'}</button></div>
+            </div>
+          </form>
+        </div>
+      )}
+      {showCurrencyDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingCurrencyId ? '编辑币别' : '新增币别'}>
+          <form onSubmit={handleSaveCurrency} className="w-full max-w-lg border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2">
+              <div><h2 className="text-sm font-semibold text-slate-900">{editingCurrencyId ? '编辑币别' : '新增币别'}</h2><p className="mt-0.5 text-xs text-slate-500">币别汇率用于外币业务和期末调汇，保存前请核对汇率来源。</p></div>
+              <button type="button" onClick={() => setShowCurrencyDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">币别编码 *<input required maxLength={12} value={currencyDraft.code} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, code: event.target.value.toUpperCase() }))} placeholder="USD" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">币别名称 *<input required value={currencyDraft.name} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="美元" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">记账汇率 *<input required type="number" min="0.000001" step="0.0001" value={currencyDraft.exchangeRate} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, exchangeRate: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="flex items-end gap-2 pb-1 text-xs text-slate-700"><input type="checkbox" checked={currencyDraft.isBase} disabled={Boolean(editingCurrencyId && currencies.find((item) => item.id === editingCurrencyId)?.is_base === 1)} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, isBase: event.target.checked }))} />设为本位币</label>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3">
+              <div>{editingCurrencyId && <button type="button" onClick={() => void handleDeleteCurrency()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除币别</button>}</div>
+              <div className="flex gap-2"><button type="button" onClick={() => setShowCurrencyDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingCurrencyId ? '保存修改' : '保存币别'}</button></div>
             </div>
           </form>
         </div>

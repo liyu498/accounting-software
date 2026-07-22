@@ -576,6 +576,12 @@ const requiredSettlementRulePageSnippets = [
   ['settlement rule update binding', 'updateSettlementRule({'],
 ]
 
+const requiredCurrencyEntryPageSnippets = [
+  ['currency edit state', 'const [editingCurrencyId, setEditingCurrencyId] = useState<string | null>(null)'],
+  ['currency create binding', 'createCurrency({'],
+  ['currency update binding', 'updateCurrency({'],
+]
+
 const requiredSocialSecurityCommandSnippets = [
   ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
   ['social security list command', 'pub async fn get_social_security_records'],
@@ -805,6 +811,7 @@ const errors = [
   ...verify(pageSource, requiredPayrollPageSnippets, 'payroll module page'),
   ...verify(settlementRuleStoreSource, requiredSettlementRuleEntrySnippets, 'settlement rule store'),
   ...verify(pageSource, requiredSettlementRulePageSnippets, 'settlement rule module page'),
+  ...verify(pageSource, requiredCurrencyEntryPageSnippets, 'currency module page'),
   ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
   ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),
