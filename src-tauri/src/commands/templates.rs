@@ -250,17 +250,22 @@ pub async fn update_common_digest(
     input: CreateCommonDigestInput,
     db: State<'_, Database>,
 ) -> Result<CommonDigest, String> {
-    sqlx::query("UPDATE common_digests SET content = ? WHERE id = ?")
+    let affected = sqlx::query("UPDATE common_digests SET content = ? WHERE id = ? AND company_id = ?")
         .bind(&input.content)
         .bind(&id)
+        .bind(&input.company_id)
         .execute(db.pool())
         .await
         .map_err(|e| format!("更新常用摘要失败: {}", e))?;
+    if affected.rows_affected() == 0 {
+        return Err("未找到当前账套常用摘要".to_string());
+    }
 
     let result: CommonDigest = sqlx::query_as(
-        "SELECT * FROM common_digests WHERE id = ?",
+        "SELECT * FROM common_digests WHERE id = ? AND company_id = ?",
     )
     .bind(&id)
+    .bind(&input.company_id)
     .fetch_one(db.pool())
     .await
     .map_err(|e| format!("查询更新后的常用摘要失败: {}", e))?;
@@ -269,12 +274,16 @@ pub async fn update_common_digest(
 }
 
 #[tauri::command]
-pub async fn delete_common_digest(id: String, db: State<'_, Database>) -> Result<(), String> {
-    sqlx::query("DELETE FROM common_digests WHERE id = ?")
+pub async fn delete_common_digest(id: String, company_id: String, db: State<'_, Database>) -> Result<(), String> {
+    let affected = sqlx::query("DELETE FROM common_digests WHERE id = ? AND company_id = ?")
         .bind(&id)
+        .bind(&company_id)
         .execute(db.pool())
         .await
         .map_err(|e| format!("删除常用摘要失败: {}", e))?;
+    if affected.rows_affected() == 0 {
+        return Err("未找到当前账套常用摘要".to_string());
+    }
 
     Ok(())
 }

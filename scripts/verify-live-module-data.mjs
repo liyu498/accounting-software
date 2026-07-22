@@ -50,6 +50,7 @@ const unitCommandSource = existsSync('src-tauri/src/commands/units.rs')
   ? readFileSync('src-tauri/src/commands/units.rs', 'utf8')
   : ''
 const settlementRuleStoreSource = readFileSync('src/stores/settlementRuleStore.ts', 'utf8')
+const templateCommandSource = readFileSync('src-tauri/src/commands/templates.rs', 'utf8')
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -582,6 +583,17 @@ const requiredCurrencyEntryPageSnippets = [
   ['currency update binding', 'updateCurrency({'],
 ]
 
+const requiredCommonDigestCommandSnippets = [
+  ['common digest update company scope', 'UPDATE common_digests SET content = ? WHERE id = ? AND company_id = ?'],
+  ['common digest delete company scope', 'pub async fn delete_common_digest(id: String, company_id: String'],
+]
+
+const requiredCommonDigestEntryPageSnippets = [
+  ['common digest edit state', 'const [editingCommonDigestId, setEditingCommonDigestId] = useState<string | null>(null)'],
+  ['common digest create binding', 'createCommonDigest({'],
+  ['common digest update binding', 'updateCommonDigest({'],
+]
+
 const requiredSocialSecurityCommandSnippets = [
   ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
   ['social security list command', 'pub async fn get_social_security_records'],
@@ -812,6 +824,8 @@ const errors = [
   ...verify(settlementRuleStoreSource, requiredSettlementRuleEntrySnippets, 'settlement rule store'),
   ...verify(pageSource, requiredSettlementRulePageSnippets, 'settlement rule module page'),
   ...verify(pageSource, requiredCurrencyEntryPageSnippets, 'currency module page'),
+  ...verify(templateCommandSource, requiredCommonDigestCommandSnippets, 'common digest commands'),
+  ...verify(pageSource, requiredCommonDigestEntryPageSnippets, 'common digest module page'),
   ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
   ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),

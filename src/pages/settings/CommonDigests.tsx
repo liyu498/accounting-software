@@ -84,8 +84,9 @@ export function CommonDigests() {
   }
 
   const handleDelete = async (id: string) => {
+    if (!selectedCompanyId) return
     try {
-      await invoke('delete_common_digest', { id })
+      await invoke('delete_common_digest', { id, companyId: selectedCompanyId })
       successToast('删除成功')
       loadDigests()
     } catch (e) {

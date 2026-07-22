@@ -41,6 +41,9 @@ interface TemplateState {
   isLoading: boolean
   error: string | null
   fetchTemplateWorkspace(companyId: string): Promise<void>
+  createCommonDigest(input: { companyId: string; content: string }): Promise<CommonDigest>
+  updateCommonDigest(input: { id: string; companyId: string; content: string }): Promise<CommonDigest>
+  deleteCommonDigest(id: string, companyId: string): Promise<void>
 }
 
 export const useTemplateStore = create<TemplateState>((set) => ({
@@ -72,5 +75,22 @@ export const useTemplateStore = create<TemplateState>((set) => ({
     } catch (error) {
       set({ error: String(error), isLoading: false })
     }
+  },
+
+  createCommonDigest: async (input) => {
+    const digest = await invoke<CommonDigest>('create_common_digest', { input: { company_id: input.companyId, content: input.content } })
+    set((state) => ({ commonDigests: [...state.commonDigests, digest].sort((left, right) => left.content.localeCompare(right.content)) }))
+    return digest
+  },
+
+  updateCommonDigest: async (input) => {
+    const digest = await invoke<CommonDigest>('update_common_digest', { id: input.id, input: { company_id: input.companyId, content: input.content } })
+    set((state) => ({ commonDigests: state.commonDigests.map((item) => item.id === digest.id ? digest : item).sort((left, right) => left.content.localeCompare(right.content)) }))
+    return digest
+  },
+
+  deleteCommonDigest: async (id, companyId) => {
+    await invoke('delete_common_digest', { id, companyId })
+    set((state) => ({ commonDigests: state.commonDigests.filter((item) => item.id !== id) }))
   },
 }))
