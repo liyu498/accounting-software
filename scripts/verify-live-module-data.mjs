@@ -533,6 +533,7 @@ const requiredAccountTransferPageSnippets = [
   ['account transfer list command', 'pub async fn get_account_transfers'],
   ['account transfer create command', 'pub async fn create_account_transfer'],
   ['account transfer api list binding', 'accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['account transfer api create binding', 'accountTransferApi.createAccountTransfer({'],
   ['account transfer row mapper', 'mapLiveAccountTransferRows(accountTransfers)'],
 ]
 
