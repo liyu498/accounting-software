@@ -475,6 +475,9 @@ const requiredInvoiceEditPageSnippets = [
   ['invoice edit update action', 'await updateInvoice(editingInvoiceId, {'],
   ['invoice to voucher navigation', "navigate('/vouchers/new')"],
   ['invoice no fake generation notice', '请在新建凭证页选择科目并完成借贷平衡后保存'],
+  ['invoice voucher match binding', 'const matchInvoiceToVoucher = useInvoiceStore((state) => state.matchInvoiceToVoucher)'],
+  ['invoice voucher match dialog', '人工匹配发票与凭证'],
+  ['invoice voucher match action', 'await matchInvoiceToVoucher(selectedMatchInvoiceId, selectedMatchVoucherId, selectedCompanyId)'],
 ]
 
 const requiredAppSnippets = [

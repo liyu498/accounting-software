@@ -3996,6 +3996,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const getInvoice = useInvoiceStore((state) => state.getInvoice)
   const createInvoice = useInvoiceStore((state) => state.createInvoice)
   const updateInvoice = useInvoiceStore((state) => state.updateInvoice)
+  const matchInvoiceToVoucher = useInvoiceStore((state) => state.matchInvoiceToVoucher)
   const vouchers = useVoucherStore((state) => state.vouchers)
   const queryVouchers = useVoucherStore((state) => state.queryVouchers)
   const getVoucher = useVoucherStore((state) => state.getVoucher)
@@ -4120,6 +4121,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null)
+  const [showInvoiceVoucherMatchDialog, setShowInvoiceVoucherMatchDialog] = useState(false)
+  const [selectedMatchInvoiceId, setSelectedMatchInvoiceId] = useState('')
+  const [selectedMatchVoucherId, setSelectedMatchVoucherId] = useState('')
   const [invoiceDraft, setInvoiceDraft] = useState({ invoiceNo: '', invoiceCode: '', invoiceDate: '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
   const [voucherDraft, setVoucherDraft] = useState({
     voucherWordId: '',
@@ -5248,6 +5252,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handlePrimaryAction = async () => {
+    if (kind === 'invoiceVoucherMatching' && isTauri && selectedCompanyId) {
+      setSelectedMatchInvoiceId((current) => current || invoices.find((invoice) => !invoice.voucher_id)?.id || '')
+      setSelectedMatchVoucherId((current) => current || vouchers[0]?.id || '')
+      setShowInvoiceVoucherMatchDialog(true)
+      return
+    }
     if (kind === 'voucher') {
       navigate('/vouchers/new')
       return
@@ -5432,6 +5442,24 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice(`${kind === 'outputInvoice' ? '销项' : '进项'}发票已${editingInvoiceId ? '更新' : '保存'}到当前账套，可继续匹配凭证或进入发票勾选。`)
     } catch (error) {
       setOperationNotice(`新增发票失败：${String(error)}`)
+    }
+  }
+
+  const handleMatchInvoiceToVoucher = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || !selectedMatchInvoiceId || !selectedMatchVoucherId) {
+      setOperationNotice('请选择需要关联的发票和凭证。')
+      return
+    }
+    try {
+      await matchInvoiceToVoucher(selectedMatchInvoiceId, selectedMatchVoucherId, selectedCompanyId)
+      const invoice = invoices.find((item) => item.id === selectedMatchInvoiceId)
+      const voucher = vouchers.find((item) => item.id === selectedMatchVoucherId)
+      writeModuleAudit('人工匹配发票与凭证', `${invoice?.invoice_no || selectedMatchInvoiceId}｜${voucher?.voucher_number || selectedMatchVoucherId}`, '中', '成功')
+      setShowInvoiceVoucherMatchDialog(false)
+      setOperationNotice(`已关联发票 ${invoice?.invoice_no || ''} 与凭证 ${voucher?.voucher_number || ''}；金额差异仍需人工复核。`)
+    } catch (error) {
+      setOperationNotice(`匹配发票与凭证失败：${String(error)}`)
     }
   }
 
@@ -5655,6 +5683,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleViewRow = async (row: ModuleRow) => {
     if (kind === 'voucher') {
       navigate(`/vouchers/detail/${row.id}`)
+      return
+    }
+    if (kind === 'invoiceVoucherMatching' && isTauri && selectedCompanyId) {
+      setSelectedMatchInvoiceId(row.id.replace('invoice-voucher-match-', ''))
+      setSelectedMatchVoucherId('')
+      setShowInvoiceVoucherMatchDialog(true)
       return
     }
     if ((kind === 'outputInvoice' || kind === 'inputInvoice') && isTauri && selectedCompanyId) {
@@ -6222,6 +6256,39 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
         </section>
       </div>
+      {showInvoiceVoucherMatchDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="人工匹配发票与凭证">
+          <form onSubmit={handleMatchInvoiceToVoucher} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">人工匹配发票与凭证</h2>
+                <p className="mt-0.5 text-xs text-slate-500">仅写入本地关联关系；金额差异会继续保留在待确认清单。</p>
+              </div>
+              <button type="button" onClick={() => setShowInvoiceVoucherMatchDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-4 p-4">
+              <label className="grid gap-1 text-xs text-slate-600">
+                发票
+                <select required value={selectedMatchInvoiceId} onChange={(event) => setSelectedMatchInvoiceId(event.target.value)} className="h-8 border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="">请选择发票</option>
+                  {invoices.filter((invoice) => !invoice.voucher_id || invoice.id === selectedMatchInvoiceId).map((invoice) => <option key={invoice.id} value={invoice.id}>{invoice.invoice_no} | ¥{invoice.total_amount.toFixed(2)}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">
+                凭证
+                <select required value={selectedMatchVoucherId} onChange={(event) => setSelectedMatchVoucherId(event.target.value)} className="h-8 border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="">请选择凭证</option>
+                  {vouchers.filter((voucher) => voucher.status !== 'reversed').map((voucher) => <option key={voucher.id} value={voucher.id}>{voucher.voucher_number} | ¥{voucher.total_debit.toFixed(2)} | {voucher.summary || '无摘要'}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowInvoiceVoucherMatchDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">确认关联</button>
+            </div>
+          </form>
+        </div>
+      )}
       {showInvoiceDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingInvoiceId ? '编辑发票' : '新增发票'}>
           <form onSubmit={handleCreateInvoice} className="w-full max-w-3xl border border-slate-300 bg-white shadow-xl">
