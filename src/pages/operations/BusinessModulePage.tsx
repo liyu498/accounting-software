@@ -5488,7 +5488,28 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     } catch (error) { setOperationNotice(`新增出入库单失败：${String(error)}`) }
   }
 
-  const handleCreateInventoryItem = async (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!selectedCompanyId) return; try { const result = await inventoryItemApi.createInventoryItem({ companyId: selectedCompanyId, itemCode: inventoryItemDraft.itemCode, itemName: inventoryItemDraft.itemName, specification: inventoryItemDraft.specification || undefined, unit: inventoryItemDraft.unit, taxRate: Number(inventoryItemDraft.taxRate || 0) / 100, defaultSubject: inventoryItemDraft.defaultSubject || undefined }); if (!result.success || !result.data) throw new Error(result.error || '未返回存货档案'); setInventoryItems((items) => [result.data!, ...items]); writeModuleAudit('新增存货', result.data.itemName, '中', '成功'); setOperationNotice('存货档案已保存，可作为出入库、发票匹配和成本结转的基础资料。'); setShowInventoryItemDialog(false) } catch (error) { setOperationNotice(`新增存货失败：${String(error)}`) } }
+  const handleCreateInventoryItem = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    try {
+      const result = await inventoryItemApi.createInventoryItem({
+        companyId: selectedCompanyId,
+        itemCode: inventoryItemDraft.itemCode,
+        itemName: inventoryItemDraft.itemName,
+        specification: inventoryItemDraft.specification || undefined,
+        unit: inventoryItemDraft.unit,
+        taxRate: Number(inventoryItemDraft.taxRate || 0) / 100,
+        defaultSubject: inventoryItemDraft.defaultSubject || undefined,
+      })
+      if (!result.success || !result.data) throw new Error(result.error || '未返回存货档案')
+      setInventoryItems((items) => [result.data!, ...items])
+      writeModuleAudit('新增存货', result.data.itemName, '中', '成功')
+      setOperationNotice('存货档案已保存，可作为出入库、发票匹配和成本结转的基础资料。')
+      setShowInventoryItemDialog(false)
+    } catch (error) {
+      setOperationNotice(`新增存货失败：${String(error)}`)
+    }
+  }
   const handleCreateMeasurementUnit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId) return
@@ -6090,7 +6111,49 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </form>
         </div>
       )}
-      {showInventoryItemDialog && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增存货"><form onSubmit={handleCreateInventoryItem} className="w-full max-w-xl border border-slate-300 bg-white p-4 shadow-xl"><div className="mb-3 flex justify-between"><h2 className="text-sm font-semibold text-slate-900">新增存货</h2><button type="button" onClick={() => setShowInventoryItemDialog(false)} className="text-xs text-slate-500">取消</button></div><div className="grid gap-3 sm:grid-cols-2">{([{ field: 'itemCode', label: '存货编码 *' }, { field: 'itemName', label: '存货名称 *' }, { field: 'specification', label: '规格型号' }, { field: 'unit', label: '计量单位 *' }, { field: 'taxRate', label: '税率（%）' }, { field: 'defaultSubject', label: '默认科目' }] as Array<{ field: keyof typeof inventoryItemDraft; label: string }>).map(({ field, label }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['itemCode', 'itemName', 'unit'].includes(field)} value={inventoryItemDraft[field]} onChange={(event) => setInventoryItemDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}</div><div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => setShowInventoryItemDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs text-white">保存存货</button></div></form></div>}
+      {showInventoryItemDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增存货">
+          <form onSubmit={handleCreateInventoryItem} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">新增存货</h2>
+                <p className="mt-0.5 text-xs text-slate-500">建立客户账套内的存货基础档案，供发票、出入库与结转使用。</p>
+              </div>
+              <button type="button" onClick={() => setShowInventoryItemDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>存货编码</span>
+                <input required value={inventoryItemDraft.itemCode} onChange={(event) => setInventoryItemDraft((draft) => ({ ...draft, itemCode: event.target.value }))} placeholder="例如：SP-001" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>存货名称</span>
+                <input required value={inventoryItemDraft.itemName} onChange={(event) => setInventoryItemDraft((draft) => ({ ...draft, itemName: event.target.value }))} placeholder="例如：控制器 A-100" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>规格型号</span>
+                <input value={inventoryItemDraft.specification} onChange={(event) => setInventoryItemDraft((draft) => ({ ...draft, specification: event.target.value }))} placeholder="可选" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>计量单位</span>
+                <input required value={inventoryItemDraft.unit} onChange={(event) => setInventoryItemDraft((draft) => ({ ...draft, unit: event.target.value }))} placeholder="例如：件" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>税率（%）</span>
+                <input min="0" max="100" step="0.01" type="number" value={inventoryItemDraft.taxRate} onChange={(event) => setInventoryItemDraft((draft) => ({ ...draft, taxRate: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>默认会计科目</span>
+                <input value={inventoryItemDraft.defaultSubject} onChange={(event) => setInventoryItemDraft((draft) => ({ ...draft, defaultSubject: event.target.value }))} placeholder="例如：库存商品" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowInventoryItemDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存存货</button>
+            </div>
+          </form>
+        </div>
+      )}
       {showMeasurementUnitDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
           <form onSubmit={handleCreateMeasurementUnit} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">

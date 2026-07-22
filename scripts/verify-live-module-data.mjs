@@ -431,6 +431,11 @@ const requiredMeasurementUnitEntryPageSnippets = [
   ['measurement unit create binding', 'measurementUnitApi.createMeasurementUnit({'],
 ]
 
+const requiredInventoryItemEntryPageSnippets = [
+  ['inventory item structured dialog', '<span>存货编码</span>'],
+  ['inventory item create binding', 'inventoryItemApi.createInventoryItem({'],
+]
+
 const requiredAppSnippets = [
   ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
 ]
@@ -680,6 +685,7 @@ const errors = [
   ...verify(agencyModuleSource, requiredAgencyAuthorizationEntryPageSnippets, 'agency authorization entry page'),
   ...verify(agencyModuleSource, requiredAgencyServiceContractEntryPageSnippets, 'agency service contract entry page'),
   ...verify(pageSource, requiredMeasurementUnitEntryPageSnippets, 'measurement unit entry page'),
+  ...verify(pageSource, requiredInventoryItemEntryPageSnippets, 'inventory item entry page'),
   ...verify(appSource, requiredAppSnippets, 'application routes'),
   ...verify(shellSource, requiredShellSnippets, 'application shell'),
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),
