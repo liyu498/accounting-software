@@ -663,8 +663,12 @@ const requiredAccountTransferPageSnippets = [
   ['account transfer table schema', 'CREATE TABLE IF NOT EXISTS account_transfers'],
   ['account transfer list command', 'pub async fn get_account_transfers'],
   ['account transfer create command', 'pub async fn create_account_transfer'],
+  ['account transfer update command', 'pub async fn update_account_transfer'],
   ['account transfer api list binding', 'accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
   ['account transfer api create binding', 'accountTransferApi.createAccountTransfer({'],
+  ['account transfer api update binding', 'accountTransferApi.updateAccountTransfer({'],
+  ['account transfer edit row binding', "if (kind === 'transfer' && isTauri && selectedCompanyId)"],
+  ['account transfer edit state', 'const [editingAccountTransferId, setEditingAccountTransferId] = useState<string | null>(null)'],
   ['account transfer row mapper', 'mapLiveAccountTransferRows(accountTransfers)'],
 ]
 
@@ -778,8 +782,8 @@ const errors = [
   ...verify(pageSource, requiredReconciliationPageSnippets, 'reconciliation module page'),
   ...verify(pageSource, requiredOrderViewPageSnippets, 'purchase and sales module pages'),
   ...verify(databaseSource, requiredAccountTransferPageSnippets.slice(0, 1), 'database schema'),
-  ...verify(accountTransferCommandSource, requiredAccountTransferPageSnippets.slice(1, 3), 'account transfer commands'),
-  ...verify(pageSource, requiredAccountTransferPageSnippets.slice(3), 'account transfer module page'),
+  ...verify(accountTransferCommandSource, requiredAccountTransferPageSnippets.slice(1, 4), 'account transfer commands'),
+  ...verify(pageSource, requiredAccountTransferPageSnippets.slice(4), 'account transfer module page'),
   ...verify(databaseSource, requiredFixedAssetCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(fixedAssetCommandSource, requiredFixedAssetCommandSnippets.slice(1), 'fixed asset commands'),
   ...verify(pageSource, requiredFixedAssetPageSnippets, 'fixed asset module page'),

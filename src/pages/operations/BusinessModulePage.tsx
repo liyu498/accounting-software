@@ -4110,6 +4110,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showInventoryMovementDialog, setShowInventoryMovementDialog] = useState(false)
   const [inventoryMovementDraft, setInventoryMovementDraft] = useState({ movementDate: '', billNo: '', movementType: '采购入库', inventoryName: '', warehouse: '', counterparty: '', unit: '', quantity: '', amount: '', sourceDocument: '' })
   const [showAccountTransferDialog, setShowAccountTransferDialog] = useState(false)
+  const [editingAccountTransferId, setEditingAccountTransferId] = useState<string | null>(null)
   const [accountTransferDraft, setAccountTransferDraft] = useState({ transferDate: '', fromAccount: '', toAccount: '', amount: '', fee: '', serialNo: '' })
   const [showSocialSecurityDialog, setShowSocialSecurityDialog] = useState(false)
   const [socialSecurityDraft, setSocialSecurityDraft] = useState({ employeeId: '', city: '', base: '', company: '', personal: '', fund: '' })
@@ -5299,6 +5300,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'transfer' && isTauri && selectedCompanyId) {
+      setEditingAccountTransferId(null)
+      setAccountTransferDraft({ transferDate: '', fromAccount: '', toAccount: '', amount: '', fee: '', serialNo: '' })
       setShowAccountTransferDialog(true)
       return
     }
@@ -5623,22 +5626,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     } catch (error) { setOperationNotice(`新增登记单据失败：${String(error)}`) }
   }
 
-  const handleCreateAccountTransfer = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveAccountTransfer = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
-      const result = await accountTransferApi.createAccountTransfer({
-        companyId: selectedCompanyId, period: currentPeriodLabel, transferDate: accountTransferDraft.transferDate,
-        fromAccount: accountTransferDraft.fromAccount, toAccount: accountTransferDraft.toAccount,
-        amount: Number(accountTransferDraft.amount || 0), fee: Number(accountTransferDraft.fee || 0), serialNo: accountTransferDraft.serialNo || undefined,
-      })
+      const transferInput = { companyId: selectedCompanyId, transferDate: accountTransferDraft.transferDate, fromAccount: accountTransferDraft.fromAccount, toAccount: accountTransferDraft.toAccount, amount: Number(accountTransferDraft.amount || 0), fee: Number(accountTransferDraft.fee || 0), serialNo: accountTransferDraft.serialNo || undefined }
+      const result = editingAccountTransferId
+        ? await accountTransferApi.updateAccountTransfer({ id: editingAccountTransferId, ...transferInput })
+        : await accountTransferApi.createAccountTransfer({ ...transferInput, period: currentPeriodLabel })
       if (!result.success || !result.data) throw new Error(result.error || '未返回转账记录')
-      setAccountTransfers((records) => [result.data!, ...records])
-      writeModuleAudit('新增账户转账', `${result.data.fromAccount}→${result.data.toAccount}`, '中', '成功')
-      setOperationNotice('账户转账已保存，等待流水回单、规则匹配和人工凭证确认。')
+      setAccountTransfers((records) => editingAccountTransferId ? records.map((item) => item.id === result.data!.id ? result.data! : item) : [result.data!, ...records])
+      writeModuleAudit(editingAccountTransferId ? '编辑账户转账' : '新增账户转账', `${result.data.fromAccount}→${result.data.toAccount}`, '中', '成功')
+      setOperationNotice(editingAccountTransferId ? '账户转账已更新，需重新核验流水回单和匹配规则。' : '账户转账已保存，等待流水回单、规则匹配和人工凭证确认。')
+      setEditingAccountTransferId(null)
       setAccountTransferDraft({ transferDate: '', fromAccount: '', toAccount: '', amount: '', fee: '', serialNo: '' })
       setShowAccountTransferDialog(false)
-    } catch (error) { setOperationNotice(`新增账户转账失败：${String(error)}`) }
+    } catch (error) { setOperationNotice(`${editingAccountTransferId ? '编辑' : '新增'}账户转账失败：${String(error)}`) }
   }
 
   const handleCreateFixedAsset = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -5779,6 +5782,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingEmployeeId(employee.id)
       setEmployeeDraft({ employeeCode: employee.employeeCode, name: employee.name, idNo: employee.idNo || '', department: employee.department || '', position: employee.position || '', mobile: employee.mobile || '', entryDate: employee.entryDate || '', employmentStatus: employee.employmentStatus })
       setShowEmployeeDialog(true)
+      return
+    }
+    if (kind === 'transfer' && isTauri && selectedCompanyId) {
+      const transfer = accountTransfers.find((item) => item.id === row.id)
+      if (!transfer) {
+        setOperationNotice('未找到当前账期的账户转账记录。')
+        return
+      }
+      if (transfer.status === '已生成凭证') {
+        setOperationNotice('该转账已生成凭证，不可直接修改。请先按凭证处理流程完成复核。')
+        return
+      }
+      setEditingAccountTransferId(transfer.id)
+      setAccountTransferDraft({ transferDate: transfer.transferDate, fromAccount: transfer.fromAccount, toAccount: transfer.toAccount, amount: String(transfer.amount), fee: String(transfer.fee), serialNo: transfer.serialNo || '' })
+      setShowAccountTransferDialog(true)
       return
     }
     if (kind === 'backupRestore' && isTauri) {
@@ -6309,7 +6327,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'transfer' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -6645,11 +6663,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </div>
       )}
       {showAccountTransferDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增账户转账">
-          <form onSubmit={handleCreateAccountTransfer} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
-            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">新增账户转账</h2><button type="button" onClick={() => setShowAccountTransferDialog(false)} className="text-xs text-slate-500">取消</button></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingAccountTransferId ? '编辑账户转账' : '新增账户转账'}>
+          <form onSubmit={handleSaveAccountTransfer} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">{editingAccountTransferId ? '编辑账户转账' : '新增账户转账'}</h2><button type="button" onClick={() => setShowAccountTransferDialog(false)} className="text-xs text-slate-500">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">{([{ field: 'transferDate', label: '转账日期 *', type: 'date' }, { field: 'fromAccount', label: '转出账户 *', type: 'text' }, { field: 'toAccount', label: '转入账户 *', type: 'text' }, { field: 'amount', label: '金额 *', type: 'number' }, { field: 'fee', label: '手续费', type: 'number' }, { field: 'serialNo', label: '流水号', type: 'text' }] as Array<{ field: keyof typeof accountTransferDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['transferDate', 'fromAccount', 'toAccount', 'amount'].includes(field)} type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={accountTransferDraft[field]} onChange={(event) => setAccountTransferDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}</div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowAccountTransferDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存转账</button></div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowAccountTransferDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingAccountTransferId ? '保存修改' : '保存转账'}</button></div>
           </form>
         </div>
       )}

@@ -3016,6 +3016,8 @@ pub struct CreateDocumentRecordInput {
 pub struct AccountTransfer { pub id: String, pub company_id: String, pub period: String, pub transfer_date: String, pub from_account: String, pub to_account: String, pub amount: f64, pub fee: f64, pub serial_no: Option<String>, pub status: String, pub created_at: String, pub updated_at: String }
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CreateAccountTransferInput { pub company_id: String, pub period: String, pub transfer_date: String, pub from_account: String, pub to_account: String, pub amount: f64, pub fee: Option<f64>, pub serial_no: Option<String> }
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateAccountTransferInput { pub id: String, pub company_id: String, pub transfer_date: String, pub from_account: String, pub to_account: String, pub amount: f64, pub fee: Option<f64>, pub serial_no: Option<String> }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct FixedAsset { pub id: String, pub company_id: String, pub period: String, pub asset_code: String, pub asset_name: String, pub category: String, pub start_date: String, pub original_value: f64, pub useful_life_months: i64, pub residual_rate: f64, pub source_document: Option<String>, pub status: String, pub created_at: String, pub updated_at: String }
