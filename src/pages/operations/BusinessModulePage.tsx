@@ -5633,6 +5633,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleViewRow = async (row: ModuleRow) => {
+    if (kind === 'voucher') {
+      navigate(`/vouchers/detail/${row.id}`)
+      return
+    }
     if (kind === 'employee' && isTauri) {
       const employee = employees.find((item) => item.id === row.id)
       if (!employee) return
@@ -5660,6 +5664,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleGenerateVoucher = (row: ModuleRow) => {
+    if (kind === 'voucher') {
+      navigate(`/vouchers/edit/${row.id}`)
+      return
+    }
     const object = rowObjectLabel(row)
     const level = row.status === '异常' || isHighRiskAction ? '高' : '中'
     const result = row.status === '异常' || isHighRiskAction ? '待审批' : '成功'
@@ -6100,7 +6108,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                         {kind === 'backupRestore' ? '核验' : kind === 'employee' ? '编辑' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
-                        生成凭证
+                        {kind === 'voucher' ? '编辑' : '生成凭证'}
                       </button>
                     </td>
                   </tr>

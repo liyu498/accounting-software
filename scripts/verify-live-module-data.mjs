@@ -460,6 +460,8 @@ const requiredVoucherEntryPageSnippets = [
   ['voucher edit workspace', "kind === 'voucherCreate' || kind === 'voucherEdit'"],
   ['voucher detail workspace', "kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail'"],
   ['voucher detail read only guard', "const isVoucherReadOnly = kind === 'voucherDetail'"],
+  ['voucher row detail navigation', "navigate(`/vouchers/detail/${row.id}`)"],
+  ['voucher row edit navigation', "navigate(`/vouchers/edit/${row.id}`)"],
 ]
 
 const requiredAppSnippets = [
