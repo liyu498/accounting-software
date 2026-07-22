@@ -447,6 +447,14 @@ const requiredInvoiceEntryPageSnippets = [
   ['invoice create action', 'await createInvoice({'],
 ]
 
+const requiredVoucherEntryPageSnippets = [
+  ['voucher create store binding', 'const addVoucher = useVoucherStore((state) => state.addVoucher)'],
+  ['voucher word source', 'const voucherWords = usePeriodStore((state) => state.voucherWords)'],
+  ['voucher structured workspace', '凭证分录'],
+  ['voucher create action', 'await addVoucher({'],
+  ['voucher client balance guard', '借贷金额不平衡'],
+]
+
 const requiredAppSnippets = [
   ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
 ]
@@ -699,6 +707,7 @@ const errors = [
   ...verify(pageSource, requiredInventoryItemEntryPageSnippets, 'inventory item entry page'),
   ...verify(pageSource, requiredSocialSecurityEntryPageSnippets, 'social security entry page'),
   ...verify(pageSource, requiredInvoiceEntryPageSnippets, 'invoice entry page'),
+  ...verify(pageSource, requiredVoucherEntryPageSnippets, 'voucher entry page'),
   ...verify(appSource, requiredAppSnippets, 'application routes'),
   ...verify(shellSource, requiredShellSnippets, 'application shell'),
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),

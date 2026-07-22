@@ -3970,6 +3970,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}`
     : '当前账期'
   const fetchPeriods = usePeriodStore((state) => state.fetchPeriods)
+  const voucherWords = usePeriodStore((state) => state.voucherWords)
+  const fetchVoucherWords = usePeriodStore((state) => state.fetchVoucherWords)
   const closePeriod = usePeriodStore((state) => state.closePeriod)
   const fetchTrialBalance = usePeriodStore((state) => state.fetchTrialBalance)
   const getGeneralLedger = usePeriodStore((state) => state.getGeneralLedger)
@@ -3991,6 +3993,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const createInvoice = useInvoiceStore((state) => state.createInvoice)
   const vouchers = useVoucherStore((state) => state.vouchers)
   const queryVouchers = useVoucherStore((state) => state.queryVouchers)
+  const addVoucher = useVoucherStore((state) => state.addVoucher)
   const getDeletedVouchers = useVoucherStore((state) => state.getDeletedVouchers)
   const settlementRules = useSettlementRuleStore((state) => state.rules)
   const fetchSettlementRules = useSettlementRuleStore((state) => state.fetchSettlementRules)
@@ -4108,6 +4111,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
   const [invoiceDraft, setInvoiceDraft] = useState({ invoiceNo: '', invoiceCode: '', invoiceDate: '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
+  const [voucherDraft, setVoucherDraft] = useState({
+    voucherWordId: '',
+    voucherDate: '',
+    summary: '',
+    attachmentCount: '0',
+    entries: [
+      { accountCode: '', direction: 'debit' as const, amount: '' },
+      { accountCode: '', direction: 'credit' as const, amount: '' },
+    ],
+  })
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
@@ -4179,6 +4192,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       })
     }
   }, [currentPeriodId, fetchInvoices, kind, queryVouchers, selectedCompanyId, usesLiveModuleData])
+
+  useEffect(() => {
+    if (kind !== 'voucherCreate' || !isTauri || !selectedCompanyId) return
+    void Promise.all([fetchAccounts(selectedCompanyId), fetchVoucherWords(selectedCompanyId)])
+  }, [fetchAccounts, fetchVoucherWords, kind, selectedCompanyId])
+
+  useEffect(() => {
+    if (kind !== 'voucherCreate' || !currentPeriod) return
+    setVoucherDraft((draft) => ({
+      ...draft,
+      voucherDate: draft.voucherDate || currentPeriod.end_date,
+      voucherWordId: draft.voucherWordId || voucherWords[0]?.id || '',
+    }))
+  }, [currentPeriod, kind, voucherWords])
 
   useEffect(() => {
     if (!usesLiveInvoiceVoucherMatchingData || !selectedCompanyId) return
@@ -5705,6 +5732,91 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       rowCount: filteredRows.length,
     })
     writeModuleAudit('导出PDF', fileName, '普通', '成功')
+  }
+
+  const voucherDebitTotal = voucherDraft.entries
+    .filter((entry) => entry.direction === 'debit')
+    .reduce((total, entry) => total + Number(entry.amount || 0), 0)
+  const voucherCreditTotal = voucherDraft.entries
+    .filter((entry) => entry.direction === 'credit')
+    .reduce((total, entry) => total + Number(entry.amount || 0), 0)
+  const voucherBalanced = Math.abs(voucherDebitTotal - voucherCreditTotal) < 0.01
+
+  const updateVoucherEntry = (index: number, patch: Partial<(typeof voucherDraft.entries)[number]>) => {
+    setVoucherDraft((draft) => ({
+      ...draft,
+      entries: draft.entries.map((entry, entryIndex) => entryIndex === index ? { ...entry, ...patch } : entry),
+    }))
+  }
+
+  const handleSaveVoucherDraft = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || !currentPeriodId) return
+    const entries = voucherDraft.entries.filter((entry) => entry.accountCode && Number(entry.amount) > 0)
+    if (entries.length < 2) {
+      setOperationNotice('凭证至少需要两条有效分录。')
+      return
+    }
+    if (!voucherBalanced) {
+      setOperationNotice('借贷金额不平衡，请调整分录金额后再保存。')
+      return
+    }
+    try {
+      const voucher = await addVoucher({
+        company_id: selectedCompanyId,
+        period_id: currentPeriodId,
+        voucher_word_id: voucherDraft.voucherWordId,
+        voucher_date: voucherDraft.voucherDate,
+        summary: voucherDraft.summary,
+        attachment_count: Number(voucherDraft.attachmentCount || 0),
+        created_by: 'admin',
+        entries: entries.map((entry) => {
+          const account = detailedAccounts.find((item) => item.code === entry.accountCode)
+          return {
+            account_code: entry.accountCode,
+            account_name: account?.name || entry.accountCode,
+            direction: entry.direction,
+            amount: Number(entry.amount),
+            summary: voucherDraft.summary || undefined,
+          }
+        }),
+      })
+      writeModuleAudit('保存凭证草稿', voucher.voucher_number, '中', '成功')
+      setOperationNotice(`凭证 ${voucher.voucher_number} 已保存为草稿。`)
+      setVoucherDraft((draft) => ({ ...draft, summary: '', attachmentCount: '0', entries: [{ accountCode: '', direction: 'debit', amount: '' }, { accountCode: '', direction: 'credit', amount: '' }] }))
+    } catch (error) {
+      setOperationNotice(`保存凭证失败：${String(error)}`)
+    }
+  }
+
+  if (kind === 'voucherCreate') {
+    return (
+      <div className="h-full min-w-0 bg-[#f3f6fa] p-3 text-slate-900">
+        <form onSubmit={handleSaveVoucherDraft} className="min-h-full border border-slate-200 bg-white">
+          <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-2">
+            <div>
+              <h1 className="text-base font-semibold">新增会计凭证</h1>
+              <p className="mt-0.5 text-xs text-slate-500">当前账套：{selectedCompany?.name || '未选择'}，账期：{currentPeriodLabel}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={cn('text-xs font-medium', voucherBalanced ? 'text-emerald-700' : 'text-red-600')}>借贷{voucherBalanced ? '平衡' : '不平衡'}</span>
+              <button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存凭证草稿</button>
+            </div>
+          </div>
+          {operationNotice && <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">{operationNotice}</div>}
+          <div className="grid gap-3 border-b border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
+            <label className="space-y-1 text-xs text-slate-600"><span>凭证字</span><select required value={voucherDraft.voucherWordId} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, voucherWordId: event.target.value }))} className="h-8 w-full border border-slate-300 bg-white px-2 text-sm"><option value="">请选择凭证字</option>{voucherWords.filter((word) => word.is_enabled === 1).map((word) => <option key={word.id} value={word.id}>{word.word_name}</option>)}</select></label>
+            <label className="space-y-1 text-xs text-slate-600"><span>凭证日期</span><input required type="date" value={voucherDraft.voucherDate} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, voucherDate: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm" /></label>
+            <label className="space-y-1 text-xs text-slate-600"><span>附件张数</span><input min="0" step="1" type="number" value={voucherDraft.attachmentCount} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, attachmentCount: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm" /></label>
+            <label className="space-y-1 text-xs text-slate-600 md:col-span-1"><span>摘要</span><input required value={voucherDraft.summary} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, summary: event.target.value }))} placeholder="请输入凭证摘要" className="h-8 w-full border border-slate-300 px-2 text-sm" /></label>
+          </div>
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2"><h2 className="text-sm font-semibold">凭证分录</h2><button type="button" onClick={() => setVoucherDraft((draft) => ({ ...draft, entries: [...draft.entries, { accountCode: '', direction: 'debit', amount: '' }] }))} className="h-7 border border-[#1f65a7] px-2 text-xs text-[#1f65a7]">新增分录</button></div>
+          <div className="overflow-x-auto">
+            <table className="min-w-[780px] w-full text-left text-sm"><thead className="bg-slate-100 text-xs text-slate-600"><tr><th className="px-3 py-2">行</th><th className="px-3 py-2">摘要</th><th className="px-3 py-2">会计科目</th><th className="px-3 py-2">方向</th><th className="px-3 py-2 text-right">金额</th><th className="px-3 py-2 text-right">操作</th></tr></thead><tbody>{voucherDraft.entries.map((entry, index) => <tr key={index} className="border-t border-slate-200"><td className="px-3 py-2 text-xs text-slate-500">{index + 1}</td><td className="px-3 py-2 text-xs text-slate-500">{voucherDraft.summary || '-'}</td><td className="px-3 py-2"><select required value={entry.accountCode} onChange={(event) => updateVoucherEntry(index, { accountCode: event.target.value })} className="h-8 w-full min-w-64 border border-slate-300 bg-white px-2 text-sm"><option value="">请选择明细科目</option>{detailedAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}</select></td><td className="px-3 py-2"><select value={entry.direction} onChange={(event) => updateVoucherEntry(index, { direction: event.target.value as 'debit' | 'credit' })} className="h-8 border border-slate-300 bg-white px-2 text-sm"><option value="debit">借方</option><option value="credit">贷方</option></select></td><td className="px-3 py-2 text-right"><input required min="0" step="0.01" type="number" value={entry.amount} onChange={(event) => updateVoucherEntry(index, { amount: event.target.value })} className="h-8 w-32 border border-slate-300 px-2 text-right text-sm" /></td><td className="px-3 py-2 text-right"><button type="button" disabled={voucherDraft.entries.length <= 2} onClick={() => setVoucherDraft((draft) => ({ ...draft, entries: draft.entries.filter((_, entryIndex) => entryIndex !== index) }))} className="text-xs text-red-600 disabled:text-slate-300">删除</button></td></tr>)}</tbody><tfoot className="border-t border-slate-300 bg-slate-50 font-medium"><tr><td colSpan={3} className="px-3 py-2">合计</td><td className="px-3 py-2">借方</td><td className="px-3 py-2 text-right">¥{voucherDebitTotal.toFixed(2)}</td><td className="px-3 py-2" /></tr><tr><td colSpan={3} /><td className="px-3 py-2">贷方</td><td className="px-3 py-2 text-right">¥{voucherCreditTotal.toFixed(2)}</td><td className="px-3 py-2" /></tr></tfoot></table>
+          </div>
+        </form>
+      </div>
+    )
   }
 
   const tabs = ['列表', '明细', '凭证草稿', '匹配规则', '附件', '操作日志']
