@@ -4118,8 +4118,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showSpecialDeductionDialog, setShowSpecialDeductionDialog] = useState(false)
   const [specialDeductionDraft, setSpecialDeductionDraft] = useState({ employeeId: '', deductionType: '子女教育', startMonth: '', endMonth: '', monthlyAmount: '', source: '手工' })
   const [showBankTransactionDialog, setShowBankTransactionDialog] = useState(false)
+  const [editingBankTransactionId, setEditingBankTransactionId] = useState<string | null>(null)
   const [bankTransactionDraft, setBankTransactionDraft] = useState({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' })
   const [showDocumentRecordDialog, setShowDocumentRecordDialog] = useState(false)
+  const [editingDocumentRecordId, setEditingDocumentRecordId] = useState<string | null>(null)
   const [documentRecordDraft, setDocumentRecordDraft] = useState({ businessDate: '', documentCode: '', businessType: '费用报销', partner: '', amount: '', owner: '', attachmentStatus: '待补附件' })
   const [showPayrollDialog, setShowPayrollDialog] = useState(false)
   const [payrollDraft, setPayrollDraft] = useState({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
@@ -5312,6 +5314,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowFixedAssetDialog(true)
       return
     }
+    if ((kind === 'billList' || kind === 'bankStatement') && isTauri && selectedCompanyId) {
+      setEditingBankTransactionId(null)
+      setBankTransactionDraft({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' })
+      setShowBankTransactionDialog(true)
+      return
+    }
+    if (['documentRegister', 'expenseReimbursement', 'receipt'].includes(kind) && isTauri && selectedCompanyId) {
+      setEditingDocumentRecordId(null)
+      setDocumentRecordDraft({ businessDate: '', documentCode: '', businessType: kind === 'expenseReimbursement' ? '费用报销' : kind === 'receipt' ? '收款票据' : '其他', partner: '', amount: '', owner: '', attachmentStatus: '待补附件' })
+      setShowDocumentRecordDialog(true)
+      return
+    }
     if (kind === 'inventoryMovement' && isTauri && selectedCompanyId) {
       setShowInventoryMovementDialog(true)
       return
@@ -5324,11 +5338,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'costCarryover' && isTauri && selectedCompanyId) {
       writeModuleAudit('执行成本结转', `${currentPeriodLabel}｜${inventoryMovements.filter((movement) => movement.movementType.includes('出库')).length} 笔出库单`, '高', '待审批')
       setOperationNotice('已生成成本结转预检任务。需人工选择计价方法、核验出库单价并确认后，才可生成会计凭证。')
-      return
-    }
-    if (kind === 'expenseReimbursement' && isTauri && selectedCompanyId) {
-      setDocumentRecordDraft((draft) => ({ ...draft, businessType: '费用报销' }))
-      setShowDocumentRecordDialog(true)
       return
     }
     if (kind === 'payroll' && isTauri && selectedCompanyId) {
@@ -5582,51 +5591,42 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
-  const handleCreateBankTransaction = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveBankTransaction = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
-      const result = await bankTransactionApi.createBankTransaction({
-        companyId: selectedCompanyId,
-        period: currentPeriodLabel,
-        accountName: bankTransactionDraft.accountName,
-        serialNo: bankTransactionDraft.serialNo,
-        transactionDate: bankTransactionDraft.transactionDate,
-        counterparty: bankTransactionDraft.counterparty || undefined,
-        summary: bankTransactionDraft.summary || undefined,
-        incomeAmount: Number(bankTransactionDraft.incomeAmount || 0),
-        expenseAmount: Number(bankTransactionDraft.expenseAmount || 0),
-        balance: bankTransactionDraft.balance ? Number(bankTransactionDraft.balance) : undefined,
-        receiptStatus: bankTransactionDraft.receiptStatus,
-      })
+      const transactionInput = { companyId: selectedCompanyId, accountName: bankTransactionDraft.accountName, serialNo: bankTransactionDraft.serialNo, transactionDate: bankTransactionDraft.transactionDate, counterparty: bankTransactionDraft.counterparty || undefined, summary: bankTransactionDraft.summary || undefined, incomeAmount: Number(bankTransactionDraft.incomeAmount || 0), expenseAmount: Number(bankTransactionDraft.expenseAmount || 0), balance: bankTransactionDraft.balance ? Number(bankTransactionDraft.balance) : undefined, receiptStatus: bankTransactionDraft.receiptStatus }
+      const result = editingBankTransactionId
+        ? await bankTransactionApi.updateBankTransaction({ id: editingBankTransactionId, ...transactionInput })
+        : await bankTransactionApi.createBankTransaction({ ...transactionInput, period: currentPeriodLabel })
       if (!result.success || !result.data) throw new Error(result.error || '未返回银行流水')
-      setBankTransactions((records) => [result.data!, ...records])
-      writeModuleAudit('新增银行流水', `${result.data.accountName}｜${result.data.serialNo}`, '中', '成功')
-      setOperationNotice(`已新增 ${result.data.accountName} 的银行流水，等待匹配和人工确认。`)
+      setBankTransactions((records) => editingBankTransactionId ? records.map((item) => item.id === result.data!.id ? result.data! : item) : [result.data!, ...records])
+      writeModuleAudit(editingBankTransactionId ? '编辑银行流水' : '新增银行流水', `${result.data.accountName}｜${result.data.serialNo}`, '中', '成功')
+      setOperationNotice(editingBankTransactionId ? `已更新 ${result.data.accountName} 的银行流水，需重新执行匹配和人工确认。` : `已新增 ${result.data.accountName} 的银行流水，等待匹配和人工确认。`)
+      setEditingBankTransactionId(null)
       setBankTransactionDraft({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' })
       setShowBankTransactionDialog(false)
     } catch (error) {
-      setOperationNotice(`新增银行流水失败：${String(error)}`)
+      setOperationNotice(`${editingBankTransactionId ? '编辑' : '新增'}银行流水失败：${String(error)}`)
     }
   }
 
-  const handleCreateDocumentRecord = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveDocumentRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
-      const result = await documentRecordApi.createDocumentRecord({
-        companyId: selectedCompanyId, period: currentPeriodLabel, businessDate: documentRecordDraft.businessDate,
-        documentCode: documentRecordDraft.documentCode, businessType: documentRecordDraft.businessType,
-        partner: documentRecordDraft.partner || undefined, amount: Number(documentRecordDraft.amount || 0),
-        owner: documentRecordDraft.owner || undefined, attachmentStatus: documentRecordDraft.attachmentStatus,
-      })
+      const recordInput = { companyId: selectedCompanyId, businessDate: documentRecordDraft.businessDate, documentCode: documentRecordDraft.documentCode, businessType: documentRecordDraft.businessType, partner: documentRecordDraft.partner || undefined, amount: Number(documentRecordDraft.amount || 0), owner: documentRecordDraft.owner || undefined, attachmentStatus: documentRecordDraft.attachmentStatus }
+      const result = editingDocumentRecordId
+        ? await documentRecordApi.updateDocumentRecord({ id: editingDocumentRecordId, ...recordInput })
+        : await documentRecordApi.createDocumentRecord({ ...recordInput, period: currentPeriodLabel })
       if (!result.success || !result.data) throw new Error(result.error || '未返回登记单据')
-      setDocumentRecords((records) => [result.data!, ...records])
-      writeModuleAudit('新增登记单据', result.data.documentCode, '中', '成功')
-      setOperationNotice(`已新增 ${result.data.documentCode}，等待审核和凭证生成确认。`)
+      setDocumentRecords((records) => editingDocumentRecordId ? records.map((item) => item.id === result.data!.id ? result.data! : item) : [result.data!, ...records])
+      writeModuleAudit(editingDocumentRecordId ? '编辑登记单据' : '新增登记单据', result.data.documentCode, '中', '成功')
+      setOperationNotice(editingDocumentRecordId ? `已更新 ${result.data.documentCode}，需重新审核后才可生成凭证。` : `已新增 ${result.data.documentCode}，等待审核和凭证生成确认。`)
+      setEditingDocumentRecordId(null)
       setDocumentRecordDraft({ businessDate: '', documentCode: '', businessType: '费用报销', partner: '', amount: '', owner: '', attachmentStatus: '待补附件' })
       setShowDocumentRecordDialog(false)
-    } catch (error) { setOperationNotice(`新增登记单据失败：${String(error)}`) }
+    } catch (error) { setOperationNotice(`${editingDocumentRecordId ? '编辑' : '新增'}登记单据失败：${String(error)}`) }
   }
 
   const handleSaveAccountTransfer = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -5814,6 +5814,36 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingFixedAssetId(asset.id)
       setFixedAssetDraft({ assetCode: asset.assetCode, assetName: asset.assetName, category: asset.category, startDate: asset.startDate, originalValue: String(asset.originalValue), usefulLifeMonths: String(asset.usefulLifeMonths), residualRate: String(asset.residualRate * 100), sourceDocument: asset.sourceDocument || '' })
       setShowFixedAssetDialog(true)
+      return
+    }
+    if ((kind === 'billList' || kind === 'bankStatement') && isTauri && selectedCompanyId) {
+      const transaction = bankTransactions.find((item) => item.id === row.id)
+      if (!transaction) {
+        setOperationNotice('未找到当前账期的银行流水。')
+        return
+      }
+      if (transaction.status === '已生成凭证') {
+        setOperationNotice('该银行流水已生成凭证，不可直接修改。请先按凭证处理流程完成复核。')
+        return
+      }
+      setEditingBankTransactionId(transaction.id)
+      setBankTransactionDraft({ accountName: transaction.accountName, serialNo: transaction.serialNo, transactionDate: transaction.transactionDate, counterparty: transaction.counterparty || '', summary: transaction.summary || '', incomeAmount: String(transaction.incomeAmount || ''), expenseAmount: String(transaction.expenseAmount || ''), balance: transaction.balance === null ? '' : String(transaction.balance), receiptStatus: transaction.receiptStatus })
+      setShowBankTransactionDialog(true)
+      return
+    }
+    if (['documentRegister', 'expenseReimbursement', 'receipt'].includes(kind) && isTauri && selectedCompanyId) {
+      const record = documentRecords.find((item) => item.id === row.id)
+      if (!record) {
+        setOperationNotice('未找到当前账期的登记单据。')
+        return
+      }
+      if (record.status === '已生成凭证') {
+        setOperationNotice('该登记单据已生成凭证，不可直接修改。请先按凭证处理流程完成复核。')
+        return
+      }
+      setEditingDocumentRecordId(record.id)
+      setDocumentRecordDraft({ businessDate: record.businessDate, documentCode: record.documentCode, businessType: record.businessType, partner: record.partner || '', amount: String(record.amount), owner: record.owner || '', attachmentStatus: record.attachmentStatus })
+      setShowDocumentRecordDialog(true)
       return
     }
     if (kind === 'backupRestore' && isTauri) {
@@ -6344,7 +6374,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'transfer' || kind === 'depreciation' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'transfer' || kind === 'depreciation' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -6647,9 +6677,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </div>
       )}
       {showBankTransactionDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增银行流水">
-          <form onSubmit={handleCreateBankTransaction} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
-            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">新增银行流水</h2><button type="button" onClick={() => setShowBankTransactionDialog(false)} className="text-xs text-slate-500">取消</button></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingBankTransactionId ? '编辑银行流水' : '新增银行流水'}>
+          <form onSubmit={handleSaveBankTransaction} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">{editingBankTransactionId ? '编辑银行流水' : '新增银行流水'}</h2><button type="button" onClick={() => setShowBankTransactionDialog(false)} className="text-xs text-slate-500">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
               {([
                 { field: 'accountName', label: '银行账户 *', type: 'text', required: true }, { field: 'serialNo', label: '流水号 *', type: 'text', required: true },
@@ -6662,20 +6692,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600">回单状态<select value={bankTransactionDraft.receiptStatus} onChange={(event) => setBankTransactionDraft((draft) => ({ ...draft, receiptStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="待上传">待上传</option><option value="已归档">已归档</option></select></label>
               <p className="self-end text-xs leading-5 text-slate-500">收入与支出必须二选一；保存后仅进入待匹配清单。</p>
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowBankTransactionDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存流水</button></div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowBankTransactionDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingBankTransactionId ? '保存修改' : '保存流水'}</button></div>
           </form>
         </div>
       )}
       {showDocumentRecordDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增登记单据">
-          <form onSubmit={handleCreateDocumentRecord} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
-            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">新增登记单据</h2><button type="button" onClick={() => setShowDocumentRecordDialog(false)} className="text-xs text-slate-500">取消</button></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingDocumentRecordId ? '编辑登记单据' : '新增登记单据'}>
+          <form onSubmit={handleSaveDocumentRecord} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">{editingDocumentRecordId ? '编辑登记单据' : '新增登记单据'}</h2><button type="button" onClick={() => setShowDocumentRecordDialog(false)} className="text-xs text-slate-500">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
               {([{ field: 'businessDate', label: '业务日期 *', type: 'date', required: true }, { field: 'documentCode', label: '单据编号 *', type: 'text', required: true }, { field: 'partner', label: '往来单位', type: 'text' }, { field: 'amount', label: '金额 *', type: 'number', required: true }, { field: 'owner', label: '经办人', type: 'text' }] as Array<{ field: keyof typeof documentRecordDraft; label: string; type: string; required?: boolean }>).map(({ field, label, type, required }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={required} type={type} min={type === 'number' ? '0.01' : undefined} step={type === 'number' ? '0.01' : undefined} value={documentRecordDraft[field]} onChange={(event) => setDocumentRecordDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}
               <label className="grid gap-1 text-xs text-slate-600">业务类型<select value={documentRecordDraft.businessType} onChange={(event) => setDocumentRecordDraft((draft) => ({ ...draft, businessType: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['费用报销', '采购入库', '差旅报销', '合同付款', '其他'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
               <label className="grid gap-1 text-xs text-slate-600">附件状态<select value={documentRecordDraft.attachmentStatus} onChange={(event) => setDocumentRecordDraft((draft) => ({ ...draft, attachmentStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="待补附件">待补附件</option><option value="已归档">已归档</option></select></label>
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowDocumentRecordDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存单据</button></div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowDocumentRecordDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingDocumentRecordId ? '保存修改' : '保存单据'}</button></div>
           </form>
         </div>
       )}

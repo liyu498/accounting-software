@@ -1832,6 +1832,16 @@ export const bankTransactionApi = {
       return { success: false, error: String(error) }
     }
   },
+  updateBankTransaction: async (input: { id: string; companyId: string; accountName: string; serialNo: string; transactionDate: string; counterparty?: string; summary?: string; incomeAmount: number; expenseAmount: number; balance?: number; receiptStatus?: string }): Promise<ApiResponse<BankTransaction>> => {
+    try {
+      const result = await invoke('update_bank_transaction', {
+        input: { id: input.id, company_id: input.companyId, account_name: input.accountName, serial_no: input.serialNo, transaction_date: input.transactionDate, counterparty: input.counterparty, summary: input.summary, income_amount: input.incomeAmount, expense_amount: input.expenseAmount, balance: input.balance, receipt_status: input.receiptStatus },
+      }) as RawBankTransaction
+      return { success: true, data: mapBankTransaction(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
 }
 
 export const documentRecordApi = {
@@ -1842,6 +1852,14 @@ export const documentRecordApi = {
     try {
       const result = await invoke('create_document_record', {
         input: { company_id: input.companyId, period: input.period, business_date: input.businessDate, document_code: input.documentCode, business_type: input.businessType, partner: input.partner, amount: input.amount, owner: input.owner, attachment_status: input.attachmentStatus },
+      }) as RawDocumentRecord
+      return { success: true, data: mapDocumentRecord(result) }
+    } catch (error) { return { success: false, error: String(error) } }
+  },
+  updateDocumentRecord: async (input: { id: string; companyId: string; businessDate: string; documentCode: string; businessType: string; partner?: string; amount: number; owner?: string; attachmentStatus?: string }): Promise<ApiResponse<DocumentRecord>> => {
+    try {
+      const result = await invoke('update_document_record', {
+        input: { id: input.id, company_id: input.companyId, business_date: input.businessDate, document_code: input.documentCode, business_type: input.businessType, partner: input.partner, amount: input.amount, owner: input.owner, attachment_status: input.attachmentStatus },
       }) as RawDocumentRecord
       return { success: true, data: mapDocumentRecord(result) }
     } catch (error) { return { success: false, error: String(error) } }

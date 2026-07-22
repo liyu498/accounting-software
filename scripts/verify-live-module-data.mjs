@@ -613,11 +613,15 @@ const requiredBankTransactionCommandSnippets = [
   ['bank transaction table schema', 'CREATE TABLE IF NOT EXISTS bank_transactions'],
   ['bank transaction list command', 'pub async fn get_bank_transactions'],
   ['bank transaction create command', 'pub async fn create_bank_transaction'],
+  ['bank transaction update command', 'pub async fn update_bank_transaction'],
 ]
 
 const requiredBankTransactionPageSnippets = [
   ['bank transaction api list binding', 'bankTransactionApi.getBankTransactions({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
   ['bank transaction api create binding', 'bankTransactionApi.createBankTransaction({'],
+  ['bank transaction api update binding', 'bankTransactionApi.updateBankTransaction({'],
+  ['bank transaction edit state', 'const [editingBankTransactionId, setEditingBankTransactionId] = useState<string | null>(null)'],
+  ['bank transaction edit row binding', "if ((kind === 'billList' || kind === 'bankStatement') && isTauri && selectedCompanyId)"],
   ['bank transaction row mapper', 'mapLiveBankTransactionRows(bankTransactions, kind)'],
 ]
 
@@ -625,11 +629,15 @@ const requiredDocumentRecordCommandSnippets = [
   ['document record table schema', 'CREATE TABLE IF NOT EXISTS document_records'],
   ['document record list command', 'pub async fn get_document_records'],
   ['document record create command', 'pub async fn create_document_record'],
+  ['document record update command', 'pub async fn update_document_record'],
 ]
 
 const requiredDocumentRecordPageSnippets = [
   ['document record api list binding', 'documentRecordApi.getDocumentRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
   ['document record api create binding', 'documentRecordApi.createDocumentRecord({'],
+  ['document record api update binding', 'documentRecordApi.updateDocumentRecord({'],
+  ['document record edit state', 'const [editingDocumentRecordId, setEditingDocumentRecordId] = useState<string | null>(null)'],
+  ['document record edit row binding', "if (['documentRegister', 'expenseReimbursement', 'receipt'].includes(kind) && isTauri && selectedCompanyId)"],
   ['document record row mapper', 'mapLiveDocumentRecordRows(documentRecords)'],
 ]
 

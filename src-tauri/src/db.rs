@@ -2982,6 +2982,21 @@ pub struct CreateBankTransactionInput {
     pub receipt_status: Option<String>,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateBankTransactionInput {
+    pub id: String,
+    pub company_id: String,
+    pub account_name: String,
+    pub serial_no: String,
+    pub transaction_date: String,
+    pub counterparty: Option<String>,
+    pub summary: Option<String>,
+    pub income_amount: f64,
+    pub expense_amount: f64,
+    pub balance: Option<f64>,
+    pub receipt_status: Option<String>,
+}
+
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct DocumentRecord {
     pub id: String,
@@ -3003,6 +3018,19 @@ pub struct DocumentRecord {
 pub struct CreateDocumentRecordInput {
     pub company_id: String,
     pub period: String,
+    pub business_date: String,
+    pub document_code: String,
+    pub business_type: String,
+    pub partner: Option<String>,
+    pub amount: f64,
+    pub owner: Option<String>,
+    pub attachment_status: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateDocumentRecordInput {
+    pub id: String,
+    pub company_id: String,
     pub business_date: String,
     pub document_code: String,
     pub business_type: String,
