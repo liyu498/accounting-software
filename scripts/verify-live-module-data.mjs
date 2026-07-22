@@ -550,12 +550,15 @@ const requiredPayrollCommandSnippets = [
   ['payroll table schema', 'CREATE TABLE IF NOT EXISTS payroll_records'],
   ['payroll list command', 'pub async fn get_payroll_records'],
   ['payroll create command', 'pub async fn create_payroll_record'],
+  ['payroll update command', 'pub async fn update_payroll_record'],
   ['payroll current period filter', 'AND p.period = ?'],
 ]
 
 const requiredPayrollPageSnippets = [
   ['payroll api list binding', 'payrollApi.getPayrollRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
   ['payroll api create binding', 'payrollApi.createPayrollRecord({'],
+  ['payroll api update binding', 'payrollApi.updatePayrollRecord({'],
+  ['payroll edit state', 'const [editingPayrollId, setEditingPayrollId] = useState<string | null>(null)'],
   ['payroll row mapper', 'mapLivePayrollRows(payrollRecords)'],
   ['payroll summary mapper', 'summarizeLivePayroll(payrollRecords)'],
 ]

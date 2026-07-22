@@ -1774,6 +1774,26 @@ export const payrollApi = {
       return { success: false, error: String(error) }
     }
   },
+
+  updatePayrollRecord: async (input: { id: string; companyId: string; employeeId: string; period: string; baseSalary: number; bonus?: number; taxAmount?: number; socialPersonal?: number }): Promise<ApiResponse<PayrollRecord>> => {
+    try {
+      const result = await invoke('update_payroll_record', {
+        input: {
+          id: input.id,
+          company_id: input.companyId,
+          employee_id: input.employeeId,
+          period: input.period,
+          base_salary: input.baseSalary,
+          bonus: input.bonus,
+          tax_amount: input.taxAmount,
+          social_personal: input.socialPersonal,
+        },
+      }) as RawPayrollRecord
+      return { success: true, data: mapPayrollRecord(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
 }
 
 export const socialSecurityApi = {

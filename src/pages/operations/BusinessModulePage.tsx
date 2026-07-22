@@ -4129,6 +4129,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [editingDocumentRecordId, setEditingDocumentRecordId] = useState<string | null>(null)
   const [documentRecordDraft, setDocumentRecordDraft] = useState({ businessDate: '', documentCode: '', businessType: '费用报销', partner: '', amount: '', owner: '', attachmentStatus: '待补附件' })
   const [showPayrollDialog, setShowPayrollDialog] = useState(false)
+  const [editingPayrollId, setEditingPayrollId] = useState<string | null>(null)
   const [payrollDraft, setPayrollDraft] = useState({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
@@ -5533,27 +5534,39 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
-  const handleCreatePayrollRecord = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSavePayrollRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
-      const result = await payrollApi.createPayrollRecord({
-        companyId: selectedCompanyId,
-        employeeId: payrollDraft.employeeId,
-        period: currentPeriodLabel,
-        baseSalary: Number(payrollDraft.baseSalary || 0),
-        bonus: Number(payrollDraft.bonus || 0),
-        taxAmount: Number(payrollDraft.taxAmount || 0),
-        socialPersonal: Number(payrollDraft.socialPersonal || 0),
-      })
+      const result = editingPayrollId
+        ? await payrollApi.updatePayrollRecord({
+          id: editingPayrollId,
+          companyId: selectedCompanyId,
+          employeeId: payrollDraft.employeeId,
+          period: currentPeriodLabel,
+          baseSalary: Number(payrollDraft.baseSalary || 0),
+          bonus: Number(payrollDraft.bonus || 0),
+          taxAmount: Number(payrollDraft.taxAmount || 0),
+          socialPersonal: Number(payrollDraft.socialPersonal || 0),
+        })
+        : await payrollApi.createPayrollRecord({
+          companyId: selectedCompanyId,
+          employeeId: payrollDraft.employeeId,
+          period: currentPeriodLabel,
+          baseSalary: Number(payrollDraft.baseSalary || 0),
+          bonus: Number(payrollDraft.bonus || 0),
+          taxAmount: Number(payrollDraft.taxAmount || 0),
+          socialPersonal: Number(payrollDraft.socialPersonal || 0),
+        })
       if (!result.success || !result.data) throw new Error(result.error || '未返回薪酬行')
-      setPayrollRecords((records) => [result.data!, ...records])
-      writeModuleAudit('新增薪酬行', `${result.data.employeeName}｜${currentPeriodLabel}`, '中', '成功')
-      setOperationNotice(`已新增 ${result.data.employeeName} 的薪酬行，实发 ${payrollCurrency(result.data.netSalary)}。`)
+      setPayrollRecords((records) => editingPayrollId ? records.map((record) => record.id === result.data!.id ? result.data! : record) : [result.data!, ...records])
+      writeModuleAudit(editingPayrollId ? '编辑薪酬行' : '新增薪酬行', `${result.data.employeeName}｜${currentPeriodLabel}`, '中', '成功')
+      setOperationNotice(editingPayrollId ? `已更新 ${result.data.employeeName} 的薪酬行，需重新核对个税和社保。` : `已新增 ${result.data.employeeName} 的薪酬行，实发 ${payrollCurrency(result.data.netSalary)}。`)
       setPayrollDraft({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
+      setEditingPayrollId(null)
       setShowPayrollDialog(false)
     } catch (error) {
-      setOperationNotice(`新增薪酬行失败：${String(error)}`)
+      setOperationNotice(`${editingPayrollId ? '编辑' : '新增'}薪酬行失败：${String(error)}`)
     }
   }
 
@@ -5796,6 +5809,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingEmployeeId(employee.id)
       setEmployeeDraft({ employeeCode: employee.employeeCode, name: employee.name, idNo: employee.idNo || '', department: employee.department || '', position: employee.position || '', mobile: employee.mobile || '', entryDate: employee.entryDate || '', employmentStatus: employee.employmentStatus })
       setShowEmployeeDialog(true)
+      return
+    }
+    if (kind === 'payroll' && isTauri && selectedCompanyId) {
+      const payroll = payrollRecords.find((item) => item.id === row.id)
+      if (!payroll) {
+        setOperationNotice('未找到当前账期的薪酬行。')
+        return
+      }
+      if (payroll.status === '已生成凭证') {
+        setOperationNotice('该薪酬行已生成凭证，不可直接修改。请先按凭证处理流程完成复核。')
+        return
+      }
+      setEditingPayrollId(payroll.id)
+      setPayrollDraft({ employeeId: payroll.employeeId, baseSalary: String(payroll.baseSalary), bonus: String(payroll.bonus), taxAmount: String(payroll.taxAmount), socialPersonal: String(payroll.socialPersonal) })
+      setShowPayrollDialog(true)
       return
     }
     if (kind === 'socialSecurity' && isTauri && selectedCompanyId) { const record=socialSecurityRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSocialSecurityId(record.id);setSocialSecurityDraft({employeeId:record.employeeId,city:record.city||'',base:String(record.contributionBase),company:String(record.companyAmount),personal:String(record.personalAmount),fund:String(record.fundAmount)});setShowSocialSecurityDialog(true);return }
@@ -6184,7 +6212,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
-            {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => setShowPayrollDialog(true)} />}
+            {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => { setEditingPayrollId(null); setPayrollDraft({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' }); setShowPayrollDialog(true) }} />}
             {kind === 'socialSecurity' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={() => { setEditingSocialSecurityId(null); setShowSocialSecurityDialog(true) }} />}
             {kind === 'specialDeduction' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={() => { setEditingSpecialDeductionId(null); setShowSpecialDeductionDialog(true) }} />}
             {(kind === 'billList' || kind === 'bankStatement') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={() => setShowBankTransactionDialog(true)} />}
@@ -6405,7 +6433,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -6609,10 +6637,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </div>
       )}
       {showPayrollDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增薪酬行">
-          <form onSubmit={handleCreatePayrollRecord} className="w-full max-w-lg border border-slate-300 bg-white shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingPayrollId ? '编辑薪酬行' : '新增薪酬行'}>
+          <form onSubmit={handleSavePayrollRecord} className="w-full max-w-lg border border-slate-300 bg-white shadow-xl">
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
-              <h2 className="text-sm font-semibold text-slate-900">新增薪酬行</h2>
+              <h2 className="text-sm font-semibold text-slate-900">{editingPayrollId ? '编辑薪酬行' : '新增薪酬行'}</h2>
               <button type="button" onClick={() => setShowPayrollDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
             </div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
@@ -6631,7 +6659,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 </label>
               ))}
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowPayrollDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存薪酬行</button></div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowPayrollDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingPayrollId ? '保存修改' : '保存薪酬行'}</button></div>
           </form>
         </div>
       )}
