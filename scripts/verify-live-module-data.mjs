@@ -472,6 +472,8 @@ const requiredVoucherEntryPageSnippets = [
   ['voucher soft delete action', 'await deleteVoucher(loadedVoucher.id, selectedCompanyId)'],
   ['voucher restore action', 'await restoreVoucher(row.id, selectedCompanyId)'],
   ['voucher permanent delete action', 'await permanentDeleteVoucher(row.id, selectedCompanyId)'],
+  ['voucher recycle selection state', 'const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set())'],
+  ['voucher recycle batch restore', 'await Promise.all(selectedIds.map((id) => restoreVoucher(id, selectedCompanyId)))'],
 ]
 
 const requiredInvoiceEditPageSnippets = [

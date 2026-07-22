@@ -5135,6 +5135,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set())
   const [showRulesLog, setShowRulesLog] = useState(false)
   const importFileRef = useRef<HTMLInputElement>(null)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
@@ -5156,6 +5157,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   useEffect(() => {
     setPage(1)
+    setSelectedRowIds(new Set())
   }, [kind, keyword, status, pageSize])
 
   useEffect(() => {
@@ -5255,6 +5257,24 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handlePrimaryAction = async () => {
+    if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {
+      const selectedIds = [...selectedRowIds].filter((id) => deletedVouchers.some((voucher) => voucher.id === id))
+      if (selectedIds.length === 0) {
+        setOperationNotice('请先勾选需要恢复的凭证。')
+        return
+      }
+      if (!window.confirm(`确认恢复已勾选的 ${selectedIds.length} 张凭证吗？`)) return
+      try {
+        await Promise.all(selectedIds.map((id) => restoreVoucher(id, selectedCompanyId)))
+        setDeletedVouchers((items) => items.filter((item) => !selectedIds.includes(item.id)))
+        setSelectedRowIds(new Set())
+        writeModuleAudit('批量恢复凭证', `${selectedIds.length} 张`, '高', '成功')
+        setOperationNotice(`已恢复 ${selectedIds.length} 张凭证。`)
+      } catch (error) {
+        setOperationNotice(`批量恢复凭证失败：${String(error)}`)
+      }
+      return
+    }
     if (kind === 'invoiceVoucherMatching' && isTauri && selectedCompanyId) {
       setSelectedMatchInvoiceId((current) => current || invoices.find((invoice) => !invoice.voucher_id)?.id || '')
       setSelectedMatchVoucherId((current) => current || vouchers[0]?.id || '')
@@ -6210,7 +6230,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <thead className="bg-[#eef3f8] text-slate-600">
                 <tr>
                   <th className="w-9 border-b border-slate-200 px-2 py-2">
-                    <input type="checkbox" aria-label="全选" />
+                    <input
+                      type="checkbox"
+                      aria-label="全选"
+                      checked={pagedRows.length > 0 && pagedRows.every((row) => selectedRowIds.has(row.id))}
+                      onChange={(event) => setSelectedRowIds((current) => {
+                        const next = new Set(current)
+                        pagedRows.forEach((row) => event.target.checked ? next.add(row.id) : next.delete(row.id))
+                        return next
+                      })}
+                    />
                   </th>
                   {config.columns.map((column) => (
                     <th key={column.key} className={cn('whitespace-nowrap border-b border-slate-200 px-2 py-2', column.align === 'right' && 'text-right', column.align === 'center' && 'text-center')}>
@@ -6227,7 +6256,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 {pagedRows.map((row) => (
                   <tr key={row.id} className="hover:bg-[#f8fbff]">
                     <td className="border-b border-slate-100 px-2 py-2">
-                      <input type="checkbox" aria-label={`选择 ${row.id}`} />
+                      <input
+                        type="checkbox"
+                        aria-label={`选择 ${row.id}`}
+                        checked={selectedRowIds.has(row.id)}
+                        onChange={(event) => setSelectedRowIds((current) => {
+                          const next = new Set(current)
+                          if (event.target.checked) next.add(row.id)
+                          else next.delete(row.id)
+                          return next
+                        })}
+                      />
                     </td>
                     {config.columns.map((column) => (
                       <td key={column.key} className={cn('whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-700', column.align === 'right' && 'text-right font-mono tabular-nums', column.align === 'center' && 'text-center')}>
