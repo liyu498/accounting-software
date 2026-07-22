@@ -458,6 +458,8 @@ const requiredVoucherEntryPageSnippets = [
   ['voucher edit load binding', 'await getVoucher(voucherId, selectedCompanyId)'],
   ['voucher edit action', 'await updateVoucher({'],
   ['voucher edit workspace', "kind === 'voucherCreate' || kind === 'voucherEdit'"],
+  ['voucher detail workspace', "kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail'"],
+  ['voucher detail read only guard', "const isVoucherReadOnly = kind === 'voucherDetail'"],
 ]
 
 const requiredAppSnippets = [

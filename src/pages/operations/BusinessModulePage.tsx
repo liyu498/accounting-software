@@ -4200,7 +4200,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodId, fetchInvoices, kind, queryVouchers, selectedCompanyId, usesLiveModuleData])
 
   useEffect(() => {
-    if (!['voucherCreate', 'voucherEdit'].includes(kind) || !isTauri || !selectedCompanyId) return
+    if (!['voucherCreate', 'voucherEdit', 'voucherDetail'].includes(kind) || !isTauri || !selectedCompanyId) return
     void Promise.all([fetchAccounts(selectedCompanyId), fetchVoucherWords(selectedCompanyId)])
   }, [fetchAccounts, fetchVoucherWords, kind, selectedCompanyId])
 
@@ -4214,7 +4214,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriod, kind, voucherWords])
 
   useEffect(() => {
-    if (kind !== 'voucherEdit' || !isTauri || !selectedCompanyId || !voucherId) return
+    if (!['voucherEdit', 'voucherDetail'].includes(kind) || !isTauri || !selectedCompanyId || !voucherId) return
     void (async () => {
       const voucher = await getVoucher(voucherId, selectedCompanyId)
       if (!voucher) {
@@ -5850,32 +5850,34 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
-  if (kind === 'voucherCreate' || kind === 'voucherEdit') {
+  if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
+    const isVoucherReadOnly = kind === 'voucherDetail'
+    const voucherWorkspaceTitle = isVoucherReadOnly ? '查看会计凭证' : isVoucherEdit ? '编辑会计凭证' : '新增会计凭证'
     return (
       <div className="h-full min-w-0 bg-[#f3f6fa] p-3 text-slate-900">
         <form onSubmit={handleSaveVoucherDraft} className="min-h-full border border-slate-200 bg-white">
           <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-2">
             <div>
-              <h1 className="text-base font-semibold">{isVoucherEdit ? '编辑会计凭证' : '新增会计凭证'}</h1>
+              <h1 className="text-base font-semibold">{voucherWorkspaceTitle}</h1>
               <p className="mt-0.5 text-xs text-slate-500">当前账套：{selectedCompany?.name || '未选择'}，账期：{currentPeriodLabel}</p>
             </div>
             <div className="flex items-center gap-2">
-              {isVoucherEdit && loadedVoucher && <span className="text-xs text-slate-500">凭证号：{loadedVoucher.voucher_number}</span>}
+              {(isVoucherEdit || isVoucherReadOnly) && loadedVoucher && <span className="text-xs text-slate-500">凭证号：{loadedVoucher.voucher_number}，状态：{loadedVoucher.status}</span>}
               <span className={cn('text-xs font-medium', voucherBalanced ? 'text-emerald-700' : 'text-red-600')}>借贷{voucherBalanced ? '平衡' : '不平衡'}</span>
-              <button type="submit" disabled={isVoucherEdit && !loadedVoucher} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82] disabled:bg-slate-300">{isVoucherEdit ? '保存修改' : '保存凭证草稿'}</button>
+              {!isVoucherReadOnly && <button type="submit" disabled={isVoucherEdit && !loadedVoucher} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82] disabled:bg-slate-300">{isVoucherEdit ? '保存修改' : '保存凭证草稿'}</button>}
             </div>
           </div>
           {operationNotice && <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">{operationNotice}</div>}
           <div className="grid gap-3 border-b border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
-            <label className="space-y-1 text-xs text-slate-600"><span>凭证字</span><select required value={voucherDraft.voucherWordId} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, voucherWordId: event.target.value }))} className="h-8 w-full border border-slate-300 bg-white px-2 text-sm"><option value="">请选择凭证字</option>{voucherWords.filter((word) => word.is_enabled === 1).map((word) => <option key={word.id} value={word.id}>{word.word_name}</option>)}</select></label>
-            <label className="space-y-1 text-xs text-slate-600"><span>凭证日期</span><input required type="date" value={voucherDraft.voucherDate} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, voucherDate: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm" /></label>
-            <label className="space-y-1 text-xs text-slate-600"><span>附件张数</span><input min="0" step="1" type="number" value={voucherDraft.attachmentCount} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, attachmentCount: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm" /></label>
-            <label className="space-y-1 text-xs text-slate-600 md:col-span-1"><span>摘要</span><input required value={voucherDraft.summary} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, summary: event.target.value }))} placeholder="请输入凭证摘要" className="h-8 w-full border border-slate-300 px-2 text-sm" /></label>
+            <label className="space-y-1 text-xs text-slate-600"><span>凭证字</span><select required disabled={isVoucherReadOnly} value={voucherDraft.voucherWordId} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, voucherWordId: event.target.value }))} className="h-8 w-full border border-slate-300 bg-white px-2 text-sm disabled:bg-slate-100"><option value="">请选择凭证字</option>{voucherWords.filter((word) => word.is_enabled === 1).map((word) => <option key={word.id} value={word.id}>{word.word_name}</option>)}</select></label>
+            <label className="space-y-1 text-xs text-slate-600"><span>凭证日期</span><input required readOnly={isVoucherReadOnly} type="date" value={voucherDraft.voucherDate} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, voucherDate: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm read-only:bg-slate-100" /></label>
+            <label className="space-y-1 text-xs text-slate-600"><span>附件张数</span><input readOnly={isVoucherReadOnly} min="0" step="1" type="number" value={voucherDraft.attachmentCount} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, attachmentCount: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm read-only:bg-slate-100" /></label>
+            <label className="space-y-1 text-xs text-slate-600 md:col-span-1"><span>摘要</span><input required readOnly={isVoucherReadOnly} value={voucherDraft.summary} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, summary: event.target.value }))} placeholder="请输入凭证摘要" className="h-8 w-full border border-slate-300 px-2 text-sm read-only:bg-slate-100" /></label>
           </div>
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2"><h2 className="text-sm font-semibold">凭证分录</h2><button type="button" onClick={() => setVoucherDraft((draft) => ({ ...draft, entries: [...draft.entries, { accountCode: '', direction: 'debit', amount: '' }] }))} className="h-7 border border-[#1f65a7] px-2 text-xs text-[#1f65a7]">新增分录</button></div>
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2"><h2 className="text-sm font-semibold">凭证分录</h2>{!isVoucherReadOnly && <button type="button" onClick={() => setVoucherDraft((draft) => ({ ...draft, entries: [...draft.entries, { accountCode: '', direction: 'debit', amount: '' }] }))} className="h-7 border border-[#1f65a7] px-2 text-xs text-[#1f65a7]">新增分录</button>}</div>
           <div className="overflow-x-auto">
-            <table className="min-w-[780px] w-full text-left text-sm"><thead className="bg-slate-100 text-xs text-slate-600"><tr><th className="px-3 py-2">行</th><th className="px-3 py-2">摘要</th><th className="px-3 py-2">会计科目</th><th className="px-3 py-2">方向</th><th className="px-3 py-2 text-right">金额</th><th className="px-3 py-2 text-right">操作</th></tr></thead><tbody>{voucherDraft.entries.map((entry, index) => <tr key={index} className="border-t border-slate-200"><td className="px-3 py-2 text-xs text-slate-500">{index + 1}</td><td className="px-3 py-2 text-xs text-slate-500">{voucherDraft.summary || '-'}</td><td className="px-3 py-2"><select required value={entry.accountCode} onChange={(event) => updateVoucherEntry(index, { accountCode: event.target.value })} className="h-8 w-full min-w-64 border border-slate-300 bg-white px-2 text-sm"><option value="">请选择明细科目</option>{detailedAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}</select></td><td className="px-3 py-2"><select value={entry.direction} onChange={(event) => updateVoucherEntry(index, { direction: event.target.value as 'debit' | 'credit' })} className="h-8 border border-slate-300 bg-white px-2 text-sm"><option value="debit">借方</option><option value="credit">贷方</option></select></td><td className="px-3 py-2 text-right"><input required min="0" step="0.01" type="number" value={entry.amount} onChange={(event) => updateVoucherEntry(index, { amount: event.target.value })} className="h-8 w-32 border border-slate-300 px-2 text-right text-sm" /></td><td className="px-3 py-2 text-right"><button type="button" disabled={voucherDraft.entries.length <= 2} onClick={() => setVoucherDraft((draft) => ({ ...draft, entries: draft.entries.filter((_, entryIndex) => entryIndex !== index) }))} className="text-xs text-red-600 disabled:text-slate-300">删除</button></td></tr>)}</tbody><tfoot className="border-t border-slate-300 bg-slate-50 font-medium"><tr><td colSpan={3} className="px-3 py-2">合计</td><td className="px-3 py-2">借方</td><td className="px-3 py-2 text-right">¥{voucherDebitTotal.toFixed(2)}</td><td className="px-3 py-2" /></tr><tr><td colSpan={3} /><td className="px-3 py-2">贷方</td><td className="px-3 py-2 text-right">¥{voucherCreditTotal.toFixed(2)}</td><td className="px-3 py-2" /></tr></tfoot></table>
+            <table className="min-w-[780px] w-full text-left text-sm"><thead className="bg-slate-100 text-xs text-slate-600"><tr><th className="px-3 py-2">行</th><th className="px-3 py-2">摘要</th><th className="px-3 py-2">会计科目</th><th className="px-3 py-2">方向</th><th className="px-3 py-2 text-right">金额</th>{!isVoucherReadOnly && <th className="px-3 py-2 text-right">操作</th>}</tr></thead><tbody>{voucherDraft.entries.map((entry, index) => <tr key={index} className="border-t border-slate-200"><td className="px-3 py-2 text-xs text-slate-500">{index + 1}</td><td className="px-3 py-2 text-xs text-slate-500">{voucherDraft.summary || '-'}</td><td className="px-3 py-2"><select required disabled={isVoucherReadOnly} value={entry.accountCode} onChange={(event) => updateVoucherEntry(index, { accountCode: event.target.value })} className="h-8 w-full min-w-64 border border-slate-300 bg-white px-2 text-sm disabled:bg-slate-100"><option value="">请选择明细科目</option>{detailedAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}</select></td><td className="px-3 py-2"><select disabled={isVoucherReadOnly} value={entry.direction} onChange={(event) => updateVoucherEntry(index, { direction: event.target.value as 'debit' | 'credit' })} className="h-8 border border-slate-300 bg-white px-2 text-sm disabled:bg-slate-100"><option value="debit">借方</option><option value="credit">贷方</option></select></td><td className="px-3 py-2 text-right"><input required readOnly={isVoucherReadOnly} min="0" step="0.01" type="number" value={entry.amount} onChange={(event) => updateVoucherEntry(index, { amount: event.target.value })} className="h-8 w-32 border border-slate-300 px-2 text-right text-sm read-only:bg-slate-100" /></td>{!isVoucherReadOnly && <td className="px-3 py-2 text-right"><button type="button" disabled={voucherDraft.entries.length <= 2} onClick={() => setVoucherDraft((draft) => ({ ...draft, entries: draft.entries.filter((_, entryIndex) => entryIndex !== index) }))} className="text-xs text-red-600 disabled:text-slate-300">删除</button></td>}</tr>)}</tbody><tfoot className="border-t border-slate-300 bg-slate-50 font-medium"><tr><td colSpan={3} className="px-3 py-2">合计</td><td className="px-3 py-2">借方</td><td className="px-3 py-2 text-right">¥{voucherDebitTotal.toFixed(2)}</td>{!isVoucherReadOnly && <td className="px-3 py-2" />}</tr><tr><td colSpan={3} /><td className="px-3 py-2">贷方</td><td className="px-3 py-2 text-right">¥{voucherCreditTotal.toFixed(2)}</td>{!isVoucherReadOnly && <td className="px-3 py-2" />}</tr></tfoot></table>
           </div>
         </form>
       </div>
