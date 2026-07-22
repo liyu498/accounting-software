@@ -214,6 +214,43 @@ pub async fn get_agency_collaboration_items(
 }
 
 #[tauri::command]
+pub async fn create_agency_collaboration_item(
+    input: crate::db::CreateAgencyCollaborationItemInput,
+    db: State<'_, Database>,
+) -> Result<AgencyCollaborationItem, String> {
+    if input.company_id.trim().is_empty() || input.todo_title.trim().is_empty() {
+        return Err("客户账套和协同事项不能为空".into());
+    }
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let reply_status = input.reply_status.unwrap_or_else(|| "pending".into());
+    let status = if reply_status == "replied" { "completed" } else { "pending" };
+
+    sqlx::query(
+        "INSERT INTO agency_collaboration_items (id,company_id,todo_title,material_type,customer_contact,reply_status,owner,status) VALUES (?,?,?,?,?,?,?,?)",
+    )
+    .bind(&id)
+    .bind(&input.company_id)
+    .bind(input.todo_title.trim())
+    .bind(input.material_type)
+    .bind(input.customer_contact)
+    .bind(reply_status)
+    .bind(input.owner)
+    .bind(status)
+    .execute(db.pool())
+    .await
+    .map_err(|e| format!("新增协同事项失败: {e}"))?;
+
+    sqlx::query_as(
+        "SELECT i.id,i.company_id,co.name AS company_name,i.todo_title,i.material_type,i.customer_contact,i.reminder_count,i.last_contact_at,i.reply_status,i.owner,i.status,i.created_at,i.updated_at FROM agency_collaboration_items i LEFT JOIN companies co ON co.id=i.company_id WHERE i.id=?",
+    )
+    .bind(id)
+    .fetch_one(db.pool())
+    .await
+    .map_err(|e| format!("查询新增协同事项失败: {e}"))
+}
+
+#[tauri::command]
 pub async fn get_agency_delivery_tickets(
     company_id: Option<String>,
     period: Option<String>,

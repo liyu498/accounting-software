@@ -1307,6 +1307,30 @@ export const agencyApi = {
       return { success: false, error: String(error) }
     }
   },
+  createCollaborationItem: async (input: {
+    companyId: string
+    todoTitle: string
+    materialType?: string
+    customerContact?: string
+    replyStatus?: string
+    owner?: string
+  }): Promise<ApiResponse<AgencyCollaborationItem>> => {
+    try {
+      const result = await invoke('create_agency_collaboration_item', {
+        input: {
+          company_id: input.companyId,
+          todo_title: input.todoTitle,
+          material_type: input.materialType,
+          customer_contact: input.customerContact,
+          reply_status: input.replyStatus,
+          owner: input.owner,
+        },
+      }) as RawAgencyCollaborationItem
+      return { success: true, data: mapAgencyCollaborationItem(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
 
   getDeliveryTickets: async (filters: { companyId?: string; period?: string; status?: string } = {}): Promise<ApiResponse<AgencyDeliveryTicket[]>> => {
     try {

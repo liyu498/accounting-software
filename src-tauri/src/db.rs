@@ -3194,6 +3194,16 @@ pub struct AgencyCollaborationItem {
     pub updated_at: String,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateAgencyCollaborationItemInput {
+    pub company_id: String,
+    pub todo_title: String,
+    pub material_type: Option<String>,
+    pub customer_contact: Option<String>,
+    pub reply_status: Option<String>,
+    pub owner: Option<String>,
+}
+
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct AgencyDeliveryTicket {
     pub id: String,

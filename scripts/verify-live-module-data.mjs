@@ -401,6 +401,19 @@ const requiredAgencyFeeEntryPageSnippets = [
   ['agency fee collection create binding', 'agencyApi.createFeeCollection({'],
 ]
 
+const requiredAgencyCollaborationEntryCommandSnippets = [
+  ['agency collaboration create command', 'pub async fn create_agency_collaboration_item'],
+]
+
+const requiredAgencyCollaborationEntryApiSnippets = [
+  ['agency collaboration create api', 'createCollaborationItem: async'],
+]
+
+const requiredAgencyCollaborationEntryPageSnippets = [
+  ['agency collaboration create dialog', '新增协同事项'],
+  ['agency collaboration create binding', 'agencyApi.createCollaborationItem({'],
+]
+
 const requiredAppSnippets = [
   ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
 ]
@@ -644,6 +657,9 @@ const errors = [
   ...verify(agencyCommandSource, requiredAgencyFeeEntryCommandSnippets, 'agency commands'),
   ...verify(apiSource, requiredAgencyFeeEntryApiSnippets, 'api bindings'),
   ...verify(agencyModuleSource, requiredAgencyFeeEntryPageSnippets, 'agency fee entry page'),
+  ...verify(agencyCommandSource, requiredAgencyCollaborationEntryCommandSnippets, 'agency commands'),
+  ...verify(apiSource, requiredAgencyCollaborationEntryApiSnippets, 'api bindings'),
+  ...verify(agencyModuleSource, requiredAgencyCollaborationEntryPageSnippets, 'agency collaboration entry page'),
   ...verify(appSource, requiredAppSnippets, 'application routes'),
   ...verify(shellSource, requiredShellSnippets, 'application shell'),
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),

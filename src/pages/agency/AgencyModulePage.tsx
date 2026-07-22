@@ -838,6 +838,15 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     paymentStatus: 'pending',
     collector: '',
   })
+  const [showCollaborationDialog, setShowCollaborationDialog] = useState(false)
+  const [collaborationDraft, setCollaborationDraft] = useState({
+    companyId: '',
+    todoTitle: '',
+    materialType: '',
+    customerContact: '',
+    replyStatus: 'pending',
+    owner: '',
+  })
   const pageConfig = useMemo(() => getAgencyTabConfig(config, activeTab, isTauri), [activeTab, config])
   const overviewRows = useMemo(
     () => agencyOverview ? mapAgencyOverviewRows(agencyOverview, activeTab) : [],
@@ -1002,6 +1011,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       if (isTauri && companies.length === 0) await fetchCompanies()
       setFeeDraft((draft) => ({ ...draft, period: agencyPeriodLabel }))
       setShowFeeDialog(true)
+      return
+    }
+    if (kind === 'serviceContracts' && activeTab === '客户协同') {
+      if (isTauri && companies.length === 0) await fetchCompanies()
+      setShowCollaborationDialog(true)
       return
     }
     if (kind === 'clients' || kind === 'accountManagement') {
@@ -1173,6 +1187,25 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     void loadRemoteRows()
   }
 
+  const handleCreateCollaborationItem = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const result = await agencyApi.createCollaborationItem({
+      companyId: collaborationDraft.companyId,
+      todoTitle: collaborationDraft.todoTitle,
+      materialType: collaborationDraft.materialType || undefined,
+      customerContact: collaborationDraft.customerContact || undefined,
+      replyStatus: collaborationDraft.replyStatus,
+      owner: collaborationDraft.owner || undefined,
+    })
+    if (!result.success || !result.data) {
+      setOperationNotice(`新增协同事项失败：${result.error || '未知错误'}`)
+      return
+    }
+    setShowCollaborationDialog(false)
+    setOperationNotice('协同事项已保存到本地交付清单，可继续在当前机构层集中催办和跟进。')
+    void loadRemoteRows()
+  }
+
   return (
     <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
       {showContractDialog && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4"><form onSubmit={handleCreateContract} className="w-full max-w-xl border border-slate-300 bg-white p-4 shadow-xl"><h2 className="mb-3 text-sm font-semibold">新增服务合同</h2>{(['companyId','contractNo','servicePackage','serviceStart','serviceEnd','monthlyFee','owner'] as Array<keyof typeof contractDraft>).map((field) => <input key={field} required={field !== 'owner'} placeholder={field} value={contractDraft[field]} onChange={(event) => setContractDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="mb-2 h-8 w-full border px-2 text-sm" />)}<div className="flex justify-end gap-2"><button type="button" onClick={() => setShowContractDialog(false)} className="h-8 border px-3 text-xs">取消</button><button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs text-white">保存</button></div></form></div>}
@@ -1230,6 +1263,56 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
               <button type="button" onClick={() => setShowFeeDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
               <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存收费记录</button>
+            </div>
+          </form>
+        </div>
+      )}
+      {showCollaborationDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+          <form onSubmit={handleCreateCollaborationItem} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">新增协同事项</h2>
+                <p className="mt-1 text-xs text-slate-500">用于机构层跟进客户资料和答复；资料入账后在对应账套继续处理。</p>
+              </div>
+              <button type="button" onClick={() => setShowCollaborationDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>客户账套</span>
+                <select required value={collaborationDraft.companyId} onChange={(event) => setCollaborationDraft((draft) => ({ ...draft, companyId: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="">请选择客户账套</option>
+                  {companies.map((company) => <option key={company.id} value={company.id}>{company.code} | {company.name}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>协同事项</span>
+                <input required value={collaborationDraft.todoTitle} onChange={(event) => setCollaborationDraft((draft) => ({ ...draft, todoTitle: event.target.value }))} placeholder="例如：补充管理费用合同" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>资料类型</span>
+                <input value={collaborationDraft.materialType} onChange={(event) => setCollaborationDraft((draft) => ({ ...draft, materialType: event.target.value }))} placeholder="例如：合同附件" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>客户联系人</span>
+                <input value={collaborationDraft.customerContact} onChange={(event) => setCollaborationDraft((draft) => ({ ...draft, customerContact: event.target.value }))} placeholder="例如：王女士" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>客户答复</span>
+                <select value={collaborationDraft.replyStatus} onChange={(event) => setCollaborationDraft((draft) => ({ ...draft, replyStatus: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="pending">待客户答复</option>
+                  <option value="replied">客户已答复</option>
+                  <option value="overdue">已超时</option>
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>负责人</span>
+                <input value={collaborationDraft.owner} onChange={(event) => setCollaborationDraft((draft) => ({ ...draft, owner: event.target.value }))} placeholder="例如：李会计" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowCollaborationDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存协同事项</button>
             </div>
           </form>
         </div>

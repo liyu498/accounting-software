@@ -53,6 +53,7 @@ pub fn run() {
             commands::agency::get_agency_fee_collections,
             commands::agency::create_agency_fee_collection,
             commands::agency::get_agency_collaboration_items,
+            commands::agency::create_agency_collaboration_item,
             commands::agency::get_agency_delivery_tickets,
             commands::agency::get_agency_batch_tasks,
             commands::agency::create_agency_batch_tasks,
