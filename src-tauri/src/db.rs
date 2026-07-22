@@ -97,6 +97,17 @@ impl Database {
         "#).execute(pool).await?;
 
         sqlx::query(r#"
+            CREATE TABLE IF NOT EXISTS inventory_movements (
+                id TEXT PRIMARY KEY, company_id TEXT NOT NULL, period TEXT NOT NULL, movement_date TEXT NOT NULL,
+                bill_no TEXT NOT NULL, movement_type TEXT NOT NULL, inventory_name TEXT NOT NULL, warehouse TEXT NOT NULL,
+                counterparty TEXT, unit TEXT NOT NULL, quantity REAL NOT NULL, amount REAL NOT NULL, source_document TEXT,
+                status TEXT NOT NULL DEFAULT '待确认', created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, bill_no)
+            )
+        "#).execute(pool).await?;
+
+        sqlx::query(r#"
             CREATE TABLE IF NOT EXISTS social_security_records (
                 id TEXT PRIMARY KEY, company_id TEXT NOT NULL, employee_id TEXT NOT NULL, period TEXT NOT NULL,
                 city TEXT, contribution_base REAL NOT NULL DEFAULT 0, company_amount REAL NOT NULL DEFAULT 0,
@@ -3000,6 +3011,12 @@ pub struct FixedAsset { pub id: String, pub company_id: String, pub period: Stri
 
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CreateFixedAssetInput { pub company_id: String, pub period: String, pub asset_code: String, pub asset_name: String, pub category: String, pub start_date: String, pub original_value: f64, pub useful_life_months: i64, pub residual_rate: Option<f64>, pub source_document: Option<String> }
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct InventoryMovement { pub id: String, pub company_id: String, pub period: String, pub movement_date: String, pub bill_no: String, pub movement_type: String, pub inventory_name: String, pub warehouse: String, pub counterparty: Option<String>, pub unit: String, pub quantity: f64, pub amount: f64, pub source_document: Option<String>, pub status: String, pub created_at: String, pub updated_at: String }
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateInventoryMovementInput { pub company_id: String, pub period: String, pub movement_date: String, pub bill_no: String, pub movement_type: String, pub inventory_name: String, pub warehouse: String, pub counterparty: Option<String>, pub unit: String, pub quantity: f64, pub amount: f64, pub source_document: Option<String> }
 
 // ==================== Currency Structs ====================
 

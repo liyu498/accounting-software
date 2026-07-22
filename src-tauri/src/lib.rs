@@ -91,6 +91,8 @@ pub fn run() {
             commands::account_transfers::create_account_transfer,
             commands::fixed_assets::get_fixed_assets,
             commands::fixed_assets::create_fixed_asset,
+            commands::inventory_movements::get_inventory_movements,
+            commands::inventory_movements::create_inventory_movement,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,

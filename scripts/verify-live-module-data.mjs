@@ -38,6 +38,9 @@ const accountTransferCommandSource = existsSync('src-tauri/src/commands/account_
 const fixedAssetCommandSource = existsSync('src-tauri/src/commands/fixed_assets.rs')
   ? readFileSync('src-tauri/src/commands/fixed_assets.rs', 'utf8')
   : ''
+const inventoryMovementCommandSource = existsSync('src-tauri/src/commands/inventory_movements.rs')
+  ? readFileSync('src-tauri/src/commands/inventory_movements.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -552,6 +555,19 @@ const requiredFixedAssetPageSnippets = [
   ['fixed asset row mapper', 'mapLiveFixedAssetRows(fixedAssets)'],
 ]
 
+const requiredInventoryMovementCommandSnippets = [
+  ['inventory movement table schema', 'CREATE TABLE IF NOT EXISTS inventory_movements'],
+  ['inventory movement list command', 'pub async fn get_inventory_movements'],
+  ['inventory movement create command', 'pub async fn create_inventory_movement'],
+]
+
+const requiredInventoryMovementPageSnippets = [
+  ['inventory movement api list binding', 'inventoryMovementApi.getInventoryMovements({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['inventory movement api create binding', 'inventoryMovementApi.createInventoryMovement({'],
+  ['inventory movement row mapper', 'mapLiveInventoryMovementRows(inventoryMovements)'],
+  ['cost carryover local source', 'mapLiveCostCarryoverRows(inventoryMovements)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -602,6 +618,9 @@ const errors = [
   ...verify(databaseSource, requiredFixedAssetCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(fixedAssetCommandSource, requiredFixedAssetCommandSnippets.slice(1), 'fixed asset commands'),
   ...verify(pageSource, requiredFixedAssetPageSnippets, 'fixed asset module page'),
+  ...verify(databaseSource, requiredInventoryMovementCommandSnippets.slice(0, 1), 'database schema'),
+  ...verify(inventoryMovementCommandSource, requiredInventoryMovementCommandSnippets.slice(1), 'inventory movement commands'),
+  ...verify(pageSource, requiredInventoryMovementPageSnippets, 'inventory movement module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

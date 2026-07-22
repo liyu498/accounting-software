@@ -20,7 +20,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { accountTransferApi, automationApi, backupApi, bankTransactionApi, documentRecordApi, employeeApi, fixedAssetApi, payrollApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankTransaction, type DocumentRecord, type Employee, type FixedAsset, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
+import { accountTransferApi, automationApi, backupApi, bankTransactionApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryMovementApi, payrollApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankTransaction, type DocumentRecord, type Employee, type FixedAsset, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -3924,6 +3924,10 @@ function summarizeLiveAccountTransfers(accountTransfers: AccountTransfer[]): Mod
 function fixedAssetMonthlyDepreciation(asset: FixedAsset) { return asset.originalValue * (1 - asset.residualRate) / asset.usefulLifeMonths }
 function mapLiveFixedAssetRows(fixedAssets: FixedAsset[]): ModuleRow[] { return fixedAssets.map((asset) => ({ id: asset.id, status: asset.status === '异常' ? '异常' : asset.status === '已生成凭证' ? '已生成凭证' : '待确认', voucher: asset.status === '已生成凭证' ? '已关联' : '未生成', attachment: asset.sourceDocument || '待补附件', values: { code: asset.assetCode, name: asset.assetName, category: asset.category, start: asset.startDate.slice(0, 7), original: payrollCurrency(asset.originalValue), depreciation: payrollCurrency(fixedAssetMonthlyDepreciation(asset)) } })) }
 function summarizeLiveFixedAssets(fixedAssets: FixedAsset[]): ModuleConfig['summary'] { return [{ label: '资产数量', value: `${fixedAssets.length} 项`, tone: 'blue' }, { label: '资产原值', value: payrollCurrency(fixedAssets.reduce((sum, asset) => sum + asset.originalValue, 0)), tone: 'green' }, { label: '本月折旧', value: payrollCurrency(fixedAssets.reduce((sum, asset) => sum + fixedAssetMonthlyDepreciation(asset), 0)), tone: 'amber' }, { label: '待计提', value: `${fixedAssets.filter((asset) => asset.status !== '已生成凭证').length} 项`, tone: 'red' }] }
+function mapLiveInventoryMovementRows(inventoryMovements: InventoryMovement[]): ModuleRow[] { return inventoryMovements.map((movement) => ({ id: movement.id, status: movement.status === '异常' ? '异常' : movement.status === '已生成凭证' ? '已生成凭证' : movement.status === '已匹配' ? '已匹配' : '待确认', voucher: movement.status === '已生成凭证' ? '已关联' : '未生成', attachment: movement.sourceDocument || '待补附件', values: { billNo: movement.billNo, type: movement.movementType, inventory: movement.inventoryName, warehouse: movement.warehouse, counterparty: movement.counterparty || '待补往来单位', quantity: `${movement.quantity} ${movement.unit}`, amount: payrollCurrency(movement.amount), source: movement.sourceDocument || '手工登记' } })) }
+function summarizeLiveInventoryMovements(inventoryMovements: InventoryMovement[]): ModuleConfig['summary'] { const inbound = inventoryMovements.filter((movement) => movement.movementType.includes('入库')); const outbound = inventoryMovements.filter((movement) => movement.movementType.includes('出库')); return [{ label: '本月入库', value: payrollCurrency(inbound.reduce((sum, movement) => sum + movement.amount, 0)), tone: 'blue' }, { label: '本月出库', value: payrollCurrency(outbound.reduce((sum, movement) => sum + movement.amount, 0)), tone: 'amber' }, { label: '已匹配发票', value: `${inventoryMovements.filter((movement) => movement.status === '已匹配').length} 单`, tone: 'green' }, { label: '异常单据', value: `${inventoryMovements.filter((movement) => movement.status === '异常').length} 单`, tone: 'red' }] }
+function mapLiveCostCarryoverRows(inventoryMovements: InventoryMovement[]): ModuleRow[] { return inventoryMovements.filter((movement) => movement.movementType.includes('出库')).map((movement) => ({ id: `cost-${movement.id}`, status: movement.status === '异常' ? '异常' : '待确认', voucher: '未生成', attachment: movement.sourceDocument || '出库单', values: { batch: `CB-${movement.period.replace('-', '')}-${movement.billNo}`, method: '待选计价方法', source: `${movement.movementType}｜${movement.billNo}`, debit: movement.movementType.includes('销售') ? '主营业务成本' : '待人工选择', credit: '库存商品', cost: payrollCurrency(movement.amount), difference: '待核价' } })) }
+function summarizeLiveCostCarryover(inventoryMovements: InventoryMovement[]): ModuleConfig['summary'] { const outbound = inventoryMovements.filter((movement) => movement.movementType.includes('出库')); return [{ label: '结转批次', value: `${outbound.length} 批`, tone: 'blue' }, { label: '待结转成本', value: payrollCurrency(outbound.reduce((sum, movement) => sum + movement.amount, 0)), tone: 'amber' }, { label: '已生成凭证', value: '0 张', tone: 'green' }, { label: '阻断项', value: `${outbound.filter((movement) => !movement.sourceDocument).length} 项`, tone: 'red' }] }
 
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
@@ -4021,6 +4025,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveSalesManagementData = Boolean(isTauri && selectedCompanyId && kind === 'salesManagement')
   const usesLiveAccountTransferData = Boolean(isTauri && selectedCompanyId && kind === 'transfer')
   const usesLiveFixedAssetData = Boolean(isTauri && selectedCompanyId && kind === 'depreciation')
+  const usesLiveInventoryMovementData = Boolean(isTauri && selectedCompanyId && ['inventoryMovement', 'costCarryover'].includes(kind))
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -4063,6 +4068,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [fixedAssets, setFixedAssets] = useState<FixedAsset[]>([])
   const [showFixedAssetDialog, setShowFixedAssetDialog] = useState(false)
   const [fixedAssetDraft, setFixedAssetDraft] = useState({ assetCode: '', assetName: '', category: '', startDate: '', originalValue: '', usefulLifeMonths: '', residualRate: '5', sourceDocument: '' })
+  const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([])
+  const [showInventoryMovementDialog, setShowInventoryMovementDialog] = useState(false)
+  const [inventoryMovementDraft, setInventoryMovementDraft] = useState({ movementDate: '', billNo: '', movementType: '采购入库', inventoryName: '', warehouse: '', counterparty: '', unit: '', quantity: '', amount: '', sourceDocument: '' })
   const [showAccountTransferDialog, setShowAccountTransferDialog] = useState(false)
   const [accountTransferDraft, setAccountTransferDraft] = useState({ transferDate: '', fromAccount: '', toAccount: '', amount: '', fee: '', serialNo: '' })
   const [showSocialSecurityDialog, setShowSocialSecurityDialog] = useState(false)
@@ -4177,6 +4185,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodLabel, selectedCompanyId, usesLiveDocumentRecordData, usesLiveExpenseReimbursementData])
   useEffect(() => { if (!usesLiveAccountTransferData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setAccountTransfers(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveAccountTransferData])
   useEffect(() => { if (!usesLiveFixedAssetData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void fixedAssetApi.getFixedAssets({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setFixedAssets(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveFixedAssetData])
+  useEffect(() => { if (!usesLiveInventoryMovementData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void inventoryMovementApi.getInventoryMovements({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setInventoryMovements(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveInventoryMovementData])
 
   useEffect(() => {
     if (!usesLiveReportData || !currentPeriodId) return
@@ -4652,6 +4661,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'salesManagement' && usesLiveSalesManagementData) return { ...baseConfig, rows: mapLiveSalesManagementRows(invoices), summary: summarizeInvoiceManagement(invoices, 'output', ['销售单', '已开票/凭证', '待收款', '异常单']) }
     if (kind === 'transfer' && usesLiveAccountTransferData) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
     if (kind === 'depreciation' && usesLiveFixedAssetData) return { ...baseConfig, rows: mapLiveFixedAssetRows(fixedAssets), summary: summarizeLiveFixedAssets(fixedAssets) }
+    if (kind === 'inventoryMovement' && usesLiveInventoryMovementData) return { ...baseConfig, rows: mapLiveInventoryMovementRows(inventoryMovements), summary: summarizeLiveInventoryMovements(inventoryMovements) }
+    if (kind === 'costCarryover' && usesLiveInventoryMovementData) return { ...baseConfig, rows: mapLiveCostCarryoverRows(inventoryMovements), summary: summarizeLiveCostCarryover(inventoryMovements) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {
@@ -5019,7 +5030,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, invoices, kind, liveReports, localBackups, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoices, kind, liveReports, localBackups, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -5155,6 +5166,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (kind === 'depreciation' && isTauri && selectedCompanyId) {
       setShowFixedAssetDialog(true)
+      return
+    }
+    if (kind === 'inventoryMovement' && isTauri && selectedCompanyId) {
+      setShowInventoryMovementDialog(true)
+      return
+    }
+    if (kind === 'costCarryover' && isTauri && selectedCompanyId) {
+      writeModuleAudit('执行成本结转', `${currentPeriodLabel}｜${inventoryMovements.filter((movement) => movement.movementType.includes('出库')).length} 笔出库单`, '高', '待审批')
+      setOperationNotice('已生成成本结转预检任务。需人工选择计价方法、核验出库单价并确认后，才可生成会计凭证。')
       return
     }
     if (kind === 'expenseReimbursement' && isTauri && selectedCompanyId) {
@@ -5413,6 +5433,25 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setFixedAssetDraft({ assetCode: '', assetName: '', category: '', startDate: '', originalValue: '', usefulLifeMonths: '', residualRate: '5', sourceDocument: '' })
       setShowFixedAssetDialog(false)
     } catch (error) { setOperationNotice(`新增固定资产失败：${String(error)}`) }
+  }
+
+  const handleCreateInventoryMovement = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    try {
+      const result = await inventoryMovementApi.createInventoryMovement({
+        companyId: selectedCompanyId, period: currentPeriodLabel, movementDate: inventoryMovementDraft.movementDate,
+        billNo: inventoryMovementDraft.billNo, movementType: inventoryMovementDraft.movementType, inventoryName: inventoryMovementDraft.inventoryName,
+        warehouse: inventoryMovementDraft.warehouse, counterparty: inventoryMovementDraft.counterparty || undefined, unit: inventoryMovementDraft.unit,
+        quantity: Number(inventoryMovementDraft.quantity || 0), amount: Number(inventoryMovementDraft.amount || 0), sourceDocument: inventoryMovementDraft.sourceDocument || undefined,
+      })
+      if (!result.success || !result.data) throw new Error(result.error || '未返回出入库单')
+      setInventoryMovements((records) => [result.data!, ...records])
+      writeModuleAudit('新增出入库单', result.data.billNo, '中', '成功')
+      setOperationNotice('出入库单已保存，等待发票匹配、计价核验和人工凭证确认。')
+      setInventoryMovementDraft({ movementDate: '', billNo: '', movementType: '采购入库', inventoryName: '', warehouse: '', counterparty: '', unit: '', quantity: '', amount: '', sourceDocument: '' })
+      setShowInventoryMovementDialog(false)
+    } catch (error) { setOperationNotice(`新增出入库单失败：${String(error)}`) }
   }
 
   const rowObjectLabel = (row: ModuleRow) => {
@@ -5981,6 +6020,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">新增固定资产</h2><button type="button" onClick={() => setShowFixedAssetDialog(false)} className="text-xs text-slate-500">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">{([{ field: 'assetCode', label: '资产编号 *', type: 'text' }, { field: 'assetName', label: '资产名称 *', type: 'text' }, { field: 'category', label: '资产类别 *', type: 'text' }, { field: 'startDate', label: '开始使用日期 *', type: 'date' }, { field: 'originalValue', label: '资产原值 *', type: 'number' }, { field: 'usefulLifeMonths', label: '折旧期限（月）*', type: 'number' }, { field: 'residualRate', label: '残值率（%）', type: 'number' }, { field: 'sourceDocument', label: '来源凭据', type: 'text' }] as Array<{ field: keyof typeof fixedAssetDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['assetCode', 'assetName', 'category', 'startDate', 'originalValue', 'usefulLifeMonths'].includes(field)} type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={fixedAssetDraft[field]} onChange={(event) => setFixedAssetDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}</div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowFixedAssetDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存资产</button></div>
+          </form>
+        </div>
+      )}
+      {showInventoryMovementDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增出入库单">
+          <form onSubmit={handleCreateInventoryMovement} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">新增出入库单</h2><button type="button" onClick={() => setShowInventoryMovementDialog(false)} className="text-xs text-slate-500">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">{([{ field: 'movementDate', label: '业务日期 *', type: 'date' }, { field: 'billNo', label: '单据编号 *', type: 'text' }, { field: 'inventoryName', label: '存货名称 *', type: 'text' }, { field: 'warehouse', label: '仓库 *', type: 'text' }, { field: 'counterparty', label: '往来单位', type: 'text' }, { field: 'unit', label: '计量单位 *', type: 'text' }, { field: 'quantity', label: '数量 *', type: 'number' }, { field: 'amount', label: '金额 *', type: 'number' }, { field: 'sourceDocument', label: '来源凭据', type: 'text' }] as Array<{ field: keyof typeof inventoryMovementDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['movementDate', 'billNo', 'inventoryName', 'warehouse', 'unit', 'quantity', 'amount'].includes(field)} type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={inventoryMovementDraft[field]} onChange={(event) => setInventoryMovementDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}
+              <label className="grid gap-1 text-xs text-slate-600">出入类型 *<select value={inventoryMovementDraft.movementType} onChange={(event) => setInventoryMovementDraft((draft) => ({ ...draft, movementType: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['采购入库', '销售出库', '其他入库', '其他出库'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowInventoryMovementDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存单据</button></div>
           </form>
         </div>
       )}
