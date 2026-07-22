@@ -798,7 +798,7 @@ function parseAgencyMoney(value = '') {
 
 export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const navigate = useNavigate()
-  const { fetchCompanies, selectCompany } = useCompanyStore()
+  const { companies, fetchCompanies, selectCompany } = useCompanyStore()
   const { fetchPeriods, fetchVoucherWords } = usePeriodStore()
   const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
   const periods = usePeriodStore((state) => state.periods)
@@ -828,6 +828,16 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [localRows, setLocalRows] = useState<AgencyRow[]>([])
   const [showContractDialog, setShowContractDialog] = useState(false)
   const [contractDraft, setContractDraft] = useState({ companyId: '', contractNo: '', servicePackage: '', serviceStart: '', serviceEnd: '', monthlyFee: '', owner: '' })
+  const [showFeeDialog, setShowFeeDialog] = useState(false)
+  const [feeDraft, setFeeDraft] = useState({
+    companyId: '',
+    period: agencyPeriodLabel,
+    receivableAmount: '',
+    receivedAmount: '0',
+    invoiceStatus: 'pending',
+    paymentStatus: 'pending',
+    collector: '',
+  })
   const pageConfig = useMemo(() => getAgencyTabConfig(config, activeTab, isTauri), [activeTab, config])
   const overviewRows = useMemo(
     () => agencyOverview ? mapAgencyOverviewRows(agencyOverview, activeTab) : [],
@@ -988,6 +998,12 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   const handlePrimaryAction = async () => {
     if (kind === 'serviceContracts' && activeTab === '服务合同') { setShowContractDialog(true); return }
+    if (kind === 'serviceContracts' && activeTab === '收费管理') {
+      if (isTauri && companies.length === 0) await fetchCompanies()
+      setFeeDraft((draft) => ({ ...draft, period: agencyPeriodLabel }))
+      setShowFeeDialog(true)
+      return
+    }
     if (kind === 'clients' || kind === 'accountManagement') {
       writeAgencyAudit('打开新增企业表单', `${pageConfig.title}-${activeTab}`)
       navigate('/?createCompany=1')
@@ -1137,9 +1153,87 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   const handleCreateContract = async (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); const result = await agencyApi.createServiceContract({ companyId: contractDraft.companyId, contractNo: contractDraft.contractNo, servicePackage: contractDraft.servicePackage, serviceStart: contractDraft.serviceStart, serviceEnd: contractDraft.serviceEnd, monthlyFee: Number(contractDraft.monthlyFee || 0), owner: contractDraft.owner || undefined }); if (!result.success || !result.data) { setOperationNotice(`新增合同失败：${result.error || '未知错误'}`); return }; setShowContractDialog(false); setOperationNotice('服务合同已保存，收费、协同与归档标签将读取该合同记录。'); void loadRemoteRows() }
 
+  const handleCreateFeeCollection = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const result = await agencyApi.createFeeCollection({
+      companyId: feeDraft.companyId,
+      period: feeDraft.period,
+      receivableAmount: Number(feeDraft.receivableAmount),
+      receivedAmount: Number(feeDraft.receivedAmount),
+      invoiceStatus: feeDraft.invoiceStatus,
+      paymentStatus: feeDraft.paymentStatus,
+      collector: feeDraft.collector || undefined,
+    })
+    if (!result.success || !result.data) {
+      setOperationNotice(`新增收费记录失败：${result.error || '未知错误'}`)
+      return
+    }
+    setShowFeeDialog(false)
+    setOperationNotice('收费记录已保存到本地台账，并同步更新应收、实收和欠费汇总。')
+    void loadRemoteRows()
+  }
+
   return (
     <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
       {showContractDialog && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4"><form onSubmit={handleCreateContract} className="w-full max-w-xl border border-slate-300 bg-white p-4 shadow-xl"><h2 className="mb-3 text-sm font-semibold">新增服务合同</h2>{(['companyId','contractNo','servicePackage','serviceStart','serviceEnd','monthlyFee','owner'] as Array<keyof typeof contractDraft>).map((field) => <input key={field} required={field !== 'owner'} placeholder={field} value={contractDraft[field]} onChange={(event) => setContractDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="mb-2 h-8 w-full border px-2 text-sm" />)}<div className="flex justify-end gap-2"><button type="button" onClick={() => setShowContractDialog(false)} className="h-8 border px-3 text-xs">取消</button><button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs text-white">保存</button></div></form></div>}
+      {showFeeDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+          <form onSubmit={handleCreateFeeCollection} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">新增收费记录</h2>
+                <p className="mt-1 text-xs text-slate-500">仅登记代理服务应收与实收，不代替客户账套的经营收入和发票。</p>
+              </div>
+              <button type="button" onClick={() => setShowFeeDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>客户账套</span>
+                <select required value={feeDraft.companyId} onChange={(event) => setFeeDraft((draft) => ({ ...draft, companyId: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="">请选择客户账套</option>
+                  {companies.map((company) => <option key={company.id} value={company.id}>{company.code} | {company.name}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>收费账期</span>
+                <input required type="month" value={feeDraft.period} onChange={(event) => setFeeDraft((draft) => ({ ...draft, period: event.target.value }))} className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>应收金额</span>
+                <input required min="0" step="0.01" type="number" value={feeDraft.receivableAmount} onChange={(event) => setFeeDraft((draft) => ({ ...draft, receivableAmount: event.target.value }))} className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>实收金额</span>
+                <input required min="0" step="0.01" type="number" value={feeDraft.receivedAmount} onChange={(event) => setFeeDraft((draft) => ({ ...draft, receivedAmount: event.target.value }))} className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>服务费开票</span>
+                <select value={feeDraft.invoiceStatus} onChange={(event) => setFeeDraft((draft) => ({ ...draft, invoiceStatus: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="pending">待开票</option>
+                  <option value="issued">已开票</option>
+                  <option value="void">红冲/作废</option>
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>收费状态</span>
+                <select value={feeDraft.paymentStatus} onChange={(event) => setFeeDraft((draft) => ({ ...draft, paymentStatus: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="pending">待收款</option>
+                  <option value="paid">已收款</option>
+                  <option value="overdue">逾期欠费</option>
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                <span>收款负责人</span>
+                <input value={feeDraft.collector} onChange={(event) => setFeeDraft((draft) => ({ ...draft, collector: event.target.value }))} placeholder="例如：李会计" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowFeeDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存收费记录</button>
+            </div>
+          </form>
+        </div>
+      )}
       <div className="border border-slate-200 bg-white">
         <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-1.5">
           <div className="min-w-0">
@@ -1651,8 +1745,8 @@ function mapFeeCollectionRow(item: AgencyFeeCollection): AgencyRow {
       receivable: formatMoney(item.receivableAmount),
       received: formatMoney(item.receivedAmount),
       arrears: formatMoney(item.arrearsAmount),
-      invoice: item.invoiceStatus,
-      payment: item.paymentStatus,
+      invoice: formatAgencyInvoiceStatus(item.invoiceStatus),
+      payment: formatAgencyPaymentStatus(item.paymentStatus),
       collector: item.collector || '-',
       followUp: item.lastFollowUp || '-',
     },

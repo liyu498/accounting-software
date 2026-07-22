@@ -4,6 +4,8 @@ const adapterSource = readFileSync('src/lib/liveModuleRows.ts', 'utf8')
 const pageSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', 'utf8')
 const taxWorkspaceSource = readFileSync('src/pages/tax/TaxWorkspace.tsx', 'utf8')
 const agencyModuleSource = readFileSync('src/pages/agency/AgencyModulePage.tsx', 'utf8')
+const agencyCommandSource = readFileSync('src-tauri/src/commands/agency.rs', 'utf8')
+const apiSource = readFileSync('src/lib/api.ts', 'utf8')
 const welcomeSource = readFileSync('src/pages/Welcome.tsx', 'utf8')
 const appSource = readFileSync('src/App.tsx', 'utf8')
 const dashboardSource = readFileSync('src/pages/Dashboard.tsx', 'utf8')
@@ -386,6 +388,19 @@ const requiredAgencyModuleSnippets = [
   ['agency pdf audit', "writeAgencyAudit('导出PDF', fileName"],
 ]
 
+const requiredAgencyFeeEntryCommandSnippets = [
+  ['agency fee collection create command', 'pub async fn create_agency_fee_collection'],
+]
+
+const requiredAgencyFeeEntryApiSnippets = [
+  ['agency fee collection create api', 'createFeeCollection: async'],
+]
+
+const requiredAgencyFeeEntryPageSnippets = [
+  ['agency fee collection create dialog', '新增收费记录'],
+  ['agency fee collection create binding', 'agencyApi.createFeeCollection({'],
+]
+
 const requiredAppSnippets = [
   ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
 ]
@@ -626,6 +641,9 @@ const errors = [
   ...verify(companyCommandSource, requiredCompanyPersistenceSnippets.slice(2, 3), 'company commands'),
   ...verify(databaseSource, requiredCompanyPersistenceSnippets.slice(3), 'database schema'),
   ...verify(agencyModuleSource, requiredAgencyModuleSnippets, 'agency module page'),
+  ...verify(agencyCommandSource, requiredAgencyFeeEntryCommandSnippets, 'agency commands'),
+  ...verify(apiSource, requiredAgencyFeeEntryApiSnippets, 'api bindings'),
+  ...verify(agencyModuleSource, requiredAgencyFeeEntryPageSnippets, 'agency fee entry page'),
   ...verify(appSource, requiredAppSnippets, 'application routes'),
   ...verify(shellSource, requiredShellSnippets, 'application shell'),
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),

@@ -3166,6 +3166,16 @@ pub struct AgencyFeeCollection {
     pub created_at: String,
     pub updated_at: String,
 }
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateAgencyFeeCollectionInput {
+    pub company_id: String,
+    pub period: String,
+    pub receivable_amount: f64,
+    pub received_amount: f64,
+    pub invoice_status: Option<String>,
+    pub payment_status: Option<String>,
+    pub collector: Option<String>,
+}
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct AgencyCollaborationItem {

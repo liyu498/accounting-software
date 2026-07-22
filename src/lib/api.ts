@@ -1272,6 +1272,32 @@ export const agencyApi = {
       return { success: false, error: String(error) }
     }
   },
+  createFeeCollection: async (input: {
+    companyId: string
+    period: string
+    receivableAmount: number
+    receivedAmount: number
+    invoiceStatus?: string
+    paymentStatus?: string
+    collector?: string
+  }): Promise<ApiResponse<AgencyFeeCollection>> => {
+    try {
+      const result = await invoke('create_agency_fee_collection', {
+        input: {
+          company_id: input.companyId,
+          period: input.period,
+          receivable_amount: input.receivableAmount,
+          received_amount: input.receivedAmount,
+          invoice_status: input.invoiceStatus,
+          payment_status: input.paymentStatus,
+          collector: input.collector,
+        },
+      }) as RawAgencyFeeCollection
+      return { success: true, data: mapAgencyFeeCollection(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
 
   getCollaborationItems: async (filters: { companyId?: string; status?: string } = {}): Promise<ApiResponse<AgencyCollaborationItem[]>> => {
     try {

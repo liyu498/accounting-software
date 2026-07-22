@@ -127,6 +127,52 @@ pub async fn get_agency_fee_collections(
 }
 
 #[tauri::command]
+pub async fn create_agency_fee_collection(
+    input: crate::db::CreateAgencyFeeCollectionInput,
+    db: State<'_, Database>,
+) -> Result<AgencyFeeCollection, String> {
+    if input.company_id.trim().is_empty()
+        || input.period.trim().is_empty()
+        || input.receivable_amount < 0.0
+        || input.received_amount < 0.0
+        || input.received_amount > input.receivable_amount
+    {
+        return Err("客户账套、收费账期和金额不合法".into());
+    }
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let arrears = input.receivable_amount - input.received_amount;
+    let invoice_status = input.invoice_status.unwrap_or_else(|| "pending".into());
+    let payment_status = input.payment_status.unwrap_or_else(|| "pending".into());
+    let status = if arrears > 0.0 { "pending" } else { "completed" };
+
+    sqlx::query(
+        "INSERT INTO agency_fee_collections (id,company_id,period,receivable_amount,received_amount,arrears_amount,invoice_status,payment_status,collector,status) VALUES (?,?,?,?,?,?,?,?,?,?)",
+    )
+    .bind(&id)
+    .bind(&input.company_id)
+    .bind(input.period.trim())
+    .bind(input.receivable_amount)
+    .bind(input.received_amount)
+    .bind(arrears)
+    .bind(invoice_status)
+    .bind(payment_status)
+    .bind(input.collector)
+    .bind(status)
+    .execute(db.pool())
+    .await
+    .map_err(|e| format!("新增收费记录失败: {e}"))?;
+
+    sqlx::query_as(
+        "SELECT f.id,f.company_id,co.name AS company_name,f.period,f.receivable_amount,f.received_amount,f.arrears_amount,f.invoice_status,f.payment_status,f.collector,f.last_follow_up,f.status,f.created_at,f.updated_at FROM agency_fee_collections f LEFT JOIN companies co ON co.id=f.company_id WHERE f.id=?",
+    )
+    .bind(id)
+    .fetch_one(db.pool())
+    .await
+    .map_err(|e| format!("查询新增收费记录失败: {e}"))
+}
+
+#[tauri::command]
 pub async fn get_agency_collaboration_items(
     company_id: Option<String>,
     status: Option<String>,
