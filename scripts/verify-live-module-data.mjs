@@ -414,6 +414,12 @@ const requiredAgencyCollaborationEntryPageSnippets = [
   ['agency collaboration create binding', 'agencyApi.createCollaborationItem({'],
 ]
 
+const requiredAgencyAuthorizationEntryPageSnippets = [
+  ['agency authorization create dialog', '新增授权记录'],
+  ['agency authorization create binding', 'automationApi.upsertAdapterAuthorization({'],
+  ['agency authorization secret boundary', '不录入密码、验证码、Cookie 或税务局会话信息'],
+]
+
 const requiredAppSnippets = [
   ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
 ]
@@ -660,6 +666,7 @@ const errors = [
   ...verify(agencyCommandSource, requiredAgencyCollaborationEntryCommandSnippets, 'agency commands'),
   ...verify(apiSource, requiredAgencyCollaborationEntryApiSnippets, 'api bindings'),
   ...verify(agencyModuleSource, requiredAgencyCollaborationEntryPageSnippets, 'agency collaboration entry page'),
+  ...verify(agencyModuleSource, requiredAgencyAuthorizationEntryPageSnippets, 'agency authorization entry page'),
   ...verify(appSource, requiredAppSnippets, 'application routes'),
   ...verify(shellSource, requiredShellSnippets, 'application shell'),
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),

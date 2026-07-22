@@ -847,6 +847,19 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     replyStatus: 'pending',
     owner: '',
   })
+  const [showAuthorizationDialog, setShowAuthorizationDialog] = useState(false)
+  const [authorizationDraft, setAuthorizationDraft] = useState({
+    companyId: '',
+    adapterType: 'tax',
+    adapterCode: '',
+    region: '',
+    authStatus: 'pending',
+    accountMask: '',
+    loginIdentity: '',
+    capabilityScope: '',
+    expiresAt: '',
+    riskMessage: '',
+  })
   const pageConfig = useMemo(() => getAgencyTabConfig(config, activeTab, isTauri), [activeTab, config])
   const overviewRows = useMemo(
     () => agencyOverview ? mapAgencyOverviewRows(agencyOverview, activeTab) : [],
@@ -1007,6 +1020,15 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   const handlePrimaryAction = async () => {
     if (kind === 'serviceContracts' && activeTab === '服务合同') { setShowContractDialog(true); return }
+    if (kind === 'authorizationCenter') {
+      if (isTauri && companies.length === 0) await fetchCompanies()
+      setAuthorizationDraft((draft) => ({
+        ...draft,
+        adapterType: agencyAuthorizationAdapterType(activeTab) || 'tax',
+      }))
+      setShowAuthorizationDialog(true)
+      return
+    }
     if (kind === 'serviceContracts' && activeTab === '收费管理') {
       if (isTauri && companies.length === 0) await fetchCompanies()
       setFeeDraft((draft) => ({ ...draft, period: agencyPeriodLabel }))
@@ -1206,6 +1228,29 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     void loadRemoteRows()
   }
 
+  const handleCreateAuthorization = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const result = await automationApi.upsertAdapterAuthorization({
+      companyId: authorizationDraft.companyId,
+      adapterType: authorizationDraft.adapterType,
+      adapterCode: authorizationDraft.adapterCode,
+      region: authorizationDraft.region || undefined,
+      authStatus: authorizationDraft.authStatus,
+      accountMask: authorizationDraft.accountMask || undefined,
+      loginIdentity: authorizationDraft.loginIdentity || undefined,
+      capabilityScope: authorizationDraft.capabilityScope || undefined,
+      expiresAt: authorizationDraft.expiresAt || undefined,
+      riskMessage: authorizationDraft.riskMessage || undefined,
+    })
+    if (!result.success || !result.data) {
+      setOperationNotice(`保存授权记录失败：${result.error || '未知错误'}`)
+      return
+    }
+    setShowAuthorizationDialog(false)
+    setOperationNotice('授权状态已保存到本地台账；批量任务仍会先进行授权预检，不会自动登录外部系统。')
+    void loadRemoteRows()
+  }
+
   return (
     <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
       {showContractDialog && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4"><form onSubmit={handleCreateContract} className="w-full max-w-xl border border-slate-300 bg-white p-4 shadow-xl"><h2 className="mb-3 text-sm font-semibold">新增服务合同</h2>{(['companyId','contractNo','servicePackage','serviceStart','serviceEnd','monthlyFee','owner'] as Array<keyof typeof contractDraft>).map((field) => <input key={field} required={field !== 'owner'} placeholder={field} value={contractDraft[field]} onChange={(event) => setContractDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="mb-2 h-8 w-full border px-2 text-sm" />)}<div className="flex justify-end gap-2"><button type="button" onClick={() => setShowContractDialog(false)} className="h-8 border px-3 text-xs">取消</button><button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs text-white">保存</button></div></form></div>}
@@ -1313,6 +1358,79 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
               <button type="button" onClick={() => setShowCollaborationDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
               <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存协同事项</button>
+            </div>
+          </form>
+        </div>
+      )}
+      {showAuthorizationDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+          <form onSubmit={handleCreateAuthorization} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">新增授权记录</h2>
+                <p className="mt-1 text-xs text-slate-500">仅维护授权元数据和掩码账号，不录入密码、验证码、Cookie 或税务局会话信息。</p>
+              </div>
+              <button type="button" onClick={() => setShowAuthorizationDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>客户账套</span>
+                <select required value={authorizationDraft.companyId} onChange={(event) => setAuthorizationDraft((draft) => ({ ...draft, companyId: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="">请选择客户账套</option>
+                  {companies.map((company) => <option key={company.id} value={company.id}>{company.code} | {company.name}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>授权类型</span>
+                <select value={authorizationDraft.adapterType} onChange={(event) => setAuthorizationDraft((draft) => ({ ...draft, adapterType: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="tax">电子税务局</option>
+                  <option value="individual_tax">自然人税收</option>
+                  <option value="bank">银行</option>
+                  <option value="industrial_commercial">工商</option>
+                  <option value="invoice_pool">票池</option>
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>授权标识</span>
+                <input required value={authorizationDraft.adapterCode} onChange={(event) => setAuthorizationDraft((draft) => ({ ...draft, adapterCode: event.target.value }))} placeholder="例如：tax-adapter-shanghai" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>地区</span>
+                <input value={authorizationDraft.region} onChange={(event) => setAuthorizationDraft((draft) => ({ ...draft, region: event.target.value }))} placeholder="例如：上海市" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>授权状态</span>
+                <select value={authorizationDraft.authStatus} onChange={(event) => setAuthorizationDraft((draft) => ({ ...draft, authStatus: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="pending">待确认</option>
+                  <option value="valid">正常</option>
+                  <option value="expired">已过期</option>
+                  <option value="invalid">授权异常</option>
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>到期日期</span>
+                <input type="date" value={authorizationDraft.expiresAt} onChange={(event) => setAuthorizationDraft((draft) => ({ ...draft, expiresAt: event.target.value }))} className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>掩码账号</span>
+                <input value={authorizationDraft.accountMask} onChange={(event) => setAuthorizationDraft((draft) => ({ ...draft, accountMask: event.target.value }))} placeholder="仅可填写掩码，如 9131****1234" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>登录身份</span>
+                <input value={authorizationDraft.loginIdentity} onChange={(event) => setAuthorizationDraft((draft) => ({ ...draft, loginIdentity: event.target.value }))} placeholder="例如：办税员" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                <span>授权范围</span>
+                <input value={authorizationDraft.capabilityScope} onChange={(event) => setAuthorizationDraft((draft) => ({ ...draft, capabilityScope: event.target.value }))} placeholder="例如：发票采集、申报取数" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                <span>风险说明</span>
+                <input value={authorizationDraft.riskMessage} onChange={(event) => setAuthorizationDraft((draft) => ({ ...draft, riskMessage: event.target.value }))} placeholder="可选，例如：等待客户确认授权范围" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowAuthorizationDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存授权记录</button>
             </div>
           </form>
         </div>
@@ -1646,7 +1764,7 @@ function mapAgencyAuthorizationRow(item: AdapterAuthorization): AgencyRow {
       loginPerson: item.loginIdentity || '-',
       identity: item.capabilityScope || '-',
       method: item.adapterCode,
-      statusText: item.authStatus,
+      statusText: formatAuthorizationStatus(item.authStatus),
       expireAt: item.expiresAt || '-',
       lastCollect: item.lastCheckedAt || '-',
       risk: item.riskMessage || '无',
@@ -1897,6 +2015,14 @@ function formatAgencyArchiveStatus(value: string) {
   if (value === 'archived') return '已归档'
   if (value === 'pending') return '待归档'
   if (value === 'missing') return '缺少附件'
+  return value || '未设置'
+}
+
+function formatAuthorizationStatus(value: string) {
+  if (value === 'valid') return '正常'
+  if (value === 'pending') return '待确认'
+  if (value === 'expired') return '已过期'
+  if (value === 'invalid') return '授权异常'
   return value || '未设置'
 }
 
