@@ -4109,6 +4109,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showInventoryItemDialog, setShowInventoryItemDialog] = useState(false)
   const [inventoryItemDraft, setInventoryItemDraft] = useState({ itemCode: '', itemName: '', specification: '', unit: '', taxRate: '13', defaultSubject: '' })
   const [showInventoryMovementDialog, setShowInventoryMovementDialog] = useState(false)
+  const [editingInventoryMovementId, setEditingInventoryMovementId] = useState<string | null>(null)
   const [inventoryMovementDraft, setInventoryMovementDraft] = useState({ movementDate: '', billNo: '', movementType: '采购入库', inventoryName: '', warehouse: '', counterparty: '', unit: '', quantity: '', amount: '', sourceDocument: '' })
   const [showAccountTransferDialog, setShowAccountTransferDialog] = useState(false)
   const [editingAccountTransferId, setEditingAccountTransferId] = useState<string | null>(null)
@@ -5327,6 +5328,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'inventoryMovement' && isTauri && selectedCompanyId) {
+      setEditingInventoryMovementId(null)
+      setInventoryMovementDraft({ movementDate: '', billNo: '', movementType: '采购入库', inventoryName: '', warehouse: '', counterparty: '', unit: '', quantity: '', amount: '', sourceDocument: '' })
       setShowInventoryMovementDialog(true)
       return
     }
@@ -5665,23 +5668,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     } catch (error) { setOperationNotice(`${editingFixedAssetId ? '编辑' : '新增'}固定资产失败：${String(error)}`) }
   }
 
-  const handleCreateInventoryMovement = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveInventoryMovement = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
-      const result = await inventoryMovementApi.createInventoryMovement({
-        companyId: selectedCompanyId, period: currentPeriodLabel, movementDate: inventoryMovementDraft.movementDate,
-        billNo: inventoryMovementDraft.billNo, movementType: inventoryMovementDraft.movementType, inventoryName: inventoryMovementDraft.inventoryName,
-        warehouse: inventoryMovementDraft.warehouse, counterparty: inventoryMovementDraft.counterparty || undefined, unit: inventoryMovementDraft.unit,
-        quantity: Number(inventoryMovementDraft.quantity || 0), amount: Number(inventoryMovementDraft.amount || 0), sourceDocument: inventoryMovementDraft.sourceDocument || undefined,
-      })
+      const movementInput = { companyId: selectedCompanyId, movementDate: inventoryMovementDraft.movementDate, billNo: inventoryMovementDraft.billNo, movementType: inventoryMovementDraft.movementType, inventoryName: inventoryMovementDraft.inventoryName, warehouse: inventoryMovementDraft.warehouse, counterparty: inventoryMovementDraft.counterparty || undefined, unit: inventoryMovementDraft.unit, quantity: Number(inventoryMovementDraft.quantity || 0), amount: Number(inventoryMovementDraft.amount || 0), sourceDocument: inventoryMovementDraft.sourceDocument || undefined }
+      const result = editingInventoryMovementId
+        ? await inventoryMovementApi.updateInventoryMovement({ id: editingInventoryMovementId, ...movementInput })
+        : await inventoryMovementApi.createInventoryMovement({ ...movementInput, period: currentPeriodLabel })
       if (!result.success || !result.data) throw new Error(result.error || '未返回出入库单')
-      setInventoryMovements((records) => [result.data!, ...records])
-      writeModuleAudit('新增出入库单', result.data.billNo, '中', '成功')
-      setOperationNotice('出入库单已保存，等待发票匹配、计价核验和人工凭证确认。')
+      setInventoryMovements((records) => editingInventoryMovementId ? records.map((item) => item.id === result.data!.id ? result.data! : item) : [result.data!, ...records])
+      writeModuleAudit(editingInventoryMovementId ? '编辑出入库单' : '新增出入库单', result.data.billNo, '中', '成功')
+      setOperationNotice(editingInventoryMovementId ? '出入库单已更新，请重新核验发票匹配、计价与成本结转。' : '出入库单已保存，等待发票匹配、计价核验和人工凭证确认。')
+      setEditingInventoryMovementId(null)
       setInventoryMovementDraft({ movementDate: '', billNo: '', movementType: '采购入库', inventoryName: '', warehouse: '', counterparty: '', unit: '', quantity: '', amount: '', sourceDocument: '' })
       setShowInventoryMovementDialog(false)
-    } catch (error) { setOperationNotice(`新增出入库单失败：${String(error)}`) }
+    } catch (error) { setOperationNotice(`${editingInventoryMovementId ? '编辑' : '新增'}出入库单失败：${String(error)}`) }
   }
 
   const handleCreateInventoryItem = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -5814,6 +5816,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingFixedAssetId(asset.id)
       setFixedAssetDraft({ assetCode: asset.assetCode, assetName: asset.assetName, category: asset.category, startDate: asset.startDate, originalValue: String(asset.originalValue), usefulLifeMonths: String(asset.usefulLifeMonths), residualRate: String(asset.residualRate * 100), sourceDocument: asset.sourceDocument || '' })
       setShowFixedAssetDialog(true)
+      return
+    }
+    if (kind === 'inventoryMovement' && isTauri && selectedCompanyId) {
+      const movement = inventoryMovements.find((item) => item.id === row.id)
+      if (!movement) {
+        setOperationNotice('未找到当前账期的出入库单。')
+        return
+      }
+      if (movement.status === '已生成凭证') {
+        setOperationNotice('该出入库单已生成凭证，不可直接修改。请先按凭证处理流程完成复核。')
+        return
+      }
+      setEditingInventoryMovementId(movement.id)
+      setInventoryMovementDraft({ movementDate: movement.movementDate, billNo: movement.billNo, movementType: movement.movementType, inventoryName: movement.inventoryName, warehouse: movement.warehouse, counterparty: movement.counterparty || '', unit: movement.unit, quantity: String(movement.quantity), amount: String(movement.amount), sourceDocument: movement.sourceDocument || '' })
+      setShowInventoryMovementDialog(true)
       return
     }
     if ((kind === 'billList' || kind === 'bankStatement') && isTauri && selectedCompanyId) {
@@ -6374,7 +6391,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'transfer' || kind === 'depreciation' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -6728,13 +6745,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </div>
       )}
       {showInventoryMovementDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增出入库单">
-          <form onSubmit={handleCreateInventoryMovement} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
-            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">新增出入库单</h2><button type="button" onClick={() => setShowInventoryMovementDialog(false)} className="text-xs text-slate-500">取消</button></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingInventoryMovementId ? '编辑出入库单' : '新增出入库单'}>
+          <form onSubmit={handleSaveInventoryMovement} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">{editingInventoryMovementId ? '编辑出入库单' : '新增出入库单'}</h2><button type="button" onClick={() => setShowInventoryMovementDialog(false)} className="text-xs text-slate-500">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">{([{ field: 'movementDate', label: '业务日期 *', type: 'date' }, { field: 'billNo', label: '单据编号 *', type: 'text' }, { field: 'inventoryName', label: '存货名称 *', type: 'text' }, { field: 'warehouse', label: '仓库 *', type: 'text' }, { field: 'counterparty', label: '往来单位', type: 'text' }, { field: 'unit', label: '计量单位 *', type: 'text' }, { field: 'quantity', label: '数量 *', type: 'number' }, { field: 'amount', label: '金额 *', type: 'number' }, { field: 'sourceDocument', label: '来源凭据', type: 'text' }] as Array<{ field: keyof typeof inventoryMovementDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['movementDate', 'billNo', 'inventoryName', 'warehouse', 'unit', 'quantity', 'amount'].includes(field)} type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={inventoryMovementDraft[field]} onChange={(event) => setInventoryMovementDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}
               <label className="grid gap-1 text-xs text-slate-600">出入类型 *<select value={inventoryMovementDraft.movementType} onChange={(event) => setInventoryMovementDraft((draft) => ({ ...draft, movementType: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['采购入库', '销售出库', '其他入库', '其他出库'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowInventoryMovementDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存单据</button></div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowInventoryMovementDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingInventoryMovementId ? '保存修改' : '保存单据'}</button></div>
           </form>
         </div>
       )}

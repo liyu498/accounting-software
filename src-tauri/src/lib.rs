@@ -100,6 +100,7 @@ pub fn run() {
             commands::fixed_assets::update_fixed_asset,
             commands::inventory_movements::get_inventory_movements,
             commands::inventory_movements::create_inventory_movement,
+            commands::inventory_movements::update_inventory_movement,
             commands::inventory_items::get_inventory_items,
             commands::inventory_items::create_inventory_item,
             commands::units::get_measurement_units,

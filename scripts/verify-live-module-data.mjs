@@ -700,11 +700,15 @@ const requiredInventoryMovementCommandSnippets = [
   ['inventory movement table schema', 'CREATE TABLE IF NOT EXISTS inventory_movements'],
   ['inventory movement list command', 'pub async fn get_inventory_movements'],
   ['inventory movement create command', 'pub async fn create_inventory_movement'],
+  ['inventory movement update command', 'pub async fn update_inventory_movement'],
 ]
 
 const requiredInventoryMovementPageSnippets = [
   ['inventory movement api list binding', 'inventoryMovementApi.getInventoryMovements({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
   ['inventory movement api create binding', 'inventoryMovementApi.createInventoryMovement({'],
+  ['inventory movement api update binding', 'inventoryMovementApi.updateInventoryMovement({'],
+  ['inventory movement edit state', 'const [editingInventoryMovementId, setEditingInventoryMovementId] = useState<string | null>(null)'],
+  ['inventory movement edit row binding', "if (kind === 'inventoryMovement' && isTauri && selectedCompanyId)"],
   ['inventory movement row mapper', 'mapLiveInventoryMovementRows(inventoryMovements)'],
   ['cost carryover local source', 'mapLiveCostCarryoverRows(inventoryMovements)'],
 ]

@@ -3060,6 +3060,8 @@ pub struct InventoryMovement { pub id: String, pub company_id: String, pub perio
 
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CreateInventoryMovementInput { pub company_id: String, pub period: String, pub movement_date: String, pub bill_no: String, pub movement_type: String, pub inventory_name: String, pub warehouse: String, pub counterparty: Option<String>, pub unit: String, pub quantity: f64, pub amount: f64, pub source_document: Option<String> }
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateInventoryMovementInput { pub id: String, pub company_id: String, pub movement_date: String, pub bill_no: String, pub movement_type: String, pub inventory_name: String, pub warehouse: String, pub counterparty: Option<String>, pub unit: String, pub quantity: f64, pub amount: f64, pub source_document: Option<String> }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct InventoryItem { pub id: String, pub company_id: String, pub item_code: String, pub item_name: String, pub specification: Option<String>, pub unit: String, pub tax_rate: Option<f64>, pub default_subject: Option<String>, pub status: String, pub created_at: String, pub updated_at: String }
