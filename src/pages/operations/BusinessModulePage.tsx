@@ -3993,7 +3993,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const fetchAuxiliaryBalance = useAuxiliaryStore((state) => state.fetchAuxiliaryBalance)
   const invoices = useInvoiceStore((state) => state.invoices)
   const fetchInvoices = useInvoiceStore((state) => state.fetchInvoices)
+  const getInvoice = useInvoiceStore((state) => state.getInvoice)
   const createInvoice = useInvoiceStore((state) => state.createInvoice)
+  const updateInvoice = useInvoiceStore((state) => state.updateInvoice)
   const vouchers = useVoucherStore((state) => state.vouchers)
   const queryVouchers = useVoucherStore((state) => state.queryVouchers)
   const getVoucher = useVoucherStore((state) => state.getVoucher)
@@ -4117,6 +4119,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
   const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null)
   const [invoiceDraft, setInvoiceDraft] = useState({ invoiceNo: '', invoiceCode: '', invoiceDate: '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
   const [voucherDraft, setVoucherDraft] = useState({
     voucherWordId: '',
@@ -5250,6 +5253,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if ((kind === 'outputInvoice' || kind === 'inputInvoice') && isTauri && selectedCompanyId && currentPeriodId) {
+      setEditingInvoiceId(null)
+      setInvoiceDraft({ invoiceNo: '', invoiceCode: '', invoiceDate: currentPeriod?.end_date || '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
       setShowInvoiceDialog(true)
       return
     }
@@ -5390,11 +5395,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleCreateInvoice = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!selectedCompanyId || !currentPeriodId || (kind !== 'outputInvoice' && kind !== 'inputInvoice')) return
+    if (!selectedCompanyId || (kind !== 'outputInvoice' && kind !== 'inputInvoice')) return
     try {
-      const invoice = await createInvoice({
-        company_id: selectedCompanyId,
-        period_id: currentPeriodId,
+      const input = {
         invoice_type: kind === 'outputInvoice' ? 'output' : 'input',
         invoice_no: invoiceDraft.invoiceNo,
         invoice_code: invoiceDraft.invoiceCode || undefined,
@@ -5407,11 +5410,26 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         buyer_name: invoiceDraft.buyerName || undefined,
         buyer_tax_id: invoiceDraft.buyerTaxId || undefined,
         remarks: invoiceDraft.remarks || undefined,
-      })
-      writeModuleAudit(kind === 'outputInvoice' ? '新增销项发票' : '新增进项发票', invoice.invoice_no, '中', '成功')
+      }
+      if (!editingInvoiceId && !currentPeriodId) {
+        setOperationNotice('未选择当前账期，无法新增发票。')
+        return
+      }
+      const invoice = editingInvoiceId
+        ? await updateInvoice(editingInvoiceId, {
+          company_id: selectedCompanyId,
+          ...input,
+        })
+        : await createInvoice({
+          company_id: selectedCompanyId,
+          period_id: currentPeriodId!,
+          ...input,
+        })
+      writeModuleAudit(editingInvoiceId ? '编辑发票' : kind === 'outputInvoice' ? '新增销项发票' : '新增进项发票', invoice.invoice_no, '中', '成功')
       setShowInvoiceDialog(false)
+      setEditingInvoiceId(null)
       setInvoiceDraft({ invoiceNo: '', invoiceCode: '', invoiceDate: '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
-      setOperationNotice(`${kind === 'outputInvoice' ? '销项' : '进项'}发票已保存到当前账套和账期，可继续匹配凭证或进入发票勾选。`)
+      setOperationNotice(`${kind === 'outputInvoice' ? '销项' : '进项'}发票已${editingInvoiceId ? '更新' : '保存'}到当前账套，可继续匹配凭证或进入发票勾选。`)
     } catch (error) {
       setOperationNotice(`新增发票失败：${String(error)}`)
     }
@@ -5637,6 +5655,29 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleViewRow = async (row: ModuleRow) => {
     if (kind === 'voucher') {
       navigate(`/vouchers/detail/${row.id}`)
+      return
+    }
+    if ((kind === 'outputInvoice' || kind === 'inputInvoice') && isTauri && selectedCompanyId) {
+      const invoice = await getInvoice(row.id, selectedCompanyId)
+      if (!invoice) {
+        setOperationNotice('未找到该发票，或发票不属于当前账套。')
+        return
+      }
+      setEditingInvoiceId(invoice.id)
+      setInvoiceDraft({
+        invoiceNo: invoice.invoice_no,
+        invoiceCode: invoice.invoice_code || '',
+        invoiceDate: invoice.invoice_date,
+        amount: String(invoice.amount),
+        taxAmount: String(invoice.tax_amount),
+        taxRate: String((invoice.tax_rate || 0) * 100),
+        sellerName: invoice.seller_name || '',
+        sellerTaxId: invoice.seller_tax_id || '',
+        buyerName: invoice.buyer_name || '',
+        buyerTaxId: invoice.buyer_tax_id || '',
+        remarks: invoice.remarks || '',
+      })
+      setShowInvoiceDialog(true)
       return
     }
     if (kind === 'employee' && isTauri) {
@@ -6175,12 +6216,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </section>
       </div>
       {showInvoiceDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增发票">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingInvoiceId ? '编辑发票' : '新增发票'}>
           <form onSubmit={handleCreateInvoice} className="w-full max-w-3xl border border-slate-300 bg-white shadow-xl">
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">新增{kind === 'outputInvoice' ? '销项' : '进项'}发票</h2>
-                <p className="mt-0.5 text-xs text-slate-500">登记到当前账套 {selectedCompany?.name || ''} 与账期 {currentPeriodLabel}，不执行税局开票或验真。</p>
+                <h2 className="text-sm font-semibold text-slate-900">{editingInvoiceId ? '编辑' : '新增'}{kind === 'outputInvoice' ? '销项' : '进项'}发票</h2>
+                <p className="mt-0.5 text-xs text-slate-500">{editingInvoiceId ? '仅更新本地账套发票资料，不触发税局开票或验真。' : `登记到当前账套 ${selectedCompany?.name || ''} 与账期 ${currentPeriodLabel}，不执行税局开票或验真。`}</p>
               </div>
               <button type="button" onClick={() => setShowInvoiceDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
             </div>
@@ -6232,7 +6273,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
               <button type="button" onClick={() => setShowInvoiceDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
-              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存发票</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingInvoiceId ? '保存修改' : '保存发票'}</button>
             </div>
           </form>
         </div>

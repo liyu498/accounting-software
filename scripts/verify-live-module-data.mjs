@@ -468,6 +468,13 @@ const requiredVoucherEntryPageSnippets = [
   ['voucher reverse approval action', 'await reverseApproveVoucher(loadedVoucher.id, selectedCompanyId)'],
 ]
 
+const requiredInvoiceEditPageSnippets = [
+  ['invoice edit store binding', 'const updateInvoice = useInvoiceStore((state) => state.updateInvoice)'],
+  ['invoice detail store binding', 'const getInvoice = useInvoiceStore((state) => state.getInvoice)'],
+  ['invoice edit load action', 'await getInvoice(row.id, selectedCompanyId)'],
+  ['invoice edit update action', 'await updateInvoice(editingInvoiceId, {'],
+]
+
 const requiredAppSnippets = [
   ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
 ]
@@ -720,6 +727,7 @@ const errors = [
   ...verify(pageSource, requiredInventoryItemEntryPageSnippets, 'inventory item entry page'),
   ...verify(pageSource, requiredSocialSecurityEntryPageSnippets, 'social security entry page'),
   ...verify(pageSource, requiredInvoiceEntryPageSnippets, 'invoice entry page'),
+  ...verify(pageSource, requiredInvoiceEditPageSnippets, 'invoice edit page'),
   ...verify(pageSource, requiredVoucherEntryPageSnippets, 'voucher entry page'),
   ...verify(appSource, requiredAppSnippets, 'application routes'),
   ...verify(shellSource, requiredShellSnippets, 'application shell'),
