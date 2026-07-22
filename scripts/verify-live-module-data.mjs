@@ -538,6 +538,13 @@ const requiredReceiptPageSnippets = [
   ['receipt document record source', 'mapLiveReceiptRows(documentRecords)'],
   ['receipt summary source', 'summarizeLiveReceipts(documentRecords)'],
 ]
+const requiredReconciliationPageSnippets = [
+  ['bank reconciliation local scope', "const usesLiveReconciliationData = Boolean(isTauri && selectedCompanyId && ['bankReconciliation', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind))"],
+  ['bank reconciliation row mapper', 'mapLiveBankReconciliationRows(bankTransactions)'],
+  ['receivable settlement row mapper', 'mapLiveSettlementRows(invoices, \'output\')'],
+  ['payable settlement row mapper', 'mapLiveSettlementRows(invoices, \'input\')'],
+  ['aging row mapper', 'mapLiveAgingRows(invoices)'],
+]
 
 const requiredOrderViewPageSnippets = [
   ['purchase management invoice source', "const usesLivePurchaseManagementData = Boolean(isTauri && selectedCompanyId && kind === 'purchaseManagement')"],
@@ -648,6 +655,7 @@ const errors = [
   ...verify(pageSource, requiredDocumentRecordPageSnippets, 'document register module page'),
   ...verify(pageSource, requiredExpenseReimbursementPageSnippets, 'expense reimbursement module page'),
   ...verify(pageSource, requiredReceiptPageSnippets, 'receipt module page'),
+  ...verify(pageSource, requiredReconciliationPageSnippets, 'reconciliation module page'),
   ...verify(pageSource, requiredOrderViewPageSnippets, 'purchase and sales module pages'),
   ...verify(databaseSource, requiredAccountTransferPageSnippets.slice(0, 1), 'database schema'),
   ...verify(accountTransferCommandSource, requiredAccountTransferPageSnippets.slice(1, 3), 'account transfer commands'),
