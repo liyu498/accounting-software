@@ -3999,6 +3999,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const getVoucher = useVoucherStore((state) => state.getVoucher)
   const addVoucher = useVoucherStore((state) => state.addVoucher)
   const updateVoucher = useVoucherStore((state) => state.updateVoucher)
+  const approveVoucher = useVoucherStore((state) => state.approveVoucher)
+  const reverseApproveVoucher = useVoucherStore((state) => state.reverseApproveVoucher)
   const getDeletedVouchers = useVoucherStore((state) => state.getDeletedVouchers)
   const settlementRules = useSettlementRuleStore((state) => state.rules)
   const fetchSettlementRules = useSettlementRuleStore((state) => state.fetchSettlementRules)
@@ -5858,6 +5860,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const handleVoucherApproval = async () => {
+    if (!selectedCompanyId || !loadedVoucher) return
+    try {
+      const voucher = loadedVoucher.status === 'approved'
+        ? await reverseApproveVoucher(loadedVoucher.id, selectedCompanyId)
+        : await approveVoucher(loadedVoucher.id, 'admin', selectedCompanyId)
+      setLoadedVoucher((current) => current ? { ...current, ...voucher } : voucher)
+      writeModuleAudit(voucher.status === 'approved' ? '审核凭证' : '反审核凭证', voucher.voucher_number, '高', '成功')
+      setOperationNotice(`凭证 ${voucher.voucher_number} 已${voucher.status === 'approved' ? '审核' : '反审核'}。`)
+    } catch (error) {
+      setOperationNotice(`凭证审核操作失败：${String(error)}`)
+    }
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -5873,6 +5889,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <div className="flex items-center gap-2">
               {(isVoucherEdit || isVoucherReadOnly) && loadedVoucher && <span className="text-xs text-slate-500">凭证号：{loadedVoucher.voucher_number}，状态：{loadedVoucher.status}</span>}
               <span className={cn('text-xs font-medium', voucherBalanced ? 'text-emerald-700' : 'text-red-600')}>借贷{voucherBalanced ? '平衡' : '不平衡'}</span>
+              {isVoucherReadOnly && loadedVoucher && <button type="button" onClick={handleVoucherApproval} className="h-8 border border-[#1f65a7] px-3 text-xs font-medium text-[#1f65a7] hover:bg-blue-50">{loadedVoucher.status === 'approved' ? '反审核' : '审核'}</button>}
               {!isVoucherReadOnly && <button type="submit" disabled={isVoucherEdit && !loadedVoucher} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82] disabled:bg-slate-300">{isVoucherEdit ? '保存修改' : '保存凭证草稿'}</button>}
             </div>
           </div>

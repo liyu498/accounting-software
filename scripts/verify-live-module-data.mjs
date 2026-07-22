@@ -462,6 +462,10 @@ const requiredVoucherEntryPageSnippets = [
   ['voucher detail read only guard', "const isVoucherReadOnly = kind === 'voucherDetail'"],
   ['voucher row detail navigation', "navigate(`/vouchers/detail/${row.id}`)"],
   ['voucher row edit navigation', "navigate(`/vouchers/edit/${row.id}`)"],
+  ['voucher approve binding', 'const approveVoucher = useVoucherStore((state) => state.approveVoucher)'],
+  ['voucher reverse approve binding', 'const reverseApproveVoucher = useVoucherStore((state) => state.reverseApproveVoucher)'],
+  ['voucher approval action', 'await approveVoucher(loadedVoucher.id, \'admin\', selectedCompanyId)'],
+  ['voucher reverse approval action', 'await reverseApproveVoucher(loadedVoucher.id, selectedCompanyId)'],
 ]
 
 const requiredAppSnippets = [
