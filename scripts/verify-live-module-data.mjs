@@ -612,6 +612,11 @@ const requiredVoucherTemplateEntryPageSnippets = [
   ['voucher template update binding', 'updateVoucherTemplate({'],
 ]
 
+const requiredAdapterAuthorizationEntryPageSnippets = [
+  ['adapter authorization edit state', 'const [editingAdapterAuthorizationId, setEditingAdapterAuthorizationId] = useState<string | null>(null)'],
+  ['adapter authorization save binding', 'automationApi.upsertAdapterAuthorization({'],
+]
+
 const requiredSocialSecurityCommandSnippets = [
   ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
   ['social security list command', 'pub async fn get_social_security_records'],
@@ -847,6 +852,7 @@ const errors = [
   ...verify(templateCommandSource, requiredVoucherTemplateCommandSnippets, 'voucher template commands'),
   ...verify(templateStoreSource, requiredVoucherTemplateEntryStoreSnippets, 'voucher template store'),
   ...verify(pageSource, requiredVoucherTemplateEntryPageSnippets, 'voucher template module page'),
+  ...verify(pageSource, requiredAdapterAuthorizationEntryPageSnippets, 'adapter authorization module page'),
   ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
   ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),

@@ -4155,6 +4155,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showVoucherTemplateDialog, setShowVoucherTemplateDialog] = useState(false)
   const [editingVoucherTemplateId, setEditingVoucherTemplateId] = useState<string | null>(null)
   const [voucherTemplateDraft, setVoucherTemplateDraft] = useState({ typeId: '', name: '', summary: '', debitAccountCode: '', creditAccountCode: '' })
+  const [showAdapterAuthorizationDialog, setShowAdapterAuthorizationDialog] = useState(false)
+  const [editingAdapterAuthorizationId, setEditingAdapterAuthorizationId] = useState<string | null>(null)
+  const [adapterAuthorizationDraft, setAdapterAuthorizationDraft] = useState({ adapterCode: '', region: '', authStatus: 'pending', accountMask: '', loginIdentity: '', capabilityScope: '', expiresAt: '', riskMessage: '' })
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
   const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
@@ -5766,6 +5769,43 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const resetAdapterAuthorizationDraft = () => {
+    setEditingAdapterAuthorizationId(null)
+    setAdapterAuthorizationDraft({ adapterCode: '', region: '', authStatus: 'pending', accountMask: '', loginIdentity: '', capabilityScope: '', expiresAt: '', riskMessage: '' })
+  }
+
+  const handleSaveAdapterAuthorization = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || !['taxAdapterSettings', 'bankAdapterSettings'].includes(kind)) return
+    try {
+      const adapterType = kind === 'taxAdapterSettings' ? 'tax' : 'bank'
+      const result = await automationApi.upsertAdapterAuthorization({
+        companyId: selectedCompanyId,
+        adapterType,
+        adapterCode: adapterAuthorizationDraft.adapterCode.trim(),
+        region: adapterAuthorizationDraft.region.trim() || undefined,
+        authStatus: adapterAuthorizationDraft.authStatus,
+        accountMask: adapterAuthorizationDraft.accountMask.trim() || undefined,
+        loginIdentity: adapterAuthorizationDraft.loginIdentity.trim() || undefined,
+        capabilityScope: adapterAuthorizationDraft.capabilityScope.trim() || undefined,
+        lastCheckedAt: new Date().toISOString(),
+        expiresAt: adapterAuthorizationDraft.expiresAt || undefined,
+        riskMessage: adapterAuthorizationDraft.riskMessage.trim() || undefined,
+      })
+      if (!result.success || !result.data) throw new Error(result.error || '未返回授权配置')
+      setAdapterAuthorizations((items) => {
+        const other = items.filter((item) => item.id !== result.data!.id && !(item.adapterType === result.data!.adapterType && item.adapterCode === result.data!.adapterCode))
+        return [...other, result.data!]
+      })
+      writeModuleAudit(editingAdapterAuthorizationId ? '编辑授权配置' : '新增授权配置', `${result.data.adapterType}｜${result.data.adapterCode}`, '高', '待审批')
+      setOperationNotice(`已保存 ${result.data.adapterCode} 的脱敏授权配置；真实登录、采集与提交仍需在合法渠道完成授权和人工确认。`)
+      resetAdapterAuthorizationDraft()
+      setShowAdapterAuthorizationDialog(false)
+    } catch (error) {
+      setOperationNotice(`保存授权配置失败：${String(error)}`)
+    }
+  }
+
   const handleSaveSocialSecurityRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
@@ -6070,6 +6110,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         creditAccountCode: template.entries.find((entry) => entry.direction === 'credit')?.account_code || '',
       })
       setShowVoucherTemplateDialog(true)
+      return
+    }
+    if (['taxAdapterSettings', 'bankAdapterSettings'].includes(kind) && isTauri && selectedCompanyId) {
+      const prefix = kind === 'taxAdapterSettings' ? 'tax-adapter-' : 'bank-adapter-'
+      const adapter = adapterAuthorizations.find((item) => `${prefix}${item.id}` === row.id)
+      if (!adapter) {
+        setOperationNotice('未找到当前账套的授权配置。')
+        return
+      }
+      setEditingAdapterAuthorizationId(adapter.id)
+      setAdapterAuthorizationDraft({ adapterCode: adapter.adapterCode, region: adapter.region || '', authStatus: adapter.authStatus, accountMask: adapter.accountMask || '', loginIdentity: adapter.loginIdentity || '', capabilityScope: adapter.capabilityScope || '', expiresAt: adapter.expiresAt || '', riskMessage: adapter.riskMessage || '' })
+      setShowAdapterAuthorizationDialog(true)
       return
     }
     if (kind === 'socialSecurity' && isTauri && selectedCompanyId) { const record=socialSecurityRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSocialSecurityId(record.id);setSocialSecurityDraft({employeeId:record.employeeId,city:record.city||'',base:String(record.contributionBase),company:String(record.companyAmount),personal:String(record.personalAmount),fund:String(record.fundAmount)});setShowSocialSecurityDialog(true);return }
@@ -6463,6 +6515,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'currencySettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
             {kind === 'commonDigests' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增摘要" onClick={() => { resetCommonDigestDraft(); setShowCommonDigestDialog(true) }} />}
             {kind === 'voucherTemplateSettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增凭证模板" onClick={() => { resetVoucherTemplateDraft(); setShowVoucherTemplateDialog(true) }} />}
+            {(kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'} onClick={() => { resetAdapterAuthorizationDraft(); setShowAdapterAuthorizationDialog(true) }} />}
             {kind === 'socialSecurity' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={() => { setEditingSocialSecurityId(null); setShowSocialSecurityDialog(true) }} />}
             {kind === 'specialDeduction' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={() => { setEditingSpecialDeductionId(null); setShowSpecialDeductionDialog(true) }} />}
             {(kind === 'billList' || kind === 'bankStatement') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={() => setShowBankTransactionDialog(true)} />}
@@ -6683,7 +6736,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -7006,6 +7059,24 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600">贷方科目 *<select required value={voucherTemplateDraft.creditAccountCode} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, creditAccountCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择贷方科目</option>{detailedAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}</select></label>
             </div>
             <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div>{editingVoucherTemplateId && <button type="button" onClick={() => void handleDeleteVoucherTemplate()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除模板</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowVoucherTemplateDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingVoucherTemplateId ? '保存修改' : '保存模板'}</button></div></div>
+          </form>
+        </div>
+      )}
+      {showAdapterAuthorizationDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingAdapterAuthorizationId ? '编辑授权配置' : '新增授权配置'}>
+          <form onSubmit={handleSaveAdapterAuthorization} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingAdapterAuthorizationId ? '编辑授权配置' : kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'}</h2><p className="mt-0.5 text-xs text-slate-500">仅记录渠道元数据和脱敏授权状态，不保存密码、令牌、Cookie 或证书。</p></div><button type="button" onClick={() => setShowAdapterAuthorizationDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">渠道名称 *<input required value={adapterAuthorizationDraft.adapterCode} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, adapterCode: event.target.value }))} placeholder={kind === 'taxAdapterSettings' ? '电子税务局适配器' : '银行账单导入适配器'} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">地区/机构<input value={adapterAuthorizationDraft.region} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, region: event.target.value }))} placeholder="上海" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">授权状态<select value={adapterAuthorizationDraft.authStatus} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, authStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="pending">待授权</option><option value="configured">已配置待复核</option><option value="authorized">已授权</option><option value="expired">已过期</option><option value="disabled">已停用</option></select></label>
+              <label className="grid gap-1 text-xs text-slate-600">授权账户（脱敏）<input value={adapterAuthorizationDraft.accountMask} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, accountMask: event.target.value }))} placeholder="9131****1234" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">授权身份<input value={adapterAuthorizationDraft.loginIdentity} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, loginIdentity: event.target.value }))} placeholder="办税员/企业管理员" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">到期日期<input type="date" value={adapterAuthorizationDraft.expiresAt} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, expiresAt: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">能力范围<input value={adapterAuthorizationDraft.capabilityScope} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, capabilityScope: event.target.value }))} placeholder={kind === 'taxAdapterSettings' ? '取数、生成申报包、人工导入回执' : '文件导入、流水对账、人工上传回单'} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">风险提示<input value={adapterAuthorizationDraft.riskMessage} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, riskMessage: event.target.value }))} placeholder="例如：未完成企业授权，禁止自动提交" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowAdapterAuthorizationDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存脱敏配置</button></div>
           </form>
         </div>
       )}
