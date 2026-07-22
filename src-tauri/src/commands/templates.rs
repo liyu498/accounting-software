@@ -101,6 +101,38 @@ pub struct VoucherTemplateWithEntries {
     pub entries: Vec<TemplateEntry>,
 }
 
+async fn validate_voucher_template_input(
+    input: &CreateVoucherTemplateInput,
+    db: &Database,
+) -> Result<(), String> {
+    if input.name.trim().is_empty() {
+        return Err("凭证模板名称不能为空".to_string());
+    }
+    let template_type: Option<(String,)> = sqlx::query_as(
+        "SELECT id FROM voucher_template_types WHERE id = ? AND company_id = ?",
+    )
+    .bind(&input.type_id)
+    .bind(&input.company_id)
+    .fetch_optional(db.pool())
+    .await
+    .map_err(|error| format!("查询模板类型失败: {error}"))?;
+    if template_type.is_none() {
+        return Err("模板类型不属于当前账套".to_string());
+    }
+    let entries = serde_json::from_str::<Vec<TemplateEntry>>(&input.entries_json)
+        .map_err(|_| "凭证模板分录格式无效".to_string())?;
+    if entries.is_empty()
+        || entries.iter().any(|entry| {
+            entry.account_code.trim().is_empty()
+                || entry.account_name.trim().is_empty()
+                || !matches!(entry.direction.as_str(), "debit" | "credit")
+        })
+    {
+        return Err("凭证模板分录格式无效".to_string());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn get_voucher_templates(
     type_id: String,
@@ -134,6 +166,7 @@ pub async fn create_voucher_template(
     input: CreateVoucherTemplateInput,
     db: State<'_, Database>,
 ) -> Result<VoucherTemplate, String> {
+    validate_voucher_template_input(&input, &db).await?;
     let id = uuid::Uuid::new_v4().to_string();
 
     sqlx::query(
@@ -165,7 +198,8 @@ pub async fn update_voucher_template(
     input: CreateVoucherTemplateInput,
     db: State<'_, Database>,
 ) -> Result<VoucherTemplate, String> {
-    sqlx::query(
+    validate_voucher_template_input(&input, &db).await?;
+    let affected = sqlx::query(
         "UPDATE voucher_templates SET type_id = ?, name = ?, entries_json = ? WHERE id = ? AND company_id = ?",
     )
     .bind(&input.type_id)
@@ -176,11 +210,15 @@ pub async fn update_voucher_template(
     .execute(db.pool())
     .await
     .map_err(|e| format!("更新模板失败: {}", e))?;
+    if affected.rows_affected() == 0 {
+        return Err("未找到当前账套凭证模板".to_string());
+    }
 
     let result: VoucherTemplate = sqlx::query_as(
-        "SELECT * FROM voucher_templates WHERE id = ?",
+        "SELECT * FROM voucher_templates WHERE id = ? AND company_id = ?",
     )
     .bind(&id)
+    .bind(&input.company_id)
     .fetch_one(db.pool())
     .await
     .map_err(|e| format!("查询更新后的模板失败: {}", e))?;

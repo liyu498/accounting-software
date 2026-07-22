@@ -123,7 +123,7 @@ import {
 import { useVoucherStore, type Voucher } from '../../stores/voucherStore'
 import { useSettlementRuleStore } from '../../stores/settlementRuleStore'
 import { useCurrencyStore } from '../../stores/currencyStore'
-import { useTemplateStore } from '../../stores/templateStore'
+import { useTemplateStore, type TemplateEntry } from '../../stores/templateStore'
 import { useReportTemplateStore } from '../../stores/reportTemplateStore'
 
 type ModuleKind =
@@ -4027,6 +4027,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const createCommonDigest = useTemplateStore((state) => state.createCommonDigest)
   const updateCommonDigest = useTemplateStore((state) => state.updateCommonDigest)
   const deleteCommonDigest = useTemplateStore((state) => state.deleteCommonDigest)
+  const createVoucherTemplate = useTemplateStore((state) => state.createVoucherTemplate)
+  const updateVoucherTemplate = useTemplateStore((state) => state.updateVoucherTemplate)
+  const deleteVoucherTemplate = useTemplateStore((state) => state.deleteVoucherTemplate)
   const reportTemplates = useReportTemplateStore((state) => state.reportTemplates)
   const reportItems = useReportTemplateStore((state) => state.reportItems)
   const fetchReportTemplateWorkspace = useReportTemplateStore((state) => state.fetchReportTemplateWorkspace)
@@ -4149,6 +4152,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showCommonDigestDialog, setShowCommonDigestDialog] = useState(false)
   const [editingCommonDigestId, setEditingCommonDigestId] = useState<string | null>(null)
   const [commonDigestDraft, setCommonDigestDraft] = useState('')
+  const [showVoucherTemplateDialog, setShowVoucherTemplateDialog] = useState(false)
+  const [editingVoucherTemplateId, setEditingVoucherTemplateId] = useState<string | null>(null)
+  const [voucherTemplateDraft, setVoucherTemplateDraft] = useState({ typeId: '', name: '', summary: '', debitAccountCode: '', creditAccountCode: '' })
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
   const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
@@ -5715,6 +5721,51 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const resetVoucherTemplateDraft = () => {
+    setEditingVoucherTemplateId(null)
+    setVoucherTemplateDraft({ typeId: voucherTemplateTypes[0]?.id || '', name: '', summary: '', debitAccountCode: '', creditAccountCode: '' })
+  }
+
+  const handleSaveVoucherTemplate = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    try {
+      const debitAccount = detailedAccounts.find((account) => account.code === voucherTemplateDraft.debitAccountCode)
+      const creditAccount = detailedAccounts.find((account) => account.code === voucherTemplateDraft.creditAccountCode)
+      if (!debitAccount || !creditAccount) throw new Error('请选择完整的借方和贷方科目')
+      const summary = voucherTemplateDraft.summary.trim() || voucherTemplateDraft.name.trim()
+      const entries: TemplateEntry[] = [
+        { account_code: debitAccount.code, account_name: debitAccount.name, direction: 'debit', summary, auxiliary_type: null, auxiliary_id: null },
+        { account_code: creditAccount.code, account_name: creditAccount.name, direction: 'credit', summary, auxiliary_type: null, auxiliary_id: null },
+      ]
+      const input = { companyId: selectedCompanyId, typeId: voucherTemplateDraft.typeId, name: voucherTemplateDraft.name.trim(), entries }
+      const template = editingVoucherTemplateId
+        ? await updateVoucherTemplate({ id: editingVoucherTemplateId, ...input })
+        : await createVoucherTemplate({ ...input })
+      writeModuleAudit(editingVoucherTemplateId ? '编辑凭证模板' : '新增凭证模板', template.template.name, '中', '成功')
+      setOperationNotice(editingVoucherTemplateId ? `已更新凭证模板“${template.template.name}”；自动套用前仍需人工核验。` : `已新增凭证模板“${template.template.name}”；自动套用前仍需人工核验。`)
+      resetVoucherTemplateDraft()
+      setShowVoucherTemplateDialog(false)
+    } catch (error) {
+      setOperationNotice(`${editingVoucherTemplateId ? '编辑' : '新增'}凭证模板失败：${String(error)}`)
+    }
+  }
+
+  const handleDeleteVoucherTemplate = async () => {
+    if (!selectedCompanyId || !editingVoucherTemplateId) return
+    const template = voucherTemplates.find((item) => item.template.id === editingVoucherTemplateId)
+    if (!window.confirm(`确认删除凭证模板“${template?.template.name || ''}”吗？`)) return
+    try {
+      await deleteVoucherTemplate(editingVoucherTemplateId, selectedCompanyId)
+      writeModuleAudit('删除凭证模板', template?.template.name || editingVoucherTemplateId, '高', '成功')
+      setOperationNotice('凭证模板已删除；不影响历史凭证。')
+      resetVoucherTemplateDraft()
+      setShowVoucherTemplateDialog(false)
+    } catch (error) {
+      setOperationNotice(`删除凭证模板失败：${String(error)}`)
+    }
+  }
+
   const handleSaveSocialSecurityRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
@@ -6002,6 +6053,23 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingCommonDigestId(digest.id)
       setCommonDigestDraft(digest.content)
       setShowCommonDigestDialog(true)
+      return
+    }
+    if (kind === 'voucherTemplateSettings' && isTauri && selectedCompanyId) {
+      const template = voucherTemplates.find((item) => `voucher-template-${item.template.id}` === row.id)
+      if (!template) {
+        setOperationNotice('未找到当前账套的凭证模板。')
+        return
+      }
+      setEditingVoucherTemplateId(template.template.id)
+      setVoucherTemplateDraft({
+        typeId: template.template.type_id,
+        name: template.template.name,
+        summary: template.entries[0]?.summary || '',
+        debitAccountCode: template.entries.find((entry) => entry.direction === 'debit')?.account_code || '',
+        creditAccountCode: template.entries.find((entry) => entry.direction === 'credit')?.account_code || '',
+      })
+      setShowVoucherTemplateDialog(true)
       return
     }
     if (kind === 'socialSecurity' && isTauri && selectedCompanyId) { const record=socialSecurityRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSocialSecurityId(record.id);setSocialSecurityDraft({employeeId:record.employeeId,city:record.city||'',base:String(record.contributionBase),company:String(record.companyAmount),personal:String(record.personalAmount),fund:String(record.fundAmount)});setShowSocialSecurityDialog(true);return }
@@ -6394,6 +6462,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'settlementRules' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
             {kind === 'currencySettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
             {kind === 'commonDigests' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增摘要" onClick={() => { resetCommonDigestDraft(); setShowCommonDigestDialog(true) }} />}
+            {kind === 'voucherTemplateSettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增凭证模板" onClick={() => { resetVoucherTemplateDraft(); setShowVoucherTemplateDialog(true) }} />}
             {kind === 'socialSecurity' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={() => { setEditingSocialSecurityId(null); setShowSocialSecurityDialog(true) }} />}
             {kind === 'specialDeduction' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={() => { setEditingSpecialDeductionId(null); setShowSpecialDeductionDialog(true) }} />}
             {(kind === 'billList' || kind === 'bankStatement') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={() => setShowBankTransactionDialog(true)} />}
@@ -6614,7 +6683,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -6922,6 +6991,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingCommonDigestId ? '编辑常用摘要' : '新增常用摘要'}</h2><p className="mt-0.5 text-xs text-slate-500">摘要可用于凭证录入和 AI 推荐，自动套用前仍需人工确认。</p></div><button type="button" onClick={() => setShowCommonDigestDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
             <div className="p-4"><label className="grid gap-1 text-xs text-slate-600">摘要内容 *<input required autoFocus value={commonDigestDraft} onChange={(event) => setCommonDigestDraft(event.target.value)} placeholder="如：收到客户货款" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label></div>
             <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div>{editingCommonDigestId && <button type="button" onClick={() => void handleDeleteCommonDigest()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除摘要</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowCommonDigestDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingCommonDigestId ? '保存修改' : '保存摘要'}</button></div></div>
+          </form>
+        </div>
+      )}
+      {showVoucherTemplateDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingVoucherTemplateId ? '编辑凭证模板' : '新增凭证模板'}>
+          <form onSubmit={handleSaveVoucherTemplate} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingVoucherTemplateId ? '编辑凭证模板' : '新增凭证模板'}</h2><p className="mt-0.5 text-xs text-slate-500">模板会生成借贷平衡的凭证草稿，正式保存和审核仍由凭证流程控制。</p></div><button type="button" onClick={() => setShowVoucherTemplateDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">模板名称 *<input required value={voucherTemplateDraft.name} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="如：销售商品收入" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">模板分类 *<select required value={voucherTemplateDraft.typeId} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, typeId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择模板分类</option>{voucherTemplateTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">摘要规则<input value={voucherTemplateDraft.summary} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, summary: event.target.value }))} placeholder="如：销售{商品}" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">借方科目 *<select required value={voucherTemplateDraft.debitAccountCode} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, debitAccountCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择借方科目</option>{detailedAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600">贷方科目 *<select required value={voucherTemplateDraft.creditAccountCode} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, creditAccountCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择贷方科目</option>{detailedAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}</select></label>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div>{editingVoucherTemplateId && <button type="button" onClick={() => void handleDeleteVoucherTemplate()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除模板</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowVoucherTemplateDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingVoucherTemplateId ? '保存修改' : '保存模板'}</button></div></div>
           </form>
         </div>
       )}

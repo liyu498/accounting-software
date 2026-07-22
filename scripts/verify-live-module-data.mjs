@@ -51,6 +51,7 @@ const unitCommandSource = existsSync('src-tauri/src/commands/units.rs')
   : ''
 const settlementRuleStoreSource = readFileSync('src/stores/settlementRuleStore.ts', 'utf8')
 const templateCommandSource = readFileSync('src-tauri/src/commands/templates.rs', 'utf8')
+const templateStoreSource = readFileSync('src/stores/templateStore.ts', 'utf8')
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -594,6 +595,23 @@ const requiredCommonDigestEntryPageSnippets = [
   ['common digest update binding', 'updateCommonDigest({'],
 ]
 
+const requiredVoucherTemplateCommandSnippets = [
+  ['voucher template type company scope', 'SELECT id FROM voucher_template_types WHERE id = ? AND company_id = ?'],
+  ['voucher template entries validation', '凭证模板分录格式无效'],
+]
+
+const requiredVoucherTemplateEntryStoreSnippets = [
+  ['voucher template create action', 'createVoucherTemplate: async'],
+  ['voucher template update action', 'updateVoucherTemplate: async'],
+  ['voucher template delete action', 'deleteVoucherTemplate: async'],
+]
+
+const requiredVoucherTemplateEntryPageSnippets = [
+  ['voucher template edit state', 'const [editingVoucherTemplateId, setEditingVoucherTemplateId] = useState<string | null>(null)'],
+  ['voucher template create binding', 'createVoucherTemplate({'],
+  ['voucher template update binding', 'updateVoucherTemplate({'],
+]
+
 const requiredSocialSecurityCommandSnippets = [
   ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
   ['social security list command', 'pub async fn get_social_security_records'],
@@ -826,6 +844,9 @@ const errors = [
   ...verify(pageSource, requiredCurrencyEntryPageSnippets, 'currency module page'),
   ...verify(templateCommandSource, requiredCommonDigestCommandSnippets, 'common digest commands'),
   ...verify(pageSource, requiredCommonDigestEntryPageSnippets, 'common digest module page'),
+  ...verify(templateCommandSource, requiredVoucherTemplateCommandSnippets, 'voucher template commands'),
+  ...verify(templateStoreSource, requiredVoucherTemplateEntryStoreSnippets, 'voucher template store'),
+  ...verify(pageSource, requiredVoucherTemplateEntryPageSnippets, 'voucher template module page'),
   ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
   ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),

@@ -34,6 +34,13 @@ export interface VoucherTemplateWithEntries {
   entries: TemplateEntry[]
 }
 
+export interface VoucherTemplateInput {
+  companyId: string
+  typeId: string
+  name: string
+  entries: TemplateEntry[]
+}
+
 interface TemplateState {
   commonDigests: CommonDigest[]
   voucherTemplateTypes: VoucherTemplateType[]
@@ -44,6 +51,9 @@ interface TemplateState {
   createCommonDigest(input: { companyId: string; content: string }): Promise<CommonDigest>
   updateCommonDigest(input: { id: string; companyId: string; content: string }): Promise<CommonDigest>
   deleteCommonDigest(id: string, companyId: string): Promise<void>
+  createVoucherTemplate(input: VoucherTemplateInput): Promise<VoucherTemplateWithEntries>
+  updateVoucherTemplate(input: VoucherTemplateInput & { id: string }): Promise<VoucherTemplateWithEntries>
+  deleteVoucherTemplate(id: string, companyId: string): Promise<void>
 }
 
 export const useTemplateStore = create<TemplateState>((set) => ({
@@ -92,5 +102,29 @@ export const useTemplateStore = create<TemplateState>((set) => ({
   deleteCommonDigest: async (id, companyId) => {
     await invoke('delete_common_digest', { id, companyId })
     set((state) => ({ commonDigests: state.commonDigests.filter((item) => item.id !== id) }))
+  },
+
+  createVoucherTemplate: async (input) => {
+    const template = await invoke<VoucherTemplateWithEntries['template']>('create_voucher_template', {
+      input: { type_id: input.typeId, company_id: input.companyId, name: input.name, entries_json: JSON.stringify(input.entries) },
+    })
+    const result = { template, entries: input.entries }
+    set((state) => ({ voucherTemplates: [...state.voucherTemplates, result] }))
+    return result
+  },
+
+  updateVoucherTemplate: async (input) => {
+    const template = await invoke<VoucherTemplateWithEntries['template']>('update_voucher_template', {
+      id: input.id,
+      input: { type_id: input.typeId, company_id: input.companyId, name: input.name, entries_json: JSON.stringify(input.entries) },
+    })
+    const result = { template, entries: input.entries }
+    set((state) => ({ voucherTemplates: state.voucherTemplates.map((item) => item.template.id === template.id ? result : item) }))
+    return result
+  },
+
+  deleteVoucherTemplate: async (id, companyId) => {
+    await invoke('delete_voucher_template', { id, companyId })
+    set((state) => ({ voucherTemplates: state.voucherTemplates.filter((item) => item.template.id !== id) }))
   },
 }))
