@@ -466,6 +466,12 @@ const requiredVoucherEntryPageSnippets = [
   ['voucher reverse approve binding', 'const reverseApproveVoucher = useVoucherStore((state) => state.reverseApproveVoucher)'],
   ['voucher approval action', 'await approveVoucher(loadedVoucher.id, \'admin\', selectedCompanyId)'],
   ['voucher reverse approval action', 'await reverseApproveVoucher(loadedVoucher.id, selectedCompanyId)'],
+  ['voucher delete binding', 'const deleteVoucher = useVoucherStore((state) => state.deleteVoucher)'],
+  ['voucher restore binding', 'const restoreVoucher = useVoucherStore((state) => state.restoreVoucher)'],
+  ['voucher permanent delete binding', 'const permanentDeleteVoucher = useVoucherStore((state) => state.permanentDeleteVoucher)'],
+  ['voucher soft delete action', 'await deleteVoucher(loadedVoucher.id, selectedCompanyId)'],
+  ['voucher restore action', 'await restoreVoucher(row.id, selectedCompanyId)'],
+  ['voucher permanent delete action', 'await permanentDeleteVoucher(row.id, selectedCompanyId)'],
 ]
 
 const requiredInvoiceEditPageSnippets = [

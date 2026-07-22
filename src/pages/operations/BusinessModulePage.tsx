@@ -4004,6 +4004,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const updateVoucher = useVoucherStore((state) => state.updateVoucher)
   const approveVoucher = useVoucherStore((state) => state.approveVoucher)
   const reverseApproveVoucher = useVoucherStore((state) => state.reverseApproveVoucher)
+  const deleteVoucher = useVoucherStore((state) => state.deleteVoucher)
+  const restoreVoucher = useVoucherStore((state) => state.restoreVoucher)
+  const permanentDeleteVoucher = useVoucherStore((state) => state.permanentDeleteVoucher)
   const getDeletedVouchers = useVoucherStore((state) => state.getDeletedVouchers)
   const settlementRules = useSettlementRuleStore((state) => state.rules)
   const fetchSettlementRules = useSettlementRuleStore((state) => state.fetchSettlementRules)
@@ -5685,6 +5688,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       navigate(`/vouchers/detail/${row.id}`)
       return
     }
+    if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {
+      if (!window.confirm(`确认恢复凭证 ${row.voucher} 吗？`)) return
+      try {
+        await restoreVoucher(row.id, selectedCompanyId)
+        setDeletedVouchers((items) => items.filter((item) => item.id !== row.id))
+        writeModuleAudit('恢复凭证', row.voucher, '高', '成功')
+        setOperationNotice(`凭证 ${row.voucher} 已恢复。`)
+      } catch (error) {
+        setOperationNotice(`恢复凭证失败：${String(error)}`)
+      }
+      return
+    }
     if (kind === 'invoiceVoucherMatching' && isTauri && selectedCompanyId) {
       setSelectedMatchInvoiceId(row.id.replace('invoice-voucher-match-', ''))
       setSelectedMatchVoucherId('')
@@ -5740,9 +5755,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice(`已打开 ${object} 的明细留痕；后续将接入附件、来源单据和操作快照。`)
   }
 
-  const handleGenerateVoucher = (row: ModuleRow) => {
+  const handleGenerateVoucher = async (row: ModuleRow) => {
     if (kind === 'voucher') {
       navigate(`/vouchers/edit/${row.id}`)
+      return
+    }
+    if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {
+      if (!window.confirm(`确认彻底删除凭证 ${row.voucher} 吗？此操作不可恢复。`)) return
+      try {
+        await permanentDeleteVoucher(row.id, selectedCompanyId)
+        setDeletedVouchers((items) => items.filter((item) => item.id !== row.id))
+        writeModuleAudit('彻底删除凭证', row.voucher, '高', '成功')
+        setOperationNotice(`凭证 ${row.voucher} 已彻底删除。`)
+      } catch (error) {
+        setOperationNotice(`彻底删除凭证失败：${String(error)}`)
+      }
       return
     }
     if (kind === 'outputInvoice' || kind === 'inputInvoice') {
@@ -5956,6 +5983,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const handleDeleteVoucher = async () => {
+    if (!selectedCompanyId || !loadedVoucher) return
+    if (!window.confirm(`确认将凭证 ${loadedVoucher.voucher_number} 移入回收站吗？`)) return
+    try {
+      await deleteVoucher(loadedVoucher.id, selectedCompanyId)
+      writeModuleAudit('删除凭证', loadedVoucher.voucher_number, '高', '成功')
+      navigate('/vouchers')
+    } catch (error) {
+      setOperationNotice(`删除凭证失败：${String(error)}`)
+    }
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -5972,6 +6011,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               {(isVoucherEdit || isVoucherReadOnly) && loadedVoucher && <span className="text-xs text-slate-500">凭证号：{loadedVoucher.voucher_number}，状态：{loadedVoucher.status}</span>}
               <span className={cn('text-xs font-medium', voucherBalanced ? 'text-emerald-700' : 'text-red-600')}>借贷{voucherBalanced ? '平衡' : '不平衡'}</span>
               {isVoucherReadOnly && loadedVoucher && <button type="button" onClick={handleVoucherApproval} className="h-8 border border-[#1f65a7] px-3 text-xs font-medium text-[#1f65a7] hover:bg-blue-50">{loadedVoucher.status === 'approved' ? '反审核' : '审核'}</button>}
+              {isVoucherReadOnly && loadedVoucher?.status === 'draft' && <button type="button" onClick={handleDeleteVoucher} className="h-8 border border-red-300 px-3 text-xs font-medium text-red-600 hover:bg-red-50">删除</button>}
               {!isVoucherReadOnly && <button type="submit" disabled={isVoucherEdit && !loadedVoucher} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82] disabled:bg-slate-300">{isVoucherEdit ? '保存修改' : '保存凭证草稿'}</button>}
             </div>
           </div>
@@ -6204,10 +6244,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' ? '编辑' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
-                        {kind === 'voucher' ? '编辑' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
+                        {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
                       </button>
                     </td>
                   </tr>
