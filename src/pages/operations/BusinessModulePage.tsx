@@ -5489,7 +5489,26 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleCreateInventoryItem = async (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!selectedCompanyId) return; try { const result = await inventoryItemApi.createInventoryItem({ companyId: selectedCompanyId, itemCode: inventoryItemDraft.itemCode, itemName: inventoryItemDraft.itemName, specification: inventoryItemDraft.specification || undefined, unit: inventoryItemDraft.unit, taxRate: Number(inventoryItemDraft.taxRate || 0) / 100, defaultSubject: inventoryItemDraft.defaultSubject || undefined }); if (!result.success || !result.data) throw new Error(result.error || '未返回存货档案'); setInventoryItems((items) => [result.data!, ...items]); writeModuleAudit('新增存货', result.data.itemName, '中', '成功'); setOperationNotice('存货档案已保存，可作为出入库、发票匹配和成本结转的基础资料。'); setShowInventoryItemDialog(false) } catch (error) { setOperationNotice(`新增存货失败：${String(error)}`) } }
-  const handleCreateMeasurementUnit = async (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!selectedCompanyId) return; const result = await measurementUnitApi.createMeasurementUnit({ companyId: selectedCompanyId, unitName: measurementUnitDraft.unitName, unitGroup: measurementUnitDraft.unitGroup || undefined, baseUnit: measurementUnitDraft.baseUnit || undefined, conversionRate: Number(measurementUnitDraft.conversionRate || 1), precisionDigits: Number(measurementUnitDraft.precisionDigits || 0), remark: measurementUnitDraft.remark || undefined }); if (result.success && result.data) { setMeasurementUnits((items) => [result.data!, ...items]); setShowMeasurementUnitDialog(false); setOperationNotice('计量单位已保存。') } else setOperationNotice(`新增计量单位失败：${result.error || '未知错误'}`) }
+  const handleCreateMeasurementUnit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    const result = await measurementUnitApi.createMeasurementUnit({
+      companyId: selectedCompanyId,
+      unitName: measurementUnitDraft.unitName,
+      unitGroup: measurementUnitDraft.unitGroup || undefined,
+      baseUnit: measurementUnitDraft.baseUnit || undefined,
+      conversionRate: Number(measurementUnitDraft.conversionRate || 1),
+      precisionDigits: Number(measurementUnitDraft.precisionDigits || 0),
+      remark: measurementUnitDraft.remark || undefined,
+    })
+    if (result.success && result.data) {
+      setMeasurementUnits((items) => [result.data!, ...items])
+      setShowMeasurementUnitDialog(false)
+      setOperationNotice('计量单位已保存，可在存货档案和出入库单中选择。')
+      return
+    }
+    setOperationNotice(`新增计量单位失败：${result.error || '未知错误'}`)
+  }
 
   const rowObjectLabel = (row: ModuleRow) => {
     const firstValue = Object.values(row.values).find(Boolean)
@@ -6072,7 +6091,49 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </div>
       )}
       {showInventoryItemDialog && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增存货"><form onSubmit={handleCreateInventoryItem} className="w-full max-w-xl border border-slate-300 bg-white p-4 shadow-xl"><div className="mb-3 flex justify-between"><h2 className="text-sm font-semibold text-slate-900">新增存货</h2><button type="button" onClick={() => setShowInventoryItemDialog(false)} className="text-xs text-slate-500">取消</button></div><div className="grid gap-3 sm:grid-cols-2">{([{ field: 'itemCode', label: '存货编码 *' }, { field: 'itemName', label: '存货名称 *' }, { field: 'specification', label: '规格型号' }, { field: 'unit', label: '计量单位 *' }, { field: 'taxRate', label: '税率（%）' }, { field: 'defaultSubject', label: '默认科目' }] as Array<{ field: keyof typeof inventoryItemDraft; label: string }>).map(({ field, label }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['itemCode', 'itemName', 'unit'].includes(field)} value={inventoryItemDraft[field]} onChange={(event) => setInventoryItemDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}</div><div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => setShowInventoryItemDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs text-white">保存存货</button></div></form></div>}
-      {showMeasurementUnitDialog && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4"><form onSubmit={handleCreateMeasurementUnit} className="w-full max-w-lg border border-slate-300 bg-white p-4 shadow-xl"><h2 className="mb-3 text-sm font-semibold">新增计量单位</h2>{(['unitName','unitGroup','baseUnit','conversionRate','precisionDigits','remark'] as Array<keyof typeof measurementUnitDraft>).map((field)=><input key={field} required={field==='unitName'} placeholder={field} value={measurementUnitDraft[field]} onChange={(e)=>setMeasurementUnitDraft((d)=>({...d,[field]:e.target.value}))} className="mb-2 h-8 w-full border px-2" />)}<button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs text-white">保存</button></form></div>}
+      {showMeasurementUnitDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+          <form onSubmit={handleCreateMeasurementUnit} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">新增计量单位</h2>
+                <p className="mt-0.5 text-xs text-slate-500">用于存货、出入库与发票商品的统一计量口径。</p>
+              </div>
+              <button type="button" onClick={() => setShowMeasurementUnitDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>单位名称</span>
+                <input required value={measurementUnitDraft.unitName} onChange={(event) => setMeasurementUnitDraft((draft) => ({ ...draft, unitName: event.target.value }))} placeholder="例如：件" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>单位组</span>
+                <input value={measurementUnitDraft.unitGroup} onChange={(event) => setMeasurementUnitDraft((draft) => ({ ...draft, unitGroup: event.target.value }))} placeholder="例如：数量单位" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>基准单位</span>
+                <input value={measurementUnitDraft.baseUnit} onChange={(event) => setMeasurementUnitDraft((draft) => ({ ...draft, baseUnit: event.target.value }))} placeholder="例如：件" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>换算比例</span>
+                <input min="0" step="0.0001" type="number" value={measurementUnitDraft.conversionRate} onChange={(event) => setMeasurementUnitDraft((draft) => ({ ...draft, conversionRate: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>小数位数</span>
+                <input min="0" max="8" step="1" type="number" value={measurementUnitDraft.precisionDigits} onChange={(event) => setMeasurementUnitDraft((draft) => ({ ...draft, precisionDigits: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                <span>备注</span>
+                <input value={measurementUnitDraft.remark} onChange={(event) => setMeasurementUnitDraft((draft) => ({ ...draft, remark: event.target.value }))} placeholder="可选" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowMeasurementUnitDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存计量单位</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

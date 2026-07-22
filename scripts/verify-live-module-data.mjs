@@ -426,6 +426,11 @@ const requiredAgencyServiceContractEntryPageSnippets = [
   ['agency service contract create binding', 'agencyApi.createServiceContract({'],
 ]
 
+const requiredMeasurementUnitEntryPageSnippets = [
+  ['measurement unit structured dialog', '<span>单位名称</span>'],
+  ['measurement unit create binding', 'measurementUnitApi.createMeasurementUnit({'],
+]
+
 const requiredAppSnippets = [
   ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
 ]
@@ -674,6 +679,7 @@ const errors = [
   ...verify(agencyModuleSource, requiredAgencyCollaborationEntryPageSnippets, 'agency collaboration entry page'),
   ...verify(agencyModuleSource, requiredAgencyAuthorizationEntryPageSnippets, 'agency authorization entry page'),
   ...verify(agencyModuleSource, requiredAgencyServiceContractEntryPageSnippets, 'agency service contract entry page'),
+  ...verify(pageSource, requiredMeasurementUnitEntryPageSnippets, 'measurement unit entry page'),
   ...verify(appSource, requiredAppSnippets, 'application routes'),
   ...verify(shellSource, requiredShellSnippets, 'application shell'),
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),
