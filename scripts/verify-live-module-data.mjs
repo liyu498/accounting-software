@@ -676,11 +676,15 @@ const requiredFixedAssetCommandSnippets = [
   ['fixed asset table schema', 'CREATE TABLE IF NOT EXISTS fixed_assets'],
   ['fixed asset list command', 'pub async fn get_fixed_assets'],
   ['fixed asset create command', 'pub async fn create_fixed_asset'],
+  ['fixed asset update command', 'pub async fn update_fixed_asset'],
 ]
 
 const requiredFixedAssetPageSnippets = [
   ['fixed asset api list binding', 'fixedAssetApi.getFixedAssets({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
   ['fixed asset api create binding', 'fixedAssetApi.createFixedAsset({'],
+  ['fixed asset api update binding', 'fixedAssetApi.updateFixedAsset({'],
+  ['fixed asset edit state', 'const [editingFixedAssetId, setEditingFixedAssetId] = useState<string | null>(null)'],
+  ['fixed asset edit row binding', "if (kind === 'depreciation' && isTauri && selectedCompanyId)"],
   ['fixed asset row mapper', 'mapLiveFixedAssetRows(fixedAssets)'],
 ]
 

@@ -95,6 +95,7 @@ pub fn run() {
             commands::account_transfers::update_account_transfer,
             commands::fixed_assets::get_fixed_assets,
             commands::fixed_assets::create_fixed_asset,
+            commands::fixed_assets::update_fixed_asset,
             commands::inventory_movements::get_inventory_movements,
             commands::inventory_movements::create_inventory_movement,
             commands::inventory_items::get_inventory_items,

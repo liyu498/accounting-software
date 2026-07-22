@@ -4099,6 +4099,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [accountTransfers, setAccountTransfers] = useState<AccountTransfer[]>([])
   const [fixedAssets, setFixedAssets] = useState<FixedAsset[]>([])
   const [showFixedAssetDialog, setShowFixedAssetDialog] = useState(false)
+  const [editingFixedAssetId, setEditingFixedAssetId] = useState<string | null>(null)
   const [fixedAssetDraft, setFixedAssetDraft] = useState({ assetCode: '', assetName: '', category: '', startDate: '', originalValue: '', usefulLifeMonths: '', residualRate: '5', sourceDocument: '' })
   const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([])
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
@@ -5306,6 +5307,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'depreciation' && isTauri && selectedCompanyId) {
+      setEditingFixedAssetId(null)
+      setFixedAssetDraft({ assetCode: '', assetName: '', category: '', startDate: '', originalValue: '', usefulLifeMonths: '', residualRate: '5', sourceDocument: '' })
       setShowFixedAssetDialog(true)
       return
     }
@@ -5644,23 +5647,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     } catch (error) { setOperationNotice(`${editingAccountTransferId ? '编辑' : '新增'}账户转账失败：${String(error)}`) }
   }
 
-  const handleCreateFixedAsset = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveFixedAsset = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
-      const result = await fixedAssetApi.createFixedAsset({
-        companyId: selectedCompanyId, period: currentPeriodLabel, assetCode: fixedAssetDraft.assetCode, assetName: fixedAssetDraft.assetName,
-        category: fixedAssetDraft.category, startDate: fixedAssetDraft.startDate, originalValue: Number(fixedAssetDraft.originalValue || 0),
-        usefulLifeMonths: Number(fixedAssetDraft.usefulLifeMonths || 0), residualRate: Number(fixedAssetDraft.residualRate || 0) / 100,
-        sourceDocument: fixedAssetDraft.sourceDocument || undefined,
-      })
+      const assetInput = { companyId: selectedCompanyId, assetCode: fixedAssetDraft.assetCode, assetName: fixedAssetDraft.assetName, category: fixedAssetDraft.category, startDate: fixedAssetDraft.startDate, originalValue: Number(fixedAssetDraft.originalValue || 0), usefulLifeMonths: Number(fixedAssetDraft.usefulLifeMonths || 0), residualRate: Number(fixedAssetDraft.residualRate || 0) / 100, sourceDocument: fixedAssetDraft.sourceDocument || undefined }
+      const result = editingFixedAssetId
+        ? await fixedAssetApi.updateFixedAsset({ id: editingFixedAssetId, ...assetInput })
+        : await fixedAssetApi.createFixedAsset({ ...assetInput, period: currentPeriodLabel })
       if (!result.success || !result.data) throw new Error(result.error || '未返回固定资产')
-      setFixedAssets((records) => [result.data!, ...records])
-      writeModuleAudit('新增固定资产', result.data.assetName, '中', '成功')
-      setOperationNotice('固定资产已保存。本月折旧按平均年限法预览，需在期末结转人工确认后再生成凭证。')
+      setFixedAssets((records) => editingFixedAssetId ? records.map((item) => item.id === result.data!.id ? result.data! : item) : [result.data!, ...records])
+      writeModuleAudit(editingFixedAssetId ? '编辑固定资产' : '新增固定资产', result.data.assetName, '中', '成功')
+      setOperationNotice(editingFixedAssetId ? '固定资产已更新，请重新核验本月折旧测算后再生成凭证。' : '固定资产已保存。本月折旧按平均年限法预览，需在期末结转人工确认后再生成凭证。')
+      setEditingFixedAssetId(null)
       setFixedAssetDraft({ assetCode: '', assetName: '', category: '', startDate: '', originalValue: '', usefulLifeMonths: '', residualRate: '5', sourceDocument: '' })
       setShowFixedAssetDialog(false)
-    } catch (error) { setOperationNotice(`新增固定资产失败：${String(error)}`) }
+    } catch (error) { setOperationNotice(`${editingFixedAssetId ? '编辑' : '新增'}固定资产失败：${String(error)}`) }
   }
 
   const handleCreateInventoryMovement = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -5797,6 +5799,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingAccountTransferId(transfer.id)
       setAccountTransferDraft({ transferDate: transfer.transferDate, fromAccount: transfer.fromAccount, toAccount: transfer.toAccount, amount: String(transfer.amount), fee: String(transfer.fee), serialNo: transfer.serialNo || '' })
       setShowAccountTransferDialog(true)
+      return
+    }
+    if (kind === 'depreciation' && isTauri && selectedCompanyId) {
+      const asset = fixedAssets.find((item) => item.id === row.id)
+      if (!asset) {
+        setOperationNotice('未找到当前账期的固定资产。')
+        return
+      }
+      if (asset.status === '已生成凭证') {
+        setOperationNotice('该资产已生成折旧凭证，不可直接修改。请先按凭证处理流程完成复核。')
+        return
+      }
+      setEditingFixedAssetId(asset.id)
+      setFixedAssetDraft({ assetCode: asset.assetCode, assetName: asset.assetName, category: asset.category, startDate: asset.startDate, originalValue: String(asset.originalValue), usefulLifeMonths: String(asset.usefulLifeMonths), residualRate: String(asset.residualRate * 100), sourceDocument: asset.sourceDocument || '' })
+      setShowFixedAssetDialog(true)
       return
     }
     if (kind === 'backupRestore' && isTauri) {
@@ -6327,7 +6344,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'transfer' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'transfer' || kind === 'depreciation' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -6672,11 +6689,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </div>
       )}
       {showFixedAssetDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增固定资产">
-          <form onSubmit={handleCreateFixedAsset} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
-            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">新增固定资产</h2><button type="button" onClick={() => setShowFixedAssetDialog(false)} className="text-xs text-slate-500">取消</button></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingFixedAssetId ? '编辑固定资产' : '新增固定资产'}>
+          <form onSubmit={handleSaveFixedAsset} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">{editingFixedAssetId ? '编辑固定资产' : '新增固定资产'}</h2><button type="button" onClick={() => setShowFixedAssetDialog(false)} className="text-xs text-slate-500">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">{([{ field: 'assetCode', label: '资产编号 *', type: 'text' }, { field: 'assetName', label: '资产名称 *', type: 'text' }, { field: 'category', label: '资产类别 *', type: 'text' }, { field: 'startDate', label: '开始使用日期 *', type: 'date' }, { field: 'originalValue', label: '资产原值 *', type: 'number' }, { field: 'usefulLifeMonths', label: '折旧期限（月）*', type: 'number' }, { field: 'residualRate', label: '残值率（%）', type: 'number' }, { field: 'sourceDocument', label: '来源凭据', type: 'text' }] as Array<{ field: keyof typeof fixedAssetDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['assetCode', 'assetName', 'category', 'startDate', 'originalValue', 'usefulLifeMonths'].includes(field)} type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={fixedAssetDraft[field]} onChange={(event) => setFixedAssetDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}</div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowFixedAssetDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存资产</button></div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowFixedAssetDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingFixedAssetId ? '保存修改' : '保存资产'}</button></div>
           </form>
         </div>
       )}

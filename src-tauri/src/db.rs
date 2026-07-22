@@ -3024,6 +3024,8 @@ pub struct FixedAsset { pub id: String, pub company_id: String, pub period: Stri
 
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CreateFixedAssetInput { pub company_id: String, pub period: String, pub asset_code: String, pub asset_name: String, pub category: String, pub start_date: String, pub original_value: f64, pub useful_life_months: i64, pub residual_rate: Option<f64>, pub source_document: Option<String> }
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateFixedAssetInput { pub id: String, pub company_id: String, pub asset_code: String, pub asset_name: String, pub category: String, pub start_date: String, pub original_value: f64, pub useful_life_months: i64, pub residual_rate: Option<f64>, pub source_document: Option<String> }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct InventoryMovement { pub id: String, pub company_id: String, pub period: String, pub movement_date: String, pub bill_no: String, pub movement_type: String, pub inventory_name: String, pub warehouse: String, pub counterparty: Option<String>, pub unit: String, pub quantity: f64, pub amount: f64, pub source_document: Option<String>, pub status: String, pub created_at: String, pub updated_at: String }

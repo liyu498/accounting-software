@@ -1,4 +1,4 @@
-use crate::db::{CreateFixedAssetInput, Database, FixedAsset};
+use crate::db::{CreateFixedAssetInput, Database, FixedAsset, UpdateFixedAssetInput};
 use tauri::State;
 
 #[tauri::command]
@@ -39,4 +39,17 @@ pub async fn create_fixed_asset(input: CreateFixedAssetInput, db: State<'_, Data
         .fetch_one(db.pool())
         .await
         .map_err(|error| format!("查询新增固定资产失败: {error}"))
+}
+
+#[tauri::command]
+pub async fn update_fixed_asset(input: UpdateFixedAssetInput, db: State<'_, Database>) -> Result<FixedAsset, String> {
+    let residual_rate = input.residual_rate.unwrap_or(0.0);
+    if input.id.trim().is_empty() || input.asset_code.trim().is_empty() || input.asset_name.trim().is_empty() || input.category.trim().is_empty() || input.start_date.trim().is_empty() || input.original_value <= 0.0 || input.useful_life_months <= 0 || !(0.0..=1.0).contains(&residual_rate) {
+        return Err("资产信息不完整，原值和折旧期限必须大于零，残值率应在 0% 至 100% 之间".to_string());
+    }
+    let affected = sqlx::query("UPDATE fixed_assets SET asset_code = ?, asset_name = ?, category = ?, start_date = ?, original_value = ?, useful_life_months = ?, residual_rate = ?, source_document = ?, updated_at = datetime('now') WHERE id = ? AND company_id = ? AND status != '已生成凭证'")
+        .bind(input.asset_code.trim()).bind(input.asset_name.trim()).bind(input.category.trim()).bind(input.start_date.trim()).bind(input.original_value).bind(input.useful_life_months).bind(residual_rate).bind(input.source_document.as_deref().map(str::trim).filter(|value| !value.is_empty())).bind(&input.id).bind(&input.company_id)
+        .execute(db.pool()).await.map_err(|error| format!("更新固定资产失败: {error}"))?;
+    if affected.rows_affected() == 0 { return Err("未找到可编辑的固定资产，已生成凭证的资产不可修改".to_string()); }
+    sqlx::query_as("SELECT * FROM fixed_assets WHERE id = ? AND company_id = ?").bind(&input.id).bind(&input.company_id).fetch_one(db.pool()).await.map_err(|error| format!("查询更新固定资产失败: {error}"))
 }
