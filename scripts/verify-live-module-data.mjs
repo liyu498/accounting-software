@@ -441,6 +441,12 @@ const requiredSocialSecurityEntryPageSnippets = [
   ['social security create binding', 'socialSecurityApi.createSocialSecurityRecord({'],
 ]
 
+const requiredInvoiceEntryPageSnippets = [
+  ['invoice create store binding', 'const createInvoice = useInvoiceStore((state) => state.createInvoice)'],
+  ['invoice create dialog', '新增发票'],
+  ['invoice create action', 'await createInvoice({'],
+]
+
 const requiredAppSnippets = [
   ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
 ]
@@ -692,6 +698,7 @@ const errors = [
   ...verify(pageSource, requiredMeasurementUnitEntryPageSnippets, 'measurement unit entry page'),
   ...verify(pageSource, requiredInventoryItemEntryPageSnippets, 'inventory item entry page'),
   ...verify(pageSource, requiredSocialSecurityEntryPageSnippets, 'social security entry page'),
+  ...verify(pageSource, requiredInvoiceEntryPageSnippets, 'invoice entry page'),
   ...verify(appSource, requiredAppSnippets, 'application routes'),
   ...verify(shellSource, requiredShellSnippets, 'application shell'),
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),

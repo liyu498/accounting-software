@@ -3988,6 +3988,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const fetchAuxiliaryBalance = useAuxiliaryStore((state) => state.fetchAuxiliaryBalance)
   const invoices = useInvoiceStore((state) => state.invoices)
   const fetchInvoices = useInvoiceStore((state) => state.fetchInvoices)
+  const createInvoice = useInvoiceStore((state) => state.createInvoice)
   const vouchers = useVoucherStore((state) => state.vouchers)
   const queryVouchers = useVoucherStore((state) => state.queryVouchers)
   const getDeletedVouchers = useVoucherStore((state) => state.getDeletedVouchers)
@@ -4105,6 +4106,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
   const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
+  const [invoiceDraft, setInvoiceDraft] = useState({ invoiceNo: '', invoiceCode: '', invoiceDate: '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
@@ -5184,6 +5187,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handlePrimaryAction = async () => {
+    if ((kind === 'outputInvoice' || kind === 'inputInvoice') && isTauri && selectedCompanyId && currentPeriodId) {
+      setShowInvoiceDialog(true)
+      return
+    }
     if (kind === 'employee' && isTauri && selectedCompanyId) {
       setEditingEmployeeId(null)
       setShowEmployeeDialog(true)
@@ -5316,6 +5323,35 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowEmployeeDialog(false)
     } catch (error) {
       setOperationNotice(`新增人员失败：${String(error)}`)
+    }
+  }
+
+  const handleCreateInvoice = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || !currentPeriodId || (kind !== 'outputInvoice' && kind !== 'inputInvoice')) return
+    try {
+      const invoice = await createInvoice({
+        company_id: selectedCompanyId,
+        period_id: currentPeriodId,
+        invoice_type: kind === 'outputInvoice' ? 'output' : 'input',
+        invoice_no: invoiceDraft.invoiceNo,
+        invoice_code: invoiceDraft.invoiceCode || undefined,
+        invoice_date: invoiceDraft.invoiceDate,
+        amount: Number(invoiceDraft.amount),
+        tax_amount: Number(invoiceDraft.taxAmount || 0),
+        tax_rate: Number(invoiceDraft.taxRate || 0) / 100,
+        seller_name: invoiceDraft.sellerName || undefined,
+        seller_tax_id: invoiceDraft.sellerTaxId || undefined,
+        buyer_name: invoiceDraft.buyerName || undefined,
+        buyer_tax_id: invoiceDraft.buyerTaxId || undefined,
+        remarks: invoiceDraft.remarks || undefined,
+      })
+      writeModuleAudit(kind === 'outputInvoice' ? '新增销项发票' : '新增进项发票', invoice.invoice_no, '中', '成功')
+      setShowInvoiceDialog(false)
+      setInvoiceDraft({ invoiceNo: '', invoiceCode: '', invoiceDate: '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
+      setOperationNotice(`${kind === 'outputInvoice' ? '销项' : '进项'}发票已保存到当前账套和账期，可继续匹配凭证或进入发票勾选。`)
+    } catch (error) {
+      setOperationNotice(`新增发票失败：${String(error)}`)
     }
   }
 
@@ -5936,6 +5972,69 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
         </section>
       </div>
+      {showInvoiceDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增发票">
+          <form onSubmit={handleCreateInvoice} className="w-full max-w-3xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">新增{kind === 'outputInvoice' ? '销项' : '进项'}发票</h2>
+                <p className="mt-0.5 text-xs text-slate-500">登记到当前账套 {selectedCompany?.name || ''} 与账期 {currentPeriodLabel}，不执行税局开票或验真。</p>
+              </div>
+              <button type="button" onClick={() => setShowInvoiceDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>发票号码</span>
+                <input required value={invoiceDraft.invoiceNo} onChange={(event) => setInvoiceDraft((draft) => ({ ...draft, invoiceNo: event.target.value }))} placeholder="请输入发票号码" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>发票代码</span>
+                <input value={invoiceDraft.invoiceCode} onChange={(event) => setInvoiceDraft((draft) => ({ ...draft, invoiceCode: event.target.value }))} placeholder="可选" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>开票日期</span>
+                <input required type="date" value={invoiceDraft.invoiceDate} onChange={(event) => setInvoiceDraft((draft) => ({ ...draft, invoiceDate: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>不含税金额</span>
+                <input required min="0" step="0.01" type="number" value={invoiceDraft.amount} onChange={(event) => setInvoiceDraft((draft) => ({ ...draft, amount: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>税额</span>
+                <input min="0" step="0.01" type="number" value={invoiceDraft.taxAmount} onChange={(event) => setInvoiceDraft((draft) => ({ ...draft, taxAmount: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>税率（%）</span>
+                <input min="0" max="100" step="0.01" type="number" value={invoiceDraft.taxRate} onChange={(event) => setInvoiceDraft((draft) => ({ ...draft, taxRate: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>销售方名称</span>
+                <input value={invoiceDraft.sellerName} onChange={(event) => setInvoiceDraft((draft) => ({ ...draft, sellerName: event.target.value }))} placeholder="请输入销售方名称" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>销售方税号</span>
+                <input value={invoiceDraft.sellerTaxId} onChange={(event) => setInvoiceDraft((draft) => ({ ...draft, sellerTaxId: event.target.value }))} placeholder="可选" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>购买方名称</span>
+                <input value={invoiceDraft.buyerName} onChange={(event) => setInvoiceDraft((draft) => ({ ...draft, buyerName: event.target.value }))} placeholder="请输入购买方名称" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>购买方税号</span>
+                <input value={invoiceDraft.buyerTaxId} onChange={(event) => setInvoiceDraft((draft) => ({ ...draft, buyerTaxId: event.target.value }))} placeholder="可选" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                <span>备注</span>
+                <input value={invoiceDraft.remarks} onChange={(event) => setInvoiceDraft((draft) => ({ ...draft, remarks: event.target.value }))} placeholder="可选" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowInvoiceDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存发票</button>
+            </div>
+          </form>
+        </div>
+      )}
       {showEmployeeDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增人员">
           <form onSubmit={handleCreateEmployee} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
