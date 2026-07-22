@@ -474,6 +474,10 @@ const requiredVoucherEntryPageSnippets = [
   ['voucher permanent delete action', 'await permanentDeleteVoucher(row.id, selectedCompanyId)'],
   ['voucher recycle selection state', 'const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set())'],
   ['voucher recycle batch restore', 'await Promise.all(selectedIds.map((id) => restoreVoucher(id, selectedCompanyId)))'],
+  ['voucher batch approve binding', 'const batchApprove = useVoucherStore((state) => state.batchApprove)'],
+  ['voucher batch reverse binding', 'const batchReverseApprove = useVoucherStore((state) => state.batchReverseApprove)'],
+  ['voucher batch approve action', "await batchApprove(selectedIds, 'admin', selectedCompanyId)"],
+  ['voucher batch reverse action', 'await batchReverseApprove(selectedIds, selectedCompanyId)'],
 ]
 
 const requiredInvoiceEditPageSnippets = [

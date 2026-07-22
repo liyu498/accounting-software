@@ -4007,6 +4007,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const deleteVoucher = useVoucherStore((state) => state.deleteVoucher)
   const restoreVoucher = useVoucherStore((state) => state.restoreVoucher)
   const permanentDeleteVoucher = useVoucherStore((state) => state.permanentDeleteVoucher)
+  const batchApprove = useVoucherStore((state) => state.batchApprove)
+  const batchReverseApprove = useVoucherStore((state) => state.batchReverseApprove)
   const getDeletedVouchers = useVoucherStore((state) => state.getDeletedVouchers)
   const settlementRules = useSettlementRuleStore((state) => state.rules)
   const fetchSettlementRules = useSettlementRuleStore((state) => state.fetchSettlementRules)
@@ -5396,6 +5398,28 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     )
   }
 
+  const handleBatchVoucherApproval = async (action: 'approve' | 'reverse') => {
+    if (!selectedCompanyId) return
+    const selectedIds = [...selectedRowIds].filter((id) => vouchers.some((voucher) => voucher.id === id && (action === 'approve' ? voucher.status === 'draft' : voucher.status === 'approved')))
+    if (selectedIds.length === 0) {
+      setOperationNotice(action === 'approve' ? '请勾选草稿状态的凭证后批量审核。' : '请勾选已审核的凭证后批量反审核。')
+      return
+    }
+    if (!window.confirm(`确认${action === 'approve' ? '审核' : '反审核'} ${selectedIds.length} 张已勾选凭证吗？`)) return
+    try {
+      if (action === 'approve') {
+        await batchApprove(selectedIds, 'admin', selectedCompanyId)
+      } else {
+        await batchReverseApprove(selectedIds, selectedCompanyId)
+      }
+      setSelectedRowIds(new Set())
+      writeModuleAudit(action === 'approve' ? '批量审核凭证' : '批量反审核凭证', `${selectedIds.length} 张`, '高', '成功')
+      setOperationNotice(`已${action === 'approve' ? '审核' : '反审核'} ${selectedIds.length} 张凭证。`)
+    } catch (error) {
+      setOperationNotice(`批量${action === 'approve' ? '审核' : '反审核'}失败：${String(error)}`)
+    }
+  }
+
   const handleCreateEmployee = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId) return
@@ -6074,6 +6098,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <ToolbarButton icon={<FileDown className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
             <ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={handleExportPdf} />
             <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印" onClick={handlePrint} />
+            {kind === 'voucher' && isTauri && <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="批量审核" onClick={() => void handleBatchVoucherApproval('approve')} />}
+            {kind === 'voucher' && isTauri && <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="批量反审核" onClick={() => void handleBatchVoucherApproval('reverse')} />}
             <button
               type="button"
               onClick={handlePrimaryAction}
