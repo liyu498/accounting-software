@@ -95,6 +95,8 @@ pub fn run() {
             commands::inventory_movements::create_inventory_movement,
             commands::inventory_items::get_inventory_items,
             commands::inventory_items::create_inventory_item,
+            commands::units::get_measurement_units,
+            commands::units::create_measurement_unit,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,

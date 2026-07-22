@@ -85,6 +85,8 @@ impl Database {
             )
         "#).execute(pool).await?;
 
+        sqlx::query(r#"CREATE TABLE IF NOT EXISTS measurement_units (id TEXT PRIMARY KEY, company_id TEXT NOT NULL, unit_name TEXT NOT NULL, unit_group TEXT, base_unit TEXT, conversion_rate REAL NOT NULL DEFAULT 1, precision_digits INTEGER NOT NULL DEFAULT 2, remark TEXT, status TEXT NOT NULL DEFAULT '启用', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(company_id, unit_name))"#).execute(pool).await?;
+
         sqlx::query(r#"
             CREATE TABLE IF NOT EXISTS fixed_assets (
                 id TEXT PRIMARY KEY, company_id TEXT NOT NULL, period TEXT NOT NULL, asset_code TEXT NOT NULL,
@@ -3031,6 +3033,8 @@ pub struct CreateInventoryMovementInput { pub company_id: String, pub period: St
 pub struct InventoryItem { pub id: String, pub company_id: String, pub item_code: String, pub item_name: String, pub specification: Option<String>, pub unit: String, pub tax_rate: Option<f64>, pub default_subject: Option<String>, pub status: String, pub created_at: String, pub updated_at: String }
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CreateInventoryItemInput { pub company_id: String, pub item_code: String, pub item_name: String, pub specification: Option<String>, pub unit: String, pub tax_rate: Option<f64>, pub default_subject: Option<String> }
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)] pub struct MeasurementUnit { pub id:String, pub company_id:String, pub unit_name:String, pub unit_group:Option<String>, pub base_unit:Option<String>, pub conversion_rate:f64, pub precision_digits:i64, pub remark:Option<String>, pub status:String, pub created_at:String, pub updated_at:String }
+#[derive(Debug, Clone, serde::Deserialize)] pub struct CreateMeasurementUnitInput { pub company_id:String, pub unit_name:String, pub unit_group:Option<String>, pub base_unit:Option<String>, pub conversion_rate:f64, pub precision_digits:i64, pub remark:Option<String> }
 
 // ==================== Currency Structs ====================
 

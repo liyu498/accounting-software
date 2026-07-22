@@ -44,6 +44,9 @@ const inventoryMovementCommandSource = existsSync('src-tauri/src/commands/invent
 const inventoryItemCommandSource = existsSync('src-tauri/src/commands/inventory_items.rs')
   ? readFileSync('src-tauri/src/commands/inventory_items.rs', 'utf8')
   : ''
+const unitCommandSource = existsSync('src-tauri/src/commands/units.rs')
+  ? readFileSync('src-tauri/src/commands/units.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -583,6 +586,18 @@ const requiredInventoryItemPageSnippets = [
   ['inventory item row mapper', 'mapLiveInventoryItemRows(inventoryItems)'],
 ]
 
+const requiredUnitCommandSnippets = [
+  ['unit table schema', 'CREATE TABLE IF NOT EXISTS measurement_units'],
+  ['unit list command', 'pub async fn get_measurement_units'],
+  ['unit create command', 'pub async fn create_measurement_unit'],
+]
+
+const requiredUnitPageSnippets = [
+  ['unit api list binding', 'measurementUnitApi.getMeasurementUnits({ companyId: selectedCompanyId })'],
+  ['unit api create binding', 'measurementUnitApi.createMeasurementUnit({'],
+  ['unit row mapper', 'mapLiveMeasurementUnitRows(measurementUnits)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -639,6 +654,9 @@ const errors = [
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
   ...verify(pageSource, requiredInventoryItemPageSnippets, 'inventory item module page'),
+  ...verify(databaseSource, requiredUnitCommandSnippets.slice(0, 1), 'database schema'),
+  ...verify(unitCommandSource, requiredUnitCommandSnippets.slice(1), 'unit commands'),
+  ...verify(pageSource, requiredUnitPageSnippets, 'unit module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

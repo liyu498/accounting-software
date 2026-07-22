@@ -21,6 +21,7 @@ import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
 import { accountTransferApi, automationApi, backupApi, bankTransactionApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankTransaction, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
+import { measurementUnitApi, type MeasurementUnit } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
@@ -3927,6 +3928,7 @@ function summarizeLiveFixedAssets(fixedAssets: FixedAsset[]): ModuleConfig['summ
 function mapLiveInventoryMovementRows(inventoryMovements: InventoryMovement[]): ModuleRow[] { return inventoryMovements.map((movement) => ({ id: movement.id, status: movement.status === '异常' ? '异常' : movement.status === '已生成凭证' ? '已生成凭证' : movement.status === '已匹配' ? '已匹配' : '待确认', voucher: movement.status === '已生成凭证' ? '已关联' : '未生成', attachment: movement.sourceDocument || '待补附件', values: { billNo: movement.billNo, type: movement.movementType, inventory: movement.inventoryName, warehouse: movement.warehouse, counterparty: movement.counterparty || '待补往来单位', quantity: `${movement.quantity} ${movement.unit}`, amount: payrollCurrency(movement.amount), source: movement.sourceDocument || '手工登记' } })) }
 function summarizeLiveInventoryMovements(inventoryMovements: InventoryMovement[]): ModuleConfig['summary'] { const inbound = inventoryMovements.filter((movement) => movement.movementType.includes('入库')); const outbound = inventoryMovements.filter((movement) => movement.movementType.includes('出库')); return [{ label: '本月入库', value: payrollCurrency(inbound.reduce((sum, movement) => sum + movement.amount, 0)), tone: 'blue' }, { label: '本月出库', value: payrollCurrency(outbound.reduce((sum, movement) => sum + movement.amount, 0)), tone: 'amber' }, { label: '已匹配发票', value: `${inventoryMovements.filter((movement) => movement.status === '已匹配').length} 单`, tone: 'green' }, { label: '异常单据', value: `${inventoryMovements.filter((movement) => movement.status === '异常').length} 单`, tone: 'red' }] }
 function mapLiveInventoryItemRows(inventoryItems: InventoryItem[]): ModuleRow[] { return inventoryItems.map((item) => ({ id: item.id, status: item.status === '异常' ? '异常' : item.status === '停用' ? '停用' : '启用', voucher: '-', attachment: '-', values: { code: item.itemCode, name: item.itemName, spec: item.specification || '-', unit: item.unit, taxRate: item.taxRate === null ? '待补' : `${item.taxRate * 100}%`, subject: item.defaultSubject || '待设置' } })) }
+function mapLiveMeasurementUnitRows(measurementUnits: MeasurementUnit[]): ModuleRow[] { return measurementUnits.map((unit) => ({ id:unit.id,status:unit.status==='停用'?'停用':'启用',voucher:'-',attachment:'-',values:{name:unit.unitName,group:unit.unitGroup||'-',base:unit.baseUnit||unit.unitName,rate:String(unit.conversionRate),precision:String(unit.precisionDigits),remark:unit.remark||'-'} })) }
 function mapLiveCostCarryoverRows(inventoryMovements: InventoryMovement[]): ModuleRow[] { return inventoryMovements.filter((movement) => movement.movementType.includes('出库')).map((movement) => ({ id: `cost-${movement.id}`, status: movement.status === '异常' ? '异常' : '待确认', voucher: '未生成', attachment: movement.sourceDocument || '出库单', values: { batch: `CB-${movement.period.replace('-', '')}-${movement.billNo}`, method: '待选计价方法', source: `${movement.movementType}｜${movement.billNo}`, debit: movement.movementType.includes('销售') ? '主营业务成本' : '待人工选择', credit: '库存商品', cost: payrollCurrency(movement.amount), difference: '待核价' } })) }
 function summarizeLiveCostCarryover(inventoryMovements: InventoryMovement[]): ModuleConfig['summary'] { const outbound = inventoryMovements.filter((movement) => movement.movementType.includes('出库')); return [{ label: '结转批次', value: `${outbound.length} 批`, tone: 'blue' }, { label: '待结转成本', value: payrollCurrency(outbound.reduce((sum, movement) => sum + movement.amount, 0)), tone: 'amber' }, { label: '已生成凭证', value: '0 张', tone: 'green' }, { label: '阻断项', value: `${outbound.filter((movement) => !movement.sourceDocument).length} 项`, tone: 'red' }] }
 
@@ -4028,6 +4030,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveFixedAssetData = Boolean(isTauri && selectedCompanyId && kind === 'depreciation')
   const usesLiveInventoryMovementData = Boolean(isTauri && selectedCompanyId && ['inventoryMovement', 'costCarryover'].includes(kind))
   const usesLiveInventoryItemData = Boolean(isTauri && selectedCompanyId && kind === 'inventorySettings')
+  const usesLiveMeasurementUnitData = Boolean(isTauri && selectedCompanyId && kind === 'unitSettings')
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
@@ -4072,6 +4075,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [fixedAssetDraft, setFixedAssetDraft] = useState({ assetCode: '', assetName: '', category: '', startDate: '', originalValue: '', usefulLifeMonths: '', residualRate: '5', sourceDocument: '' })
   const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([])
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
+  const [measurementUnits, setMeasurementUnits] = useState<MeasurementUnit[]>([])
+  const [showMeasurementUnitDialog, setShowMeasurementUnitDialog] = useState(false)
+  const [measurementUnitDraft, setMeasurementUnitDraft] = useState({ unitName: '', unitGroup: '', baseUnit: '', conversionRate: '1', precisionDigits: '2', remark: '' })
   const [showInventoryItemDialog, setShowInventoryItemDialog] = useState(false)
   const [inventoryItemDraft, setInventoryItemDraft] = useState({ itemCode: '', itemName: '', specification: '', unit: '', taxRate: '13', defaultSubject: '' })
   const [showInventoryMovementDialog, setShowInventoryMovementDialog] = useState(false)
@@ -4192,6 +4198,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   useEffect(() => { if (!usesLiveFixedAssetData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void fixedAssetApi.getFixedAssets({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setFixedAssets(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveFixedAssetData])
   useEffect(() => { if (!usesLiveInventoryMovementData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void inventoryMovementApi.getInventoryMovements({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setInventoryMovements(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveInventoryMovementData])
   useEffect(() => { if (!usesLiveInventoryItemData || !selectedCompanyId) return; void inventoryItemApi.getInventoryItems({ companyId: selectedCompanyId }).then((result) => setInventoryItems(result.success ? result.data || [] : [])) }, [selectedCompanyId, usesLiveInventoryItemData])
+  useEffect(() => { if (!usesLiveMeasurementUnitData || !selectedCompanyId) return; void measurementUnitApi.getMeasurementUnits({ companyId: selectedCompanyId }).then((result) => setMeasurementUnits(result.success ? result.data || [] : [])) }, [selectedCompanyId, usesLiveMeasurementUnitData])
 
   useEffect(() => {
     if (!usesLiveReportData || !currentPeriodId) return
@@ -4670,6 +4677,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'inventoryMovement' && usesLiveInventoryMovementData) return { ...baseConfig, rows: mapLiveInventoryMovementRows(inventoryMovements), summary: summarizeLiveInventoryMovements(inventoryMovements) }
     if (kind === 'costCarryover' && usesLiveInventoryMovementData) return { ...baseConfig, rows: mapLiveCostCarryoverRows(inventoryMovements), summary: summarizeLiveCostCarryover(inventoryMovements) }
     if (kind === 'inventorySettings' && usesLiveInventoryItemData) return { ...baseConfig, rows: mapLiveInventoryItemRows(inventoryItems), summary: [{ label: '存货档案', value: `${inventoryItems.length} 项`, tone: 'blue' }, { label: '启用', value: `${inventoryItems.filter((item) => item.status !== '停用').length} 项`, tone: 'green' }, { label: '待补税率', value: `${inventoryItems.filter((item) => item.taxRate === null).length} 项`, tone: 'amber' }, { label: '停用', value: `${inventoryItems.filter((item) => item.status === '停用').length} 项`, tone: 'gray' }] as ModuleConfig['summary'] }
+    if (kind === 'unitSettings' && usesLiveMeasurementUnitData) return { ...baseConfig, rows: mapLiveMeasurementUnitRows(measurementUnits) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {
@@ -5183,6 +5191,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowInventoryItemDialog(true)
       return
     }
+    if (kind === 'unitSettings' && isTauri && selectedCompanyId) { setShowMeasurementUnitDialog(true); return }
     if (kind === 'costCarryover' && isTauri && selectedCompanyId) {
       writeModuleAudit('执行成本结转', `${currentPeriodLabel}｜${inventoryMovements.filter((movement) => movement.movementType.includes('出库')).length} 笔出库单`, '高', '待审批')
       setOperationNotice('已生成成本结转预检任务。需人工选择计价方法、核验出库单价并确认后，才可生成会计凭证。')
@@ -5466,6 +5475,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleCreateInventoryItem = async (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!selectedCompanyId) return; try { const result = await inventoryItemApi.createInventoryItem({ companyId: selectedCompanyId, itemCode: inventoryItemDraft.itemCode, itemName: inventoryItemDraft.itemName, specification: inventoryItemDraft.specification || undefined, unit: inventoryItemDraft.unit, taxRate: Number(inventoryItemDraft.taxRate || 0) / 100, defaultSubject: inventoryItemDraft.defaultSubject || undefined }); if (!result.success || !result.data) throw new Error(result.error || '未返回存货档案'); setInventoryItems((items) => [result.data!, ...items]); writeModuleAudit('新增存货', result.data.itemName, '中', '成功'); setOperationNotice('存货档案已保存，可作为出入库、发票匹配和成本结转的基础资料。'); setShowInventoryItemDialog(false) } catch (error) { setOperationNotice(`新增存货失败：${String(error)}`) } }
+  const handleCreateMeasurementUnit = async (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!selectedCompanyId) return; const result = await measurementUnitApi.createMeasurementUnit({ companyId: selectedCompanyId, unitName: measurementUnitDraft.unitName, unitGroup: measurementUnitDraft.unitGroup || undefined, baseUnit: measurementUnitDraft.baseUnit || undefined, conversionRate: Number(measurementUnitDraft.conversionRate || 1), precisionDigits: Number(measurementUnitDraft.precisionDigits || 0), remark: measurementUnitDraft.remark || undefined }); if (result.success && result.data) { setMeasurementUnits((items) => [result.data!, ...items]); setShowMeasurementUnitDialog(false); setOperationNotice('计量单位已保存。') } else setOperationNotice(`新增计量单位失败：${result.error || '未知错误'}`) }
 
   const rowObjectLabel = (row: ModuleRow) => {
     const firstValue = Object.values(row.values).find(Boolean)
@@ -6048,6 +6058,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </div>
       )}
       {showInventoryItemDialog && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增存货"><form onSubmit={handleCreateInventoryItem} className="w-full max-w-xl border border-slate-300 bg-white p-4 shadow-xl"><div className="mb-3 flex justify-between"><h2 className="text-sm font-semibold text-slate-900">新增存货</h2><button type="button" onClick={() => setShowInventoryItemDialog(false)} className="text-xs text-slate-500">取消</button></div><div className="grid gap-3 sm:grid-cols-2">{([{ field: 'itemCode', label: '存货编码 *' }, { field: 'itemName', label: '存货名称 *' }, { field: 'specification', label: '规格型号' }, { field: 'unit', label: '计量单位 *' }, { field: 'taxRate', label: '税率（%）' }, { field: 'defaultSubject', label: '默认科目' }] as Array<{ field: keyof typeof inventoryItemDraft; label: string }>).map(({ field, label }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['itemCode', 'itemName', 'unit'].includes(field)} value={inventoryItemDraft[field]} onChange={(event) => setInventoryItemDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}</div><div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => setShowInventoryItemDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs text-white">保存存货</button></div></form></div>}
+      {showMeasurementUnitDialog && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4"><form onSubmit={handleCreateMeasurementUnit} className="w-full max-w-lg border border-slate-300 bg-white p-4 shadow-xl"><h2 className="mb-3 text-sm font-semibold">新增计量单位</h2>{(['unitName','unitGroup','baseUnit','conversionRate','precisionDigits','remark'] as Array<keyof typeof measurementUnitDraft>).map((field)=><input key={field} required={field==='unitName'} placeholder={field} value={measurementUnitDraft[field]} onChange={(e)=>setMeasurementUnitDraft((d)=>({...d,[field]:e.target.value}))} className="mb-2 h-8 w-full border px-2" />)}<button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs text-white">保存</button></form></div>}
     </div>
   )
 }
