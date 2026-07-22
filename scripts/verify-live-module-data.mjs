@@ -533,6 +533,12 @@ const requiredExpenseReimbursementPageSnippets = [
   ['expense reimbursement summary mapper', 'summarizeLiveExpenseReimbursements(documentRecords)'],
 ]
 
+const requiredReceiptPageSnippets = [
+  ['receipt local data scope', "const usesLiveReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'receipt')"],
+  ['receipt document record source', 'mapLiveReceiptRows(documentRecords)'],
+  ['receipt summary source', 'summarizeLiveReceipts(documentRecords)'],
+]
+
 const requiredOrderViewPageSnippets = [
   ['purchase management invoice source', "const usesLivePurchaseManagementData = Boolean(isTauri && selectedCompanyId && kind === 'purchaseManagement')"],
   ['sales management invoice source', "const usesLiveSalesManagementData = Boolean(isTauri && selectedCompanyId && kind === 'salesManagement')"],
@@ -641,6 +647,7 @@ const errors = [
   ...verify(documentRecordCommandSource, requiredDocumentRecordCommandSnippets.slice(1), 'document record commands'),
   ...verify(pageSource, requiredDocumentRecordPageSnippets, 'document register module page'),
   ...verify(pageSource, requiredExpenseReimbursementPageSnippets, 'expense reimbursement module page'),
+  ...verify(pageSource, requiredReceiptPageSnippets, 'receipt module page'),
   ...verify(pageSource, requiredOrderViewPageSnippets, 'purchase and sales module pages'),
   ...verify(databaseSource, requiredAccountTransferPageSnippets.slice(0, 1), 'database schema'),
   ...verify(accountTransferCommandSource, requiredAccountTransferPageSnippets.slice(1, 3), 'account transfer commands'),

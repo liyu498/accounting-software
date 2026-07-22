@@ -3891,6 +3891,9 @@ function summarizeLiveExpenseReimbursements(documentRecords: DocumentRecord[]): 
     { label: '附件异常', value: `${rows.filter((record) => record.attachmentStatus !== '已归档').length} 张`, tone: 'red' },
   ]
 }
+function receiptRecords(documentRecords: DocumentRecord[]) { return documentRecords.filter((record) => /收款|付款|票据/.test(record.businessType)) }
+function mapLiveReceiptRows(documentRecords: DocumentRecord[]): ModuleRow[] { return receiptRecords(documentRecords).map((record) => ({ id:record.id,status:record.status==='异常'?'异常':record.status==='已生成凭证'?'已生成凭证':'待确认',voucher:record.status==='已生成凭证'?'已关联':'未生成',attachment:record.attachmentStatus,values:{number:record.documentCode,type:record.businessType,issuer:record.partner||'待补出票方',dueDate:record.businessDate,amount:payrollCurrency(record.amount),purpose:record.businessType.includes('付款')?'付款':'收款'} })) }
+function summarizeLiveReceipts(documentRecords: DocumentRecord[]): ModuleConfig['summary'] { const rows=receiptRecords(documentRecords); return [{label:'票据余额',value:payrollCurrency(rows.reduce((sum,row)=>sum+row.amount,0)),tone:'blue'},{label:'本期新增',value:`${rows.length} 张`,tone:'green'},{label:'待确认',value:`${rows.filter(row=>row.status!=='已生成凭证').length} 张`,tone:'amber'},{label:'异常',value:`${rows.filter(row=>row.status==='异常').length} 张`,tone:'red'}] }
 
 function mapLivePurchaseManagementRows(invoices: Invoice[]): ModuleRow[] {
   return invoices.filter((invoice) => invoice.invoice_type === 'input').map((invoice) => ({
@@ -4024,6 +4027,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveBankTransactionData = Boolean(isTauri && selectedCompanyId && ['billList', 'bankStatement'].includes(kind))
   const usesLiveDocumentRecordData = Boolean(isTauri && selectedCompanyId && kind === 'documentRegister')
   const usesLiveExpenseReimbursementData = Boolean(isTauri && selectedCompanyId && kind === 'expenseReimbursement')
+  const usesLiveReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'receipt')
   const usesLivePurchaseManagementData = Boolean(isTauri && selectedCompanyId && kind === 'purchaseManagement')
   const usesLiveSalesManagementData = Boolean(isTauri && selectedCompanyId && kind === 'salesManagement')
   const usesLiveAccountTransferData = Boolean(isTauri && selectedCompanyId && kind === 'transfer')
@@ -4191,9 +4195,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodLabel, selectedCompanyId, usesLiveBankTransactionData])
 
   useEffect(() => {
-    if (!(usesLiveDocumentRecordData || usesLiveExpenseReimbursementData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!(usesLiveDocumentRecordData || usesLiveExpenseReimbursementData || usesLiveReceiptData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return
     void documentRecordApi.getDocumentRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setDocumentRecords(result.success ? result.data || [] : []))
-  }, [currentPeriodLabel, selectedCompanyId, usesLiveDocumentRecordData, usesLiveExpenseReimbursementData])
+  }, [currentPeriodLabel, selectedCompanyId, usesLiveDocumentRecordData, usesLiveExpenseReimbursementData, usesLiveReceiptData])
   useEffect(() => { if (!usesLiveAccountTransferData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setAccountTransfers(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveAccountTransferData])
   useEffect(() => { if (!usesLiveFixedAssetData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void fixedAssetApi.getFixedAssets({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setFixedAssets(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveFixedAssetData])
   useEffect(() => { if (!usesLiveInventoryMovementData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void inventoryMovementApi.getInventoryMovements({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setInventoryMovements(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveInventoryMovementData])
@@ -4670,6 +4674,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if ((kind === 'billList' || kind === 'bankStatement') && usesLiveBankTransactionData) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
     if (kind === 'documentRegister' && usesLiveDocumentRecordData) return { ...baseConfig, rows: mapLiveDocumentRecordRows(documentRecords), summary: summarizeLiveDocumentRecords(documentRecords) }
     if (kind === 'expenseReimbursement' && usesLiveExpenseReimbursementData) return { ...baseConfig, rows: mapLiveExpenseReimbursementRows(documentRecords), summary: summarizeLiveExpenseReimbursements(documentRecords) }
+    if (kind === 'receipt' && usesLiveReceiptData) return { ...baseConfig, rows: mapLiveReceiptRows(documentRecords), summary: summarizeLiveReceipts(documentRecords) }
     if (kind === 'purchaseManagement' && usesLivePurchaseManagementData) return { ...baseConfig, rows: mapLivePurchaseManagementRows(invoices), summary: summarizeInvoiceManagement(invoices, 'input', ['采购单', '已匹配', '待付款', '异常单']) }
     if (kind === 'salesManagement' && usesLiveSalesManagementData) return { ...baseConfig, rows: mapLiveSalesManagementRows(invoices), summary: summarizeInvoiceManagement(invoices, 'output', ['销售单', '已开票/凭证', '待收款', '异常单']) }
     if (kind === 'transfer' && usesLiveAccountTransferData) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
