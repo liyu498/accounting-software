@@ -438,7 +438,7 @@ const requiredInventoryItemEntryPageSnippets = [
 
 const requiredSocialSecurityEntryPageSnippets = [
   ['social security structured dialog', '<span>缴费城市</span>'],
-  ['social security create binding', 'socialSecurityApi.createSocialSecurityRecord({'],
+  ['social security create binding', 'socialSecurityApi.createSocialSecurityRecord(securityInput)'],
 ]
 
 const requiredInvoiceEntryPageSnippets = [
@@ -564,11 +564,13 @@ const requiredSocialSecurityCommandSnippets = [
   ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
   ['social security list command', 'pub async fn get_social_security_records'],
   ['social security create command', 'pub async fn create_social_security_record'],
+  ['social security update command', 'pub async fn update_social_security_record'],
 ]
 
 const requiredSocialSecurityPageSnippets = [
   ['social security api list binding', 'socialSecurityApi.getSocialSecurityRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['social security api create binding', 'socialSecurityApi.createSocialSecurityRecord({'],
+  ['social security api create binding', 'socialSecurityApi.createSocialSecurityRecord(securityInput)'],
+  ['social security api update binding', 'socialSecurityApi.updateSocialSecurityRecord({'],
   ['social security row mapper', 'mapLiveSocialSecurityRows(socialSecurityRecords)'],
 ]
 
@@ -576,11 +578,13 @@ const requiredSpecialDeductionCommandSnippets = [
   ['special deduction table schema', 'CREATE TABLE IF NOT EXISTS special_deduction_records'],
   ['special deduction list command', 'pub async fn get_special_deduction_records'],
   ['special deduction create command', 'pub async fn create_special_deduction_record'],
+  ['special deduction update command', 'pub async fn update_special_deduction_record'],
 ]
 
 const requiredSpecialDeductionPageSnippets = [
   ['special deduction api list binding', 'specialDeductionApi.getSpecialDeductionRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['special deduction api create binding', 'specialDeductionApi.createSpecialDeductionRecord({'],
+  ['special deduction api create binding', 'specialDeductionApi.createSpecialDeductionRecord(deductionInput)'],
+  ['special deduction api update binding', 'specialDeductionApi.updateSpecialDeductionRecord({'],
   ['special deduction row mapper', 'mapLiveSpecialDeductionRows(specialDeductionRecords)'],
 ]
 

@@ -2919,6 +2919,7 @@ pub struct CreatePayrollRecordInput {
 pub struct SocialSecurityRecord { pub id: String, pub company_id: String, pub employee_id: String, pub employee_name: String, pub period: String, pub city: Option<String>, pub contribution_base: f64, pub company_amount: f64, pub personal_amount: f64, pub fund_amount: f64, pub status: String, pub created_at: String, pub updated_at: String }
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CreateSocialSecurityRecordInput { pub company_id: String, pub employee_id: String, pub period: String, pub city: Option<String>, pub contribution_base: f64, pub company_amount: f64, pub personal_amount: f64, pub fund_amount: f64 }
+#[derive(Debug, Clone, serde::Deserialize)] pub struct UpdateSocialSecurityRecordInput { pub id: String, pub company_id: String, pub city: Option<String>, pub contribution_base: f64, pub company_amount: f64, pub personal_amount: f64, pub fund_amount: f64 }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct SpecialDeductionRecord {
@@ -2946,6 +2947,7 @@ pub struct CreateSpecialDeductionRecordInput {
     pub monthly_amount: f64,
     pub source: Option<String>,
 }
+#[derive(Debug, Clone, serde::Deserialize)] pub struct UpdateSpecialDeductionRecordInput { pub id:String, pub company_id:String, pub deduction_type:String, pub start_month:String, pub end_month:Option<String>, pub monthly_amount:f64, pub source:Option<String> }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct BankTransaction {

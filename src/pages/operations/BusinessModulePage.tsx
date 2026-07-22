@@ -4117,8 +4117,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [editingAccountTransferId, setEditingAccountTransferId] = useState<string | null>(null)
   const [accountTransferDraft, setAccountTransferDraft] = useState({ transferDate: '', fromAccount: '', toAccount: '', amount: '', fee: '', serialNo: '' })
   const [showSocialSecurityDialog, setShowSocialSecurityDialog] = useState(false)
+  const [editingSocialSecurityId, setEditingSocialSecurityId] = useState<string | null>(null)
   const [socialSecurityDraft, setSocialSecurityDraft] = useState({ employeeId: '', city: '', base: '', company: '', personal: '', fund: '' })
   const [showSpecialDeductionDialog, setShowSpecialDeductionDialog] = useState(false)
+  const [editingSpecialDeductionId, setEditingSpecialDeductionId] = useState<string | null>(null)
   const [specialDeductionDraft, setSpecialDeductionDraft] = useState({ employeeId: '', deductionType: '子女教育', startMonth: '', endMonth: '', monthlyAmount: '', source: '手工' })
   const [showBankTransactionDialog, setShowBankTransactionDialog] = useState(false)
   const [editingBankTransactionId, setEditingBankTransactionId] = useState<string | null>(null)
@@ -5555,29 +5557,30 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
-  const handleCreateSocialSecurityRecord = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveSocialSecurityRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
-      const result = await socialSecurityApi.createSocialSecurityRecord({
+      const securityInput = {
         companyId: selectedCompanyId, employeeId: socialSecurityDraft.employeeId, period: currentPeriodLabel,
         city: socialSecurityDraft.city, contributionBase: Number(socialSecurityDraft.base || 0),
         companyAmount: Number(socialSecurityDraft.company || 0), personalAmount: Number(socialSecurityDraft.personal || 0), fundAmount: Number(socialSecurityDraft.fund || 0),
-      })
+      }
+      const result = editingSocialSecurityId ? await socialSecurityApi.updateSocialSecurityRecord({ id:editingSocialSecurityId, ...securityInput }) : await socialSecurityApi.createSocialSecurityRecord(securityInput)
       if (!result.success || !result.data) throw new Error(result.error || '未返回社保明细')
-      setSocialSecurityRecords((records) => [result.data!, ...records])
+      setSocialSecurityRecords((records) => editingSocialSecurityId ? records.map((item)=>item.id===result.data!.id?result.data!:item):[result.data!, ...records])
       writeModuleAudit('新增社保明细', `${result.data.employeeName}｜${currentPeriodLabel}`, '中', '成功')
       setOperationNotice(`已新增 ${result.data.employeeName} 的社保公积金明细，等待确认。`)
-      setSocialSecurityDraft({ employeeId: '', city: '', base: '', company: '', personal: '', fund: '' })
+      setEditingSocialSecurityId(null); setSocialSecurityDraft({ employeeId: '', city: '', base: '', company: '', personal: '', fund: '' })
       setShowSocialSecurityDialog(false)
     } catch (error) { setOperationNotice(`新增社保明细失败：${String(error)}`) }
   }
 
-  const handleCreateSpecialDeductionRecord = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveSpecialDeductionRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId) return
     try {
-      const result = await specialDeductionApi.createSpecialDeductionRecord({
+      const deductionInput = {
         companyId: selectedCompanyId,
         employeeId: specialDeductionDraft.employeeId,
         deductionType: specialDeductionDraft.deductionType,
@@ -5585,12 +5588,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         endMonth: specialDeductionDraft.endMonth || undefined,
         monthlyAmount: Number(specialDeductionDraft.monthlyAmount || 0),
         source: specialDeductionDraft.source,
-      })
+      }
+      const result = editingSpecialDeductionId ? await specialDeductionApi.updateSpecialDeductionRecord({ id:editingSpecialDeductionId, ...deductionInput }) : await specialDeductionApi.createSpecialDeductionRecord(deductionInput)
       if (!result.success || !result.data) throw new Error(result.error || '未返回扣除明细')
-      setSpecialDeductionRecords((records) => [result.data!, ...records])
+      setSpecialDeductionRecords((records) => editingSpecialDeductionId ? records.map((item)=>item.id===result.data!.id?result.data!:item):[result.data!, ...records])
       writeModuleAudit('新增专项附加扣除', `${result.data.employeeName}｜${result.data.deductionType}`, '中', '成功')
       setOperationNotice(`已新增 ${result.data.employeeName} 的${result.data.deductionType}扣除资料，等待确认。`)
-      setSpecialDeductionDraft({ employeeId: '', deductionType: '子女教育', startMonth: '', endMonth: '', monthlyAmount: '', source: '手工' })
+      setEditingSpecialDeductionId(null); setSpecialDeductionDraft({ employeeId: '', deductionType: '子女教育', startMonth: '', endMonth: '', monthlyAmount: '', source: '手工' })
       setShowSpecialDeductionDialog(false)
     } catch (error) {
       setOperationNotice(`新增专项附加扣除失败：${String(error)}`)
@@ -5794,6 +5798,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowEmployeeDialog(true)
       return
     }
+    if (kind === 'socialSecurity' && isTauri && selectedCompanyId) { const record=socialSecurityRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSocialSecurityId(record.id);setSocialSecurityDraft({employeeId:record.employeeId,city:record.city||'',base:String(record.contributionBase),company:String(record.companyAmount),personal:String(record.personalAmount),fund:String(record.fundAmount)});setShowSocialSecurityDialog(true);return }
+    if (kind === 'specialDeduction' && isTauri && selectedCompanyId) { const record=specialDeductionRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSpecialDeductionId(record.id);setSpecialDeductionDraft({employeeId:record.employeeId,deductionType:record.deductionType,startMonth:record.startMonth,endMonth:record.endMonth||'',monthlyAmount:String(record.monthlyAmount),source:record.source});setShowSpecialDeductionDialog(true);return }
     if (kind === 'transfer' && isTauri && selectedCompanyId) {
       const transfer = accountTransfers.find((item) => item.id === row.id)
       if (!transfer) {
@@ -6179,8 +6185,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
             {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => setShowPayrollDialog(true)} />}
-            {kind === 'socialSecurity' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={() => setShowSocialSecurityDialog(true)} />}
-            {kind === 'specialDeduction' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={() => setShowSpecialDeductionDialog(true)} />}
+            {kind === 'socialSecurity' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={() => { setEditingSocialSecurityId(null); setShowSocialSecurityDialog(true) }} />}
+            {kind === 'specialDeduction' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={() => { setEditingSpecialDeductionId(null); setShowSpecialDeductionDialog(true) }} />}
             {(kind === 'billList' || kind === 'bankStatement') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={() => setShowBankTransactionDialog(true)} />}
             {kind === 'documentRegister' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增单据" onClick={() => setShowDocumentRecordDialog(true)} />}
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" onClick={handleRefreshAction} />
@@ -6399,7 +6405,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -6631,7 +6637,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       )}
       {showSocialSecurityDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增社保明细">
-          <form onSubmit={handleCreateSocialSecurityRecord} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+          <form onSubmit={handleSaveSocialSecurityRecord} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">新增社保明细</h2>
@@ -6677,7 +6683,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       )}
       {showSpecialDeductionDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增专项附加扣除">
-          <form onSubmit={handleCreateSpecialDeductionRecord} className="w-full max-w-lg border border-slate-300 bg-white shadow-xl">
+          <form onSubmit={handleSaveSpecialDeductionRecord} className="w-full max-w-lg border border-slate-300 bg-white shadow-xl">
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">新增专项附加扣除</h2><button type="button" onClick={() => setShowSpecialDeductionDialog(false)} className="text-xs text-slate-500">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">人员 *

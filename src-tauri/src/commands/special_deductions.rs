@@ -1,4 +1,4 @@
-use crate::db::{CreateSpecialDeductionRecordInput, Database, SpecialDeductionRecord};
+use crate::db::{CreateSpecialDeductionRecordInput, Database, SpecialDeductionRecord, UpdateSpecialDeductionRecordInput};
 use tauri::State;
 
 #[tauri::command]
@@ -95,3 +95,5 @@ pub async fn create_special_deduction_record(
     .await
     .map_err(|error| format!("查询新增专项附加扣除失败: {error}"))
 }
+#[tauri::command]
+pub async fn update_special_deduction_record(input: UpdateSpecialDeductionRecordInput, db: State<'_, Database>) -> Result<SpecialDeductionRecord, String> { if input.id.trim().is_empty()||input.deduction_type.trim().is_empty()||input.start_month.trim().is_empty()||input.monthly_amount<0.0{return Err("扣除类型、起始月份不能为空且月扣除额不能为负数".into())}if input.end_month.as_deref().is_some_and(|end|!end.trim().is_empty()&&end.trim()<input.start_month.trim()){return Err("结束月份不能早于起始月份".into())}let affected=sqlx::query("UPDATE special_deduction_records SET deduction_type=?,start_month=?,end_month=?,monthly_amount=?,source=?,updated_at=datetime('now') WHERE id=? AND company_id=?").bind(input.deduction_type.trim()).bind(input.start_month.trim()).bind(input.end_month.as_deref().map(str::trim).filter(|v|!v.is_empty())).bind(input.monthly_amount).bind(input.source.as_deref().unwrap_or("手工")).bind(&input.id).bind(&input.company_id).execute(db.pool()).await.map_err(|e|format!("更新专项附加扣除失败: {e}"))?;if affected.rows_affected()==0{return Err("未找到当前账套专项扣除资料".into())}sqlx::query_as("SELECT d.*,e.name AS employee_name FROM special_deduction_records d INNER JOIN employees e ON e.id=d.employee_id WHERE d.id=? AND d.company_id=?").bind(&input.id).bind(&input.company_id).fetch_one(db.pool()).await.map_err(|e|format!("查询更新专项扣除失败: {e}"))}

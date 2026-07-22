@@ -1790,6 +1790,7 @@ export const socialSecurityApi = {
       return { success: false, error: String(error) }
     }
   },
+  updateSocialSecurityRecord: async (input:{id:string;companyId:string;city?:string;contributionBase:number;companyAmount:number;personalAmount:number;fundAmount:number}):Promise<ApiResponse<SocialSecurityRecord>>=>{try{const result=await invoke('update_social_security_record',{input:{id:input.id,company_id:input.companyId,city:input.city,contribution_base:input.contributionBase,company_amount:input.companyAmount,personal_amount:input.personalAmount,fund_amount:input.fundAmount}}) as RawSocialSecurityRecord;return{success:true,data:mapSocialSecurityRecord(result)}}catch(error){return{success:false,error:String(error)}}},
 }
 
 export const specialDeductionApi = {
@@ -1811,6 +1812,7 @@ export const specialDeductionApi = {
       return { success: false, error: String(error) }
     }
   },
+  updateSpecialDeductionRecord: async (input:{id:string;companyId:string;deductionType:string;startMonth:string;endMonth?:string;monthlyAmount:number;source?:string}):Promise<ApiResponse<SpecialDeductionRecord>>=>{try{const result=await invoke('update_special_deduction_record',{input:{id:input.id,company_id:input.companyId,deduction_type:input.deductionType,start_month:input.startMonth,end_month:input.endMonth,monthly_amount:input.monthlyAmount,source:input.source}}) as RawSpecialDeductionRecord;return{success:true,data:mapSpecialDeductionRecord(result)}}catch(error){return{success:false,error:String(error)}}},
 }
 
 export const bankTransactionApi = {
