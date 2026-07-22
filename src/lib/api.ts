@@ -1262,6 +1262,7 @@ export const agencyApi = {
       return { success: false, error: String(error) }
     }
   },
+  createServiceContract: async (input:{companyId:string;contractNo:string;servicePackage:string;serviceStart:string;serviceEnd:string;monthlyFee:number;owner?:string}):Promise<ApiResponse<AgencyServiceContract>>=>{try{const result=await invoke('create_agency_service_contract',{input:{company_id:input.companyId,contract_no:input.contractNo,service_package:input.servicePackage,service_start:input.serviceStart,service_end:input.serviceEnd,monthly_fee:input.monthlyFee,owner:input.owner}}) as RawAgencyServiceContract;return{success:true,data:mapAgencyServiceContract(result)}}catch(error){return{success:false,error:String(error)}}},
 
   getFeeCollections: async (filters: { companyId?: string; period?: string; status?: string } = {}): Promise<ApiResponse<AgencyFeeCollection[]>> => {
     try {

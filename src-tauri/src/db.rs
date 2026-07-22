@@ -3146,6 +3146,8 @@ pub struct AgencyServiceContract {
     pub created_at: String,
     pub updated_at: String,
 }
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateAgencyServiceContractInput { pub company_id:String, pub contract_no:String, pub service_package:String, pub service_start:String, pub service_end:String, pub monthly_fee:f64, pub owner:Option<String> }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct AgencyFeeCollection {

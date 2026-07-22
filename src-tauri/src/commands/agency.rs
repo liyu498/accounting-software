@@ -73,6 +73,14 @@ pub async fn get_agency_service_contracts(
 }
 
 #[tauri::command]
+pub async fn create_agency_service_contract(input: crate::db::CreateAgencyServiceContractInput, db: State<'_, Database>) -> Result<AgencyServiceContract, String> {
+    if input.contract_no.trim().is_empty() || input.service_package.trim().is_empty() || input.service_start.trim().is_empty() || input.service_end.trim().is_empty() || input.monthly_fee < 0.0 { return Err("合同编号、套餐和服务期间不能为空，服务费不能为负数".into()); }
+    let id=uuid::Uuid::new_v4().to_string();
+    sqlx::query("INSERT INTO agency_service_contracts (id,company_id,contract_no,service_package,service_start,service_end,monthly_fee,owner) VALUES (?,?,?,?,?,?,?,?)").bind(&id).bind(&input.company_id).bind(input.contract_no.trim()).bind(input.service_package.trim()).bind(input.service_start.trim()).bind(input.service_end.trim()).bind(input.monthly_fee).bind(input.owner).execute(db.pool()).await.map_err(|e|format!("新增服务合同失败: {e}"))?;
+    sqlx::query_as("SELECT c.id,c.company_id,co.name AS company_name,c.contract_no,c.service_package,c.service_start,c.service_end,c.monthly_fee,c.renewal_status,c.owner,c.archive_status,c.status,c.created_at,c.updated_at FROM agency_service_contracts c LEFT JOIN companies co ON co.id=c.company_id WHERE c.id=?").bind(id).fetch_one(db.pool()).await.map_err(|e|format!("查询新增服务合同失败: {e}"))
+}
+
+#[tauri::command]
 pub async fn get_agency_fee_collections(
     company_id: Option<String>,
     period: Option<String>,
