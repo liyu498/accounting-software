@@ -5711,6 +5711,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       navigate(`/vouchers/edit/${row.id}`)
       return
     }
+    if (kind === 'outputInvoice' || kind === 'inputInvoice') {
+      const object = rowObjectLabel(row)
+      writeModuleAudit('从发票新建凭证', `${title}-${object}`, '中', '成功')
+      setOperationNotice(`${object} 已作为来源留痕，请在新建凭证页选择科目并完成借贷平衡后保存。`)
+      navigate('/vouchers/new')
+      return
+    }
     const object = rowObjectLabel(row)
     const level = row.status === '异常' || isHighRiskAction ? '高' : '中'
     const result = row.status === '异常' || isHighRiskAction ? '待审批' : '成功'
@@ -6166,7 +6173,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                         {kind === 'backupRestore' ? '核验' : kind === 'employee' ? '编辑' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
-                        {kind === 'voucher' ? '编辑' : '生成凭证'}
+                        {kind === 'voucher' ? '编辑' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
                       </button>
                     </td>
                   </tr>

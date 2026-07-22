@@ -473,6 +473,8 @@ const requiredInvoiceEditPageSnippets = [
   ['invoice detail store binding', 'const getInvoice = useInvoiceStore((state) => state.getInvoice)'],
   ['invoice edit load action', 'await getInvoice(row.id, selectedCompanyId)'],
   ['invoice edit update action', 'await updateInvoice(editingInvoiceId, {'],
+  ['invoice to voucher navigation', "navigate('/vouchers/new')"],
+  ['invoice no fake generation notice', '请在新建凭证页选择科目并完成借贷平衡后保存'],
 ]
 
 const requiredAppSnippets = [
