@@ -3067,8 +3067,10 @@ pub struct UpdateInventoryMovementInput { pub id: String, pub company_id: String
 pub struct InventoryItem { pub id: String, pub company_id: String, pub item_code: String, pub item_name: String, pub specification: Option<String>, pub unit: String, pub tax_rate: Option<f64>, pub default_subject: Option<String>, pub status: String, pub created_at: String, pub updated_at: String }
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CreateInventoryItemInput { pub company_id: String, pub item_code: String, pub item_name: String, pub specification: Option<String>, pub unit: String, pub tax_rate: Option<f64>, pub default_subject: Option<String> }
+#[derive(Debug, Clone, serde::Deserialize)] pub struct UpdateInventoryItemInput { pub id: String, pub company_id: String, pub item_code: String, pub item_name: String, pub specification: Option<String>, pub unit: String, pub tax_rate: Option<f64>, pub default_subject: Option<String> }
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)] pub struct MeasurementUnit { pub id:String, pub company_id:String, pub unit_name:String, pub unit_group:Option<String>, pub base_unit:Option<String>, pub conversion_rate:f64, pub precision_digits:i64, pub remark:Option<String>, pub status:String, pub created_at:String, pub updated_at:String }
 #[derive(Debug, Clone, serde::Deserialize)] pub struct CreateMeasurementUnitInput { pub company_id:String, pub unit_name:String, pub unit_group:Option<String>, pub base_unit:Option<String>, pub conversion_rate:f64, pub precision_digits:i64, pub remark:Option<String> }
+#[derive(Debug, Clone, serde::Deserialize)] pub struct UpdateMeasurementUnitInput { pub id:String, pub company_id:String, pub unit_name:String, pub unit_group:Option<String>, pub base_unit:Option<String>, pub conversion_rate:f64, pub precision_digits:i64, pub remark:Option<String> }
 
 // ==================== Currency Structs ====================
 

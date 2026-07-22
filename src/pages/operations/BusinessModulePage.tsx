@@ -4105,8 +4105,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
   const [measurementUnits, setMeasurementUnits] = useState<MeasurementUnit[]>([])
   const [showMeasurementUnitDialog, setShowMeasurementUnitDialog] = useState(false)
+  const [editingMeasurementUnitId, setEditingMeasurementUnitId] = useState<string | null>(null)
   const [measurementUnitDraft, setMeasurementUnitDraft] = useState({ unitName: '', unitGroup: '', baseUnit: '', conversionRate: '1', precisionDigits: '2', remark: '' })
   const [showInventoryItemDialog, setShowInventoryItemDialog] = useState(false)
+  const [editingInventoryItemId, setEditingInventoryItemId] = useState<string | null>(null)
   const [inventoryItemDraft, setInventoryItemDraft] = useState({ itemCode: '', itemName: '', specification: '', unit: '', taxRate: '13', defaultSubject: '' })
   const [showInventoryMovementDialog, setShowInventoryMovementDialog] = useState(false)
   const [editingInventoryMovementId, setEditingInventoryMovementId] = useState<string | null>(null)
@@ -5334,10 +5336,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'inventorySettings' && isTauri && selectedCompanyId) {
+      setEditingInventoryItemId(null)
       setShowInventoryItemDialog(true)
       return
     }
-    if (kind === 'unitSettings' && isTauri && selectedCompanyId) { setShowMeasurementUnitDialog(true); return }
+    if (kind === 'unitSettings' && isTauri && selectedCompanyId) { setEditingMeasurementUnitId(null); setShowMeasurementUnitDialog(true); return }
     if (kind === 'costCarryover' && isTauri && selectedCompanyId) {
       writeModuleAudit('执行成本结转', `${currentPeriodLabel}｜${inventoryMovements.filter((movement) => movement.movementType.includes('出库')).length} 笔出库单`, '高', '待审批')
       setOperationNotice('已生成成本结转预检任务。需人工选择计价方法、核验出库单价并确认后，才可生成会计凭证。')
@@ -5686,11 +5689,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     } catch (error) { setOperationNotice(`${editingInventoryMovementId ? '编辑' : '新增'}出入库单失败：${String(error)}`) }
   }
 
-  const handleCreateInventoryItem = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveInventoryItem = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId) return
     try {
-      const result = await inventoryItemApi.createInventoryItem({
+      const itemInput = {
         companyId: selectedCompanyId,
         itemCode: inventoryItemDraft.itemCode,
         itemName: inventoryItemDraft.itemName,
@@ -5698,20 +5701,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         unit: inventoryItemDraft.unit,
         taxRate: Number(inventoryItemDraft.taxRate || 0) / 100,
         defaultSubject: inventoryItemDraft.defaultSubject || undefined,
-      })
+      }
+      const result = editingInventoryItemId ? await inventoryItemApi.updateInventoryItem({ id: editingInventoryItemId, ...itemInput }) : await inventoryItemApi.createInventoryItem(itemInput)
       if (!result.success || !result.data) throw new Error(result.error || '未返回存货档案')
-      setInventoryItems((items) => [result.data!, ...items])
+      setInventoryItems((items) => editingInventoryItemId ? items.map((item) => item.id === result.data!.id ? result.data! : item) : [result.data!, ...items])
       writeModuleAudit('新增存货', result.data.itemName, '中', '成功')
       setOperationNotice('存货档案已保存，可作为出入库、发票匹配和成本结转的基础资料。')
-      setShowInventoryItemDialog(false)
+      setEditingInventoryItemId(null); setShowInventoryItemDialog(false)
     } catch (error) {
       setOperationNotice(`新增存货失败：${String(error)}`)
     }
   }
-  const handleCreateMeasurementUnit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveMeasurementUnit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId) return
-    const result = await measurementUnitApi.createMeasurementUnit({
+    const unitInput = {
       companyId: selectedCompanyId,
       unitName: measurementUnitDraft.unitName,
       unitGroup: measurementUnitDraft.unitGroup || undefined,
@@ -5719,9 +5723,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       conversionRate: Number(measurementUnitDraft.conversionRate || 1),
       precisionDigits: Number(measurementUnitDraft.precisionDigits || 0),
       remark: measurementUnitDraft.remark || undefined,
-    })
+    }
+    const result = editingMeasurementUnitId ? await measurementUnitApi.updateMeasurementUnit({ id: editingMeasurementUnitId, ...unitInput }) : await measurementUnitApi.createMeasurementUnit(unitInput)
     if (result.success && result.data) {
-      setMeasurementUnits((items) => [result.data!, ...items])
+      setMeasurementUnits((items) => editingMeasurementUnitId ? items.map((item) => item.id === result.data!.id ? result.data! : item) : [result.data!, ...items])
+      setEditingMeasurementUnitId(null)
       setShowMeasurementUnitDialog(false)
       setOperationNotice('计量单位已保存，可在存货档案和出入库单中选择。')
       return
@@ -5833,6 +5839,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowInventoryMovementDialog(true)
       return
     }
+    if (kind === 'inventorySettings' && isTauri && selectedCompanyId) { const item=inventoryItems.find((value)=>value.id===row.id); if(!item)return; setEditingInventoryItemId(item.id); setInventoryItemDraft({itemCode:item.itemCode,itemName:item.itemName,specification:item.specification||'',unit:item.unit,taxRate:String((item.taxRate||0)*100),defaultSubject:item.defaultSubject||''}); setShowInventoryItemDialog(true); return }
+    if (kind === 'unitSettings' && isTauri && selectedCompanyId) { const unit=measurementUnits.find((value)=>value.id===row.id); if(!unit)return; setEditingMeasurementUnitId(unit.id); setMeasurementUnitDraft({unitName:unit.unitName,unitGroup:unit.unitGroup||'',baseUnit:unit.baseUnit||'',conversionRate:String(unit.conversionRate),precisionDigits:String(unit.precisionDigits),remark:unit.remark||''}); setShowMeasurementUnitDialog(true); return }
     if ((kind === 'billList' || kind === 'bankStatement') && isTauri && selectedCompanyId) {
       const transaction = bankTransactions.find((item) => item.id === row.id)
       if (!transaction) {
@@ -6391,7 +6399,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -6757,7 +6765,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       )}
       {showInventoryItemDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增存货">
-          <form onSubmit={handleCreateInventoryItem} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+          <form onSubmit={handleSaveInventoryItem} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">新增存货</h2>
@@ -6800,7 +6808,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       )}
       {showMeasurementUnitDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-          <form onSubmit={handleCreateMeasurementUnit} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+          <form onSubmit={handleSaveMeasurementUnit} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">新增计量单位</h2>

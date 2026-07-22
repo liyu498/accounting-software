@@ -428,12 +428,12 @@ const requiredAgencyServiceContractEntryPageSnippets = [
 
 const requiredMeasurementUnitEntryPageSnippets = [
   ['measurement unit structured dialog', '<span>单位名称</span>'],
-  ['measurement unit create binding', 'measurementUnitApi.createMeasurementUnit({'],
+  ['measurement unit create binding', 'measurementUnitApi.createMeasurementUnit(unitInput)'],
 ]
 
 const requiredInventoryItemEntryPageSnippets = [
   ['inventory item structured dialog', '<span>存货编码</span>'],
-  ['inventory item create binding', 'inventoryItemApi.createInventoryItem({'],
+  ['inventory item create binding', 'inventoryItemApi.createInventoryItem(itemInput)'],
 ]
 
 const requiredSocialSecurityEntryPageSnippets = [
@@ -717,11 +717,14 @@ const requiredInventoryItemCommandSnippets = [
   ['inventory item table schema', 'CREATE TABLE IF NOT EXISTS inventory_items'],
   ['inventory item list command', 'pub async fn get_inventory_items'],
   ['inventory item create command', 'pub async fn create_inventory_item'],
+  ['inventory item update command', 'pub async fn update_inventory_item'],
 ]
 
 const requiredInventoryItemPageSnippets = [
   ['inventory item api list binding', 'inventoryItemApi.getInventoryItems({ companyId: selectedCompanyId })'],
-  ['inventory item api create binding', 'inventoryItemApi.createInventoryItem({'],
+  ['inventory item api create binding', 'inventoryItemApi.createInventoryItem(itemInput)'],
+  ['inventory item api update binding', 'inventoryItemApi.updateInventoryItem({'],
+  ['inventory item edit state', 'const [editingInventoryItemId, setEditingInventoryItemId] = useState<string | null>(null)'],
   ['inventory item row mapper', 'mapLiveInventoryItemRows(inventoryItems)'],
 ]
 
@@ -729,11 +732,14 @@ const requiredUnitCommandSnippets = [
   ['unit table schema', 'CREATE TABLE IF NOT EXISTS measurement_units'],
   ['unit list command', 'pub async fn get_measurement_units'],
   ['unit create command', 'pub async fn create_measurement_unit'],
+  ['unit update command', 'pub async fn update_measurement_unit'],
 ]
 
 const requiredUnitPageSnippets = [
   ['unit api list binding', 'measurementUnitApi.getMeasurementUnits({ companyId: selectedCompanyId })'],
-  ['unit api create binding', 'measurementUnitApi.createMeasurementUnit({'],
+  ['unit api create binding', 'measurementUnitApi.createMeasurementUnit(unitInput)'],
+  ['unit api update binding', 'measurementUnitApi.updateMeasurementUnit({'],
+  ['unit edit state', 'const [editingMeasurementUnitId, setEditingMeasurementUnitId] = useState<string | null>(null)'],
   ['unit row mapper', 'mapLiveMeasurementUnitRows(measurementUnits)'],
 ]
 
