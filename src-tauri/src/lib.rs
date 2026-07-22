@@ -93,6 +93,8 @@ pub fn run() {
             commands::fixed_assets::create_fixed_asset,
             commands::inventory_movements::get_inventory_movements,
             commands::inventory_movements::create_inventory_movement,
+            commands::inventory_items::get_inventory_items,
+            commands::inventory_items::create_inventory_item,
             // Company commands
             commands::companies::get_companies,
             commands::companies::get_company,

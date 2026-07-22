@@ -41,6 +41,9 @@ const fixedAssetCommandSource = existsSync('src-tauri/src/commands/fixed_assets.
 const inventoryMovementCommandSource = existsSync('src-tauri/src/commands/inventory_movements.rs')
   ? readFileSync('src-tauri/src/commands/inventory_movements.rs', 'utf8')
   : ''
+const inventoryItemCommandSource = existsSync('src-tauri/src/commands/inventory_items.rs')
+  ? readFileSync('src-tauri/src/commands/inventory_items.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -568,6 +571,18 @@ const requiredInventoryMovementPageSnippets = [
   ['cost carryover local source', 'mapLiveCostCarryoverRows(inventoryMovements)'],
 ]
 
+const requiredInventoryItemCommandSnippets = [
+  ['inventory item table schema', 'CREATE TABLE IF NOT EXISTS inventory_items'],
+  ['inventory item list command', 'pub async fn get_inventory_items'],
+  ['inventory item create command', 'pub async fn create_inventory_item'],
+]
+
+const requiredInventoryItemPageSnippets = [
+  ['inventory item api list binding', 'inventoryItemApi.getInventoryItems({ companyId: selectedCompanyId })'],
+  ['inventory item api create binding', 'inventoryItemApi.createInventoryItem({'],
+  ['inventory item row mapper', 'mapLiveInventoryItemRows(inventoryItems)'],
+]
+
 function verify(source, checks, sourceName) {
   return checks
     .filter(([, snippet]) => !source.includes(snippet))
@@ -621,6 +636,9 @@ const errors = [
   ...verify(databaseSource, requiredInventoryMovementCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryMovementCommandSource, requiredInventoryMovementCommandSnippets.slice(1), 'inventory movement commands'),
   ...verify(pageSource, requiredInventoryMovementPageSnippets, 'inventory movement module page'),
+  ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
+  ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
+  ...verify(pageSource, requiredInventoryItemPageSnippets, 'inventory item module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
