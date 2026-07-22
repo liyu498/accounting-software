@@ -6020,7 +6020,48 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       )}
       {showSocialSecurityDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增社保明细">
-          <form onSubmit={handleCreateSocialSecurityRecord} className="w-full max-w-lg border border-slate-300 bg-white shadow-xl"><div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold">新增社保明细</h2><button type="button" onClick={() => setShowSocialSecurityDialog(false)} className="text-xs text-slate-500">取消</button></div><div className="grid gap-3 p-4 sm:grid-cols-2"><label className="grid gap-1 text-xs sm:col-span-2">人员 *<select required value={socialSecurityDraft.employeeId} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, employeeId: event.target.value }))} className="h-8 border border-slate-300 px-2"><option value="">选择在职人员</option>{employees.filter((employee) => employee.employmentStatus === '在职').map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} {employee.name}</option>)}</select></label>{([{ field: 'city', label: '缴费城市', type: 'text' }, { field: 'base', label: '缴费基数', type: 'number' }, { field: 'company', label: '单位部分', type: 'number' }, { field: 'personal', label: '个人部分', type: 'number' }, { field: 'fund', label: '公积金', type: 'number' }] as Array<{ field: keyof typeof socialSecurityDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs">{label}<input type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={socialSecurityDraft[field]} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 border border-slate-300 px-2" /></label>)}</div><div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowSocialSecurityDialog(false)} className="h-8 border border-slate-300 px-3 text-xs">取消</button><button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs text-white">保存明细</button></div></form>
+          <form onSubmit={handleCreateSocialSecurityRecord} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">新增社保明细</h2>
+                <p className="mt-0.5 text-xs text-slate-500">按员工记录本期社保和公积金基数，生成凭证前仍需人工复核。</p>
+              </div>
+              <button type="button" onClick={() => setShowSocialSecurityDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                <span>人员</span>
+                <select required value={socialSecurityDraft.employeeId} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, employeeId: event.target.value }))} className="h-8 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="">选择在职人员</option>
+                  {employees.filter((employee) => employee.employmentStatus === '在职').map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} {employee.name}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>缴费城市</span>
+                <input value={socialSecurityDraft.city} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, city: event.target.value }))} placeholder="例如：上海" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>缴费基数</span>
+                <input min="0" step="0.01" type="number" value={socialSecurityDraft.base} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, base: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>单位部分</span>
+                <input min="0" step="0.01" type="number" value={socialSecurityDraft.company} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, company: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>个人部分</span>
+                <input min="0" step="0.01" type="number" value={socialSecurityDraft.personal} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, personal: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                <span>公积金</span>
+                <input min="0" step="0.01" type="number" value={socialSecurityDraft.fund} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, fund: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowSocialSecurityDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存明细</button>
+            </div>
+          </form>
         </div>
       )}
       {showSpecialDeductionDialog && (
