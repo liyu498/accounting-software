@@ -453,6 +453,7 @@ const requiredVoucherEntryPageSnippets = [
   ['voucher structured workspace', '凭证分录'],
   ['voucher create action', 'await addVoucher({'],
   ['voucher client balance guard', '借贷金额不平衡'],
+  ['voucher list new navigation', "navigate('/vouchers/new')"],
 ]
 
 const requiredAppSnippets = [

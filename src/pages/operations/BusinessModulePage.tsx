@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -3958,6 +3959,7 @@ function auditLogToModuleRow(log: AuditLog): ModuleRow {
 }
 
 export function BusinessModulePage({ kind, title, description }: BusinessModulePageProps) {
+  const navigate = useNavigate()
   const baseConfig = moduleConfigs[kind]
   const exportJobs = useExportJobs()
   const auditLogs = useAuditLogs()
@@ -5214,6 +5216,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handlePrimaryAction = async () => {
+    if (kind === 'voucher') {
+      navigate('/vouchers/new')
+      return
+    }
     if ((kind === 'outputInvoice' || kind === 'inputInvoice') && isTauri && selectedCompanyId && currentPeriodId) {
       setShowInvoiceDialog(true)
       return
