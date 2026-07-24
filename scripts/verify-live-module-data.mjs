@@ -739,6 +739,8 @@ const requiredBusinessTagCommandSnippets = [
   ['invoice tag replace command', 'pub async fn replace_invoice_tags'],
   ['voucher tag list command', 'pub async fn get_voucher_tag_ids'],
   ['voucher tag replace command', 'pub async fn replace_voucher_tags'],
+  ['bank transaction tag list command', 'pub async fn get_bank_transaction_tag_ids'],
+  ['bank transaction tag replace command', 'pub async fn replace_bank_transaction_tags'],
 ]
 const requiredBusinessTagStoreSnippets = [
   ['business tag fetch action', 'fetchBusinessTags: async'],
@@ -749,6 +751,8 @@ const requiredBusinessTagStoreSnippets = [
   ['invoice tag replace action', 'replaceInvoiceTags: async'],
   ['voucher tag fetch action', 'fetchVoucherTagIds: async'],
   ['voucher tag replace action', 'replaceVoucherTags: async'],
+  ['bank transaction tag fetch action', 'fetchBankTransactionTagIds: async'],
+  ['bank transaction tag replace action', 'replaceBankTransactionTags: async'],
 ]
 const requiredBusinessTagPageSnippets = [
   ['business tag store binding', "from '../../stores/businessTagStore'"],
@@ -762,6 +766,9 @@ const requiredBusinessTagPageSnippets = [
   ['voucher tag selection state', 'const [selectedVoucherTagIds, setSelectedVoucherTagIds] = useState<string[]>([])'],
   ['voucher tag save binding', 'replaceVoucherTags(voucher.id, selectedCompanyId, selectedVoucherTagIds)'],
   ['voucher tag live mapper', 'mapLiveVoucherRows(vouchers, voucherTagIds, businessTags)'],
+  ['bank transaction tag selection state', 'const [selectedBankTransactionTagIds, setSelectedBankTransactionTagIds] = useState<string[]>([])'],
+  ['bank transaction tag save binding', 'replaceBankTransactionTags(result.data.id, selectedCompanyId, selectedBankTransactionTagIds)'],
+  ['bank transaction tag live mapper', 'mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, businessTags)'],
 ]
 const requiredCompanyAccountCommandSnippets = [
   ['company account list command', 'pub async fn get_company_accounts'],
@@ -849,7 +856,7 @@ const requiredBankTransactionPageSnippets = [
   ['bank transaction api update binding', 'bankTransactionApi.updateBankTransaction({'],
   ['bank transaction edit state', 'const [editingBankTransactionId, setEditingBankTransactionId] = useState<string | null>(null)'],
   ['bank transaction edit row binding', "if ((kind === 'billList' || kind === 'bankStatement') && isTauri && selectedCompanyId)"],
-  ['bank transaction row mapper', 'mapLiveBankTransactionRows(bankTransactions, kind)'],
+  ['bank transaction row mapper', 'mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, businessTags)'],
 ]
 
 const requiredDocumentRecordCommandSnippets = [
@@ -1038,6 +1045,7 @@ const errors = [
   ...verify(databaseSource, [['business tag schema', 'CREATE TABLE IF NOT EXISTS business_tags']], 'database schema'),
 ...verify(databaseSource, [['invoice tag schema', 'CREATE TABLE IF NOT EXISTS invoice_tags']], 'database schema'),
   ...verify(databaseSource, [['voucher tag schema', 'CREATE TABLE IF NOT EXISTS voucher_tags']], 'database schema'),
+  ...verify(databaseSource, [['bank transaction tag schema', 'CREATE TABLE IF NOT EXISTS bank_transaction_tags']], 'database schema'),
   ...verify(businessTagCommandSource, requiredBusinessTagCommandSnippets, 'business tag commands'),
   ...verify(businessTagStoreSource, requiredBusinessTagStoreSnippets, 'business tag store'),
   ...verify(pageSource, requiredBusinessTagPageSnippets, 'business tag module page'),

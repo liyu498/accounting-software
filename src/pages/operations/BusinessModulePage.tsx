@@ -133,7 +133,7 @@ import { useTemplateStore, type TemplateEntry } from '../../stores/templateStore
 import { useReportTemplateStore } from '../../stores/reportTemplateStore'
 import { useMatchingRuleStore, type MatchingRuleScope } from '../../stores/matchingRuleStore'
 import { useAssetCategoryStore } from '../../stores/assetCategoryStore'
-import { useBusinessTagStore } from '../../stores/businessTagStore'
+import { useBusinessTagStore, type BusinessTag } from '../../stores/businessTagStore'
 import { useCompanyAccountStore } from '../../stores/companyAccountStore'
 
 type ModuleKind =
@@ -681,6 +681,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'summary', label: '摘要' },
       { key: 'income', label: '收入', align: 'right' },
       { key: 'expense', label: '支出', align: 'right' },
+      { key: 'tags', label: '标签' },
     ],
     rows: [
       { id: 'bill-001', status: '待处理', voucher: '未生成', attachment: '回单', values: { source: '银行采集', date: '2026-05-03', account: '工行基本户', counterparty: '上海辰光贸易有限公司', summary: '货款', income: '¥86,000.00', expense: '-' } },
@@ -711,6 +712,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'balance', label: '余额', align: 'right' },
       { key: 'receiptStatus', label: '回单状态' },
       { key: 'matchResult', label: '匹配结果' },
+      { key: 'tags', label: '标签' },
     ],
     rows: [
       { id: 'bank-001', status: '已匹配', voucher: '草稿31', attachment: '回单PDF', values: { account: '工行基本户', serialNo: 'ICBC-20260503-0018', date: '2026-05-03', counterparty: '上海辰光贸易有限公司', summary: '货款', income: '¥86,000.00', expense: '-', balance: '¥1,286,300.00', receiptStatus: '已归档', matchResult: '销项发票 310026000118' } },
@@ -3820,7 +3822,7 @@ function summarizeLiveVatTax(invoices: Invoice[]): ModuleConfig['summary'] {
   ]
 }
 
-function mapLiveBankTransactionRows(bankTransactions: BankTransaction[], kind: ModuleKind): ModuleRow[] {
+function mapLiveBankTransactionRows(bankTransactions: BankTransaction[], kind: ModuleKind, bankTransactionTagIds: Record<string, string[]> = {}, businessTags: BusinessTag[] = []): ModuleRow[] {
   return bankTransactions.map((record) => ({
     id: record.id,
     status: record.status === '异常' ? '异常' : record.status === '已生成凭证' ? '已生成凭证' : record.status === '已匹配' ? '已匹配' : '待处理',
@@ -3838,6 +3840,7 @@ function mapLiveBankTransactionRows(bankTransactions: BankTransaction[], kind: M
       balance: record.balance === null ? '待补余额' : payrollCurrency(record.balance),
       receiptStatus: record.receiptStatus,
       matchResult: record.matchResult || (kind === 'bankStatement' ? '待规则匹配' : '待匹配'),
+      tags: (bankTransactionTagIds[record.id] || []).map((tagId) => businessTags.find((tag) => tag.id === tagId)?.name).filter(Boolean).join(' / ') || '-',
     },
   }))
 }
@@ -4067,6 +4070,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const businessTags = useBusinessTagStore((state) => state.businessTags)
   const invoiceTagIds = useBusinessTagStore((state) => state.invoiceTagIds)
   const voucherTagIds = useBusinessTagStore((state) => state.voucherTagIds)
+  const bankTransactionTagIds = useBusinessTagStore((state) => state.bankTransactionTagIds)
   const fetchBusinessTags = useBusinessTagStore((state) => state.fetchBusinessTags)
   const createBusinessTag = useBusinessTagStore((state) => state.createBusinessTag)
   const updateBusinessTag = useBusinessTagStore((state) => state.updateBusinessTag)
@@ -4075,6 +4079,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const replaceInvoiceTags = useBusinessTagStore((state) => state.replaceInvoiceTags)
   const fetchVoucherTagIds = useBusinessTagStore((state) => state.fetchVoucherTagIds)
   const replaceVoucherTags = useBusinessTagStore((state) => state.replaceVoucherTags)
+  const fetchBankTransactionTagIds = useBusinessTagStore((state) => state.fetchBankTransactionTagIds)
+  const replaceBankTransactionTags = useBusinessTagStore((state) => state.replaceBankTransactionTags)
   const companyAccounts = useCompanyAccountStore((state) => state.companyAccounts)
   const fetchCompanyAccounts = useCompanyAccountStore((state) => state.fetchCompanyAccounts)
   const createCompanyAccount = useCompanyAccountStore((state) => state.createCompanyAccount)
@@ -4098,7 +4104,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveAssetCategoryData = Boolean(isTauri && selectedCompanyId && kind === 'assetCategory')
   const needsLiveAssetCategories = Boolean(isTauri && selectedCompanyId && ['assetCategory', 'depreciation'].includes(kind))
   const usesLiveBusinessTagData = Boolean(isTauri && selectedCompanyId && kind === 'tagArchive')
-  const needsLiveBusinessTags = Boolean(isTauri && selectedCompanyId && ['tagArchive', 'outputInvoice', 'inputInvoice', 'voucher', 'voucherCreate', 'voucherEdit', 'voucherDetail'].includes(kind))
+  const needsLiveBusinessTags = Boolean(isTauri && selectedCompanyId && ['tagArchive', 'outputInvoice', 'inputInvoice', 'voucher', 'voucherCreate', 'voucherEdit', 'voucherDetail', 'billList', 'bankStatement'].includes(kind))
   const matchingRuleScope: MatchingRuleScope = kind === 'invoiceMatchingRules' ? 'invoice' : kind === 'billMatchingRules' ? 'bill' : 'cash_flow'
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings', 'taxInit'].includes(kind))
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
@@ -4243,6 +4249,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [invoiceDraft, setInvoiceDraft] = useState({ invoiceNo: '', invoiceCode: '', invoiceDate: '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
   const [selectedInvoiceTagIds, setSelectedInvoiceTagIds] = useState<string[]>([])
   const [selectedVoucherTagIds, setSelectedVoucherTagIds] = useState<string[]>([])
+  const [selectedBankTransactionTagIds, setSelectedBankTransactionTagIds] = useState<string[]>([])
   const [voucherDraft, setVoucherDraft] = useState({
     voucherWordId: '',
     voucherDate: '',
@@ -4546,6 +4553,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!isTauri || !selectedCompanyId || kind !== 'voucher') return
     void Promise.all(vouchers.map((voucher) => fetchVoucherTagIds(voucher.id, selectedCompanyId)))
   }, [fetchVoucherTagIds, kind, selectedCompanyId, vouchers])
+
+  useEffect(() => {
+    if (!isTauri || !selectedCompanyId || !['billList', 'bankStatement'].includes(kind)) return
+    void Promise.all(bankTransactions.map((transaction) => fetchBankTransactionTagIds(transaction.id, selectedCompanyId)))
+  }, [bankTransactions, fetchBankTransactionTagIds, kind, selectedCompanyId])
 
   useEffect(() => {
     if (!usesLiveCompanyBankAccountData || !selectedCompanyId) return
@@ -4896,7 +4908,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'socialSecurityTaxReport' && usesLiveSocialSecurityTaxData) return { ...baseConfig, rows: mapLiveSocialSecurityTaxRows(socialSecurityRecords), summary: summarizeLiveSocialSecurityTax(socialSecurityRecords) }
     if (kind === 'incomeTaxReport' && usesLiveReportData && liveReports.incomeStatement) return { ...baseConfig, rows: mapLiveIncomeTaxRows(liveReports.incomeStatement), summary: summarizeLiveIncomeTax(liveReports.incomeStatement) }
     if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
-    if ((kind === 'billList' || kind === 'bankStatement') && usesLiveBankTransactionData) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
+    if ((kind === 'billList' || kind === 'bankStatement') && usesLiveBankTransactionData) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, businessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
     if (kind === 'bankReconciliation' && usesLiveReconciliationData) return { ...baseConfig, rows: mapLiveBankReconciliationRows(bankTransactions) }
     if (kind === 'receivableSettlement' && usesLiveReconciliationData) return { ...baseConfig, rows: mapLiveSettlementRows(invoices, 'output') }
     if (kind === 'payableSettlement' && usesLiveReconciliationData) return { ...baseConfig, rows: mapLiveSettlementRows(invoices, 'input') }
@@ -5303,7 +5315,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, selectedVoucherTagIds, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactionTagIds, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -6288,11 +6300,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ? await bankTransactionApi.updateBankTransaction({ id: editingBankTransactionId, ...transactionInput })
         : await bankTransactionApi.createBankTransaction({ ...transactionInput, period: currentPeriodLabel })
       if (!result.success || !result.data) throw new Error(result.error || '未返回银行流水')
+      await replaceBankTransactionTags(result.data.id, selectedCompanyId, selectedBankTransactionTagIds)
+      await fetchBusinessTags(selectedCompanyId)
       setBankTransactions((records) => editingBankTransactionId ? records.map((item) => item.id === result.data!.id ? result.data! : item) : [result.data!, ...records])
       writeModuleAudit(editingBankTransactionId ? '编辑银行流水' : '新增银行流水', `${result.data.accountName}｜${result.data.serialNo}`, '中', '成功')
       setOperationNotice(editingBankTransactionId ? `已更新 ${result.data.accountName} 的银行流水，需重新执行匹配和人工确认。` : `已新增 ${result.data.accountName} 的银行流水，等待匹配和人工确认。`)
       setEditingBankTransactionId(null)
       setBankTransactionDraft({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' })
+      setSelectedBankTransactionTagIds([])
       setShowBankTransactionDialog(false)
     } catch (error) {
       setOperationNotice(`${editingBankTransactionId ? '编辑' : '新增'}银行流水失败：${String(error)}`)
@@ -6684,6 +6699,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
       setEditingBankTransactionId(transaction.id)
       setBankTransactionDraft({ accountName: transaction.accountName, serialNo: transaction.serialNo, transactionDate: transaction.transactionDate, counterparty: transaction.counterparty || '', summary: transaction.summary || '', incomeAmount: String(transaction.incomeAmount || ''), expenseAmount: String(transaction.expenseAmount || ''), balance: transaction.balance === null ? '' : String(transaction.balance), receiptStatus: transaction.receiptStatus })
+      setSelectedBankTransactionTagIds(await fetchBankTransactionTagIds(transaction.id, selectedCompanyId))
       setShowBankTransactionDialog(true)
       return
     }
@@ -7033,7 +7049,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {(kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'} onClick={() => { resetAdapterAuthorizationDraft(); setShowAdapterAuthorizationDialog(true) }} />}
             {kind === 'socialSecurity' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={() => { setEditingSocialSecurityId(null); setShowSocialSecurityDialog(true) }} />}
             {kind === 'specialDeduction' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={() => { setEditingSpecialDeductionId(null); setShowSpecialDeductionDialog(true) }} />}
-            {(kind === 'billList' || kind === 'bankStatement') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={() => setShowBankTransactionDialog(true)} />}
+            {(kind === 'billList' || kind === 'bankStatement') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={() => { setEditingBankTransactionId(null); setSelectedBankTransactionTagIds([]); setBankTransactionDraft({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' }); setShowBankTransactionDialog(true) }} />}
             {kind === 'documentRegister' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增单据" onClick={() => setShowDocumentRecordDialog(true)} />}
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" onClick={handleRefreshAction} />
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="模板" onClick={handleTemplateAction} />
@@ -7800,6 +7816,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               ))}
               <label className="grid gap-1 text-xs text-slate-600">回单状态<select value={bankTransactionDraft.receiptStatus} onChange={(event) => setBankTransactionDraft((draft) => ({ ...draft, receiptStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="待上传">待上传</option><option value="已归档">已归档</option></select></label>
               <p className="self-end text-xs leading-5 text-slate-500">收入与支出必须二选一；保存后仅进入待匹配清单。</p>
+              <fieldset className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                <legend>业务标签</legend>
+                <div className="flex flex-wrap gap-2 border border-slate-200 p-2">
+                  {businessTags.filter((tag) => tag.is_enabled === 1).length === 0 && <span className="text-slate-400">请先在“标签”档案中维护可用标签。</span>}
+                  {businessTags.filter((tag) => tag.is_enabled === 1).map((tag) => <label key={tag.id} className="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-xs text-slate-700"><input type="checkbox" checked={selectedBankTransactionTagIds.includes(tag.id)} onChange={(event) => setSelectedBankTransactionTagIds((ids) => event.target.checked ? [...ids, tag.id] : ids.filter((id) => id !== tag.id))} />{tag.name}</label>)}
+                </div>
+              </fieldset>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowBankTransactionDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingBankTransactionId ? '保存修改' : '保存流水'}</button></div>
           </form>

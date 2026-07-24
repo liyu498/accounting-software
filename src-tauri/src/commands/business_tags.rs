@@ -64,11 +64,12 @@ pub async fn update_business_tag(id: String, input: BusinessTagInput, db: State<
 
 #[tauri::command]
 pub async fn delete_business_tag(id: String, company_id: String, db: State<'_, Database>) -> Result<(), String> {
-    let usage_count: i64 = sqlx::query_scalar("SELECT (SELECT COUNT(*) FROM invoice_tags WHERE tag_id = ? AND company_id = ?) + (SELECT COUNT(*) FROM voucher_tags WHERE tag_id = ? AND company_id = ?)")
+    let usage_count: i64 = sqlx::query_scalar("SELECT (SELECT COUNT(*) FROM invoice_tags WHERE tag_id = ? AND company_id = ?) + (SELECT COUNT(*) FROM voucher_tags WHERE tag_id = ? AND company_id = ?) + (SELECT COUNT(*) FROM bank_transaction_tags WHERE tag_id = ? AND company_id = ?)")
+        .bind(&id).bind(&company_id)
         .bind(&id).bind(&company_id)
         .bind(&id).bind(&company_id).fetch_one(db.pool()).await.map_err(|error| format!("校验业务标签使用情况失败: {error}"))?;
     if usage_count > 0 {
-        return Err("该标签已关联发票，请先在发票中移除后再删除".to_string());
+        return Err("该标签已关联业务记录，请先移除关联后再删除".to_string());
     }
     let result = sqlx::query("DELETE FROM business_tags WHERE id = ? AND company_id = ?").bind(id).bind(company_id).execute(db.pool()).await.map_err(|error| format!("删除业务标签失败: {error}"))?;
     if result.rows_affected() == 0 { return Err("业务标签不存在或不属于当前账套".to_string()); }
@@ -99,7 +100,7 @@ pub async fn replace_invoice_tags(invoice_id: String, company_id: String, tag_id
     for tag_id in &distinct_ids {
         sqlx::query("INSERT INTO invoice_tags (invoice_id, tag_id, company_id) VALUES (?, ?, ?)").bind(&invoice_id).bind(tag_id).bind(&company_id).execute(db.pool()).await.map_err(|error| format!("保存发票标签失败: {error}"))?;
     }
-    sqlx::query("UPDATE business_tags SET usage_count = (SELECT COUNT(*) FROM invoice_tags WHERE tag_id = business_tags.id) + (SELECT COUNT(*) FROM voucher_tags WHERE tag_id = business_tags.id), updated_at = datetime('now') WHERE company_id = ?")
+    sqlx::query("UPDATE business_tags SET usage_count = (SELECT COUNT(*) FROM invoice_tags WHERE tag_id = business_tags.id) + (SELECT COUNT(*) FROM voucher_tags WHERE tag_id = business_tags.id) + (SELECT COUNT(*) FROM bank_transaction_tags WHERE tag_id = business_tags.id), updated_at = datetime('now') WHERE company_id = ?")
         .bind(&company_id).execute(db.pool()).await.map_err(|error| format!("更新标签使用次数失败: {error}"))?;
     Ok(distinct_ids)
 }
@@ -128,7 +129,36 @@ pub async fn replace_voucher_tags(voucher_id: String, company_id: String, tag_id
     for tag_id in &distinct_ids {
         sqlx::query("INSERT INTO voucher_tags (voucher_id, tag_id, company_id) VALUES (?, ?, ?)").bind(&voucher_id).bind(tag_id).bind(&company_id).execute(db.pool()).await.map_err(|error| format!("保存凭证标签失败: {error}"))?;
     }
-    sqlx::query("UPDATE business_tags SET usage_count = (SELECT COUNT(*) FROM invoice_tags WHERE tag_id = business_tags.id) + (SELECT COUNT(*) FROM voucher_tags WHERE tag_id = business_tags.id), updated_at = datetime('now') WHERE company_id = ?")
+    sqlx::query("UPDATE business_tags SET usage_count = (SELECT COUNT(*) FROM invoice_tags WHERE tag_id = business_tags.id) + (SELECT COUNT(*) FROM voucher_tags WHERE tag_id = business_tags.id) + (SELECT COUNT(*) FROM bank_transaction_tags WHERE tag_id = business_tags.id), updated_at = datetime('now') WHERE company_id = ?")
+        .bind(&company_id).execute(db.pool()).await.map_err(|error| format!("更新标签使用次数失败: {error}"))?;
+    Ok(distinct_ids)
+}
+
+#[tauri::command]
+pub async fn get_bank_transaction_tag_ids(bank_transaction_id: String, company_id: String, db: State<'_, Database>) -> Result<Vec<String>, String> {
+    sqlx::query_scalar("SELECT tag_id FROM bank_transaction_tags WHERE bank_transaction_id = ? AND company_id = ? ORDER BY tag_id")
+        .bind(bank_transaction_id).bind(company_id).fetch_all(db.pool()).await.map_err(|error| format!("查询银行流水标签失败: {error}"))
+}
+
+#[tauri::command]
+pub async fn replace_bank_transaction_tags(bank_transaction_id: String, company_id: String, tag_ids: Vec<String>, db: State<'_, Database>) -> Result<Vec<String>, String> {
+    let transaction_exists: Option<(String,)> = sqlx::query_as("SELECT id FROM bank_transactions WHERE id = ? AND company_id = ?")
+        .bind(&bank_transaction_id).bind(&company_id).fetch_optional(db.pool()).await.map_err(|error| format!("校验银行流水失败: {error}"))?;
+    if transaction_exists.is_none() { return Err("银行流水不存在或不属于当前账套".to_string()); }
+    let mut seen_ids = HashSet::new();
+    let distinct_ids: Vec<String> = tag_ids.into_iter()
+        .filter(|id| !id.trim().is_empty() && seen_ids.insert(id.clone()))
+        .collect();
+    for tag_id in &distinct_ids {
+        let tag_exists: Option<(String,)> = sqlx::query_as("SELECT id FROM business_tags WHERE id = ? AND company_id = ?")
+            .bind(tag_id).bind(&company_id).fetch_optional(db.pool()).await.map_err(|error| format!("校验业务标签失败: {error}"))?;
+        if tag_exists.is_none() { return Err("标签不存在或不属于当前账套".to_string()); }
+    }
+    sqlx::query("DELETE FROM bank_transaction_tags WHERE bank_transaction_id = ? AND company_id = ?").bind(&bank_transaction_id).bind(&company_id).execute(db.pool()).await.map_err(|error| format!("清理银行流水标签失败: {error}"))?;
+    for tag_id in &distinct_ids {
+        sqlx::query("INSERT INTO bank_transaction_tags (bank_transaction_id, tag_id, company_id) VALUES (?, ?, ?)").bind(&bank_transaction_id).bind(tag_id).bind(&company_id).execute(db.pool()).await.map_err(|error| format!("保存银行流水标签失败: {error}"))?;
+    }
+    sqlx::query("UPDATE business_tags SET usage_count = (SELECT COUNT(*) FROM invoice_tags WHERE tag_id = business_tags.id) + (SELECT COUNT(*) FROM voucher_tags WHERE tag_id = business_tags.id) + (SELECT COUNT(*) FROM bank_transaction_tags WHERE tag_id = business_tags.id), updated_at = datetime('now') WHERE company_id = ?")
         .bind(&company_id).execute(db.pool()).await.map_err(|error| format!("更新标签使用次数失败: {error}"))?;
     Ok(distinct_ids)
 }

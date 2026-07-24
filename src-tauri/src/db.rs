@@ -255,6 +255,19 @@ impl Database {
 
         sqlx::query(
             r#"
+            CREATE TABLE IF NOT EXISTS bank_transaction_tags (
+                bank_transaction_id TEXT NOT NULL, tag_id TEXT NOT NULL, company_id TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                PRIMARY KEY (bank_transaction_id, tag_id), FOREIGN KEY (bank_transaction_id) REFERENCES bank_transactions(id),
+                FOREIGN KEY (tag_id) REFERENCES business_tags(id), FOREIGN KEY (company_id) REFERENCES companies(id)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            r#"
             CREATE TABLE IF NOT EXISTS document_records (
                 id TEXT PRIMARY KEY,
                 company_id TEXT NOT NULL,

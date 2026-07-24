@@ -29,6 +29,7 @@ interface BusinessTagState {
   businessTags: BusinessTag[]
   invoiceTagIds: Record<string, string[]>
   voucherTagIds: Record<string, string[]>
+  bankTransactionTagIds: Record<string, string[]>
   isLoading: boolean
   error: string | null
   fetchBusinessTags: (companyId: string) => Promise<void>
@@ -39,6 +40,8 @@ interface BusinessTagState {
   replaceInvoiceTags: (invoiceId: string, companyId: string, tagIds: string[]) => Promise<void>
   fetchVoucherTagIds: (voucherId: string, companyId: string) => Promise<string[]>
   replaceVoucherTags: (voucherId: string, companyId: string, tagIds: string[]) => Promise<void>
+  fetchBankTransactionTagIds: (bankTransactionId: string, companyId: string) => Promise<string[]>
+  replaceBankTransactionTags: (bankTransactionId: string, companyId: string, tagIds: string[]) => Promise<void>
 }
 
 const toCommandInput = (input: BusinessTagInput) => ({
@@ -48,7 +51,7 @@ const toCommandInput = (input: BusinessTagInput) => ({
 })
 
 export const useBusinessTagStore = create<BusinessTagState>((set) => ({
-  businessTags: [], invoiceTagIds: {}, voucherTagIds: {}, isLoading: false, error: null,
+  businessTags: [], invoiceTagIds: {}, voucherTagIds: {}, bankTransactionTagIds: {}, isLoading: false, error: null,
   fetchBusinessTags: async (companyId) => {
     set({ isLoading: true, error: null })
     try { set({ businessTags: await invoke<BusinessTag[]>('get_business_tags', { companyId }), isLoading: false }) }
@@ -90,6 +93,19 @@ export const useBusinessTagStore = create<BusinessTagState>((set) => ({
     try {
       const savedTagIds = await invoke<string[]>('replace_voucher_tags', { voucherId, companyId, tagIds })
       set((state) => ({ voucherTagIds: { ...state.voucherTagIds, [voucherId]: savedTagIds } }))
+    } catch (error) { set({ error: String(error) }); throw error }
+  },
+  fetchBankTransactionTagIds: async (bankTransactionId, companyId) => {
+    try {
+      const tagIds = await invoke<string[]>('get_bank_transaction_tag_ids', { bankTransactionId, companyId })
+      set((state) => ({ bankTransactionTagIds: { ...state.bankTransactionTagIds, [bankTransactionId]: tagIds } }))
+      return tagIds
+    } catch (error) { set({ error: String(error) }); return [] }
+  },
+  replaceBankTransactionTags: async (bankTransactionId, companyId, tagIds) => {
+    try {
+      const savedTagIds = await invoke<string[]>('replace_bank_transaction_tags', { bankTransactionId, companyId, tagIds })
+      set((state) => ({ bankTransactionTagIds: { ...state.bankTransactionTagIds, [bankTransactionId]: savedTagIds } }))
     } catch (error) { set({ error: String(error) }); throw error }
   },
 }))
