@@ -123,6 +123,18 @@ impl Database {
         "#).execute(pool).await?;
 
         sqlx::query(r#"
+            CREATE TABLE IF NOT EXISTS asset_categories (
+                id TEXT PRIMARY KEY, company_id TEXT NOT NULL, code TEXT NOT NULL, name TEXT NOT NULL,
+                useful_life_months INTEGER NOT NULL, residual_rate REAL NOT NULL DEFAULT 0,
+                depreciation_method TEXT NOT NULL DEFAULT '平均年限法', asset_account TEXT NOT NULL,
+                accumulated_depreciation_account TEXT NOT NULL, expense_account TEXT,
+                is_enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, code)
+            )
+        "#).execute(pool).await?;
+
+        sqlx::query(r#"
             CREATE TABLE IF NOT EXISTS inventory_movements (
                 id TEXT PRIMARY KEY, company_id TEXT NOT NULL, period TEXT NOT NULL, movement_date TEXT NOT NULL,
                 bill_no TEXT NOT NULL, movement_type TEXT NOT NULL, inventory_name TEXT NOT NULL, warehouse TEXT NOT NULL,

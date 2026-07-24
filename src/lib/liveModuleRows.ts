@@ -16,6 +16,7 @@ import type { AuxiliaryBalanceRow, AuxiliaryCategory, AuxiliaryItem, AuxiliaryLe
 import type { Voucher, VoucherEntry } from '../stores/voucherStore'
 import type { SettlementRule } from '../stores/settlementRuleStore'
 import type { MatchingRule, MatchingRuleScope } from '../stores/matchingRuleStore'
+import type { AssetCategory } from '../stores/assetCategoryStore'
 import type { Currency } from '../stores/currencyStore'
 import type { CommonDigest, VoucherTemplateType, VoucherTemplateWithEntries } from '../stores/templateStore'
 import type { ReportItem, ReportTemplate } from '../stores/reportTemplateStore'
@@ -1935,5 +1936,32 @@ export function summarizeLiveMatchingRules(rules: MatchingRule[]): LiveSummaryIt
     { label: '启用', value: `${enabled} 条`, tone: enabled > 0 ? 'green' : 'gray' },
     { label: '待确认', value: `${rules.length - enabled} 条`, tone: rules.length - enabled > 0 ? 'amber' : 'gray' },
     { label: '本期命中', value: `${rules.reduce((total, rule) => total + rule.hit_count, 0)} 次`, tone: 'gray' },
+  ]
+}
+
+export function mapLiveAssetCategoryRows(categories: AssetCategory[]): LiveModuleRow[] {
+  return categories.map((category) => ({
+    id: `asset-category-${category.id}`,
+    status: category.is_enabled === 1 ? '启用' : '停用',
+    voucher: '-',
+    attachment: category.updated_at,
+    values: {
+      code: category.code,
+      name: category.name,
+      life: `${Math.max(1, Math.round(category.useful_life_months / 12))} 年`,
+      residual: `${(category.residual_rate * 100).toFixed(2).replace(/\\.00$/, '')}%`,
+      method: category.depreciation_method,
+      subject: `${category.asset_account}/${category.accumulated_depreciation_account}`,
+    },
+  }))
+}
+
+export function summarizeLiveAssetCategories(categories: AssetCategory[]): LiveSummaryItem[] {
+  const enabled = categories.filter((category) => category.is_enabled === 1).length
+  return [
+    { label: '资产类别', value: `${categories.length} 类`, tone: 'blue' },
+    { label: '启用', value: `${enabled} 类`, tone: enabled > 0 ? 'green' : 'gray' },
+    { label: '默认规则', value: `${categories.filter((category) => category.asset_account && category.accumulated_depreciation_account).length} 条`, tone: 'amber' },
+    { label: '停用', value: `${categories.length - enabled} 类`, tone: categories.length - enabled > 0 ? 'gray' : 'green' },
   ]
 }

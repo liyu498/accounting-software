@@ -250,6 +250,12 @@ pub fn run() {
             commands::matching_rules::create_matching_rule,
             commands::matching_rules::update_matching_rule,
             commands::matching_rules::delete_matching_rule,
+            // Fixed asset category commands
+            commands::asset_categories::get_asset_categories,
+            commands::asset_categories::create_asset_category,
+            commands::asset_categories::update_asset_category,
+            commands::asset_categories::delete_asset_category,
+            commands::asset_categories::toggle_asset_category,
             // Currency commands
             commands::currencies::get_currencies,
             commands::currencies::create_currency,

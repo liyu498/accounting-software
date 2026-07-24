@@ -61,6 +61,12 @@ const matchingRuleStoreSource = existsSync('src/stores/matchingRuleStore.ts')
 const matchingRuleCommandSource = existsSync('src-tauri/src/commands/matching_rules.rs')
   ? readFileSync('src-tauri/src/commands/matching_rules.rs', 'utf8')
   : ''
+const assetCategoryStoreSource = existsSync('src/stores/assetCategoryStore.ts')
+  ? readFileSync('src/stores/assetCategoryStore.ts', 'utf8')
+  : ''
+const assetCategoryCommandSource = existsSync('src-tauri/src/commands/asset_categories.rs')
+  ? readFileSync('src-tauri/src/commands/asset_categories.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -691,6 +697,28 @@ const requiredMatchingRulePageSnippets = [
   ['matching rule save binding', 'createMatchingRule({'],
 ]
 
+const requiredAssetCategoryCommandSnippets = [
+  ['asset category list command', 'pub async fn get_asset_categories'],
+  ['asset category create command', 'pub async fn create_asset_category'],
+  ['asset category update command', 'pub async fn update_asset_category'],
+  ['asset category delete command', 'pub async fn delete_asset_category'],
+  ['asset category toggle command', 'pub async fn toggle_asset_category'],
+]
+const requiredAssetCategoryStoreSnippets = [
+  ['asset category fetch action', 'fetchAssetCategories: async'],
+  ['asset category create action', 'createAssetCategory: async'],
+  ['asset category update action', 'updateAssetCategory: async'],
+  ['asset category delete action', 'deleteAssetCategory: async'],
+  ['asset category toggle action', 'toggleAssetCategory: async'],
+]
+const requiredAssetCategoryPageSnippets = [
+  ['asset category store binding', "from '../../stores/assetCategoryStore'"],
+  ['asset category live scope', "kind === 'assetCategory'"],
+  ['asset category row mapping', 'mapLiveAssetCategoryRows(assetCategories)'],
+  ['asset category editor state', 'const [showAssetCategoryDialog, setShowAssetCategoryDialog] = useState(false)'],
+  ['asset category save binding', 'createAssetCategory({'],
+]
+
 const requiredSocialSecurityCommandSnippets = [
   ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
   ['social security list command', 'pub async fn get_social_security_records'],
@@ -937,6 +965,10 @@ const errors = [
   ...verify(matchingRuleCommandSource, requiredMatchingRuleCommandSnippets, 'matching rule commands'),
   ...verify(matchingRuleStoreSource, requiredMatchingRuleStoreSnippets, 'matching rule store'),
   ...verify(pageSource, requiredMatchingRulePageSnippets, 'matching rule module page'),
+  ...verify(databaseSource, [['asset category schema', 'CREATE TABLE IF NOT EXISTS asset_categories']], 'database schema'),
+  ...verify(assetCategoryCommandSource, requiredAssetCategoryCommandSnippets, 'asset category commands'),
+  ...verify(assetCategoryStoreSource, requiredAssetCategoryStoreSnippets, 'asset category store'),
+  ...verify(pageSource, requiredAssetCategoryPageSnippets, 'asset category module page'),
   ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
   ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),

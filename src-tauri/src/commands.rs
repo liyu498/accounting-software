@@ -20,6 +20,7 @@ pub mod bank_transactions;
 pub mod document_records;
 pub mod account_transfers;
 pub mod fixed_assets;
+pub mod asset_categories;
 pub mod inventory_movements;
 pub mod inventory_items;
 pub mod matching_rules;

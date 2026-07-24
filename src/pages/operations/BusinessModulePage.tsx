@@ -107,6 +107,8 @@ import {
   summarizeLiveFinancialOverview,
   summarizeLiveMatchingRules,
   mapLiveMatchingRuleRows,
+  mapLiveAssetCategoryRows,
+  summarizeLiveAssetCategories,
   summarizeLiveVoucherTemplates,
 } from '../../lib/liveModuleRows'
 import { useCompanyStore } from '../../stores/companyStore'
@@ -128,6 +130,7 @@ import { useCurrencyStore } from '../../stores/currencyStore'
 import { useTemplateStore, type TemplateEntry } from '../../stores/templateStore'
 import { useReportTemplateStore } from '../../stores/reportTemplateStore'
 import { useMatchingRuleStore, type MatchingRuleScope } from '../../stores/matchingRuleStore'
+import { useAssetCategoryStore } from '../../stores/assetCategoryStore'
 
 type ModuleKind =
   | 'attachmentCenter'
@@ -4049,6 +4052,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const createMatchingRule = useMatchingRuleStore((state) => state.createMatchingRule)
   const updateMatchingRule = useMatchingRuleStore((state) => state.updateMatchingRule)
   const deleteMatchingRule = useMatchingRuleStore((state) => state.deleteMatchingRule)
+  const assetCategories = useAssetCategoryStore((state) => state.assetCategories)
+  const fetchAssetCategories = useAssetCategoryStore((state) => state.fetchAssetCategories)
+  const createAssetCategory = useAssetCategoryStore((state) => state.createAssetCategory)
+  const updateAssetCategory = useAssetCategoryStore((state) => state.updateAssetCategory)
+  const deleteAssetCategory = useAssetCategoryStore((state) => state.deleteAssetCategory)
   const usesLiveModuleData = isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice', 'voucher', 'riskCheck'].includes(kind)
   const usesLiveReportData = Boolean(
     isTauri &&
@@ -4064,6 +4072,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveTemplateSettingsData = Boolean(isTauri && selectedCompanyId && ['commonDigests', 'voucherTemplateSettings'].includes(kind))
   const usesLiveReportFormulaData = Boolean(isTauri && selectedCompanyId && kind === 'reportFormulaSettings')
   const usesLiveMatchingRuleData = Boolean(isTauri && selectedCompanyId && ['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping'].includes(kind))
+  const usesLiveAssetCategoryData = Boolean(isTauri && selectedCompanyId && kind === 'assetCategory')
   const matchingRuleScope: MatchingRuleScope = kind === 'invoiceMatchingRules' ? 'invoice' : kind === 'billMatchingRules' ? 'bill' : 'cash_flow'
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings', 'taxInit'].includes(kind))
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
@@ -4182,6 +4191,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showMatchingRuleDialog, setShowMatchingRuleDialog] = useState(false)
   const [editingMatchingRuleId, setEditingMatchingRuleId] = useState<string | null>(null)
   const [matchingRuleDraft, setMatchingRuleDraft] = useState({ name: '', conditionText: '', actionText: '', targetAccountCode: '', voucherTemplateId: '', priority: '50', isEnabled: true })
+  const [showAssetCategoryDialog, setShowAssetCategoryDialog] = useState(false)
+  const [editingAssetCategoryId, setEditingAssetCategoryId] = useState<string | null>(null)
+  const [assetCategoryDraft, setAssetCategoryDraft] = useState({ code: '', name: '', usefulLifeMonths: '60', residualRate: '5', depreciationMethod: '平均年限法', assetAccount: '1601 固定资产', accumulatedDepreciationAccount: '1602 累计折旧', expenseAccount: '6602 管理费用', isEnabled: true })
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -4476,6 +4488,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!usesLiveMatchingRuleData || !selectedCompanyId) return
     void fetchMatchingRules(selectedCompanyId, matchingRuleScope)
   }, [fetchMatchingRules, matchingRuleScope, selectedCompanyId, usesLiveMatchingRuleData])
+
+  useEffect(() => {
+    if (!usesLiveAssetCategoryData || !selectedCompanyId) return
+    void fetchAssetCategories(selectedCompanyId)
+  }, [fetchAssetCategories, selectedCompanyId, usesLiveAssetCategoryData])
 
   useEffect(() => {
     if (!usesLiveCurrencyData || !selectedCompanyId) return
@@ -5155,6 +5172,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (usesLiveAssetCategoryData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveAssetCategoryRows(assetCategories),
+        summary: summarizeLiveAssetCategories(assetCategories),
+      }
+    }
+
     if (kind === 'auxiliaryItems' && usesLiveArchiveData) {
       return {
         ...baseConfig,
@@ -5212,7 +5237,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoices, kind, liveReports, localBackups, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -5381,6 +5406,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (usesLiveMatchingRuleData && selectedCompanyId) {
       resetMatchingRuleDraft()
       setShowMatchingRuleDialog(true)
+      return
+    }
+    if (usesLiveAssetCategoryData && selectedCompanyId) {
+      resetAssetCategoryDraft()
+      setShowAssetCategoryDialog(true)
       return
     }
     if (kind === 'auxiliaryCategories' && isTauri && selectedCompanyId) {
@@ -5924,6 +5954,37 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     catch (error) { setOperationNotice(`删除自动匹配规则失败：${String(error)}`) }
   }
 
+  const resetAssetCategoryDraft = () => {
+    setEditingAssetCategoryId(null)
+    setAssetCategoryDraft({ code: '', name: '', usefulLifeMonths: '60', residualRate: '5', depreciationMethod: '平均年限法', assetAccount: '1601 固定资产', accumulatedDepreciationAccount: '1602 累计折旧', expenseAccount: '6602 管理费用', isEnabled: true })
+  }
+
+  const handleSaveAssetCategory = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    try {
+      const input = {
+        companyId: selectedCompanyId, code: assetCategoryDraft.code.trim(), name: assetCategoryDraft.name.trim(),
+        usefulLifeMonths: Number(assetCategoryDraft.usefulLifeMonths), residualRate: Number(assetCategoryDraft.residualRate) / 100,
+        depreciationMethod: assetCategoryDraft.depreciationMethod.trim(), assetAccount: assetCategoryDraft.assetAccount.trim(),
+        accumulatedDepreciationAccount: assetCategoryDraft.accumulatedDepreciationAccount.trim(), expenseAccount: assetCategoryDraft.expenseAccount.trim() || undefined,
+        isEnabled: assetCategoryDraft.isEnabled,
+      }
+      const category = editingAssetCategoryId ? await updateAssetCategory(editingAssetCategoryId, input) : await createAssetCategory({ ...input })
+      writeModuleAudit(editingAssetCategoryId ? '编辑资产类别' : '新增资产类别', `${category.code}｜${category.name}`, '中', '成功')
+      setOperationNotice(`资产类别“${category.name}”已保存，可供固定资产录入和折旧凭证规则引用。`)
+      resetAssetCategoryDraft(); setShowAssetCategoryDialog(false)
+    } catch (error) { setOperationNotice(`保存资产类别失败：${String(error)}`) }
+  }
+
+  const handleDeleteAssetCategory = async () => {
+    if (!selectedCompanyId || !editingAssetCategoryId) return
+    const category = assetCategories.find((item) => item.id === editingAssetCategoryId)
+    if (!category || !window.confirm(`确认删除资产类别“${category.name}”吗？`)) return
+    try { await deleteAssetCategory(category.id, selectedCompanyId); writeModuleAudit('删除资产类别', `${category.code}｜${category.name}`, '高', '成功'); setOperationNotice(`资产类别“${category.name}”已删除。`); resetAssetCategoryDraft(); setShowAssetCategoryDialog(false) }
+    catch (error) { setOperationNotice(`删除资产类别失败：${String(error)}`) }
+  }
+
   const resetAuxiliaryCategoryDraft = () => {
     setEditingAuxiliaryCategoryId(null)
     setAuxiliaryCategoryDraft({ code: '', name: '', sortOrder: '0' })
@@ -6296,6 +6357,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingMatchingRuleId(rule.id)
       setMatchingRuleDraft({ name: rule.name, conditionText: rule.condition_text, actionText: rule.action_text, targetAccountCode: rule.target_account_code || '', voucherTemplateId: rule.voucher_template_id || '', priority: String(rule.priority), isEnabled: rule.is_enabled === 1 })
       setShowMatchingRuleDialog(true)
+      return
+    }
+    if (usesLiveAssetCategoryData && selectedCompanyId) {
+      const category = assetCategories.find((item) => `asset-category-${item.id}` === row.id)
+      if (!category) { setOperationNotice('未找到当前账套的资产类别。'); return }
+      setEditingAssetCategoryId(category.id)
+      setAssetCategoryDraft({ code: category.code, name: category.name, usefulLifeMonths: String(category.useful_life_months), residualRate: String(category.residual_rate * 100), depreciationMethod: category.depreciation_method, assetAccount: category.asset_account, accumulatedDepreciationAccount: category.accumulated_depreciation_account, expenseAccount: category.expense_account || '', isEnabled: category.is_enabled === 1 })
+      setShowAssetCategoryDialog(true)
       return
     }
     if (kind === 'auxiliaryCategories' && isTauri && selectedCompanyId) {
@@ -7352,6 +7421,25 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">风险提示<input value={adapterAuthorizationDraft.riskMessage} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, riskMessage: event.target.value }))} placeholder="例如：未完成企业授权，禁止自动提交" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowAdapterAuthorizationDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存脱敏配置</button></div>
+          </form>
+        </div>
+      )}
+      {showAssetCategoryDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingAssetCategoryId ? '编辑资产类别' : '新增资产类别'}>
+          <form onSubmit={handleSaveAssetCategory} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingAssetCategoryId ? '编辑资产类别' : '新增资产类别'}</h2><p className="mt-0.5 text-xs text-slate-500">类别参数用于固定资产录入、折旧计算和凭证建议，保存后请按企业会计政策复核。</p></div><button type="button" onClick={() => setShowAssetCategoryDialog(false)} className="text-xs text-slate-500">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">类别编码 *<input required value={assetCategoryDraft.code} onChange={(event) => setAssetCategoryDraft((draft) => ({ ...draft, code: event.target.value }))} placeholder="如：FA01" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">类别名称 *<input required value={assetCategoryDraft.name} onChange={(event) => setAssetCategoryDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="如：机器设备" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">折旧年限（月） *<input required type="number" min="1" value={assetCategoryDraft.usefulLifeMonths} onChange={(event) => setAssetCategoryDraft((draft) => ({ ...draft, usefulLifeMonths: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">残值率（%） *<input required type="number" min="0" max="100" step="0.01" value={assetCategoryDraft.residualRate} onChange={(event) => setAssetCategoryDraft((draft) => ({ ...draft, residualRate: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">折旧方法 *<select value={assetCategoryDraft.depreciationMethod} onChange={(event) => setAssetCategoryDraft((draft) => ({ ...draft, depreciationMethod: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option>平均年限法</option><option>工作量法</option><option>双倍余额递减法</option><option>年数总和法</option></select></label>
+              <label className="grid gap-1 text-xs text-slate-600">费用科目<input value={assetCategoryDraft.expenseAccount} onChange={(event) => setAssetCategoryDraft((draft) => ({ ...draft, expenseAccount: event.target.value }))} placeholder="如：6602 管理费用" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">固定资产科目 *<input required value={assetCategoryDraft.assetAccount} onChange={(event) => setAssetCategoryDraft((draft) => ({ ...draft, assetAccount: event.target.value }))} placeholder="如：1601 固定资产" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">累计折旧科目 *<input required value={assetCategoryDraft.accumulatedDepreciationAccount} onChange={(event) => setAssetCategoryDraft((draft) => ({ ...draft, accumulatedDepreciationAccount: event.target.value }))} placeholder="如：1602 累计折旧" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="inline-flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={assetCategoryDraft.isEnabled} onChange={(event) => setAssetCategoryDraft((draft) => ({ ...draft, isEnabled: event.target.checked }))} />立即启用</label>
+            </div>
+            <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3"><div>{editingAssetCategoryId && <button type="button" onClick={() => void handleDeleteAssetCategory()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700">删除类别</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowAssetCategoryDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存类别</button></div></div>
           </form>
         </div>
       )}
