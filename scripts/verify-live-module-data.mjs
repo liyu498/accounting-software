@@ -92,6 +92,7 @@ const companyAccountCommandSource = existsSync('src-tauri/src/commands/company_a
   ? readFileSync('src-tauri/src/commands/company_accounts.rs', 'utf8')
   : ''
 const automationCommandSource = readFileSync('src-tauri/src/commands/automation.rs', 'utf8')
+const voucherCommandSource = readFileSync('src-tauri/src/commands/vouchers.rs', 'utf8')
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -829,6 +830,23 @@ const requiredStructuredAiSuggestionPageSnippets = [
   ['AI suggestion draft prefill audit', "writeModuleAudit('预填AI凭证草稿'"],
   ['AI suggestion draft deep link', "navigate(`/vouchers/new?aiSuggestion=${encodeURIComponent(suggestionJobId)}`)"],
 ]
+const requiredAiSuggestionVoucherLinkSchemaSnippets = [
+  ['AI suggestion voucher id column', 'generated_voucher_id TEXT'],
+  ['AI suggestion voucher number column', 'generated_voucher_number TEXT'],
+]
+const requiredAiSuggestionVoucherLinkCommandSnippets = [
+  ['AI suggestion confirmed linkage guard', "job_type = 'voucher_suggestion'"],
+  ['AI suggestion confirmed status guard', "status = 'confirmed'"],
+  ['AI suggestion voucher linkage update', 'generated_voucher_id = ?'],
+  ['AI suggestion completion status', "status = 'completed'"],
+]
+const requiredAiSuggestionVoucherLinkPageSnippets = [
+  ['AI suggestion id passed on manual save', 'ai_suggestion_id: aiVoucherSuggestionId || undefined'],
+  ['AI suggestion save audit', "writeModuleAudit('关联AI建议凭证'"],
+]
+const requiredAiSuggestionVoucherLinkAdapterSnippets = [
+  ['AI suggestion actual voucher display', 'voucher: job.generatedVoucherNumber || job.sourceId ||'],
+]
 const requiredBusinessOrderPageSnippets = [
   ['business order live scope', "['purchaseManagement', 'salesManagement'].includes(kind)"],
   ['business order editor state', 'const [showBusinessOrderDialog, setShowBusinessOrderDialog] = useState(false)'],
@@ -1171,9 +1189,12 @@ const errors = [
   ...verify(costCarryoverCommandSource, requiredCostCarryoverCommandSnippets, 'cost carryover commands'),
   ...verify(databaseSource, requiredStructuredAiSuggestionSchemaSnippets, 'structured AI suggestion schema'),
   ...verify(automationCommandSource, requiredStructuredAiSuggestionCommandSnippets, 'structured AI suggestion commands'),
+  ...verify(databaseSource, requiredAiSuggestionVoucherLinkSchemaSnippets, 'AI suggestion voucher link schema'),
+  ...verify(voucherCommandSource, requiredAiSuggestionVoucherLinkCommandSnippets, 'AI suggestion voucher link commands'),
   ...verify(apiSource, requiredStructuredAiSuggestionApiSnippets, 'structured AI suggestion API'),
   ...verify(adapterSource, requiredStructuredAiSuggestionAdapterSnippets, 'structured AI suggestion adapter'),
   ...verify(pageSource, requiredStructuredAiSuggestionPageSnippets, 'structured AI suggestion module page'),
+  ...verify(pageSource, requiredAiSuggestionVoucherLinkPageSnippets, 'AI suggestion voucher link module page'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
   ...verify(pageSource, requiredInventoryItemPageSnippets, 'inventory item module page'),

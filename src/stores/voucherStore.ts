@@ -125,6 +125,7 @@ interface VoucherState {
     summary?: string
     attachment_count?: number
     created_by?: string
+    ai_suggestion_id?: string
     entries: {
       account_code: string
       account_name: string

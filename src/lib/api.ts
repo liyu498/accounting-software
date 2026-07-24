@@ -277,6 +277,8 @@ export interface AutomationJob {
   debitSubject: string | null
   creditSubject: string | null
   suggestionAmount: number | null
+  generatedVoucherId: string | null
+  generatedVoucherNumber: string | null
   status: string
   confidence: number | null
   resultSummary: string | null
@@ -938,6 +940,8 @@ type RawAutomationJob = {
   debit_subject: string | null
   credit_subject: string | null
   suggestion_amount: number | null
+  generated_voucher_id: string | null
+  generated_voucher_number: string | null
   status: string
   confidence: number | null
   result_summary: string | null
@@ -1165,6 +1169,8 @@ const mapAutomationJob = (item: RawAutomationJob): AutomationJob => ({
   debitSubject: item.debit_subject,
   creditSubject: item.credit_subject,
   suggestionAmount: item.suggestion_amount,
+  generatedVoucherId: item.generated_voucher_id,
+  generatedVoucherNumber: item.generated_voucher_number,
   status: item.status,
   confidence: item.confidence,
   resultSummary: item.result_summary,

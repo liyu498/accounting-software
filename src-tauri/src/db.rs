@@ -1301,6 +1301,8 @@ impl Database {
                 debit_subject TEXT,
                 credit_subject TEXT,
                 suggestion_amount REAL,
+                generated_voucher_id TEXT,
+                generated_voucher_number TEXT,
                 status TEXT NOT NULL DEFAULT 'queued',
                 confidence REAL,
                 result_summary TEXT,
@@ -1524,6 +1526,12 @@ impl Database {
             .execute(pool)
             .await;
         let _ = sqlx::query("ALTER TABLE automation_jobs ADD COLUMN suggestion_amount REAL")
+            .execute(pool)
+            .await;
+        let _ = sqlx::query("ALTER TABLE automation_jobs ADD COLUMN generated_voucher_id TEXT")
+            .execute(pool)
+            .await;
+        let _ = sqlx::query("ALTER TABLE automation_jobs ADD COLUMN generated_voucher_number TEXT")
             .execute(pool)
             .await;
 
@@ -2936,6 +2944,7 @@ pub struct CreateVoucherInput {
     pub attachment_count: Option<i32>,
     pub created_by: Option<String>,
     pub reference_number: Option<String>,
+    pub ai_suggestion_id: Option<String>,
     pub entries: Vec<CreateVoucherEntryInput>,
 }
 
@@ -3676,6 +3685,8 @@ pub struct AutomationJob {
     pub debit_subject: Option<String>,
     pub credit_subject: Option<String>,
     pub suggestion_amount: Option<f64>,
+    pub generated_voucher_id: Option<String>,
+    pub generated_voucher_number: Option<String>,
     pub status: String,
     pub confidence: Option<f64>,
     pub result_summary: Option<String>,

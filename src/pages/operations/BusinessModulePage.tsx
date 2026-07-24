@@ -7215,6 +7215,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         summary: voucherDraft.summary,
         attachment_count: Number(voucherDraft.attachmentCount || 0),
         created_by: 'admin',
+        ai_suggestion_id: aiVoucherSuggestionId || undefined,
         entries: entries.map((entry) => {
           const account = detailedAccounts.find((item) => item.code === entry.accountCode)
           return {
@@ -7229,9 +7230,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       await replaceVoucherTags(voucher.id, selectedCompanyId, selectedVoucherTagIds)
       await fetchBusinessTags(selectedCompanyId)
       writeModuleAudit('保存凭证草稿', voucher.voucher_number, '中', '成功')
-      setOperationNotice(`凭证 ${voucher.voucher_number} 已保存为草稿。`)
+      if (aiVoucherSuggestionId) {
+        writeModuleAudit('关联AI建议凭证', voucher.voucher_number, '中', '成功')
+      }
+      setOperationNotice(aiVoucherSuggestionId
+        ? `凭证 ${voucher.voucher_number} 已保存为草稿，并已关联已确认的 AI 凭证建议。`
+        : `凭证 ${voucher.voucher_number} 已保存为草稿。`)
       setSelectedVoucherTagIds([])
       setVoucherDraft((draft) => ({ ...draft, summary: '', attachmentCount: '0', entries: [{ accountCode: '', direction: 'debit', amount: '' }, { accountCode: '', direction: 'credit', amount: '' }] }))
+      if (aiVoucherSuggestionId) navigate('/vouchers/new', { replace: true })
     } catch (error) {
       setOperationNotice(`保存凭证失败：${String(error)}`)
     }

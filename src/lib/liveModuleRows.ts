@@ -734,7 +734,7 @@ export function mapLiveAutomationJobRows(jobs: AutomationJob[], view: 'queue' | 
       const shared = {
         id: `automation-${view}-${job.id}`,
         status,
-        voucher: job.sourceId || '未关联凭证',
+        voucher: job.generatedVoucherNumber || job.sourceId || '未关联凭证',
         attachment: sourceFile,
       }
 

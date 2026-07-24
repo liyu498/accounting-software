@@ -236,8 +236,8 @@ pub async fn create_voucher(
     log::info!("Creating voucher for company: {}", input.company_id);
 
     // Validate period exists and is open
-    let period: Option<(String, String)> = sqlx::query_as(
-        "SELECT id, status FROM accounting_periods WHERE id = ? AND company_id = ?",
+    let period: Option<(String, String, i32, i32)> = sqlx::query_as(
+        "SELECT id, status, period_year, period_month FROM accounting_periods WHERE id = ? AND company_id = ?",
     )
     .bind(&input.period_id)
     .bind(&input.company_id)
@@ -245,11 +245,12 @@ pub async fn create_voucher(
     .await
     .map_err(|e| format!("Database error: {}", e))?;
 
-    match period {
+    let (period_year, period_month) = match period {
         None => return Err("会计期间不存在".to_string()),
-        Some((_, status)) if status != "open" => return Err("该会计期间已结账，不能新增凭证".to_string()),
-        _ => {}
-    }
+        Some((_, status, _, _)) if status != "open" => return Err("该会计期间已结账，不能新增凭证".to_string()),
+        Some((_, _, year, month)) => (year, month),
+    };
+    let suggestion_period = format!("{}-{:02}", period_year, period_month);
 
     // Validate voucher word exists
     let word: Option<(String, String)> = sqlx::query_as(
@@ -397,6 +398,37 @@ pub async fn create_voucher(
                 .await
                 .map_err(|e| format!("Failed to create entry auxiliary: {}", e))?;
             }
+        }
+    }
+
+    if let Some(ai_suggestion_id) = input.ai_suggestion_id.as_deref() {
+        let linked = sqlx::query(
+            r#"
+            UPDATE automation_jobs
+            SET
+                generated_voucher_id = ?,
+                generated_voucher_number = ?,
+                status = 'completed',
+                updated_at = datetime('now')
+            WHERE id = ?
+              AND company_id = ?
+              AND period = ?
+              AND job_type = 'voucher_suggestion'
+              AND status = 'confirmed'
+              AND generated_voucher_id IS NULL
+            "#,
+        )
+        .bind(&id)
+        .bind(&voucher_number)
+        .bind(ai_suggestion_id)
+        .bind(&input.company_id)
+        .bind(&suggestion_period)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Failed to link AI voucher suggestion: {}", e))?;
+
+        if linked.rows_affected() != 1 {
+            return Err("AI 凭证建议不存在、未确认、账期不匹配或已关联其他凭证".to_string());
         }
     }
 

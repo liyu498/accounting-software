@@ -470,6 +470,8 @@ pub async fn get_agency_automation_jobs(
             j.debit_subject,
             j.credit_subject,
             j.suggestion_amount,
+            j.generated_voucher_id,
+            j.generated_voucher_number,
             j.status,
             j.confidence,
             j.result_summary,
