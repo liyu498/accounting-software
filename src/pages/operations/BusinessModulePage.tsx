@@ -3989,6 +3989,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const auxiliaryItems = useAuxiliaryStore((state) => state.items)
   const fetchCategories = useAuxiliaryStore((state) => state.fetchCategories)
   const fetchAllItems = useAuxiliaryStore((state) => state.fetchAllItems)
+  const createAuxiliaryCategory = useAuxiliaryStore((state) => state.createCategory)
+  const updateAuxiliaryCategory = useAuxiliaryStore((state) => state.updateCategory)
+  const deleteAuxiliaryCategory = useAuxiliaryStore((state) => state.deleteCategory)
+  const createAuxiliaryItem = useAuxiliaryStore((state) => state.createItem)
+  const updateAuxiliaryItem = useAuxiliaryStore((state) => state.updateItem)
+  const deleteAuxiliaryItem = useAuxiliaryStore((state) => state.deleteItem)
+  const toggleAuxiliaryItem = useAuxiliaryStore((state) => state.toggleItem)
   const fetchAuxiliaryLedger = useAuxiliaryStore((state) => state.fetchAuxiliaryLedger)
   const fetchAuxiliaryBalance = useAuxiliaryStore((state) => state.fetchAuxiliaryBalance)
   const invoices = useInvoiceStore((state) => state.invoices)
@@ -4162,6 +4169,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showReportFormulaDialog, setShowReportFormulaDialog] = useState(false)
   const [editingReportFormulaId, setEditingReportFormulaId] = useState<string | null>(null)
   const [reportFormulaDraft, setReportFormulaDraft] = useState({ itemName: '', formula: '', sortOrder: '0', isTotal: false })
+  const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
+  const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
+  const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
+  const [showAuxiliaryItemDialog, setShowAuxiliaryItemDialog] = useState(false)
+  const [editingAuxiliaryItemId, setEditingAuxiliaryItemId] = useState<string | null>(null)
+  const [auxiliaryItemDraft, setAuxiliaryItemDraft] = useState({ categoryId: '', code: '', name: '', remarks: '' })
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
   const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
@@ -5339,6 +5352,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowEmployeeDialog(true)
       return
     }
+    if (kind === 'auxiliaryCategories' && isTauri && selectedCompanyId) {
+      resetAuxiliaryCategoryDraft()
+      setShowAuxiliaryCategoryDialog(true)
+      return
+    }
+    if (kind === 'auxiliaryItems' && isTauri && selectedCompanyId) {
+      if (auxiliaryCategories.length === 0) {
+        setOperationNotice('请先新增辅助核算类别，再维护辅助核算项目。')
+        return
+      }
+      resetAuxiliaryItemDraft()
+      setShowAuxiliaryItemDialog(true)
+      return
+    }
     if (kind === 'transfer' && isTauri && selectedCompanyId) {
       setEditingAccountTransferId(null)
       setAccountTransferDraft({ transferDate: '', fromAccount: '', toAccount: '', amount: '', fee: '', serialNo: '' })
@@ -5835,6 +5862,116 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const resetAuxiliaryCategoryDraft = () => {
+    setEditingAuxiliaryCategoryId(null)
+    setAuxiliaryCategoryDraft({ code: '', name: '', sortOrder: '0' })
+  }
+
+  const handleSaveAuxiliaryCategory = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    try {
+      const input = {
+        company_id: selectedCompanyId,
+        code: auxiliaryCategoryDraft.code.trim().toUpperCase(),
+        name: auxiliaryCategoryDraft.name.trim(),
+        sort_order: Number(auxiliaryCategoryDraft.sortOrder || 0),
+      }
+      if (!input.code || !input.name) throw new Error('类别编码和类别名称不能为空')
+      const category = editingAuxiliaryCategoryId
+        ? await updateAuxiliaryCategory(editingAuxiliaryCategoryId, input)
+        : await createAuxiliaryCategory({ ...input })
+      writeModuleAudit(editingAuxiliaryCategoryId ? '编辑辅助核算类别' : '新增辅助核算类别', `${category.code}｜${category.name}`, '中', '成功')
+      setOperationNotice(editingAuxiliaryCategoryId ? `辅助核算类别“${category.name}”已更新。` : `辅助核算类别“${category.name}”已新增，可继续维护明细项目和科目关联。`)
+      resetAuxiliaryCategoryDraft()
+      setShowAuxiliaryCategoryDialog(false)
+    } catch (error) {
+      setOperationNotice(`${editingAuxiliaryCategoryId ? '编辑' : '新增'}辅助核算类别失败：${String(error)}`)
+    }
+  }
+
+  const handleDeleteAuxiliaryCategory = async () => {
+    if (!selectedCompanyId || !editingAuxiliaryCategoryId) return
+    const category = auxiliaryCategories.find((item) => item.id === editingAuxiliaryCategoryId)
+    if (!category) return
+    if (category.is_system === 1) {
+      setOperationNotice('系统预置辅助核算类别不能删除。')
+      return
+    }
+    if (!window.confirm(`确认删除辅助核算类别“${category.name}”吗？类别下存在项目或关联科目时会被阻止。`)) return
+    try {
+      await deleteAuxiliaryCategory(category.id, selectedCompanyId)
+      writeModuleAudit('删除辅助核算类别', `${category.code}｜${category.name}`, '高', '成功')
+      setOperationNotice(`辅助核算类别“${category.name}”已删除。`)
+      resetAuxiliaryCategoryDraft()
+      setShowAuxiliaryCategoryDialog(false)
+    } catch (error) {
+      setOperationNotice(`删除辅助核算类别失败：${String(error)}`)
+    }
+  }
+
+  const resetAuxiliaryItemDraft = () => {
+    setEditingAuxiliaryItemId(null)
+    setAuxiliaryItemDraft({ categoryId: auxiliaryCategories[0]?.id || '', code: '', name: '', remarks: '' })
+  }
+
+  const handleSaveAuxiliaryItem = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    try {
+      const input = {
+        category_id: auxiliaryItemDraft.categoryId,
+        company_id: selectedCompanyId,
+        code: auxiliaryItemDraft.code.trim().toUpperCase(),
+        name: auxiliaryItemDraft.name.trim(),
+        remarks: auxiliaryItemDraft.remarks.trim() || undefined,
+      }
+      if (!input.category_id || !input.code || !input.name) throw new Error('请选择类别并填写项目编码、项目名称')
+      const item = editingAuxiliaryItemId
+        ? await updateAuxiliaryItem(editingAuxiliaryItemId, input)
+        : await createAuxiliaryItem({ ...input })
+      writeModuleAudit(editingAuxiliaryItemId ? '编辑辅助核算项目' : '新增辅助核算项目', `${item.code}｜${item.name}`, '中', '成功')
+      setOperationNotice(editingAuxiliaryItemId ? `辅助核算项目“${item.name}”已更新。` : `辅助核算项目“${item.name}”已新增，可用于档案和凭证辅助核算。`)
+      resetAuxiliaryItemDraft()
+      setShowAuxiliaryItemDialog(false)
+    } catch (error) {
+      setOperationNotice(`${editingAuxiliaryItemId ? '编辑' : '新增'}辅助核算项目失败：${String(error)}`)
+    }
+  }
+
+  const handleDeleteAuxiliaryItem = async () => {
+    if (!selectedCompanyId || !editingAuxiliaryItemId) return
+    const item = auxiliaryItems.find((current) => current.id === editingAuxiliaryItemId)
+    if (!item) return
+    if (!window.confirm(`确认删除辅助核算项目“${item.name}”吗？已经用于凭证的项目不能删除。`)) return
+    try {
+      await deleteAuxiliaryItem(item.id, selectedCompanyId)
+      writeModuleAudit('删除辅助核算项目', `${item.code}｜${item.name}`, '高', '成功')
+      setOperationNotice(`辅助核算项目“${item.name}”已删除。`)
+      resetAuxiliaryItemDraft()
+      setShowAuxiliaryItemDialog(false)
+    } catch (error) {
+      setOperationNotice(`删除辅助核算项目失败：${String(error)}`)
+    }
+  }
+
+  const handleToggleAuxiliaryItem = async () => {
+    if (!selectedCompanyId || !editingAuxiliaryItemId) return
+    const item = auxiliaryItems.find((current) => current.id === editingAuxiliaryItemId)
+    if (!item) return
+    const action = item.is_enabled === 1 ? '停用' : '启用'
+    if (!window.confirm(`确认${action}辅助核算项目“${item.name}”吗？`)) return
+    try {
+      await toggleAuxiliaryItem(item.id, selectedCompanyId)
+      writeModuleAudit(`${action}辅助核算项目`, `${item.code}｜${item.name}`, '中', '成功')
+      setOperationNotice(`辅助核算项目“${item.name}”已${action}。`)
+      setShowAuxiliaryItemDialog(false)
+      resetAuxiliaryItemDraft()
+    } catch (error) {
+      setOperationNotice(`${action}辅助核算项目失败：${String(error)}`)
+    }
+  }
+
   const handleSaveSocialSecurityRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
@@ -6089,6 +6226,32 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingPayrollId(payroll.id)
       setPayrollDraft({ employeeId: payroll.employeeId, baseSalary: String(payroll.baseSalary), bonus: String(payroll.bonus), taxAmount: String(payroll.taxAmount), socialPersonal: String(payroll.socialPersonal) })
       setShowPayrollDialog(true)
+      return
+    }
+    if (kind === 'auxiliaryCategories' && isTauri && selectedCompanyId) {
+      const category = auxiliaryCategories.find((item) => `auxiliary-category-${item.id}` === row.id)
+      if (!category) {
+        setOperationNotice('未找到当前账套的辅助核算类别。')
+        return
+      }
+      if (category.is_system === 1) {
+        setOperationNotice('系统预置辅助核算类别仅供查看，不能修改或删除。')
+        return
+      }
+      setEditingAuxiliaryCategoryId(category.id)
+      setAuxiliaryCategoryDraft({ code: category.code, name: category.name, sortOrder: String(category.sort_order) })
+      setShowAuxiliaryCategoryDialog(true)
+      return
+    }
+    if (kind === 'auxiliaryItems' && isTauri && selectedCompanyId) {
+      const item = auxiliaryItems.find((current) => `auxiliary-item-${current.id}` === row.id)
+      if (!item) {
+        setOperationNotice('未找到当前账套的辅助核算项目。')
+        return
+      }
+      setEditingAuxiliaryItemId(item.id)
+      setAuxiliaryItemDraft({ categoryId: item.category_id, code: item.code, name: item.name, remarks: item.remarks || '' })
+      setShowAuxiliaryItemDialog(true)
       return
     }
     if (kind === 'settlementRules' && isTauri && selectedCompanyId) {
@@ -6553,6 +6716,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => { setEditingPayrollId(null); setPayrollDraft({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' }); setShowPayrollDialog(true) }} />}
             {kind === 'settlementRules' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
             {kind === 'currencySettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
+            {kind === 'auxiliaryCategories' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增类别" onClick={() => { resetAuxiliaryCategoryDraft(); setShowAuxiliaryCategoryDialog(true) }} />}
+            {kind === 'auxiliaryItems' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增项目" onClick={() => { if (auxiliaryCategories.length === 0) { setOperationNotice('请先新增辅助核算类别，再维护辅助核算项目。'); return }; resetAuxiliaryItemDraft(); setShowAuxiliaryItemDialog(true) }} />}
             {kind === 'commonDigests' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增摘要" onClick={() => { resetCommonDigestDraft(); setShowCommonDigestDialog(true) }} />}
             {kind === 'voucherTemplateSettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增凭证模板" onClick={() => { resetVoucherTemplateDraft(); setShowVoucherTemplateDialog(true) }} />}
             {(kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'} onClick={() => { resetAdapterAuthorizationDraft(); setShowAdapterAuthorizationDialog(true) }} />}
@@ -7117,6 +7282,33 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">风险提示<input value={adapterAuthorizationDraft.riskMessage} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, riskMessage: event.target.value }))} placeholder="例如：未完成企业授权，禁止自动提交" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowAdapterAuthorizationDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存脱敏配置</button></div>
+          </form>
+        </div>
+      )}
+      {showAuxiliaryCategoryDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingAuxiliaryCategoryId ? '编辑辅助核算类别' : '新增辅助核算类别'}>
+          <form onSubmit={handleSaveAuxiliaryCategory} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingAuxiliaryCategoryId ? '编辑辅助核算类别' : '新增辅助核算类别'}</h2><p className="mt-0.5 text-xs text-slate-500">类别用于科目、凭证和账簿的辅助维度校验；系统预置类别不可改动。</p></div><button type="button" onClick={() => setShowAuxiliaryCategoryDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">类别编码 *<input required value={auxiliaryCategoryDraft.code} onChange={(event) => setAuxiliaryCategoryDraft((draft) => ({ ...draft, code: event.target.value }))} placeholder="如：CUSTOMER" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">类别名称 *<input required value={auxiliaryCategoryDraft.name} onChange={(event) => setAuxiliaryCategoryDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="如：客户" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">显示顺序<input type="number" min="0" step="1" value={auxiliaryCategoryDraft.sortOrder} onChange={(event) => setAuxiliaryCategoryDraft((draft) => ({ ...draft, sortOrder: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div>{editingAuxiliaryCategoryId && <button type="button" onClick={() => void handleDeleteAuxiliaryCategory()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除类别</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowAuxiliaryCategoryDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingAuxiliaryCategoryId ? '保存修改' : '保存类别'}</button></div></div>
+          </form>
+        </div>
+      )}
+      {showAuxiliaryItemDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingAuxiliaryItemId ? '编辑辅助核算项目' : '新增辅助核算项目'}>
+          <form onSubmit={handleSaveAuxiliaryItem} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingAuxiliaryItemId ? '编辑辅助核算项目' : '新增辅助核算项目'}</h2><p className="mt-0.5 text-xs text-slate-500">项目是客户、供应商、项目、部门等基础档案的统一明细，可在凭证辅助核算中引用。</p></div><button type="button" onClick={() => setShowAuxiliaryItemDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">所属类别 *<select required value={auxiliaryItemDraft.categoryId} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, categoryId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择辅助核算类别</option>{auxiliaryCategories.map((category) => <option key={category.id} value={category.id}>{category.code}｜{category.name}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600">项目编码 *<input required value={auxiliaryItemDraft.code} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, code: event.target.value }))} placeholder="如：C001" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">项目名称 *<input required value={auxiliaryItemDraft.name} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="如：上海示例客户" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">别名/备注<input value={auxiliaryItemDraft.remarks} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, remarks: event.target.value }))} placeholder="助记码、合同号或补充说明" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div className="flex gap-2">{editingAuxiliaryItemId && <button type="button" onClick={() => void handleDeleteAuxiliaryItem()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除项目</button>}{editingAuxiliaryItemId && <button type="button" onClick={() => void handleToggleAuxiliaryItem()} className="h-8 rounded border border-amber-300 px-3 text-xs text-amber-700 hover:bg-amber-50">{auxiliaryItems.find((item) => item.id === editingAuxiliaryItemId)?.is_enabled === 1 ? '停用项目' : '启用项目'}</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowAuxiliaryItemDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingAuxiliaryItemId ? '保存修改' : '保存项目'}</button></div></div>
           </form>
         </div>
       )}

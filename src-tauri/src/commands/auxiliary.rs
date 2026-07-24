@@ -55,6 +55,21 @@ pub async fn update_auxiliary_category(
     input: CreateAuxiliaryCategoryInput,
     db: State<'_, Database>,
 ) -> Result<AuxiliaryCategory, String> {
+    let category: Option<(i64,)> = sqlx::query_as(
+        "SELECT is_system FROM auxiliary_categories WHERE id = ? AND company_id = ?",
+    )
+    .bind(&id)
+    .bind(&input.company_id)
+    .fetch_optional(db.pool())
+    .await
+    .map_err(|e| format!("查询辅助核算类别失败: {}", e))?;
+
+    match category {
+        Some((1,)) => return Err("系统预置辅助核算类别不能修改".to_string()),
+        Some(_) => {}
+        None => return Err("辅助核算类别不存在或不属于当前账套".to_string()),
+    }
+
     sqlx::query(
         "UPDATE auxiliary_categories SET name = ?, code = ?, sort_order = ? WHERE id = ? AND company_id = ?",
     )
@@ -84,6 +99,21 @@ pub async fn delete_auxiliary_category(
     company_id: String,
     db: State<'_, Database>,
 ) -> Result<(), String> {
+    let category: Option<(i64,)> = sqlx::query_as(
+        "SELECT is_system FROM auxiliary_categories WHERE id = ? AND company_id = ?",
+    )
+    .bind(&id)
+    .bind(&company_id)
+    .fetch_optional(db.pool())
+    .await
+    .map_err(|e| format!("查询辅助核算类别失败: {}", e))?;
+
+    match category {
+        Some((1,)) => return Err("系统预置辅助核算类别不能删除".to_string()),
+        Some(_) => {}
+        None => return Err("辅助核算类别不存在或不属于当前账套".to_string()),
+    }
+
     // Check for items linked to this category
     let item_count: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM auxiliary_items WHERE category_id = ? AND company_id = ?",

@@ -51,7 +51,7 @@ export function VoucherEntryRow({ index, entry, isActive, onKeyDown }: VoucherEn
       // Fetch items for each category and cache locally
       Promise.all(
         setup.categories.map(async (cat) => {
-          await fetchItems(cat.category_id)
+          await fetchItems(cat.category_id, selectedCompanyId)
           const items = useAuxiliaryStore.getState().items.filter((i) => i.category_id === cat.category_id)
           if (!cancelled) {
             setAuxItems((prev) => ({ ...prev, [cat.category_id]: items }))
@@ -60,7 +60,7 @@ export function VoucherEntryRow({ index, entry, isActive, onKeyDown }: VoucherEn
       )
     })
     return () => { cancelled = true }
-  }, [entry.accountCode, fetchAccountSetup, fetchItems])
+  }, [entry.accountCode, fetchAccountSetup, fetchItems, selectedCompanyId])
 
   const handleFocus = useCallback(() => {
     setActiveEntry(index)

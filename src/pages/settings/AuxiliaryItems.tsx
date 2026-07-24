@@ -100,8 +100,9 @@ export function AuxiliaryItems() {
   }
 
   const handleDelete = async (id: string) => {
+    if (!selectedCompanyId) return
     try {
-      await deleteItem(id)
+      await deleteItem(id, selectedCompanyId)
       showSuccess('删除成功')
     } catch (e) {
       showWarning(String(e))
@@ -109,8 +110,9 @@ export function AuxiliaryItems() {
   }
 
   const handleToggle = async (id: string) => {
+    if (!selectedCompanyId) return
     try {
-      await toggleItem(id)
+      await toggleItem(id, selectedCompanyId)
     } catch (e) {
       showWarning(String(e))
     }

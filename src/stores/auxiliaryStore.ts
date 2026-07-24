@@ -70,15 +70,15 @@ interface AuxiliaryState {
   fetchCategories: (companyId: string) => Promise<void>
   createCategory: (input: { company_id: string; name: string; code: string; sort_order?: number }) => Promise<AuxiliaryCategory>
   updateCategory: (id: string, input: { company_id: string; name: string; code: string; sort_order?: number }) => Promise<AuxiliaryCategory>
-  deleteCategory: (id: string) => Promise<void>
+  deleteCategory: (id: string, companyId: string) => Promise<void>
 
   // Items
-  fetchItems: (categoryId: string) => Promise<void>
+  fetchItems: (categoryId: string, companyId: string) => Promise<void>
   fetchAllItems: (companyId: string) => Promise<void>
   createItem: (input: { category_id: string; company_id: string; code: string; name: string; remarks?: string }) => Promise<AuxiliaryItem>
   updateItem: (id: string, input: { category_id: string; company_id: string; code: string; name: string; remarks?: string }) => Promise<AuxiliaryItem>
-  deleteItem: (id: string) => Promise<void>
-  toggleItem: (id: string) => Promise<void>
+  deleteItem: (id: string, companyId: string) => Promise<void>
+  toggleItem: (id: string, companyId: string) => Promise<void>
 
   // Links
   fetchAccountLinks: (accountCode: string, companyId: string) => Promise<AccountAuxiliaryLink[]>
@@ -137,9 +137,9 @@ export const useAuxiliaryStore = create<AuxiliaryState>((set, get) => ({
     }
   },
 
-  deleteCategory: async (id) => {
+  deleteCategory: async (id, companyId) => {
     try {
-      await invoke('delete_auxiliary_category', { id })
+      await invoke('delete_auxiliary_category', { id, companyId })
       set((s) => ({ categories: s.categories.filter((c) => c.id !== id) }))
     } catch (error) {
       set({ error: String(error) })
@@ -147,10 +147,10 @@ export const useAuxiliaryStore = create<AuxiliaryState>((set, get) => ({
     }
   },
 
-  fetchItems: async (categoryId) => {
+  fetchItems: async (categoryId, companyId) => {
     set({ isLoading: true, error: null })
     try {
-      const result = await invoke<AuxiliaryItem[]>('get_auxiliary_items', { categoryId })
+      const result = await invoke<AuxiliaryItem[]>('get_auxiliary_items', { categoryId, companyId })
       set({ items: result, isLoading: false })
     } catch (error) {
       set({ error: String(error), isLoading: false })
@@ -194,9 +194,9 @@ export const useAuxiliaryStore = create<AuxiliaryState>((set, get) => ({
     }
   },
 
-  deleteItem: async (id) => {
+  deleteItem: async (id, companyId) => {
     try {
-      await invoke('delete_auxiliary_item', { id })
+      await invoke('delete_auxiliary_item', { id, companyId })
       set((s) => ({ items: s.items.filter((i) => i.id !== id) }))
     } catch (error) {
       set({ error: String(error) })
@@ -204,9 +204,9 @@ export const useAuxiliaryStore = create<AuxiliaryState>((set, get) => ({
     }
   },
 
-  toggleItem: async (id) => {
+  toggleItem: async (id, companyId) => {
     try {
-      await invoke('toggle_auxiliary_item', { id })
+      await invoke('toggle_auxiliary_item', { id, companyId })
       set((s) => ({
         items: s.items.map((i) =>
           i.id === id ? { ...i, is_enabled: i.is_enabled === 1 ? 0 : 1 } : i,

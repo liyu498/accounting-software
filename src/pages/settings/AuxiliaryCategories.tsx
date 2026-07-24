@@ -74,8 +74,9 @@ export function AuxiliaryCategories() {
   }
 
   const handleDelete = async (id: string) => {
+    if (!selectedCompanyId) return
     try {
-      await deleteCategory(id)
+      await deleteCategory(id, selectedCompanyId)
       showSuccess('删除成功')
     } catch (e) {
       showWarning(String(e))

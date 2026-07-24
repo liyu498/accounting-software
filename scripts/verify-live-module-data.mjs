@@ -52,6 +52,9 @@ const unitCommandSource = existsSync('src-tauri/src/commands/units.rs')
 const settlementRuleStoreSource = readFileSync('src/stores/settlementRuleStore.ts', 'utf8')
 const templateCommandSource = readFileSync('src-tauri/src/commands/templates.rs', 'utf8')
 const templateStoreSource = readFileSync('src/stores/templateStore.ts', 'utf8')
+const auxiliaryStoreSource = readFileSync('src/stores/auxiliaryStore.ts', 'utf8')
+const auxiliaryCommandSource = readFileSync('src-tauri/src/commands/auxiliary.rs', 'utf8')
+const voucherEntryRowSource = readFileSync('src/components/voucher/VoucherEntryRow.tsx', 'utf8')
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -626,6 +629,40 @@ const requiredReportFormulaEntryPageSnippets = [
   ['report formula update binding', 'updateReportItem({'],
 ]
 
+const requiredAuxiliaryArchiveStoreSnippets = [
+  ['auxiliary item fetch company scope', 'fetchItems: (categoryId: string, companyId: string)'],
+  ['auxiliary category create action', 'createCategory: async'],
+  ['auxiliary category update action', 'updateCategory: async'],
+  ['auxiliary category company scoped delete', 'deleteCategory: async (id, companyId)'],
+  ['auxiliary item create action', 'createItem: async'],
+  ['auxiliary item update action', 'updateItem: async'],
+  ['auxiliary item company scoped delete', 'deleteItem: async (id, companyId)'],
+  ['auxiliary item company scoped toggle', 'toggleItem: async (id, companyId)'],
+]
+
+const requiredAuxiliaryArchiveCommandSnippets = [
+  ['auxiliary category system delete guard', '系统预置辅助核算类别不能删除'],
+  ['auxiliary category system update guard', '系统预置辅助核算类别不能修改'],
+]
+
+const requiredAuxiliaryArchivePageSnippets = [
+  ['auxiliary category create binding', 'const createAuxiliaryCategory = useAuxiliaryStore((state) => state.createCategory)'],
+  ['auxiliary item create binding', 'const createAuxiliaryItem = useAuxiliaryStore((state) => state.createItem)'],
+  ['auxiliary category dialog state', 'const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)'],
+  ['auxiliary item dialog state', 'const [showAuxiliaryItemDialog, setShowAuxiliaryItemDialog] = useState(false)'],
+  ['auxiliary category save handler', 'const handleSaveAuxiliaryCategory = async'],
+  ['auxiliary item save handler', 'const handleSaveAuxiliaryItem = async'],
+  ['auxiliary category create action', 'createAuxiliaryCategory({'],
+  ['auxiliary item create action', 'createAuxiliaryItem({'],
+  ['auxiliary item toggle company scope', 'toggleAuxiliaryItem(item.id, selectedCompanyId)'],
+  ['auxiliary category dialog title', '新增辅助核算类别'],
+  ['auxiliary item dialog title', '新增辅助核算项目'],
+]
+
+const requiredVoucherEntryAuxiliarySnippets = [
+  ['voucher auxiliary item company scope', 'fetchItems(cat.category_id, selectedCompanyId)'],
+]
+
 const requiredSocialSecurityCommandSnippets = [
   ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
   ['social security list command', 'pub async fn get_social_security_records'],
@@ -864,6 +901,10 @@ const errors = [
   ...verify(pageSource, requiredAdapterAuthorizationEntryPageSnippets, 'adapter authorization module page'),
   ...verify(readFileSync('src/stores/reportTemplateStore.ts', 'utf8'), requiredReportFormulaEntryStoreSnippets, 'report formula store'),
   ...verify(pageSource, requiredReportFormulaEntryPageSnippets, 'report formula module page'),
+  ...verify(auxiliaryStoreSource, requiredAuxiliaryArchiveStoreSnippets, 'auxiliary archive store'),
+  ...verify(auxiliaryCommandSource, requiredAuxiliaryArchiveCommandSnippets, 'auxiliary archive commands'),
+  ...verify(pageSource, requiredAuxiliaryArchivePageSnippets, 'auxiliary archive module page'),
+  ...verify(voucherEntryRowSource, requiredVoucherEntryAuxiliarySnippets, 'voucher entry auxiliary selector'),
   ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
   ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),
