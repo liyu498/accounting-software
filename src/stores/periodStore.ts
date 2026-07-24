@@ -143,13 +143,15 @@ export interface CashFlowItem {
   item_name: string
   item_level: number
   is_total: number
-  amount: number
+  current_amount: number
+  year_to_date: number
 }
 
 export interface CashFlowResult {
   period_id: string
   items: CashFlowItem[]
   net_increase: number
+  net_increase_year_to_date: number
 }
 
 interface PeriodState {

@@ -13,6 +13,7 @@ const shellSource = readFileSync('src/components/layout/AppShell.tsx', 'utf8')
 const companyStoreSource = readFileSync('src/stores/companyStore.ts', 'utf8')
 const companyCommandSource = readFileSync('src-tauri/src/commands/companies.rs', 'utf8')
 const databaseSource = readFileSync('src-tauri/src/db.rs', 'utf8')
+const periodCommandSource = readFileSync('src-tauri/src/commands/periods.rs', 'utf8')
 const backupCommandSource = existsSync('src-tauri/src/commands/backups.rs')
   ? readFileSync('src-tauri/src/commands/backups.rs', 'utf8')
   : ''
@@ -838,6 +839,21 @@ const requiredIncomeQuarterPageSnippets = [
   ['income quarter baseline request', 'getIncomeStatement(priorQuarterPeriod.id)'],
   ['income quarter live mapper', 'mapLiveIncomeQuarterRows(liveReports.incomeStatement, liveReports.incomeQuarterBaseline'],
 ]
+const requiredCashFlowQuarterAdapterSnippets = [
+  ['cash flow quarter row mapper', 'export function mapLiveCashFlowQuarterRows'],
+  ['cash flow quarter summary mapper', 'export function summarizeLiveCashFlowQuarter'],
+]
+const requiredCashFlowQuarterPageSnippets = [
+  ['cash flow quarter live scope', "'cashFlowQuarterReport'"],
+  ['cash flow quarter baseline request', 'getCashFlowStatement(priorQuarterPeriod.id)'],
+  ['cash flow quarter live mapper', 'mapLiveCashFlowQuarterRows(liveReports.cashFlow, liveReports.cashFlowQuarterBaseline'],
+]
+const requiredCashFlowQuarterCommandSnippets = [
+  ['cash flow YTD result field', 'net_increase_year_to_date: f64'],
+  ['cash flow item YTD field', 'year_to_date: f64'],
+  ['cash flow YTD period query', 'period_month <= ? ORDER BY period_month'],
+  ['cash flow current period field', 'current_amount,'],
+]
 const requiredStructuredAiSuggestionPageSnippets = [
   ['AI suggestion editor state', 'const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)'],
   ['AI suggestion create binding', 'automationApi.createAutomationJob({'],
@@ -1222,12 +1238,15 @@ const errors = [
   ...verify(adapterSource, requiredStructuredAiSuggestionAdapterSnippets, 'structured AI suggestion adapter'),
   ...verify(adapterSource, requiredMultiColumnLedgerAdapterSnippets, 'multi-column ledger adapter'),
   ...verify(adapterSource, requiredIncomeQuarterAdapterSnippets, 'income quarter adapter'),
+  ...verify(adapterSource, requiredCashFlowQuarterAdapterSnippets, 'cash flow quarter adapter'),
+  ...verify(periodCommandSource, requiredCashFlowQuarterCommandSnippets, 'cash flow quarter commands'),
   ...verify(pageSource, requiredStructuredAiSuggestionPageSnippets, 'structured AI suggestion module page'),
   ...verify(pageSource, requiredAiSuggestionVoucherLinkPageSnippets, 'AI suggestion voucher link module page'),
   ...verify(voucherCommandSource, requiredAiSuggestionVoucherUnlinkCommandSnippets, 'AI suggestion voucher unlink commands'),
   ...verify(pageSource, requiredAiSuggestionVoucherNavigationPageSnippets, 'AI suggestion voucher navigation module page'),
   ...verify(pageSource, requiredMultiColumnLedgerPageSnippets, 'multi-column ledger module page'),
   ...verify(pageSource, requiredIncomeQuarterPageSnippets, 'income quarter module page'),
+  ...verify(pageSource, requiredCashFlowQuarterPageSnippets, 'cash flow quarter module page'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
   ...verify(pageSource, requiredInventoryItemPageSnippets, 'inventory item module page'),

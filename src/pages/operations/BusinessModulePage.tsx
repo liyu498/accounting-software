@@ -26,6 +26,7 @@ import { measurementUnitApi, type MeasurementUnit } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
+  mapLiveCashFlowQuarterRows,
   mapLiveCompanyInfoRows,
   mapLiveCompanyAccountRows,
   mapLiveCommonDigestRows,
@@ -69,6 +70,7 @@ import {
   mapLiveVoucherTemplateRows,
   summarizeLiveBalanceSheet,
   summarizeLiveCashFlow,
+  summarizeLiveCashFlowQuarter,
   summarizeLiveCompanyInfo,
   summarizeLiveCompanyAccounts,
   summarizeLiveCommonDigests,
@@ -281,6 +283,8 @@ type LiveReportData = {
   incomeQuarterBaseline: IncomeStatementResult | null
   incomeQuarterBaselineMissing: boolean
   cashFlow: CashFlowResult | null
+  cashFlowQuarterBaseline: CashFlowResult | null
+  cashFlowQuarterBaselineMissing: boolean
   initialBalance: TrialBalanceResult | null
   ledgerOverview: TrialBalanceResult | null
   accountSummary: GeneralLedgerItem[] | null
@@ -302,6 +306,8 @@ const emptyLiveReportData: LiveReportData = {
   incomeQuarterBaseline: null,
   incomeQuarterBaselineMissing: false,
   cashFlow: null,
+  cashFlowQuarterBaseline: null,
+  cashFlowQuarterBaselineMissing: false,
   initialBalance: null,
   ledgerOverview: null,
   accountSummary: null,
@@ -4098,7 +4104,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     isTauri &&
       selectedCompanyId &&
       currentPeriodId &&
-      ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'multiColumnLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'incomeQuarterReport', 'incomeTaxReport', 'cashFlowReport'].includes(kind),
+      ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'multiColumnLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'incomeQuarterReport', 'incomeTaxReport', 'cashFlowReport', 'cashFlowQuarterReport'].includes(kind),
   )
   const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
   const usesLiveCompanyBankAccountData = Boolean(isTauri && selectedCompanyId && kind === 'accountArchive')
@@ -4530,8 +4536,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           return
         }
 
-        if (kind === 'cashFlowReport') {
+        if (kind === 'cashFlowReport' || kind === 'cashFlowQuarterReport') {
           const cashFlow = await getCashFlowStatement(currentPeriodId)
+          if (kind === 'cashFlowQuarterReport') {
+            const quarterStartMonth = Math.floor(((currentPeriod?.period_month || 1) - 1) / 3) * 3 + 1
+            const priorQuarterPeriod = quarterStartMonth > 1
+              ? periods.find((period) => period.period_year === currentPeriod?.period_year && period.period_month === quarterStartMonth - 1)
+              : undefined
+            const cashFlowQuarterBaseline = priorQuarterPeriod ? await getCashFlowStatement(priorQuarterPeriod.id) : null
+            if (active) setLiveReports((reports) => ({ ...reports, cashFlow, cashFlowQuarterBaseline, cashFlowQuarterBaselineMissing: quarterStartMonth > 1 && !priorQuarterPeriod }))
+            return
+          }
           if (active) setLiveReports((reports) => ({ ...reports, cashFlow }))
         }
       } catch {
@@ -5180,6 +5195,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveIncomeQuarterRows(liveReports.incomeStatement, liveReports.incomeQuarterBaseline, quarterLabel, liveReports.incomeQuarterBaselineMissing),
         summary: summarizeLiveIncomeQuarter(liveReports.incomeStatement, liveReports.incomeQuarterBaseline, liveReports.incomeQuarterBaselineMissing),
+      }
+    }
+
+    if (kind === 'cashFlowQuarterReport' && usesLiveReportData && liveReports.cashFlow) {
+      const quarter = Math.ceil((currentPeriod?.period_month || 1) / 3)
+      const quarterLabel = `${currentPeriod?.period_year || '当前'}-Q${quarter}（截至${String(currentPeriod?.period_month || 0).padStart(2, '0')}月）`
+      return {
+        ...baseConfig,
+        rows: mapLiveCashFlowQuarterRows(liveReports.cashFlow, liveReports.cashFlowQuarterBaseline, quarterLabel, liveReports.cashFlowQuarterBaselineMissing),
+        summary: summarizeLiveCashFlowQuarter(liveReports.cashFlow, liveReports.cashFlowQuarterBaseline, liveReports.cashFlowQuarterBaselineMissing),
       }
     }
 

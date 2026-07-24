@@ -12,13 +12,15 @@ interface CashFlowItem {
   item_name: string
   item_level: number
   is_total: number
-  amount: number
+  current_amount: number
+  year_to_date: number
 }
 
 interface CashFlowResult {
   period_id: string
   items: CashFlowItem[]
   net_increase: number
+  net_increase_year_to_date: number
 }
 
 const LEVEL_INDENT: Record<number, string> = { 0: 'pl-2', 1: 'pl-8', 2: 'pl-14' }
@@ -67,8 +69,8 @@ export function CashFlowStatement() {
     if (!data) return
     const csvContent = [
       ['现金流量表', periodLabel].join(','),
-      ['项目', '金额'].join(','),
-      ...data.items.map((r) => [r.item_name, r.amount].join(',')),
+      ['项目', '本期金额', '本年累计'].join(','),
+      ...data.items.map((r) => [r.item_name, r.current_amount, r.year_to_date].join(',')),
     ].join('\n')
     const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -167,7 +169,8 @@ export function CashFlowStatement() {
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">项目</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-1/3">金额</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-1/4">本期金额</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-1/4">本年累计</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -177,7 +180,10 @@ export function CashFlowStatement() {
                           {row.item_name}
                         </td>
                         <td className="px-4 py-3 text-sm text-right font-mono text-gray-900">
-                          {formatCurrency(row.amount)}
+                          {formatCurrency(row.current_amount)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-mono text-gray-900">
+                          {formatCurrency(row.year_to_date)}
                         </td>
                       </tr>
                     ))}
@@ -187,6 +193,9 @@ export function CashFlowStatement() {
                       <td className="px-4 py-3 text-sm font-bold text-gray-900">现金及现金等价物净增加额</td>
                       <td className="px-4 py-3 text-sm text-right font-mono font-bold text-primary-700">
                         {formatCurrency(data.net_increase)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-mono font-bold text-primary-700">
+                        {formatCurrency(data.net_increase_year_to_date)}
                       </td>
                     </tr>
                   </tfoot>

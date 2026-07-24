@@ -1605,6 +1605,7 @@ pub struct CashFlowResult {
     pub period_id: String,
     pub items: Vec<CashFlowItem>,
     pub net_increase: f64,
+    pub net_increase_year_to_date: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1613,7 +1614,8 @@ pub struct CashFlowItem {
     pub item_name: String,
     pub item_level: i32,
     pub is_total: i32,
-    pub amount: f64,
+    pub current_amount: f64,
+    pub year_to_date: f64,
 }
 
 #[tauri::command]
@@ -1623,12 +1625,26 @@ pub async fn get_cash_flow_statement(
 ) -> Result<CashFlowResult, String> {
     log::info!("Generating cash flow statement for period: {}", period_id);
 
-    // Derive company_id from period
-    let company_id: String = sqlx::query_scalar(
-        "SELECT company_id FROM accounting_periods WHERE id = ?",
+    // Read the selected period once so the report can expose both the month and the
+    // year-to-date cash-flow amounts using the same accounting-period boundary.
+    let period_info: Option<(String, i32, i32)> = sqlx::query_as(
+        "SELECT company_id, period_year, period_month FROM accounting_periods WHERE id = ?",
     )
     .bind(&period_id)
-    .fetch_one(db.pool())
+    .fetch_optional(db.pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    let (company_id, period_year, period_month) = period_info
+        .ok_or_else(|| "会计期间不存在".to_string())?;
+
+    let ytd_period_ids: Vec<String> = sqlx::query_scalar(
+        "SELECT id FROM accounting_periods WHERE company_id = ? AND period_year = ? AND period_month <= ? ORDER BY period_month",
+    )
+    .bind(&company_id)
+    .bind(period_year)
+    .bind(period_month)
+    .fetch_all(db.pool())
     .await
     .map_err(|e| format!("Database error: {}", e))?;
 
@@ -1647,6 +1663,7 @@ pub async fn get_cash_flow_statement(
             period_id,
             items: vec![],
             net_increase: 0.0,
+            net_increase_year_to_date: 0.0,
         });
     };
 
@@ -1660,9 +1677,10 @@ pub async fn get_cash_flow_statement(
 
     let mut items = Vec::new();
     let mut running_sum = 0.0;
+    let mut ytd_running_sum = 0.0;
 
     for (_id, item_code, item_name, level, _sort, is_total, formula) in &report_items {
-        let amount = if let Some(f) = formula {
+        let current_amount = if let Some(f) = formula {
             let val = evaluate_formula(f, &company_id, &period_id, db.pool()).await;
             if is_total == &0 {
                 running_sum += val;
@@ -1676,25 +1694,50 @@ pub async fn get_cash_flow_statement(
             0.0
         };
 
+        let year_to_date = if let Some(f) = formula {
+            let mut value = 0.0;
+            for ytd_period_id in &ytd_period_ids {
+                value += evaluate_formula(f, &company_id, ytd_period_id, db.pool()).await;
+            }
+            if is_total == &0 {
+                ytd_running_sum += value;
+            }
+            value
+        } else if is_total == &1 {
+            let total = ytd_running_sum;
+            ytd_running_sum = 0.0;
+            total
+        } else {
+            0.0
+        };
+
         items.push(CashFlowItem {
             item_code: item_code.clone(),
             item_name: item_name.clone(),
             item_level: *level,
             is_total: *is_total,
-            amount,
+            current_amount,
+            year_to_date,
         });
     }
 
-    // Net increase = sum of all section totals
+    // CF999's formula stores the closing cash balance in the system template.
+    // The cash-flow increase is therefore the sum of operating, investing,
+    // financing and exchange-rate section totals, excluding that closing balance.
     let net_increase = items.iter()
-        .filter(|i| i.is_total == 1)
-        .map(|i| i.amount)
+        .filter(|item| item.is_total == 1 && item.item_code != "CF999")
+        .map(|item| item.current_amount)
+        .sum();
+    let net_increase_year_to_date = items.iter()
+        .filter(|item| item.is_total == 1 && item.item_code != "CF999")
+        .map(|item| item.year_to_date)
         .sum();
 
     Ok(CashFlowResult {
         period_id,
         items,
         net_increase,
+        net_increase_year_to_date,
     })
 }
 

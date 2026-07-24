@@ -1715,8 +1715,8 @@ export function mapLiveCashFlowRows(result: CashFlowResult): LiveModuleRow[] {
       line: item.item_code,
       item: item.item_name,
       rule: '报表模板公式',
-      current: currency(item.amount),
-      yearTotal: '待累计取数',
+      current: currency(item.item_code === 'CF999' ? result.net_increase : item.current_amount),
+      yearTotal: currency(item.item_code === 'CF999' ? result.net_increase_year_to_date : item.year_to_date),
       source: '本地账套凭证',
       check: '通过',
     },
@@ -1726,9 +1726,70 @@ export function mapLiveCashFlowRows(result: CashFlowResult): LiveModuleRow[] {
 export function summarizeLiveCashFlow(result: CashFlowResult): LiveSummaryItem[] {
   return [
     { label: '报表项目', value: `${result.items.length} 行`, tone: 'blue' },
-    { label: '现金净增加', value: currency(result.net_increase), tone: result.net_increase >= 0 ? 'green' : 'amber' },
+    { label: '本期净增加', value: currency(result.net_increase), tone: result.net_increase >= 0 ? 'green' : 'amber' },
+    { label: '本年净增加', value: currency(result.net_increase_year_to_date), tone: result.net_increase_year_to_date >= 0 ? 'green' : 'amber' },
     { label: '本期取数', value: '已完成', tone: 'green' },
-    { label: '未映射', value: '待规则接入', tone: 'gray' },
+  ]
+}
+
+function cashFlowItemsByCode(result: CashFlowResult | null): Map<string, CashFlowResult['items'][number]> {
+  return new Map((result?.items || []).map((item) => [item.item_code, item]))
+}
+
+export function mapLiveCashFlowQuarterRows(
+  result: CashFlowResult,
+  priorQuarterBaseline: CashFlowResult | null,
+  quarterLabel: string,
+  baselineMissing = false,
+): LiveModuleRow[] {
+  const priorItems = cashFlowItemsByCode(priorQuarterBaseline)
+  return result.items.map((item) => {
+    const yearToDate = item.item_code === 'CF999' ? result.net_increase_year_to_date : item.year_to_date
+    const priorYearToDate = item.item_code === 'CF999'
+      ? priorQuarterBaseline?.net_increase_year_to_date || 0
+      : priorItems.get(item.item_code)?.year_to_date || 0
+    const quarterAmount = baselineMissing ? null : yearToDate - priorYearToDate
+    return {
+      id: `cash-flow-quarter-${item.item_code}`,
+      status: baselineMissing ? '待确认' : item.is_total ? '已通过' : '待确认',
+      voucher: `${quarterLabel} 取数快照`,
+      attachment: baselineMissing ? '缺上季末累计' : priorQuarterBaseline ? '季度累计对比' : '本年累计取数',
+      values: {
+        quarter: quarterLabel,
+        item: item.item_name,
+        rule: baselineMissing ? '待补上季末累计' : priorQuarterBaseline ? '本年累计 - 上季末累计' : '本年累计（Q1）',
+        quarterAmount: quarterAmount === null ? '待取数' : currency(quarterAmount),
+        yearTotal: currency(yearToDate),
+        mapping: item.is_total ? '汇总项目' : '模板公式取数',
+        check: item.is_total ? '通过' : '待复核',
+      },
+    }
+  })
+}
+
+export function summarizeLiveCashFlowQuarter(
+  result: CashFlowResult,
+  priorQuarterBaseline: CashFlowResult | null,
+  baselineMissing = false,
+): LiveSummaryItem[] {
+  const priorItems = cashFlowItemsByCode(priorQuarterBaseline)
+  const quarterAmount = (itemCode: string) => {
+    if (baselineMissing) return null
+    if (itemCode === 'CF999') {
+      return result.net_increase_year_to_date - (priorQuarterBaseline?.net_increase_year_to_date || 0)
+    }
+    return (result.items.find((item) => item.item_code === itemCode)?.year_to_date || 0) - (priorItems.get(itemCode)?.year_to_date || 0)
+  }
+  const operating = quarterAmount('CF199')
+  const investing = quarterAmount('CF299')
+  const financing = quarterAmount('CF399')
+  const netIncrease = quarterAmount('CF999')
+  const formatAmount = (amount: number | null) => amount === null ? '待取数' : currency(amount)
+  return [
+    { label: '本季经营现金流', value: formatAmount(operating), tone: baselineMissing ? 'amber' : 'blue' },
+    { label: '本季投资现金流', value: formatAmount(investing), tone: baselineMissing ? 'amber' : 'amber' },
+    { label: '本季筹资现金流', value: formatAmount(financing), tone: baselineMissing ? 'amber' : 'gray' },
+    { label: '现金净增加', value: formatAmount(netIncrease), tone: baselineMissing ? 'amber' : (netIncrease || 0) >= 0 ? 'green' : 'amber' },
   ]
 }
 
