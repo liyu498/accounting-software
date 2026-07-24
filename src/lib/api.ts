@@ -1403,6 +1403,20 @@ export const agencyApi = {
     }
   },
 
+  runBatchTaskPrecheck: async (input: { id: string; operator?: string }): Promise<ApiResponse<AgencyBatchTask>> => {
+    try {
+      const result = await invoke('run_agency_batch_task_precheck', {
+        input: {
+          id: input.id,
+          operator: input.operator,
+        },
+      }) as RawAgencyBatchTask
+      return { success: true, data: mapAgencyBatchTask(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
   getHealthChecks: async (period = '2026-05'): Promise<ApiResponse<AgencyHealthCheckItem[]>> => {
     try {
       const result = await invoke('get_agency_health_checks', { period }) as RawAgencyHealthCheckItem[]

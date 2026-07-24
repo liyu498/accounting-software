@@ -429,6 +429,8 @@ const requiredAgencyModuleSnippets = [
   ['agency authorization live scope', "kind === 'authorizationCenter'"],
   ['agency batch task data source', 'agencyApi.getBatchTasks()'],
   ['agency batch task create binding', 'agencyApi.createBatchTasks('],
+  ['agency batch task precheck binding', 'agencyApi.runBatchTaskPrecheck({ id: row.id, operator: \'admin\' })'],
+  ['agency batch task precheck boundary', '本地预检完成，不会登录或调用税局、银行等外部系统'],
   ['agency batch task row mapper', 'function mapAgencyBatchTaskRow(item: AgencyBatchTask)'],
   ['agency batch task tab filter', 'function filterAgencyBatchTaskRows(rows: AgencyRow[], activeTab: string)'],
   ['agency batch tab consolidation', "tabs: ['操作任务', '批量采集', '批量生成', '批量结账', '批量申报', '申报回执', '审批记录']"],

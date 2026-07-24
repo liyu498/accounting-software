@@ -57,6 +57,7 @@ pub fn run() {
             commands::agency::get_agency_delivery_tickets,
             commands::agency::get_agency_batch_tasks,
             commands::agency::create_agency_batch_tasks,
+            commands::agency::run_agency_batch_task_precheck,
             commands::agency::get_agency_health_checks,
             commands::agency::get_agency_automation_jobs,
             commands::agency::get_agency_adapter_authorizations,

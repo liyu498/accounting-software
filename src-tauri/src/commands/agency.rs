@@ -3,7 +3,7 @@ use crate::db::{
     AgencyFeeCollection, AgencyServiceContract, AutomationJob, CreateAgencyBatchTasksInput,
     Database,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
 #[derive(Debug, Clone, Serialize)]
@@ -378,6 +378,75 @@ pub async fn create_agency_batch_tasks(
     }
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RunAgencyBatchTaskPrecheckInput {
+    pub id: String,
+    pub operator: Option<String>,
+}
+
+#[tauri::command]
+pub async fn run_agency_batch_task_precheck(
+    input: RunAgencyBatchTaskPrecheckInput,
+    db: State<'_, Database>,
+) -> Result<AgencyBatchTask, String> {
+    let task: AgencyBatchTask = sqlx::query_as(
+        r#"
+        SELECT id, task_type, task_name, period, customer_scope, status,
+               progress_current, progress_total, result_summary, risk_level,
+               operator, requires_approval, created_at, updated_at
+        FROM agency_batch_tasks
+        WHERE id = ?
+        "#,
+    )
+    .bind(&input.id)
+    .fetch_optional(db.pool())
+    .await
+    .map_err(|e| format!("读取批量任务失败: {e}"))?
+    .ok_or_else(|| "未找到批量任务".to_string())?;
+
+    if task.status == "completed" {
+        return Err("已完成的批量任务不能再次执行预检".to_string());
+    }
+
+    let operator = input.operator.unwrap_or_else(|| task.operator.clone().unwrap_or_else(|| "admin".to_string()));
+    let next_status = if task.requires_approval == 1 { "awaiting_approval" } else { "prechecked" };
+    let summary = if task.requires_approval == 1 {
+        "本地预检完成，不会登录或调用税局、银行等外部系统；高风险任务待人工审批。"
+    } else {
+        "本地预检完成，不会登录或调用税局、银行等外部系统；后续采集需人工发起。"
+    };
+
+    sqlx::query(
+        r#"
+        UPDATE agency_batch_tasks
+        SET status = ?, progress_current = 1, progress_total = COALESCE(progress_total, 1),
+            result_summary = ?, operator = ?, updated_at = datetime('now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(next_status)
+    .bind(summary)
+    .bind(operator)
+    .bind(&input.id)
+    .execute(db.pool())
+    .await
+    .map_err(|e| format!("更新批量预检状态失败: {e}"))?;
+
+    sqlx::query_as(
+        r#"
+        SELECT id, task_type, task_name, period, customer_scope, status,
+               progress_current, progress_total, result_summary, risk_level,
+               operator, requires_approval, created_at, updated_at
+        FROM agency_batch_tasks
+        WHERE id = ?
+        "#,
+    )
+    .bind(&input.id)
+    .fetch_one(db.pool())
+    .await
+    .map_err(|e| format!("读取更新后的批量任务失败: {e}"))
 }
 
 #[tauri::command]

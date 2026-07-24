@@ -986,9 +986,30 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     setOperationNotice(`已打开 ${object} 的机构级明细留痕；后续会接入附件、来源任务和操作快照。`)
   }
 
-  const handleProcessRow = (row: AgencyRow) => {
+  const handleProcessRow = async (row: AgencyRow) => {
     const object = rowObjectLabel(row)
-    const isRisky = row.status === '异常' || kind === 'batchOps' || kind === 'authorizationCenter' || kind === 'healthCheck'
+    if (kind === 'batchOps') {
+      if (isTauri) {
+        const response = await agencyApi.runBatchTaskPrecheck({ id: row.id, operator: 'admin' })
+        if (!response.success || !response.data) {
+          setOperationNotice(response.error || '批量任务本地预检失败。')
+          return
+        }
+        writeAgencyAudit('执行批量预检', `${pageConfig.title}-${object}`, response.data.requiresApproval ? '高' : '中', response.data.requiresApproval ? '待审批' : '成功')
+        await loadRemoteRows()
+        setOperationNotice(`${object} 本地预检完成，不会登录或调用税局、银行等外部系统；${response.data.requiresApproval ? '当前任务已进入人工审批队列。' : '后续采集仍需人工发起。'}`)
+        return
+      }
+
+      setLocalRows((rows) => rows.map((item) => item.id === row.id
+        ? { ...item, status: '待确认', values: { ...item.values, progress: '1/1', result: '本地预检完成，待人工确认；未调用外部系统' } }
+        : item))
+      writeAgencyAudit('执行批量预检', `${pageConfig.title}-${object}`, '高', '待审批')
+      setOperationNotice(`${object} 本地预检完成，不会登录或调用税局、银行等外部系统；当前仅更新预览任务状态。`)
+      return
+    }
+
+    const isRisky = row.status === '异常' || kind === 'authorizationCenter' || kind === 'healthCheck'
     writeAgencyAudit('处理行任务', `${pageConfig.title}-${object}`, isRisky ? '高' : '中', isRisky ? '待审批' : '成功')
     setOperationNotice(
       isRisky
@@ -1601,8 +1622,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                         <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
                           查看
                         </button>
-                        <button type="button" onClick={() => handleProcessRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                          处理
+                        <button type="button" onClick={() => void handleProcessRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
+                          {kind === 'batchOps' ? '执行预检' : '处理'}
                         </button>
                         {(kind === 'clients' || kind === 'accountManagement') && (
                           <button type="button" onClick={() => handleEnterAccount(row)} className="text-[#1f65a7] hover:underline">
@@ -2110,7 +2131,7 @@ function mapAgencyBatchTaskStatus(status: string, requiresApproval: boolean): Ag
   if (normalized === 'completed') return '已完成'
   if (normalized === 'failed' || normalized === 'blocked') return '异常'
   if (normalized === 'running' || normalized === 'processing') return '进行中'
-  if (normalized === 'awaiting_approval' || (normalized === 'queued' && requiresApproval)) return '待确认'
+  if (normalized === 'prechecked' || normalized === 'awaiting_approval' || (normalized === 'queued' && requiresApproval)) return '待确认'
   return '待处理'
 }
 
