@@ -904,6 +904,13 @@ const requiredDeclarationReceiptPageSnippets = [
   ['receipt archive editor title', '归档回执缴款信息'],
   ['receipt archive external boundary', '不会发起税局申报或银行扣款'],
 ]
+const requiredTaxInitPageSnippets = [
+  ['tax init editor state', 'const [showTaxInitDialog, setShowTaxInitDialog] = useState(false)'],
+  ['tax init save binding', 'const handleSaveTaxInit = async'],
+  ['tax init editor title', '新增申报认定事项'],
+  ['tax init upsert', 'automationApi.upsertTaxDeclarationTask({'],
+  ['tax init external boundary', '不会登录税局、提交申报或扣款'],
+]
 const requiredStampTaxSchemaSnippets = [
   ['stamp tax item column', 'stamp_tax_item TEXT'],
   ['stamp tax rate column', 'stamp_tax_rate REAL'],
@@ -1328,6 +1335,7 @@ const errors = [
   ...verify(pageSource, requiredNonTaxRevenuePageSnippets, 'non-tax revenue module page'),
   ...verify(pageSource, requiredTaxTaskConfirmationPageSnippets, 'local tax task confirmation'),
   ...verify(pageSource, requiredDeclarationReceiptPageSnippets, 'declaration receipt module page'),
+  ...verify(pageSource, requiredTaxInitPageSnippets, 'tax initialization module page'),
   ...verify(pageSource, requiredStampTaxPageSnippets, 'stamp tax module page'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),

@@ -4349,6 +4349,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [showDeclarationReceiptDialog, setShowDeclarationReceiptDialog] = useState(false)
   const [declarationReceiptDraft, setDeclarationReceiptDraft] = useState({ taskId: '', receiptNo: '', paymentStatus: '未记录', paymentNo: '', receivedAt: '' })
+  const [showTaxInitDialog, setShowTaxInitDialog] = useState(false)
+  const [taxInitDraft, setTaxInitDraft] = useState({ taskId: '', taxType: '', formName: '', sourceSnapshot: '', taxableAmount: '', payableAmount: '', riskCount: '0', collectStatus: 'collected', validationStatus: 'pending', adapterCode: '' })
   const [showNonTaxRevenueDialog, setShowNonTaxRevenueDialog] = useState(false)
   const [nonTaxRevenueDraft, setNonTaxRevenueDraft] = useState({ item: '工会经费', policy: '', source: '', basisAmount: '', payableAmount: '', receiptNo: '', riskCount: '0' })
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
@@ -5828,6 +5830,49 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('回执与缴款信息已登记到本地台账；外部申报、扣款和回执真实性仍需通过合法渠道人工核验。')
   }
 
+  const openTaxInitEditor = (task?: TaxDeclarationTask) => {
+    setTaxInitDraft(task
+      ? { taskId: task.id, taxType: task.taxType, formName: task.formName, sourceSnapshot: task.sourceSnapshot || '', taxableAmount: String(task.taxableAmount), payableAmount: String(task.payableAmount), riskCount: String(task.riskCount), collectStatus: task.collectStatus, validationStatus: task.validationStatus, adapterCode: task.adapterCode || '' }
+      : { taskId: '', taxType: '', formName: '', sourceSnapshot: '', taxableAmount: '', payableAmount: '', riskCount: '0', collectStatus: 'collected', validationStatus: 'pending', adapterCode: '' })
+    setShowTaxInitDialog(true)
+  }
+
+  const handleSaveTaxInit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || currentPeriodLabel === '当前账期') {
+      setOperationNotice('请先选择账套和账期，再维护申报认定事项。')
+      return
+    }
+    const existing = taxDeclarationTasks.find((task) => task.id === taxInitDraft.taskId)
+    const result = await automationApi.upsertTaxDeclarationTask({
+      companyId: selectedCompanyId,
+      period: existing?.period || currentPeriodLabel,
+      taxType: taxInitDraft.taxType.trim(),
+      formName: taxInitDraft.formName.trim(),
+      collectStatus: taxInitDraft.collectStatus,
+      validationStatus: taxInitDraft.validationStatus,
+      declarationStatus: existing?.declarationStatus || 'draft',
+      sourceSnapshot: taxInitDraft.sourceSnapshot.trim() || undefined,
+      taxableAmount: Number(taxInitDraft.taxableAmount || 0),
+      deductionAmount: existing?.deductionAmount || 0,
+      payableAmount: Number(taxInitDraft.payableAmount || 0),
+      riskCount: Number(taxInitDraft.riskCount || 0),
+      adapterCode: taxInitDraft.adapterCode.trim() || undefined,
+      receiptNo: existing?.receiptNo || undefined,
+      paymentStatus: existing?.paymentStatus || 'unrecorded',
+      paymentNo: existing?.paymentNo || undefined,
+      receiptReceivedAt: existing?.receiptReceivedAt || undefined,
+    })
+    if (!result.success || !result.data) {
+      setOperationNotice(`保存申报认定事项失败：${result.error || '未知错误'}`)
+      return
+    }
+    setTaxDeclarationTasks((tasks) => [result.data!, ...tasks.filter((task) => task.id !== result.data!.id)])
+    setShowTaxInitDialog(false)
+    writeModuleAudit(existing ? '编辑申报认定事项' : '新增申报认定事项', `${result.data.taxType}｜${result.data.formName}`, '高', '成功')
+    setOperationNotice('申报认定事项已保存到本地账套；取数、申报确认和外部提交仍需分别人工核验。')
+  }
+
   const handlePrimaryAction = async () => {
     if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData && selectedCompanyId) {
       await confirmAiVoucherSuggestions([...selectedRowIds])
@@ -5868,6 +5913,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return
       }
       openDeclarationReceiptEditor(task)
+      return
+    }
+    if (kind === 'taxInit' && usesLiveTaxInitData && selectedCompanyId) {
+      openTaxInitEditor()
       return
     }
     if (kind === 'nonTaxRevenueReport' && usesLiveNonTaxRevenueData && selectedCompanyId) {
@@ -7005,6 +7054,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       openDeclarationReceiptEditor(task)
       return
     }
+    if (kind === 'taxInit' && usesLiveTaxInitData && selectedCompanyId) {
+      const taskId = row.id.replace('tax-init-', '')
+      const task = taxDeclarationTasks.find((item) => item.id === taskId)
+      if (!task) {
+        setOperationNotice('未找到当前账套的申报认定事项，请刷新后重试。')
+        return
+      }
+      openTaxInitEditor(task)
+      return
+    }
     if (isLocalTaxTaskKind && isTauri && selectedCompanyId) {
       await confirmTaxTaskFromRow(row)
       return
@@ -7901,10 +7960,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
                         <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                          {kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                          {kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
-                      {!isLocalTaxTaskKind && kind !== 'declarationReceipt' && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
+                      {!isLocalTaxTaskKind && kind !== 'declarationReceipt' && kind !== 'taxInit' && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'aiVoucherSuggestions' ? row.status === '已生成凭证' ? '查看凭证' : '进入草稿' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
                       </button>}
                     </td>
@@ -8498,6 +8557,55 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               </label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowDeclarationReceiptDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存归档信息</button></div>
+          </form>
+        </div>
+      )}
+      {showTaxInitDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={taxInitDraft.taskId ? '编辑申报认定事项' : '新增申报认定事项'}>
+          <form onSubmit={handleSaveTaxInit} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">{taxInitDraft.taskId ? '编辑申报认定事项' : '新增申报认定事项'}</h2>
+                <p className="mt-0.5 text-xs text-slate-500">仅维护本地认定和取数状态，不会登录税局、提交申报或扣款。</p>
+              </div>
+              <button type="button" onClick={() => setShowTaxInitDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">税种 *
+                <input required disabled={Boolean(taxInitDraft.taskId)} value={taxInitDraft.taxType} onChange={(event) => setTaxInitDraft((draft) => ({ ...draft, taxType: event.target.value }))} placeholder="例如：增值税及附加" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">申报表 *
+                <input required disabled={Boolean(taxInitDraft.taskId)} value={taxInitDraft.formName} onChange={(event) => setTaxInitDraft((draft) => ({ ...draft, formName: event.target.value }))} placeholder="例如：增值税及附加申报表" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">取数依据/认定说明
+                <input value={taxInitDraft.sourceSnapshot} onChange={(event) => setTaxInitDraft((draft) => ({ ...draft, sourceSnapshot: event.target.value }))} placeholder="例如：销项发票、进项勾选、工资表已人工核验" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">计税依据（元）
+                <input min="0" step="0.01" type="number" value={taxInitDraft.taxableAmount} onChange={(event) => setTaxInitDraft((draft) => ({ ...draft, taxableAmount: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">应缴金额（元）
+                <input min="0" step="0.01" type="number" value={taxInitDraft.payableAmount} onChange={(event) => setTaxInitDraft((draft) => ({ ...draft, payableAmount: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">取数状态 *
+                <select value={taxInitDraft.collectStatus} onChange={(event) => setTaxInitDraft((draft) => ({ ...draft, collectStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="collected">已取数</option><option value="not_collected">待取数</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">校验状态 *
+                <select value={taxInitDraft.validationStatus} onChange={(event) => setTaxInitDraft((draft) => ({ ...draft, validationStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="pending">待校验</option><option value="passed">已通过</option><option value="failed">校验失败</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">风险项
+                <select value={taxInitDraft.riskCount} onChange={(event) => setTaxInitDraft((draft) => ({ ...draft, riskCount: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="0">无</option><option value="1">1 项待复核</option><option value="2">2 项待复核</option><option value="3">3 项待复核</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">授权适配器代码
+                <input value={taxInitDraft.adapterCode} onChange={(event) => setTaxInitDraft((draft) => ({ ...draft, adapterCode: event.target.value }))} placeholder="仅记录已授权适配器标识" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowTaxInitDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存认定事项</button></div>
           </form>
         </div>
       )}
