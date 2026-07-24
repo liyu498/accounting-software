@@ -337,6 +337,9 @@ const requiredTaxWorkspaceSnippets = [
   ['tax workspace selection state', 'const [selectedDeclarationIds, setSelectedDeclarationIds] = useState<Set<string>>(new Set())'],
   ['tax workspace bulk confirmation action', "await confirmDeclaration(selectedDeclarationRows, '批量确认申报')"],
   ['tax workspace confirmation boundary', '不会向税局提交或发起扣款'],
+  ['tax workspace detail editor state', 'const [showDeclarationDetailDialog, setShowDeclarationDetailDialog] = useState(false)'],
+  ['tax workspace detail save binding', 'const saveDeclarationDetail = async'],
+  ['tax workspace detail local boundary', '保存仅更新本地取数和校验状态'],
 ]
 
 const requiredWelcomeSnippets = [

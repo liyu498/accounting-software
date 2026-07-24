@@ -107,6 +107,19 @@ const declarationRows = [
 type DeclarationRow = (typeof declarationRows)[number]
 type RiskRow = [level: string, module: string, description: string, link: string]
 type RuleLog = [time: string, action: string, detail: string]
+type DeclarationDraft = {
+  id: string
+  category: string
+  form: string
+  period: string
+  source: string
+  taxableAmount: string
+  deductionAmount: string
+  payableAmount: string
+  collectStatus: string
+  validationStatus: string
+  riskCount: string
+}
 
 const riskRows: RiskRow[] = [
   ['阻断', '增值税及附加', '进项发票未完成勾选，抵扣税额不能进入申报主表', '发票勾选'],
@@ -284,6 +297,10 @@ export function TaxWorkspace() {
   const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
   const [backendAdapterStatus, setBackendAdapterStatus] = useState('未配置')
   const [selectedDeclarationIds, setSelectedDeclarationIds] = useState<Set<string>>(new Set())
+  const [showDeclarationDetailDialog, setShowDeclarationDetailDialog] = useState(false)
+  const [declarationDraft, setDeclarationDraft] = useState<DeclarationDraft>({
+    id: '', category: '', form: '', period: '', source: '', taxableAmount: '', deductionAmount: '', payableAmount: '', collectStatus: '已取数', validationStatus: '待确认', riskCount: '0',
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -585,6 +602,21 @@ export function TaxWorkspace() {
   }
 
   const viewDeclarationRow = (row: DeclarationRow) => {
+    const task = taxDeclarationTasks.find((item) => item.id === row.id)
+    setDeclarationDraft({
+      id: task?.id ?? '',
+      category: row.category,
+      form: row.form,
+      period: row.period,
+      source: row.source,
+      taxableAmount: String(parseMoney(row.sales)),
+      deductionAmount: String(parseMoney(row.deduction)),
+      payableAmount: String(parseMoney(row.payable)),
+      collectStatus: row.collectStatus,
+      validationStatus: row.checkStatus,
+      riskCount: String(task?.riskCount ?? (row.risk === '无' ? 0 : 1)),
+    })
+    setShowDeclarationDetailDialog(true)
     writeTaxAudit({
       action: '查看申报明细',
       object: `${row.category}-${row.period}`,
@@ -593,7 +625,54 @@ export function TaxWorkspace() {
       status: '已通过',
       attachment: row.form,
     })
-    setOperationNotice(`${row.category} 明细已打开留痕；后续会接入申报表主表、附表、取数公式和附件快照。`)
+    setOperationNotice(`${row.category} 本地申报事项明细已打开；保存仅更新本地取数和校验状态。`)
+  }
+
+  const saveDeclarationDetail = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!usesLiveTaxDeclarationData || !selectedCompanyId) {
+      setOperationNotice('浏览器预览只展示申报事项；请在桌面端选择账套和账期后保存本地修改。')
+      return
+    }
+    const task = taxDeclarationTasks.find((item) => item.id === declarationDraft.id)
+    if (!task) {
+      setOperationNotice('未找到对应的本地申报事项。请先在“申报初始化”维护税种认定后再编辑。')
+      return
+    }
+    const result = await automationApi.upsertTaxDeclarationTask({
+      companyId,
+      period: task.period,
+      taxType: task.taxType,
+      formName: task.formName,
+      collectStatus: declarationDraft.collectStatus,
+      validationStatus: normalizeTaxValidationStatus(declarationDraft.validationStatus),
+      declarationStatus: task.declarationStatus,
+      sourceSnapshot: declarationDraft.source.trim() || undefined,
+      taxableAmount: Number(declarationDraft.taxableAmount || 0),
+      deductionAmount: Number(declarationDraft.deductionAmount || 0),
+      payableAmount: Number(declarationDraft.payableAmount || 0),
+      riskCount: Number(declarationDraft.riskCount || 0),
+      adapterCode: task.adapterCode || undefined,
+      receiptNo: task.receiptNo || undefined,
+      paymentStatus: task.paymentStatus,
+      paymentNo: task.paymentNo || undefined,
+      receiptReceivedAt: task.receiptReceivedAt || undefined,
+    })
+    if (!result.success || !result.data) {
+      setOperationNotice(`保存申报事项失败：${result.error || '未知错误'}`)
+      return
+    }
+    setTaxDeclarationTasks((tasks) => [result.data!, ...tasks.filter((item) => item.id !== result.data!.id)])
+    setShowDeclarationDetailDialog(false)
+    writeTaxAudit({
+      action: '编辑本地申报事项',
+      object: `${result.data.taxType}-${result.data.period}`,
+      level: result.data.riskCount > 0 ? '中' : '普通',
+      result: '成功',
+      status: result.data.riskCount > 0 ? '待确认' : '已通过',
+      attachment: result.data.sourceSnapshot || '未填写取数依据',
+    })
+    setOperationNotice('本地申报事项已保存；税局提交、扣款和回执仍需合法 adapter 与人工审批。')
   }
 
   const fetchDeclarationRow = (row: DeclarationRow) => {
@@ -791,6 +870,59 @@ export function TaxWorkspace() {
       </div>
 
       {showRulesLog && <TaxRulesLogPanel riskRows={visibleRiskRows} logs={visibleRuleLogs} onRiskLink={handleRiskLink} />}
+
+      {showDeclarationDetailDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="编辑本地申报事项">
+          <form onSubmit={saveDeclarationDetail} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">本地申报事项明细</h2>
+                <p className="mt-0.5 text-xs text-slate-500">仅维护取数、校验和风险状态，不会向税局提交申报或发起扣款。</p>
+              </div>
+              <button type="button" onClick={() => setShowDeclarationDetailDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">税种
+                <input disabled value={declarationDraft.category} className="h-8 rounded border border-slate-300 bg-slate-100 px-2 text-sm text-slate-700" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">申报表
+                <input disabled value={declarationDraft.form} className="h-8 rounded border border-slate-300 bg-slate-100 px-2 text-sm text-slate-700" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">所属期
+                <input disabled value={declarationDraft.period} className="h-8 rounded border border-slate-300 bg-slate-100 px-2 text-sm text-slate-700" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">取数状态
+                <select value={declarationDraft.collectStatus} onChange={(event) => setDeclarationDraft((draft) => ({ ...draft, collectStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="已取数">已取数</option><option value="待补资料">待补资料</option><option value="未取数">未取数</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">取数依据/人工复核说明
+                <input value={declarationDraft.source} onChange={(event) => setDeclarationDraft((draft) => ({ ...draft, source: event.target.value }))} placeholder="例如：发票、工资表、合同台账已人工核验" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">计税依据（元）
+                <input min="0" step="0.01" type="number" value={declarationDraft.taxableAmount} onChange={(event) => setDeclarationDraft((draft) => ({ ...draft, taxableAmount: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">抵扣/减免（元）
+                <input min="0" step="0.01" type="number" value={declarationDraft.deductionAmount} onChange={(event) => setDeclarationDraft((draft) => ({ ...draft, deductionAmount: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">应缴金额（元）
+                <input min="0" step="0.01" type="number" value={declarationDraft.payableAmount} onChange={(event) => setDeclarationDraft((draft) => ({ ...draft, payableAmount: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">校验状态
+                <select value={declarationDraft.validationStatus} onChange={(event) => setDeclarationDraft((draft) => ({ ...draft, validationStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="待确认">待确认</option><option value="校验通过">校验通过</option><option value="需复核">需复核</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">风险项
+                <select value={declarationDraft.riskCount} onChange={(event) => setDeclarationDraft((draft) => ({ ...draft, riskCount: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="0">无</option><option value="1">1 项待处理</option><option value="2">2 项待处理</option><option value="3">3 项待处理</option>
+                </select>
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowDeclarationDetailDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存本地事项</button></div>
+          </form>
+        </div>
+      )}
 
       <div className="min-w-0 pt-3">
         <section className="min-w-0 border border-slate-200 bg-white">
