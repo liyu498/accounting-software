@@ -20,6 +20,7 @@ import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
+import { formatLocalFileSize, recordLocalAttachment, recordLocalImportJob, removeLocalAttachment, removeLocalImportJob, useLocalAttachmentRecords, useLocalImportJobs, type LocalAttachmentRecord, type LocalImportJob } from '../../lib/localFileRegistry'
 import { isTauri } from '../../lib/tauri'
 import { accountTransferApi, automationApi, backupApi, bankReconciliationApi, bankTransactionApi, businessOrderApi, costCarryoverApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, settlementRecordApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankReconciliationRecord, type BankTransaction, type BusinessOrder, type CostCarryoverRecord, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SettlementRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import { measurementUnitApi, type MeasurementUnit } from '../../lib/api'
@@ -3541,6 +3542,50 @@ function mapOperationAuditImportRows(logs: OperationAuditLog[]): ModuleRow[] {
     })
 }
 
+function localFileStatus(status: LocalImportJob['status'] | LocalAttachmentRecord['status']): ModuleRow['status'] {
+  if (status === '异常') return '异常'
+  if (status === '已关联') return '已匹配'
+  return '待确认'
+}
+
+function mapLocalImportJobRows(jobs: LocalImportJob[]): ModuleRow[] {
+  return jobs.map((job) => ({
+    id: job.id,
+    status: localFileStatus(job.status),
+    voucher: '-',
+    attachment: job.fileFormat,
+    values: {
+      template: job.operation,
+      module: job.moduleName,
+      file: job.fileName,
+      rows: '待解析',
+      success: '待校验',
+      failed: '0',
+      operator: job.operator,
+      time: job.createdAt,
+    },
+  }))
+}
+
+function mapLocalAttachmentRows(records: LocalAttachmentRecord[]): ModuleRow[] {
+  return records.map((record) => ({
+    id: record.id,
+    status: localFileStatus(record.status),
+    voucher: '未关联',
+    attachment: record.fileFormat,
+    values: {
+      name: record.fileName,
+      type: `${record.fileFormat} / ${formatLocalFileSize(record.fileSize)}`,
+      module: record.sourceModule,
+      related: record.relatedDocument,
+      hash: record.checksum.startsWith('meta-') ? record.checksum : `SHA-256 ${record.checksum.slice(0, 12)}...`,
+      uploader: record.operator,
+      time: record.createdAt,
+      archive: record.status === '异常' ? '需重传' : '待关联',
+    },
+  }))
+}
+
 function formatBackupSize(sizeBytes: number) {
   if (sizeBytes < 1024) return `${sizeBytes} B`
   if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`
@@ -4051,6 +4096,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const currentPeriodLabel = currentPeriod
     ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}`
     : '当前账期'
+  const localFileScope = {
+    companyId: selectedCompanyId || 'browser-preview',
+    period: currentPeriodLabel,
+  }
+  const localImportJobs = useLocalImportJobs(localFileScope)
+  const localAttachmentRecords = useLocalAttachmentRecords(localFileScope)
   const fetchPeriods = usePeriodStore((state) => state.fetchPeriods)
   const voucherWords = usePeriodStore((state) => state.voucherWords)
   const fetchVoucherWords = usePeriodStore((state) => state.fetchVoucherWords)
@@ -5507,8 +5558,28 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'importCenter' && usesLiveImportData) {
-      const dynamicRows = mapOperationAuditImportRows(operationAuditLogs)
+    if (kind === 'attachmentCenter' && (isTauri || localAttachmentRecords.length > 0)) {
+      const dynamicRows = mapLocalAttachmentRows(localAttachmentRecords)
+      return {
+        ...baseConfig,
+        rows: dynamicRows,
+        summary: baseConfig.summary.map((item) => {
+          if (item.label === '附件总数') return { ...item, value: `${dynamicRows.length} 个` }
+          if (item.label === '已关联') return { ...item, value: `${dynamicRows.filter((row) => row.status === '已匹配').length} 个` }
+          if (item.label === '待归档') return { ...item, value: `${dynamicRows.filter((row) => row.status === '待确认').length} 个` }
+          if (item.label === '异常文件') return { ...item, value: `${dynamicRows.filter((row) => row.status === '异常').length} 个` }
+          return item
+        }),
+      }
+    }
+
+    if (kind === 'importCenter' && (usesLiveImportData || localImportJobs.length > 0)) {
+      const localRows = mapLocalImportJobRows(localImportJobs)
+      const localFileNames = new Set(localRows.map((row) => row.values.file))
+      const auditRows = usesLiveImportData
+        ? mapOperationAuditImportRows(operationAuditLogs).filter((row) => !localFileNames.has(row.values.file))
+        : []
+      const dynamicRows = [...localRows, ...auditRows]
       return {
         ...baseConfig,
         rows: dynamicRows,
@@ -5548,7 +5619,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactionTagIds, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactionTagIds, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [businessTagFilter, setBusinessTagFilter] = useState('全部')
@@ -5660,12 +5731,43 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice(`${config.importLabel} 已进入待确认留痕；后续接入文件选择、字段映射、错误清单和回滚记录。`)
   }
 
-  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    writeModuleAudit(config.importLabel, `${title}-${file.name}`, '中', '待审批')
-    setOperationNotice(`${file.name} 已进入待确认导入批次；需完成字段映射、错误校验和人工确认后才会写入账套。`)
-    event.target.value = ''
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+
+    try {
+      const scope = {
+        companyId: selectedCompanyId || 'browser-preview',
+        period: currentPeriodLabel,
+      }
+      if (kind === 'attachmentCenter') {
+        const records = await Promise.all(files.map((file) => recordLocalAttachment({
+          ...scope,
+          sourceModule: title,
+          operator: 'admin',
+          file,
+        })))
+        const completed = records.filter(Boolean).length
+        files.forEach((file) => writeModuleAudit('登记附件', `${title}-${file.name}`, '中', '待审批'))
+        setOperationNotice(`已登记 ${completed} 个本机附件元数据并计算校验值；文件尚未关联单据或写入外部存储。`)
+        return
+      }
+
+      const jobs = await Promise.all(files.map((file) => recordLocalImportJob({
+        ...scope,
+        moduleName: title,
+        operation: config.importLabel,
+        operator: 'admin',
+        file,
+      })))
+      const completed = jobs.filter(Boolean).length
+      files.forEach((file) => writeModuleAudit(config.importLabel, `${title}-${file.name}`, '中', '待审批'))
+      setOperationNotice(`已登记 ${completed} 个本机导入批次并计算校验值；需完成字段映射、错误校验和人工确认后才会写入账套。`)
+    } catch (error) {
+      setOperationNotice(`登记文件批次失败：${String(error)}`)
+    } finally {
+      event.target.value = ''
+    }
   }
 
   const handleRefreshAction = () => {
@@ -5874,6 +5976,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handlePrimaryAction = async () => {
+    if (kind === 'attachmentCenter' || kind === 'importCenter') {
+      importFileRef.current?.click()
+      return
+    }
     if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData && selectedCompanyId) {
       await confirmAiVoucherSuggestions([...selectedRowIds])
       return
@@ -7394,6 +7500,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleGenerateVoucher = async (row: ModuleRow) => {
+    if (kind === 'attachmentCenter' || kind === 'importCenter') {
+      if (!window.confirm(`确认撤销 ${row.values.file || row.values.name || row.id} 的本机登记吗？不会删除原始文件或影响已入账数据。`)) return
+      const removed = kind === 'attachmentCenter'
+        ? removeLocalAttachment(row.id)
+        : removeLocalImportJob(row.id)
+      if (!removed) {
+        setOperationNotice('撤销本机登记失败，请刷新后重试。')
+        return
+      }
+      writeModuleAudit('撤销本机登记', `${title}-${row.values.file || row.values.name || row.id}`, '中', '成功')
+      setOperationNotice('本机文件元数据登记已撤销；原始文件、已入账凭证和外部系统数据均未变更。')
+      return
+    }
     if (kind === 'voucher') {
       navigate(`/vouchers/edit/${row.id}`)
       return
@@ -7710,7 +7829,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   return (
     <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
-      <input ref={importFileRef} type="file" accept=".xlsx,.xls,.csv,.pdf,.ofd,.zip" onChange={handleImportFile} className="hidden" aria-label={`${config.importLabel}文件`} />
+      <input ref={importFileRef} type="file" multiple accept=".xlsx,.xls,.csv,.pdf,.ofd,.zip" onChange={handleImportFile} className="hidden" aria-label={`${config.importLabel}文件`} />
       <div className="border border-slate-200 bg-white">
         <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-1.5">
           <div className="flex min-w-0 items-center gap-3">
@@ -7964,7 +8083,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                         </button>
                       )}
                       {!isLocalTaxTaskKind && kind !== 'declarationReceipt' && kind !== 'taxInit' && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
-                        {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'aiVoucherSuggestions' ? row.status === '已生成凭证' ? '查看凭证' : '进入草稿' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
+                        {kind === 'attachmentCenter' || kind === 'importCenter' ? '撤销登记' : kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'aiVoucherSuggestions' ? row.status === '已生成凭证' ? '查看凭证' : '进入草稿' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
                       </button>}
                     </td>
                   </tr>

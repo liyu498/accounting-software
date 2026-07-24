@@ -305,13 +305,21 @@ const requiredPageSnippets = [
   ['import center audit mapper', 'function mapOperationAuditImportRows(logs: OperationAuditLog[]): ModuleRow[]'],
   ['import center audit filter', 'function isImportOperationAudit(log: OperationAuditLog)'],
   ['import center upload audit filter', "log.action.includes('上传')"],
-  ['import center live rows', "if (kind === 'importCenter' && usesLiveImportData)"],
+  ['import center local and live rows', "if (kind === 'importCenter' && (usesLiveImportData || localImportJobs.length > 0))"],
   ['import center audit fetch', "kind === 'auditLog' || kind === 'exportCenter' || kind === 'importCenter'"],
   ['module import file ref', 'const importFileRef = useRef<HTMLInputElement>(null)'],
   ['module import capability guard', "const supportsFileImport = /导入|采集|上传/.test(config.importLabel)"],
   ['module import file selection', 'importFileRef.current?.click()'],
   ['module import file audit', '`${title}-${file.name}`'],
   ['module import hidden input', 'ref={importFileRef}'],
+  ['local file registry binding', "from '../../lib/localFileRegistry'"],
+  ['local import job registration', 'recordLocalImportJob({'],
+  ['local attachment registration', 'recordLocalAttachment({'],
+  ['local import job mapping', 'mapLocalImportJobRows(localImportJobs)'],
+  ['local attachment mapping', 'mapLocalAttachmentRows(localAttachmentRecords)'],
+  ['local file record removal', 'removeLocalImportJob(row.id)'],
+  ['local attachment record removal', 'removeLocalAttachment(row.id)'],
+  ['local file action label', "kind === 'attachmentCenter' || kind === 'importCenter' ? '撤销登记'"],
 ]
 
 const requiredTaxWorkspaceSnippets = [
