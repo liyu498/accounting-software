@@ -1,5 +1,4 @@
 import {
-  ChevronDown,
   Download,
   FileCheck2,
   FileSpreadsheet,
@@ -297,6 +296,10 @@ export function TaxWorkspace() {
   const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
   const [backendAdapterStatus, setBackendAdapterStatus] = useState('未配置')
   const [selectedDeclarationIds, setSelectedDeclarationIds] = useState<Set<string>>(new Set())
+  const [activeTab, setActiveTab] = useState('申报清单')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [declarationStatusFilter, setDeclarationStatusFilter] = useState('全部')
+  const [validationStatusFilter, setValidationStatusFilter] = useState('全部')
   const [showDeclarationDetailDialog, setShowDeclarationDetailDialog] = useState(false)
   const [declarationDraft, setDeclarationDraft] = useState<DeclarationDraft>({
     id: '', category: '', form: '', period: '', source: '', taxableAmount: '', deductionAmount: '', payableAmount: '', collectStatus: '已取数', validationStatus: '待确认', riskCount: '0',
@@ -337,8 +340,18 @@ export function TaxWorkspace() {
     ? taxDeclarationTasks.map(mapTaxDeclarationTaskToRow)
     : declarationRows
   const currentRows = usesLiveTaxDeclarationData ? visibleDeclarationRows : declarationRows
-  const selectedDeclarationRows = currentRows.filter((row) => selectedDeclarationIds.has(row.id))
-  const areAllDeclarationsSelected = currentRows.length > 0 && selectedDeclarationIds.size === currentRows.length
+  const filteredDeclarationRows = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase()
+    return currentRows.filter((row) => {
+      const matchesTab = activeTab === '申报清单' || row.category.includes(activeTab)
+      const matchesSearch = !normalizedSearch || [row.category, row.form, row.source, row.period].join(' ').toLowerCase().includes(normalizedSearch)
+      const matchesDeclarationStatus = declarationStatusFilter === '全部' || row.declareStatus === declarationStatusFilter
+      const matchesValidationStatus = validationStatusFilter === '全部' || row.checkStatus === validationStatusFilter
+      return matchesTab && matchesSearch && matchesDeclarationStatus && matchesValidationStatus
+    })
+  }, [activeTab, currentRows, declarationStatusFilter, searchTerm, validationStatusFilter])
+  const selectedDeclarationRows = filteredDeclarationRows.filter((row) => selectedDeclarationIds.has(row.id))
+  const areAllDeclarationsSelected = filteredDeclarationRows.length > 0 && filteredDeclarationRows.every((row) => selectedDeclarationIds.has(row.id))
   const currentRowIdSignature = currentRows.map((row) => row.id).join('|')
 
   useEffect(() => {
@@ -532,7 +545,7 @@ export function TaxWorkspace() {
   }
 
   const toggleAllDeclarationSelection = (checked: boolean) => {
-    setSelectedDeclarationIds(checked ? new Set(currentRows.map((row) => row.id)) : new Set())
+    setSelectedDeclarationIds(checked ? new Set(filteredDeclarationRows.map((row) => row.id)) : new Set())
   }
 
   const confirmSelectedDeclarations = async () => {
@@ -821,12 +834,17 @@ export function TaxWorkspace() {
         )}
 
         <div className="flex overflow-x-auto border-b border-slate-200 bg-[#f8fafc] px-2">
-          {tabs.map((tab, index) => (
+          {tabs.map((tab) => (
             <button
               key={tab}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab)
+                setSelectedDeclarationIds(new Set())
+              }}
               className={cn(
                 'h-9 border-b-2 px-3 text-xs font-medium',
-                index === 0 ? 'border-[#1f65a7] bg-white text-[#1f65a7]' : 'border-transparent text-slate-600 hover:bg-white hover:text-slate-900'
+                activeTab === tab ? 'border-[#1f65a7] bg-white text-[#1f65a7]' : 'border-transparent text-slate-600 hover:bg-white hover:text-slate-900'
               )}
             >
               {tab}
@@ -854,10 +872,10 @@ export function TaxWorkspace() {
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <div className="relative min-w-64 flex-1 sm:flex-none">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input className="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-3 text-xs outline-none focus:border-[#1f65a7] sm:w-72" placeholder="搜索税种、申报表、取数来源" />
+              <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-3 text-xs outline-none focus:border-[#1f65a7] sm:w-72" placeholder="搜索税种、申报表、取数来源" />
             </div>
-            <SelectLike label="申报状态" value="全部" />
-            <SelectLike label="校验状态" value="全部" />
+            <label className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-xs text-slate-700"><span className="text-slate-400">申报状态</span><select aria-label="申报状态筛选" value={declarationStatusFilter} onChange={(event) => setDeclarationStatusFilter(event.target.value)} className="bg-transparent outline-none"><option>全部</option><option>未申报</option><option>待申报</option><option>已申报</option></select></label>
+            <label className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-xs text-slate-700"><span className="text-slate-400">校验状态</span><select aria-label="校验状态筛选" value={validationStatusFilter} onChange={(event) => setValidationStatusFilter(event.target.value)} className="bg-transparent outline-none"><option>全部</option><option>待确认</option><option>校验通过</option><option>需复核</option></select></label>
           </div>
           <div className="flex flex-wrap items-center gap-1 text-xs">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label="导入初始化" onClick={importInitialization} />
@@ -931,7 +949,7 @@ export function TaxWorkspace() {
               <FileCheck2 className="h-4 w-4 text-[#1f65a7]" />
               本期申报清单
             </div>
-            <div className="text-xs text-slate-500">显示 {visibleDeclarationRows.length} 条，金额单位: 元</div>
+            <div className="text-xs text-slate-500">显示 {filteredDeclarationRows.length} / {visibleDeclarationRows.length} 条，金额单位: 元</div>
           </div>
           <div className="max-w-full overflow-x-auto">
             <table className="min-w-[1240px] w-full border-collapse text-left text-xs">
@@ -957,7 +975,7 @@ export function TaxWorkspace() {
                 </tr>
               </thead>
               <tbody>
-                {visibleDeclarationRows.map((row) => (
+                {filteredDeclarationRows.map((row) => (
                   <tr key={row.id} className="hover:bg-[#f8fbff]">
                     <td className="border-b border-slate-100 px-2 py-2">
                       <input type="checkbox" aria-label={`选择 ${row.category}`} checked={selectedDeclarationIds.has(row.id)} onChange={(event) => toggleDeclarationSelection(row.id, event.target.checked)} />
@@ -986,8 +1004,8 @@ export function TaxWorkspace() {
                 <tr>
                   <td className="px-2 py-2" />
                   <td className="px-2 py-2" colSpan={8}>合计</td>
-                  <td className="px-2 py-2 text-right font-mono">{formatTaxNumber(visibleDeclarationRows.reduce((sum, row) => sum + parseMoney(row.deduction), 0))}</td>
-                  <td className="px-2 py-2 text-right font-mono">{formatTaxNumber(declarationMetrics.payable)}</td>
+                  <td className="px-2 py-2 text-right font-mono">{formatTaxNumber(filteredDeclarationRows.reduce((sum, row) => sum + parseMoney(row.deduction), 0))}</td>
+                  <td className="px-2 py-2 text-right font-mono">{formatTaxNumber(filteredDeclarationRows.reduce((sum, row) => sum + parseMoney(row.payable), 0))}</td>
                   <td className="px-2 py-2" colSpan={4} />
                 </tr>
               </tfoot>
@@ -1072,16 +1090,6 @@ function ToolbarButton({ icon, label, onClick }: { icon: React.ReactNode; label:
     >
       {icon}
       {label}
-    </button>
-  )
-}
-
-function SelectLike({ label, value }: { label: string; value: string }) {
-  return (
-    <button type="button" className="inline-flex h-8 items-center gap-2 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7]">
-      <span className="text-slate-400">{label}</span>
-      <span>{value}</span>
-      <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
     </button>
   )
 }
