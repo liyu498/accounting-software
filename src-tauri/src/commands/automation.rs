@@ -83,6 +83,9 @@ async fn get_tax_declaration_task_by_id(
             t.confirmed_by,
             t.confirmed_at,
             t.receipt_no,
+            t.payment_status,
+            t.payment_no,
+            t.receipt_received_at,
             t.created_at,
             t.updated_at
         FROM tax_declaration_tasks t
@@ -298,6 +301,9 @@ pub async fn get_tax_declaration_tasks(
             t.confirmed_by,
             t.confirmed_at,
             t.receipt_no,
+            t.payment_status,
+            t.payment_no,
+            t.receipt_received_at,
             t.created_at,
             t.updated_at
         FROM tax_declaration_tasks t
@@ -336,15 +342,16 @@ pub async fn upsert_tax_declaration_task(
     let deduction_amount = input.deduction_amount.unwrap_or(0.0);
     let payable_amount = input.payable_amount.unwrap_or(0.0);
     let risk_count = input.risk_count.unwrap_or(0);
+    let payment_status = default_string(input.payment_status, "unrecorded");
 
     sqlx::query(
         r#"
         INSERT INTO tax_declaration_tasks (
             id, company_id, period, tax_type, form_name, collect_status, validation_status,
             declaration_status, source_snapshot, taxable_amount, deduction_amount, payable_amount,
-            risk_count, adapter_code, receipt_no
+            risk_count, adapter_code, receipt_no, payment_status, payment_no, receipt_received_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(company_id, period, tax_type, form_name) DO UPDATE SET
             collect_status = excluded.collect_status,
             validation_status = excluded.validation_status,
@@ -356,6 +363,9 @@ pub async fn upsert_tax_declaration_task(
             risk_count = excluded.risk_count,
             adapter_code = excluded.adapter_code,
             receipt_no = excluded.receipt_no,
+            payment_status = excluded.payment_status,
+            payment_no = excluded.payment_no,
+            receipt_received_at = excluded.receipt_received_at,
             updated_at = datetime('now')
         "#,
     )
@@ -374,6 +384,9 @@ pub async fn upsert_tax_declaration_task(
     .bind(risk_count)
     .bind(&input.adapter_code)
     .bind(&input.receipt_no)
+    .bind(&payment_status)
+    .bind(&input.payment_no)
+    .bind(&input.receipt_received_at)
     .execute(db.pool())
     .await
     .map_err(|e| format!("Database error: {}", e))?;
@@ -399,6 +412,9 @@ pub async fn upsert_tax_declaration_task(
             t.confirmed_by,
             t.confirmed_at,
             t.receipt_no,
+            t.payment_status,
+            t.payment_no,
+            t.receipt_received_at,
             t.created_at,
             t.updated_at
         FROM tax_declaration_tasks t

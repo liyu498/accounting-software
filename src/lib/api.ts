@@ -308,6 +308,9 @@ export interface TaxDeclarationTask {
   confirmedBy: string | null
   confirmedAt: string | null
   receiptNo: string | null
+  paymentStatus: string
+  paymentNo: string | null
+  receiptReceivedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -971,6 +974,9 @@ type RawTaxDeclarationTask = {
   confirmed_by: string | null
   confirmed_at: string | null
   receipt_no: string | null
+  payment_status: string
+  payment_no: string | null
+  receipt_received_at: string | null
   created_at: string
   updated_at: string
 }
@@ -1200,6 +1206,9 @@ const mapTaxDeclarationTask = (item: RawTaxDeclarationTask): TaxDeclarationTask 
   confirmedBy: item.confirmed_by,
   confirmedAt: item.confirmed_at,
   receiptNo: item.receipt_no,
+  paymentStatus: item.payment_status,
+  paymentNo: item.payment_no,
+  receiptReceivedAt: item.receipt_received_at,
   createdAt: item.created_at,
   updatedAt: item.updated_at,
 })
@@ -1550,6 +1559,9 @@ export const automationApi = {
     riskCount?: number
     adapterCode?: string
     receiptNo?: string
+    paymentStatus?: string
+    paymentNo?: string
+    receiptReceivedAt?: string
   }): Promise<ApiResponse<TaxDeclarationTask>> => {
     try {
       const result = await invoke('upsert_tax_declaration_task', {
@@ -1568,6 +1580,9 @@ export const automationApi = {
           risk_count: input.riskCount,
           adapter_code: input.adapterCode,
           receipt_no: input.receiptNo,
+          payment_status: input.paymentStatus,
+          payment_no: input.paymentNo,
+          receipt_received_at: input.receiptReceivedAt,
         },
       }) as RawTaxDeclarationTask
       return { success: true, data: mapTaxDeclarationTask(result) }

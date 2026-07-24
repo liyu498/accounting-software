@@ -4347,6 +4347,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [loadedVoucher, setLoadedVoucher] = useState<Voucher | null>(null)
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
+  const [showDeclarationReceiptDialog, setShowDeclarationReceiptDialog] = useState(false)
+  const [declarationReceiptDraft, setDeclarationReceiptDraft] = useState({ taskId: '', receiptNo: '', paymentStatus: '未记录', paymentNo: '', receivedAt: '' })
   const [showNonTaxRevenueDialog, setShowNonTaxRevenueDialog] = useState(false)
   const [nonTaxRevenueDraft, setNonTaxRevenueDraft] = useState({ item: '工会经费', policy: '', source: '', basisAmount: '', payableAmount: '', receiptNo: '', riskCount: '0' })
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
@@ -5778,6 +5780,54 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('非税缴费事项已登记为本地台账；金额、地区政策与缴款书均需人工核验，系统未向外部平台提交。')
   }
 
+  const openDeclarationReceiptEditor = (task: TaxDeclarationTask) => {
+    setDeclarationReceiptDraft({
+      taskId: task.id,
+      receiptNo: task.receiptNo || '',
+      paymentStatus: task.paymentStatus === 'unrecorded' ? '未记录' : task.paymentStatus,
+      paymentNo: task.paymentNo || '',
+      receivedAt: task.receiptReceivedAt ? task.receiptReceivedAt.replace(' ', 'T').slice(0, 16) : '',
+    })
+    setShowDeclarationReceiptDialog(true)
+  }
+
+  const handleSaveDeclarationReceipt = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    const task = taxDeclarationTasks.find((item) => item.id === declarationReceiptDraft.taskId)
+    if (!task) {
+      setOperationNotice('请选择需要归档的申报事项。')
+      return
+    }
+    const result = await automationApi.upsertTaxDeclarationTask({
+      companyId: task.companyId,
+      period: task.period,
+      taxType: task.taxType,
+      formName: task.formName,
+      collectStatus: task.collectStatus,
+      validationStatus: task.validationStatus,
+      declarationStatus: task.declarationStatus,
+      sourceSnapshot: task.sourceSnapshot || undefined,
+      taxableAmount: task.taxableAmount,
+      deductionAmount: task.deductionAmount,
+      payableAmount: task.payableAmount,
+      riskCount: task.riskCount,
+      adapterCode: task.adapterCode || undefined,
+      receiptNo: declarationReceiptDraft.receiptNo.trim() || undefined,
+      paymentStatus: declarationReceiptDraft.paymentStatus === '未记录' ? 'unrecorded' : declarationReceiptDraft.paymentStatus,
+      paymentNo: declarationReceiptDraft.paymentNo.trim() || undefined,
+      receiptReceivedAt: declarationReceiptDraft.receivedAt || undefined,
+    })
+    if (!result.success || !result.data) {
+      setOperationNotice(`保存回执缴款台账失败：${result.error || '未知错误'}`)
+      return
+    }
+    setTaxDeclarationTasks((tasks) => [result.data!, ...tasks.filter((item) => item.id !== result.data!.id)])
+    setShowDeclarationReceiptDialog(false)
+    writeModuleAudit('归档回执缴款台账', `${result.data.taxType}｜${result.data.period}`, '中', '成功')
+    setOperationNotice('回执与缴款信息已登记到本地台账；外部申报、扣款和回执真实性仍需通过合法渠道人工核验。')
+  }
+
   const handlePrimaryAction = async () => {
     if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData && selectedCompanyId) {
       await confirmAiVoucherSuggestions([...selectedRowIds])
@@ -5809,6 +5859,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (kind === 'voucher') {
       navigate('/vouchers/new')
+      return
+    }
+    if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData && selectedCompanyId) {
+      const task = taxDeclarationTasks[0]
+      if (!task) {
+        setOperationNotice('当前账套暂无申报事项，请先在申报工作台建立并人工确认任务。')
+        return
+      }
+      openDeclarationReceiptEditor(task)
       return
     }
     if (kind === 'nonTaxRevenueReport' && usesLiveNonTaxRevenueData && selectedCompanyId) {
@@ -6936,6 +6995,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       navigate(`/vouchers/detail/${row.id}`)
       return
     }
+    if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData && selectedCompanyId) {
+      const taskId = row.id.replace('declaration-receipt-', '')
+      const task = taxDeclarationTasks.find((item) => item.id === taskId)
+      if (!task) {
+        setOperationNotice('未找到当前账套的申报事项，请刷新后重试。')
+        return
+      }
+      openDeclarationReceiptEditor(task)
+      return
+    }
     if (isLocalTaxTaskKind && isTauri && selectedCompanyId) {
       await confirmTaxTaskFromRow(row)
       return
@@ -7832,10 +7901,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
                         <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                          {kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                          {kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
-                      {!isLocalTaxTaskKind && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
+                      {!isLocalTaxTaskKind && kind !== 'declarationReceipt' && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'aiVoucherSuggestions' ? row.status === '已生成凭证' ? '查看凭证' : '进入草稿' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
                       </button>}
                     </td>
@@ -8391,6 +8460,44 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               </fieldset>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowBankTransactionDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingBankTransactionId ? '保存修改' : '保存流水'}</button></div>
+          </form>
+        </div>
+      )}
+      {showDeclarationReceiptDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="归档回执缴款信息">
+          <form onSubmit={handleSaveDeclarationReceipt} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">归档回执缴款信息</h2>
+                <p className="mt-0.5 text-xs text-slate-500">仅登记已人工取得的回执和缴款书，不会发起税局申报或银行扣款。</p>
+              </div>
+              <button type="button" onClick={() => setShowDeclarationReceiptDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">申报事项 *
+                <select value={declarationReceiptDraft.taskId} onChange={(event) => {
+                  const task = taxDeclarationTasks.find((item) => item.id === event.target.value)
+                  if (task) openDeclarationReceiptEditor(task)
+                }} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  {taxDeclarationTasks.map((task) => <option key={task.id} value={task.id}>{task.period}｜{task.taxType}｜{task.formName}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">回执号
+                <input value={declarationReceiptDraft.receiptNo} onChange={(event) => setDeclarationReceiptDraft((draft) => ({ ...draft, receiptNo: event.target.value }))} placeholder="人工取得后填写" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">回执归档时间
+                <input type="datetime-local" value={declarationReceiptDraft.receivedAt} onChange={(event) => setDeclarationReceiptDraft((draft) => ({ ...draft, receivedAt: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">缴款状态 *
+                <select value={declarationReceiptDraft.paymentStatus} onChange={(event) => setDeclarationReceiptDraft((draft) => ({ ...draft, paymentStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  {['未记录', '无需缴款', '待缴款', '已缴款', '缴款异常'].map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">缴款书号
+                <input value={declarationReceiptDraft.paymentNo} onChange={(event) => setDeclarationReceiptDraft((draft) => ({ ...draft, paymentNo: event.target.value }))} placeholder="人工取得后填写" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowDeclarationReceiptDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存归档信息</button></div>
           </form>
         </div>
       )}

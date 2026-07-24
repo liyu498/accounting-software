@@ -1351,6 +1351,9 @@ impl Database {
                 confirmed_by TEXT,
                 confirmed_at TEXT,
                 receipt_no TEXT,
+                payment_status TEXT NOT NULL DEFAULT 'unrecorded',
+                payment_no TEXT,
+                receipt_received_at TEXT,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now')),
                 FOREIGN KEY (company_id) REFERENCES companies(id),
@@ -1544,6 +1547,15 @@ impl Database {
             .execute(pool)
             .await;
         let _ = sqlx::query("ALTER TABLE automation_jobs ADD COLUMN generated_voucher_number TEXT")
+            .execute(pool)
+            .await;
+        let _ = sqlx::query("ALTER TABLE tax_declaration_tasks ADD COLUMN payment_status TEXT NOT NULL DEFAULT 'unrecorded'")
+            .execute(pool)
+            .await;
+        let _ = sqlx::query("ALTER TABLE tax_declaration_tasks ADD COLUMN payment_no TEXT")
+            .execute(pool)
+            .await;
+        let _ = sqlx::query("ALTER TABLE tax_declaration_tasks ADD COLUMN receipt_received_at TEXT")
             .execute(pool)
             .await;
 
@@ -3766,6 +3778,9 @@ pub struct TaxDeclarationTask {
     pub confirmed_by: Option<String>,
     pub confirmed_at: Option<String>,
     pub receipt_no: Option<String>,
+    pub payment_status: String,
+    pub payment_no: Option<String>,
+    pub receipt_received_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -3786,6 +3801,9 @@ pub struct UpsertTaxDeclarationTaskInput {
     pub risk_count: Option<i64>,
     pub adapter_code: Option<String>,
     pub receipt_no: Option<String>,
+    pub payment_status: Option<String>,
+    pub payment_no: Option<String>,
+    pub receipt_received_at: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]

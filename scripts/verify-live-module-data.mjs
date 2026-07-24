@@ -887,6 +887,23 @@ const requiredTaxTaskConfirmationPageSnippets = [
   ['local tax task confirmation boundary', '不会向税局提交'],
   ['local tax task action label', "isConfirmedTaxTask(row) ? '已确认' : '确认事项'"],
 ]
+const requiredDeclarationReceiptSchemaSnippets = [
+  ['tax task payment status column', "payment_status TEXT NOT NULL DEFAULT 'unrecorded'"],
+  ['tax task payment number column', 'payment_no TEXT'],
+  ['tax task receipt received column', 'receipt_received_at TEXT'],
+]
+const requiredDeclarationReceiptCommandSnippets = [
+  ['tax task payment select', 't.payment_status'],
+  ['tax task payment insert', 'payment_status, payment_no, receipt_received_at'],
+  ['tax task payment update', 'payment_status = excluded.payment_status'],
+]
+const requiredDeclarationReceiptPageSnippets = [
+  ['receipt payment row mapping', 'paymentStatus: task.paymentStatus'],
+  ['receipt archive editor state', 'const [showDeclarationReceiptDialog, setShowDeclarationReceiptDialog] = useState(false)'],
+  ['receipt archive save binding', 'const handleSaveDeclarationReceipt = async'],
+  ['receipt archive editor title', '归档回执缴款信息'],
+  ['receipt archive external boundary', '不会发起税局申报或银行扣款'],
+]
 const requiredStampTaxSchemaSnippets = [
   ['stamp tax item column', 'stamp_tax_item TEXT'],
   ['stamp tax rate column', 'stamp_tax_rate REAL'],
@@ -1293,6 +1310,8 @@ const errors = [
   ...verify(adapterSource, requiredCashFlowQuarterAdapterSnippets, 'cash flow quarter adapter'),
   ...verify(adapterSource, requiredEquityChangeAdapterSnippets, 'equity change adapter'),
   ...verify(adapterSource, requiredDeclarationCalendarAdapterSnippets, 'declaration calendar adapter'),
+  ...verify(databaseSource, requiredDeclarationReceiptSchemaSnippets, 'declaration receipt schema'),
+  ...verify(automationCommandSource, requiredDeclarationReceiptCommandSnippets, 'declaration receipt commands'),
   ...verify(adapterSource, requiredNonTaxRevenueAdapterSnippets, 'non-tax revenue adapter'),
   ...verify(databaseSource, requiredStampTaxSchemaSnippets, 'stamp tax schema'),
   ...verify(documentRecordCommandSource, requiredStampTaxCommandSnippets, 'stamp tax document commands'),
@@ -1308,6 +1327,7 @@ const errors = [
   ...verify(pageSource, requiredDeclarationCalendarPageSnippets, 'declaration calendar module page'),
   ...verify(pageSource, requiredNonTaxRevenuePageSnippets, 'non-tax revenue module page'),
   ...verify(pageSource, requiredTaxTaskConfirmationPageSnippets, 'local tax task confirmation'),
+  ...verify(pageSource, requiredDeclarationReceiptPageSnippets, 'declaration receipt module page'),
   ...verify(pageSource, requiredStampTaxPageSnippets, 'stamp tax module page'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),

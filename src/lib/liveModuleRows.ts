@@ -375,7 +375,7 @@ export function summarizeLiveClosingTasks(
   return [
     { label: '结转任务', value: `${rows.length} 项`, tone: rows.length > 0 ? 'blue' : 'gray' },
     { label: '已完成', value: `${completed} 项`, tone: completed > 0 ? 'green' : 'gray' },
-    { label: '待确认', value: `${pending} 项`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '待缴款', value: `${pending} 项`, tone: pending > 0 ? 'amber' : 'gray' },
     { label: '阻断', value: `${blockers} 项`, tone: blockers > 0 ? 'red' : 'gray' },
   ]
 }
@@ -486,16 +486,16 @@ export function mapLiveDeclarationReceiptRows(tasks: TaxDeclarationTask[]): Live
         period: task.period,
         declareStatus: task.declarationStatus,
         receiptNo: task.receiptNo || '未收回执',
-        paymentStatus: '未记录缴款状态',
-        paymentNo: '未记录缴款书号',
-        receivedAt: task.confirmedAt || '未记录收取时间',
+        paymentStatus: task.paymentStatus === 'unrecorded' ? '未记录' : task.paymentStatus,
+        paymentNo: task.paymentNo || '未记录缴款书号',
+        receivedAt: task.receiptReceivedAt || task.confirmedAt || '未记录收取时间',
       },
     }))
 }
 
 export function summarizeLiveDeclarationReceipts(tasks: TaxDeclarationTask[]): LiveSummaryItem[] {
   const received = tasks.filter((task) => Boolean(task.receiptNo)).length
-  const pending = tasks.filter((task) => declarationReceiptStatus(task) === '待确认').length
+  const pending = tasks.filter((task) => task.paymentStatus === '待缴款').length
   const exception = tasks.filter((task) => declarationReceiptStatus(task) === '异常').length
   return [
     { label: '申报事项', value: `${tasks.length} 项`, tone: 'blue' },
