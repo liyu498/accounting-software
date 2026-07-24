@@ -21,6 +21,7 @@ pub mod bank_transactions;
 pub mod document_records;
 pub mod business_orders;
 pub mod settlement_records;
+pub mod bank_reconciliation_records;
 pub mod account_transfers;
 pub mod fixed_assets;
 pub mod asset_categories;

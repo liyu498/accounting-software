@@ -356,6 +356,40 @@ impl Database {
 
         sqlx::query(
             r#"
+            CREATE TABLE IF NOT EXISTS bank_reconciliation_records (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                period TEXT NOT NULL,
+                reconciliation_no TEXT NOT NULL,
+                reconciliation_date TEXT NOT NULL,
+                bank_transaction_id TEXT,
+                account_name TEXT NOT NULL,
+                transaction_no TEXT NOT NULL,
+                summary TEXT,
+                bank_amount REAL NOT NULL DEFAULT 0,
+                book_amount REAL NOT NULL DEFAULT 0,
+                difference_amount REAL NOT NULL DEFAULT 0,
+                voucher_no TEXT,
+                match_status TEXT NOT NULL DEFAULT '待人工对账',
+                owner TEXT,
+                status TEXT NOT NULL DEFAULT '待处理',
+                note TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                FOREIGN KEY (bank_transaction_id) REFERENCES bank_transactions(id),
+                UNIQUE (company_id, reconciliation_no)
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_bank_reconciliation_records_company_period ON bank_reconciliation_records(company_id, period)")
+            .execute(&pool)
+            .await?;
+
+        sqlx::query(
+            r#"
             CREATE TABLE IF NOT EXISTS payroll_records (
                 id TEXT PRIMARY KEY,
                 company_id TEXT NOT NULL,
@@ -3319,6 +3353,39 @@ pub struct UpdateSettlementRecordInput {
     pub owner: Option<String>,
     pub status: Option<String>,
     pub source_document: Option<String>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct BankReconciliationRecord {
+    pub id: String,
+    pub company_id: String,
+    pub period: String,
+    pub reconciliation_no: String,
+    pub reconciliation_date: String,
+    pub bank_transaction_id: Option<String>,
+    pub account_name: String,
+    pub transaction_no: String,
+    pub summary: Option<String>,
+    pub bank_amount: f64,
+    pub book_amount: f64,
+    pub difference_amount: f64,
+    pub voucher_no: Option<String>,
+    pub match_status: String,
+    pub owner: Option<String>,
+    pub status: String,
+    pub note: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateBankReconciliationRecordInput {
+    pub company_id: String, pub period: String, pub reconciliation_no: String, pub reconciliation_date: String, pub bank_transaction_id: Option<String>, pub account_name: String, pub transaction_no: String, pub summary: Option<String>, pub bank_amount: f64, pub book_amount: f64, pub voucher_no: Option<String>, pub match_status: Option<String>, pub owner: Option<String>, pub status: Option<String>, pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateBankReconciliationRecordInput {
+    pub id: String, pub company_id: String, pub reconciliation_no: String, pub reconciliation_date: String, pub bank_transaction_id: Option<String>, pub account_name: String, pub transaction_no: String, pub summary: Option<String>, pub bank_amount: f64, pub book_amount: f64, pub voucher_no: Option<String>, pub match_status: Option<String>, pub owner: Option<String>, pub status: Option<String>, pub note: Option<String>,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
