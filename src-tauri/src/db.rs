@@ -292,6 +292,38 @@ impl Database {
 
         sqlx::query(
             r#"
+            CREATE TABLE IF NOT EXISTS business_orders (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                period TEXT NOT NULL,
+                order_type TEXT NOT NULL CHECK (order_type IN ('purchase', 'sales')),
+                order_no TEXT NOT NULL,
+                business_date TEXT NOT NULL,
+                counterparty TEXT NOT NULL,
+                goods_name TEXT NOT NULL,
+                amount REAL NOT NULL DEFAULT 0,
+                fulfillment_status TEXT NOT NULL DEFAULT '待确认',
+                invoice_status TEXT NOT NULL DEFAULT '待开票',
+                settlement_status TEXT NOT NULL DEFAULT '未结算',
+                status TEXT NOT NULL DEFAULT '待确认',
+                source_document TEXT,
+                voucher_id TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                FOREIGN KEY (voucher_id) REFERENCES vouchers(id),
+                UNIQUE (company_id, order_type, order_no)
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_business_orders_company_period ON business_orders(company_id, period, order_type)")
+            .execute(&pool)
+            .await?;
+
+        sqlx::query(
+            r#"
             CREATE TABLE IF NOT EXISTS payroll_records (
                 id TEXT PRIMARY KEY,
                 company_id TEXT NOT NULL,
@@ -3144,6 +3176,60 @@ pub struct UpdateDocumentRecordInput {
     pub amount: f64,
     pub owner: Option<String>,
     pub attachment_status: Option<String>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct BusinessOrder {
+    pub id: String,
+    pub company_id: String,
+    pub period: String,
+    pub order_type: String,
+    pub order_no: String,
+    pub business_date: String,
+    pub counterparty: String,
+    pub goods_name: String,
+    pub amount: f64,
+    pub fulfillment_status: String,
+    pub invoice_status: String,
+    pub settlement_status: String,
+    pub status: String,
+    pub source_document: Option<String>,
+    pub voucher_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateBusinessOrderInput {
+    pub company_id: String,
+    pub period: String,
+    pub order_type: String,
+    pub order_no: String,
+    pub business_date: String,
+    pub counterparty: String,
+    pub goods_name: String,
+    pub amount: f64,
+    pub fulfillment_status: Option<String>,
+    pub invoice_status: Option<String>,
+    pub settlement_status: Option<String>,
+    pub status: Option<String>,
+    pub source_document: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateBusinessOrderInput {
+    pub id: String,
+    pub company_id: String,
+    pub order_no: String,
+    pub business_date: String,
+    pub counterparty: String,
+    pub goods_name: String,
+    pub amount: f64,
+    pub fulfillment_status: Option<String>,
+    pub invoice_status: Option<String>,
+    pub settlement_status: Option<String>,
+    pub status: Option<String>,
+    pub source_document: Option<String>,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]

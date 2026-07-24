@@ -73,6 +73,9 @@ const businessTagStoreSource = existsSync('src/stores/businessTagStore.ts')
 const businessTagCommandSource = existsSync('src-tauri/src/commands/business_tags.rs')
   ? readFileSync('src-tauri/src/commands/business_tags.rs', 'utf8')
   : ''
+const businessOrderCommandSource = existsSync('src-tauri/src/commands/business_orders.rs')
+  ? readFileSync('src-tauri/src/commands/business_orders.rs', 'utf8')
+  : ''
 const companyAccountStoreSource = existsSync('src/stores/companyAccountStore.ts')
   ? readFileSync('src/stores/companyAccountStore.ts', 'utf8')
   : ''
@@ -772,6 +775,18 @@ const requiredBusinessTagPageSnippets = [
   ['business tag filter state', "const [businessTagFilter, setBusinessTagFilter] = useState('全部')"],
   ['business tag filter binding', "businessTagFilter === '全部' || row.values.tags?.split(' / ').includes(businessTagFilter)"],
 ]
+const requiredBusinessOrderCommandSnippets = [
+  ['business order list command', 'pub async fn get_business_orders'],
+  ['business order create command', 'pub async fn create_business_order'],
+  ['business order update command', 'pub async fn update_business_order'],
+]
+const requiredBusinessOrderPageSnippets = [
+  ['business order live scope', "['purchaseManagement', 'salesManagement'].includes(kind)"],
+  ['business order editor state', 'const [showBusinessOrderDialog, setShowBusinessOrderDialog] = useState(false)'],
+  ['business order list request', 'businessOrderApi.getBusinessOrders'],
+  ['business order purchase mapper', "mapLiveBusinessOrderRows(businessOrders, 'purchase')"],
+  ['business order sales mapper', "mapLiveBusinessOrderRows(businessOrders, 'sales')"],
+]
 const requiredCompanyAccountCommandSnippets = [
   ['company account list command', 'pub async fn get_company_accounts'],
   ['company account create command', 'pub async fn create_company_account'],
@@ -894,13 +909,6 @@ const requiredReconciliationPageSnippets = [
   ['receivable settlement row mapper', 'mapLiveSettlementRows(invoices, \'output\')'],
   ['payable settlement row mapper', 'mapLiveSettlementRows(invoices, \'input\')'],
   ['aging row mapper', 'mapLiveAgingRows(invoices)'],
-]
-
-const requiredOrderViewPageSnippets = [
-  ['purchase management invoice source', "const usesLivePurchaseManagementData = Boolean(isTauri && selectedCompanyId && kind === 'purchaseManagement')"],
-  ['sales management invoice source', "const usesLiveSalesManagementData = Boolean(isTauri && selectedCompanyId && kind === 'salesManagement')"],
-  ['purchase order row mapper', "mapLivePurchaseManagementRows(invoices)"],
-  ['sales order row mapper', "mapLiveSalesManagementRows(invoices)"],
 ]
 
 const requiredAccountTransferPageSnippets = [
@@ -1048,9 +1056,12 @@ const errors = [
 ...verify(databaseSource, [['invoice tag schema', 'CREATE TABLE IF NOT EXISTS invoice_tags']], 'database schema'),
   ...verify(databaseSource, [['voucher tag schema', 'CREATE TABLE IF NOT EXISTS voucher_tags']], 'database schema'),
   ...verify(databaseSource, [['bank transaction tag schema', 'CREATE TABLE IF NOT EXISTS bank_transaction_tags']], 'database schema'),
+  ...verify(databaseSource, [['business order schema', 'CREATE TABLE IF NOT EXISTS business_orders']], 'database schema'),
   ...verify(businessTagCommandSource, requiredBusinessTagCommandSnippets, 'business tag commands'),
   ...verify(businessTagStoreSource, requiredBusinessTagStoreSnippets, 'business tag store'),
   ...verify(pageSource, requiredBusinessTagPageSnippets, 'business tag module page'),
+  ...verify(businessOrderCommandSource, requiredBusinessOrderCommandSnippets, 'business order commands'),
+  ...verify(pageSource, requiredBusinessOrderPageSnippets, 'business order module page'),
   ...verify(databaseSource, [['company account schema', 'CREATE TABLE IF NOT EXISTS company_accounts']], 'database schema'),
   ...verify(companyAccountCommandSource, requiredCompanyAccountCommandSnippets, 'company account commands'),
   ...verify(companyAccountStoreSource, requiredCompanyAccountStoreSnippets, 'company account store'),
@@ -1074,7 +1085,6 @@ const errors = [
   ...verify(pageSource, requiredExpenseReimbursementPageSnippets, 'expense reimbursement module page'),
   ...verify(pageSource, requiredReceiptPageSnippets, 'receipt module page'),
   ...verify(pageSource, requiredReconciliationPageSnippets, 'reconciliation module page'),
-  ...verify(pageSource, requiredOrderViewPageSnippets, 'purchase and sales module pages'),
   ...verify(databaseSource, requiredAccountTransferPageSnippets.slice(0, 1), 'database schema'),
   ...verify(accountTransferCommandSource, requiredAccountTransferPageSnippets.slice(1, 4), 'account transfer commands'),
   ...verify(pageSource, requiredAccountTransferPageSnippets.slice(4), 'account transfer module page'),

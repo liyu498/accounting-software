@@ -21,7 +21,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { accountTransferApi, automationApi, backupApi, bankTransactionApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankTransaction, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
+import { accountTransferApi, automationApi, backupApi, bankTransactionApi, businessOrderApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankTransaction, type BusinessOrder, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import { measurementUnitApi, type MeasurementUnit } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
@@ -3915,31 +3915,25 @@ function receiptRecords(documentRecords: DocumentRecord[]) { return documentReco
 function mapLiveReceiptRows(documentRecords: DocumentRecord[]): ModuleRow[] { return receiptRecords(documentRecords).map((record) => ({ id:record.id,status:record.status==='异常'?'异常':record.status==='已生成凭证'?'已生成凭证':'待确认',voucher:record.status==='已生成凭证'?'已关联':'未生成',attachment:record.attachmentStatus,values:{number:record.documentCode,type:record.businessType,issuer:record.partner||'待补出票方',dueDate:record.businessDate,amount:payrollCurrency(record.amount),purpose:record.businessType.includes('付款')?'付款':'收款'} })) }
 function summarizeLiveReceipts(documentRecords: DocumentRecord[]): ModuleConfig['summary'] { const rows=receiptRecords(documentRecords); return [{label:'票据余额',value:payrollCurrency(rows.reduce((sum,row)=>sum+row.amount,0)),tone:'blue'},{label:'本期新增',value:`${rows.length} 张`,tone:'green'},{label:'待确认',value:`${rows.filter(row=>row.status!=='已生成凭证').length} 张`,tone:'amber'},{label:'异常',value:`${rows.filter(row=>row.status==='异常').length} 张`,tone:'red'}] }
 
-function mapLivePurchaseManagementRows(invoices: Invoice[]): ModuleRow[] {
-  return invoices.filter((invoice) => invoice.invoice_type === 'input').map((invoice) => ({
-    id: invoice.id,
-    status: ['void', 'rejected', 'error'].includes(invoice.status) ? '异常' : ['matched', 'confirmed'].includes(invoice.status) ? '已匹配' : '待确认',
-    voucher: invoice.voucher_id || '未生成', attachment: invoice.invoice_code ? '进项发票' : '待补附件',
-    values: { date: invoice.invoice_date, orderNo: invoice.invoice_no, supplier: invoice.seller_name || '待补供应商', goods: invoice.remarks || '待补商品/服务', amount: payrollCurrency(invoice.total_amount), stock: '待人工确认', invoice: ['matched', 'confirmed'].includes(invoice.status) ? '进项已匹配' : '待收票/待勾选', payment: '待付款确认' },
+function mapLiveBusinessOrderRows(orders: BusinessOrder[], orderType: 'purchase' | 'sales'): ModuleRow[] {
+  return orders.filter((order) => order.orderType === orderType).map((order) => ({
+    id: order.id,
+    status: order.status === '异常' ? '异常' : order.voucherId ? '已生成凭证' : order.status === '已完成' ? '已通过' : '待确认',
+    voucher: order.voucherId || '未生成',
+    attachment: order.sourceDocument || '待补附件',
+    values: orderType === 'purchase'
+      ? { date: order.businessDate, orderNo: order.orderNo, supplier: order.counterparty, goods: order.goodsName, amount: payrollCurrency(order.amount), stock: order.fulfillmentStatus, invoice: order.invoiceStatus, payment: order.settlementStatus }
+      : { date: order.businessDate, orderNo: order.orderNo, customer: order.counterparty, goods: order.goodsName, amount: payrollCurrency(order.amount), delivery: order.fulfillmentStatus, invoice: order.invoiceStatus, receipt: order.settlementStatus },
   }))
 }
 
-function mapLiveSalesManagementRows(invoices: Invoice[]): ModuleRow[] {
-  return invoices.filter((invoice) => invoice.invoice_type === 'output').map((invoice) => ({
-    id: invoice.id,
-    status: ['void', 'rejected', 'error'].includes(invoice.status) ? '异常' : invoice.voucher_id ? '已生成凭证' : '待确认',
-    voucher: invoice.voucher_id || '未生成', attachment: invoice.invoice_code ? '销项发票' : '待补附件',
-    values: { date: invoice.invoice_date, orderNo: invoice.invoice_no, customer: invoice.buyer_name || '待补客户', goods: invoice.remarks || '待补商品/服务', amount: payrollCurrency(invoice.total_amount), delivery: '待人工确认', invoice: '销项已开', receipt: '待收款确认' },
-  }))
-}
-
-function summarizeInvoiceManagement(invoices: Invoice[], invoiceType: 'input' | 'output', labels: [string, string, string, string]): ModuleConfig['summary'] {
-  const rows = invoices.filter((invoice) => invoice.invoice_type === invoiceType)
-  const exceptions = rows.filter((invoice) => ['void', 'rejected', 'error'].includes(invoice.status)).length
+function summarizeLiveBusinessOrders(orders: BusinessOrder[], orderType: 'purchase' | 'sales', labels: [string, string, string, string]): ModuleConfig['summary'] {
+  const rows = orders.filter((order) => order.orderType === orderType)
+  const exceptions = rows.filter((order) => order.status === '异常').length
   return [
     { label: labels[0], value: `${rows.length} 单`, tone: 'blue' },
-    { label: labels[1], value: `${rows.filter((invoice) => invoice.voucher_id).length} 单`, tone: 'green' },
-    { label: labels[2], value: `${rows.filter((invoice) => !invoice.voucher_id).length} 单`, tone: 'amber' },
+    { label: labels[1], value: `${rows.filter((order) => order.status === '已完成').length} 单`, tone: 'green' },
+    { label: labels[2], value: `${rows.filter((order) => order.status !== '已完成' && order.status !== '异常').length} 单`, tone: 'amber' },
     { label: labels[3], value: `${exceptions} 单`, tone: 'red' },
   ]
 }
@@ -4122,8 +4116,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveDocumentRecordData = Boolean(isTauri && selectedCompanyId && kind === 'documentRegister')
   const usesLiveExpenseReimbursementData = Boolean(isTauri && selectedCompanyId && kind === 'expenseReimbursement')
   const usesLiveReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'receipt')
-  const usesLivePurchaseManagementData = Boolean(isTauri && selectedCompanyId && kind === 'purchaseManagement')
-  const usesLiveSalesManagementData = Boolean(isTauri && selectedCompanyId && kind === 'salesManagement')
+  const usesLiveBusinessOrderData = Boolean(isTauri && selectedCompanyId && ['purchaseManagement', 'salesManagement'].includes(kind))
   const usesLiveAccountTransferData = Boolean(isTauri && selectedCompanyId && kind === 'transfer')
   const usesLiveFixedAssetData = Boolean(isTauri && selectedCompanyId && kind === 'depreciation')
   const usesLiveInventoryMovementData = Boolean(isTauri && selectedCompanyId && ['inventoryMovement', 'costCarryover'].includes(kind))
@@ -4167,6 +4160,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [specialDeductionRecords, setSpecialDeductionRecords] = useState<SpecialDeductionRecord[]>([])
   const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])
   const [documentRecords, setDocumentRecords] = useState<DocumentRecord[]>([])
+  const [businessOrders, setBusinessOrders] = useState<BusinessOrder[]>([])
   const [accountTransfers, setAccountTransfers] = useState<AccountTransfer[]>([])
   const [fixedAssets, setFixedAssets] = useState<FixedAsset[]>([])
   const [showFixedAssetDialog, setShowFixedAssetDialog] = useState(false)
@@ -4199,6 +4193,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showDocumentRecordDialog, setShowDocumentRecordDialog] = useState(false)
   const [editingDocumentRecordId, setEditingDocumentRecordId] = useState<string | null>(null)
   const [documentRecordDraft, setDocumentRecordDraft] = useState({ businessDate: '', documentCode: '', businessType: '费用报销', partner: '', amount: '', owner: '', attachmentStatus: '待补附件' })
+  const [showBusinessOrderDialog, setShowBusinessOrderDialog] = useState(false)
+  const [editingBusinessOrderId, setEditingBusinessOrderId] = useState<string | null>(null)
+  const [businessOrderDraft, setBusinessOrderDraft] = useState({ orderNo: '', businessDate: '', counterparty: '', goodsName: '', amount: '', fulfillmentStatus: '待确认', invoiceStatus: '待开票', settlementStatus: '未结算', status: '待确认', sourceDocument: '' })
   const [showPayrollDialog, setShowPayrollDialog] = useState(false)
   const [editingPayrollId, setEditingPayrollId] = useState<string | null>(null)
   const [payrollDraft, setPayrollDraft] = useState({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
@@ -4383,9 +4380,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodId, fetchInvoices, selectedCompanyId, usesLiveVatTaxData])
 
   useEffect(() => {
-    if (!(usesLivePurchaseManagementData || usesLiveSalesManagementData) || !selectedCompanyId) return
-    void fetchInvoices({ company_id: selectedCompanyId, period_id: currentPeriodId || undefined })
-  }, [currentPeriodId, fetchInvoices, selectedCompanyId, usesLivePurchaseManagementData, usesLiveSalesManagementData])
+    if (!usesLiveBusinessOrderData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    const orderType = kind === 'purchaseManagement' ? 'purchase' : 'sales'
+    void businessOrderApi.getBusinessOrders({ companyId: selectedCompanyId, period: currentPeriodLabel, orderType }).then((result) => setBusinessOrders(result.success ? result.data || [] : []))
+  }, [currentPeriodLabel, kind, selectedCompanyId, usesLiveBusinessOrderData])
 
   useEffect(() => {
     if (!usesLiveBankTransactionData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
@@ -4916,8 +4914,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'documentRegister' && usesLiveDocumentRecordData) return { ...baseConfig, rows: mapLiveDocumentRecordRows(documentRecords), summary: summarizeLiveDocumentRecords(documentRecords) }
     if (kind === 'expenseReimbursement' && usesLiveExpenseReimbursementData) return { ...baseConfig, rows: mapLiveExpenseReimbursementRows(documentRecords), summary: summarizeLiveExpenseReimbursements(documentRecords) }
     if (kind === 'receipt' && usesLiveReceiptData) return { ...baseConfig, rows: mapLiveReceiptRows(documentRecords), summary: summarizeLiveReceipts(documentRecords) }
-    if (kind === 'purchaseManagement' && usesLivePurchaseManagementData) return { ...baseConfig, rows: mapLivePurchaseManagementRows(invoices), summary: summarizeInvoiceManagement(invoices, 'input', ['采购单', '已匹配', '待付款', '异常单']) }
-    if (kind === 'salesManagement' && usesLiveSalesManagementData) return { ...baseConfig, rows: mapLiveSalesManagementRows(invoices), summary: summarizeInvoiceManagement(invoices, 'output', ['销售单', '已开票/凭证', '待收款', '异常单']) }
+    if (kind === 'purchaseManagement' && usesLiveBusinessOrderData) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'purchase'), summary: summarizeLiveBusinessOrders(businessOrders, 'purchase', ['采购单', '已完成', '待处理', '异常单']) }
+    if (kind === 'salesManagement' && usesLiveBusinessOrderData) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'sales'), summary: summarizeLiveBusinessOrders(businessOrders, 'sales', ['销售单', '已完成', '待处理', '异常单']) }
     if (kind === 'transfer' && usesLiveAccountTransferData) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
     if (kind === 'depreciation' && usesLiveFixedAssetData) return { ...baseConfig, rows: mapLiveFixedAssetRows(fixedAssets), summary: summarizeLiveFixedAssets(fixedAssets) }
     if (kind === 'inventoryMovement' && usesLiveInventoryMovementData) return { ...baseConfig, rows: mapLiveInventoryMovementRows(inventoryMovements), summary: summarizeLiveInventoryMovements(inventoryMovements) }
@@ -5479,6 +5477,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setInvoiceDraft({ invoiceNo: '', invoiceCode: '', invoiceDate: currentPeriod?.end_date || '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
       setSelectedInvoiceTagIds([])
       setShowInvoiceDialog(true)
+      return
+    }
+    if (usesLiveBusinessOrderData && selectedCompanyId) {
+      const isPurchaseOrder = kind === 'purchaseManagement'
+      setEditingBusinessOrderId(null)
+      setBusinessOrderDraft({ orderNo: '', businessDate: currentPeriod?.end_date || '', counterparty: '', goodsName: '', amount: '', fulfillmentStatus: isPurchaseOrder ? '待入库' : '待出库', invoiceStatus: isPurchaseOrder ? '待收票' : '待开票', settlementStatus: isPurchaseOrder ? '未付款' : '未收款', status: '待确认', sourceDocument: '' })
+      setShowBusinessOrderDialog(true)
       return
     }
     if (kind === 'employee' && isTauri && selectedCompanyId) {
@@ -6336,6 +6341,24 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     } catch (error) { setOperationNotice(`${editingDocumentRecordId ? '编辑' : '新增'}登记单据失败：${String(error)}`) }
   }
 
+  const handleSaveBusinessOrder = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    try {
+      const orderInput = { companyId: selectedCompanyId, orderNo: businessOrderDraft.orderNo, businessDate: businessOrderDraft.businessDate, counterparty: businessOrderDraft.counterparty, goodsName: businessOrderDraft.goodsName, amount: Number(businessOrderDraft.amount || 0), fulfillmentStatus: businessOrderDraft.fulfillmentStatus, invoiceStatus: businessOrderDraft.invoiceStatus, settlementStatus: businessOrderDraft.settlementStatus, status: businessOrderDraft.status, sourceDocument: businessOrderDraft.sourceDocument || undefined }
+      const result = editingBusinessOrderId
+        ? await businessOrderApi.updateBusinessOrder({ id: editingBusinessOrderId, ...orderInput })
+        : await businessOrderApi.createBusinessOrder({ ...orderInput, period: currentPeriodLabel, orderType: kind === 'purchaseManagement' ? 'purchase' : 'sales' })
+      if (!result.success || !result.data) throw new Error(result.error || '未返回业务订单')
+      setBusinessOrders((orders) => editingBusinessOrderId ? orders.map((item) => item.id === result.data!.id ? result.data! : item) : [result.data!, ...orders])
+      writeModuleAudit(editingBusinessOrderId ? '编辑业务订单' : '新增业务订单', result.data.orderNo, '中', '成功')
+      setOperationNotice(editingBusinessOrderId ? `已更新 ${result.data.orderNo}；发票、流水和凭证关联仍需人工确认。` : `已保存 ${result.data.orderNo}；请在履约、开票和收付款完成后人工关联发票、流水和凭证。`)
+      setEditingBusinessOrderId(null)
+      setBusinessOrderDraft({ orderNo: '', businessDate: '', counterparty: '', goodsName: '', amount: '', fulfillmentStatus: '待确认', invoiceStatus: '待开票', settlementStatus: '未结算', status: '待确认', sourceDocument: '' })
+      setShowBusinessOrderDialog(false)
+    } catch (error) { setOperationNotice(`${editingBusinessOrderId ? '编辑' : '新增'}业务订单失败：${String(error)}`) }
+  }
+
   const handleSaveAccountTransfer = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
@@ -6486,6 +6509,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       })
       setSelectedInvoiceTagIds(await fetchInvoiceTagIds(invoice.id, selectedCompanyId))
       setShowInvoiceDialog(true)
+      return
+    }
+    if ((kind === 'purchaseManagement' || kind === 'salesManagement') && isTauri && selectedCompanyId) {
+      const order = businessOrders.find((item) => item.id === row.id)
+      if (!order) {
+        setOperationNotice('未找到当前账期的业务订单。')
+        return
+      }
+      if (order.voucherId) {
+        setOperationNotice('该订单已关联凭证，请先按凭证复核流程处理后再修改订单。')
+        return
+      }
+      setEditingBusinessOrderId(order.id)
+      setBusinessOrderDraft({ orderNo: order.orderNo, businessDate: order.businessDate, counterparty: order.counterparty, goodsName: order.goodsName, amount: String(order.amount), fulfillmentStatus: order.fulfillmentStatus, invoiceStatus: order.invoiceStatus, settlementStatus: order.settlementStatus, status: order.status, sourceDocument: order.sourceDocument || '' })
+      setShowBusinessOrderDialog(true)
       return
     }
     if (kind === 'employee' && isTauri) {
@@ -7282,7 +7320,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -7853,6 +7891,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600">附件状态<select value={documentRecordDraft.attachmentStatus} onChange={(event) => setDocumentRecordDraft((draft) => ({ ...draft, attachmentStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="待补附件">待补附件</option><option value="已归档">已归档</option></select></label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowDocumentRecordDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingDocumentRecordId ? '保存修改' : '保存单据'}</button></div>
+          </form>
+        </div>
+      )}
+      {showBusinessOrderDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingBusinessOrderId ? '编辑业务订单' : '新增业务订单'}>
+          <form onSubmit={handleSaveBusinessOrder} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><div><h2 className="text-sm font-semibold text-slate-900">{editingBusinessOrderId ? '编辑业务订单' : kind === 'purchaseManagement' ? '新增采购订单' : '新增销售订单'}</h2><p className="mt-0.5 text-xs text-slate-500">订单台账不自动生成发票、流水或凭证，相关关联须经人工确认。</p></div><button type="button" onClick={() => setShowBusinessOrderDialog(false)} className="text-xs text-slate-500">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              {([{ field: 'businessDate', label: '业务日期 *', type: 'date' }, { field: 'orderNo', label: kind === 'purchaseManagement' ? '采购单号 *' : '销售单号 *', type: 'text' }, { field: 'counterparty', label: kind === 'purchaseManagement' ? '供应商 *' : '客户 *', type: 'text' }, { field: 'goodsName', label: '商品/服务 *', type: 'text' }, { field: 'amount', label: '含税金额 *', type: 'number' }, { field: 'sourceDocument', label: '来源单据/合同', type: 'text' }] as Array<{ field: keyof typeof businessOrderDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={field !== 'sourceDocument'} type={type} min={type === 'number' ? '0.01' : undefined} step={type === 'number' ? '0.01' : undefined} value={businessOrderDraft[field]} onChange={(event) => setBusinessOrderDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}
+              <label className="grid gap-1 text-xs text-slate-600">{kind === 'purchaseManagement' ? '入库状态' : '出库状态'}<select value={businessOrderDraft.fulfillmentStatus} onChange={(event) => setBusinessOrderDraft((draft) => ({ ...draft, fulfillmentStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{(kind === 'purchaseManagement' ? ['待入库', '已入库', '不适用'] : ['待出库', '已出库', '不适用']).map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600">{kind === 'purchaseManagement' ? '进项发票状态' : '销项开票状态'}<select value={businessOrderDraft.invoiceStatus} onChange={(event) => setBusinessOrderDraft((draft) => ({ ...draft, invoiceStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{(kind === 'purchaseManagement' ? ['待收票', '进项已匹配', '税额差异'] : ['待开票', '销项已开', '开票异常']).map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600">{kind === 'purchaseManagement' ? '付款状态' : '收款状态'}<select value={businessOrderDraft.settlementStatus} onChange={(event) => setBusinessOrderDraft((draft) => ({ ...draft, settlementStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{(kind === 'purchaseManagement' ? ['未付款', '部分付款', '已付款'] : ['未收款', '部分收款', '已收款']).map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600">订单状态<select value={businessOrderDraft.status} onChange={(event) => setBusinessOrderDraft((draft) => ({ ...draft, status: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['待确认', '已完成', '异常'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowBusinessOrderDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingBusinessOrderId ? '保存修改' : '保存订单'}</button></div>
           </form>
         </div>
       )}
