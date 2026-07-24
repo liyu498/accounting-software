@@ -27,12 +27,15 @@ export interface BusinessTagInput {
 
 interface BusinessTagState {
   businessTags: BusinessTag[]
+  invoiceTagIds: Record<string, string[]>
   isLoading: boolean
   error: string | null
   fetchBusinessTags: (companyId: string) => Promise<void>
   createBusinessTag: (input: BusinessTagInput) => Promise<BusinessTag>
   updateBusinessTag: (id: string, input: BusinessTagInput) => Promise<BusinessTag>
   deleteBusinessTag: (id: string, companyId: string) => Promise<void>
+  fetchInvoiceTagIds: (invoiceId: string, companyId: string) => Promise<string[]>
+  replaceInvoiceTags: (invoiceId: string, companyId: string, tagIds: string[]) => Promise<void>
 }
 
 const toCommandInput = (input: BusinessTagInput) => ({
@@ -42,7 +45,7 @@ const toCommandInput = (input: BusinessTagInput) => ({
 })
 
 export const useBusinessTagStore = create<BusinessTagState>((set) => ({
-  businessTags: [], isLoading: false, error: null,
+  businessTags: [], invoiceTagIds: {}, isLoading: false, error: null,
   fetchBusinessTags: async (companyId) => {
     set({ isLoading: true, error: null })
     try { set({ businessTags: await invoke<BusinessTag[]>('get_business_tags', { companyId }), isLoading: false }) }
@@ -59,5 +62,18 @@ export const useBusinessTagStore = create<BusinessTagState>((set) => ({
   deleteBusinessTag: async (id, companyId) => {
     try { await invoke('delete_business_tag', { id, companyId }); set((state) => ({ businessTags: state.businessTags.filter((item) => item.id !== id) })) }
     catch (error) { set({ error: String(error) }); throw error }
+  },
+  fetchInvoiceTagIds: async (invoiceId, companyId) => {
+    try {
+      const tagIds = await invoke<string[]>('get_invoice_tag_ids', { invoiceId, companyId })
+      set((state) => ({ invoiceTagIds: { ...state.invoiceTagIds, [invoiceId]: tagIds } }))
+      return tagIds
+    } catch (error) { set({ error: String(error) }); return [] }
+  },
+  replaceInvoiceTags: async (invoiceId, companyId, tagIds) => {
+    try {
+      const savedTagIds = await invoke<string[]>('replace_invoice_tags', { invoiceId, companyId, tagIds })
+      set((state) => ({ invoiceTagIds: { ...state.invoiceTagIds, [invoiceId]: savedTagIds } }))
+    } catch (error) { set({ error: String(error) }); throw error }
   },
 }))

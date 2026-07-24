@@ -622,6 +622,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'taxRate', label: '税率', align: 'center' },
       { key: 'tax', label: '税额', align: 'right' },
       { key: 'total', label: '价税合计', align: 'right' },
+      { key: 'tags', label: '标签' },
     ],
     rows: [
       { id: 'out-001', status: '已生成凭证', voucher: '记-0051', attachment: 'PDF', values: { source: '税局采集', date: '2026-05-03', number: '310026000118', buyer: '上海辰光贸易有限公司', goods: '控制器 A-100', amount: '¥86,000.00', taxRate: '13%', tax: '¥11,180.00', total: '¥97,180.00' } },
@@ -652,6 +653,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'tax', label: '税额', align: 'right' },
       { key: 'deduction', label: '勾选用途' },
       { key: 'selectionStatus', label: '认证状态', align: 'center' },
+      { key: 'tags', label: '标签' },
     ],
     rows: [
       { id: 'in-001', status: '待确认', voucher: '未生成', attachment: 'PDF', values: { source: '税局票池', date: '2026-05-06', number: '310026000142', seller: '上海云启科技有限公司', goods: '服务器租赁', amount: '¥38,000.00', taxRate: '13%', tax: '¥4,940.00', deduction: '待勾选', selectionStatus: '待认证' } },
@@ -4062,10 +4064,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const updateAssetCategory = useAssetCategoryStore((state) => state.updateAssetCategory)
   const deleteAssetCategory = useAssetCategoryStore((state) => state.deleteAssetCategory)
   const businessTags = useBusinessTagStore((state) => state.businessTags)
+  const invoiceTagIds = useBusinessTagStore((state) => state.invoiceTagIds)
   const fetchBusinessTags = useBusinessTagStore((state) => state.fetchBusinessTags)
   const createBusinessTag = useBusinessTagStore((state) => state.createBusinessTag)
   const updateBusinessTag = useBusinessTagStore((state) => state.updateBusinessTag)
   const deleteBusinessTag = useBusinessTagStore((state) => state.deleteBusinessTag)
+  const fetchInvoiceTagIds = useBusinessTagStore((state) => state.fetchInvoiceTagIds)
+  const replaceInvoiceTags = useBusinessTagStore((state) => state.replaceInvoiceTags)
   const companyAccounts = useCompanyAccountStore((state) => state.companyAccounts)
   const fetchCompanyAccounts = useCompanyAccountStore((state) => state.fetchCompanyAccounts)
   const createCompanyAccount = useCompanyAccountStore((state) => state.createCompanyAccount)
@@ -4089,6 +4094,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveAssetCategoryData = Boolean(isTauri && selectedCompanyId && kind === 'assetCategory')
   const needsLiveAssetCategories = Boolean(isTauri && selectedCompanyId && ['assetCategory', 'depreciation'].includes(kind))
   const usesLiveBusinessTagData = Boolean(isTauri && selectedCompanyId && kind === 'tagArchive')
+  const needsLiveBusinessTags = Boolean(isTauri && selectedCompanyId && ['tagArchive', 'outputInvoice', 'inputInvoice'].includes(kind))
   const matchingRuleScope: MatchingRuleScope = kind === 'invoiceMatchingRules' ? 'invoice' : kind === 'billMatchingRules' ? 'bill' : 'cash_flow'
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings', 'taxInit'].includes(kind))
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
@@ -4231,6 +4237,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [selectedMatchInvoiceId, setSelectedMatchInvoiceId] = useState('')
   const [selectedMatchVoucherId, setSelectedMatchVoucherId] = useState('')
   const [invoiceDraft, setInvoiceDraft] = useState({ invoiceNo: '', invoiceCode: '', invoiceDate: '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
+  const [selectedInvoiceTagIds, setSelectedInvoiceTagIds] = useState<string[]>([])
   const [voucherDraft, setVoucherDraft] = useState({
     voucherWordId: '',
     voucherDate: '',
@@ -4517,9 +4524,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [fetchAssetCategories, needsLiveAssetCategories, selectedCompanyId])
 
   useEffect(() => {
-    if (!usesLiveBusinessTagData || !selectedCompanyId) return
+    if (!needsLiveBusinessTags || !selectedCompanyId) return
     void fetchBusinessTags(selectedCompanyId)
-  }, [fetchBusinessTags, selectedCompanyId, usesLiveBusinessTagData])
+  }, [fetchBusinessTags, needsLiveBusinessTags, selectedCompanyId])
+
+  useEffect(() => {
+    if (!isTauri || !selectedCompanyId || (kind !== 'outputInvoice' && kind !== 'inputInvoice')) return
+    const invoiceType = kind === 'outputInvoice' ? 'output' : 'input'
+    void Promise.all(invoices
+      .filter((invoice) => invoice.invoice_type === invoiceType)
+      .map((invoice) => fetchInvoiceTagIds(invoice.id, selectedCompanyId)))
+  }, [fetchInvoiceTagIds, invoices, kind, selectedCompanyId])
 
   useEffect(() => {
     if (!usesLiveCompanyBankAccountData || !selectedCompanyId) return
@@ -4792,7 +4807,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'outputInvoice' && usesLiveModuleData) {
       return {
         ...baseConfig,
-        rows: mapLiveInvoiceRows(invoices, 'output'),
+        rows: mapLiveInvoiceRows(invoices, 'output', invoiceTagIds, businessTags),
         summary: summarizeLiveInvoices(invoices, 'output'),
       }
     }
@@ -4800,7 +4815,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'inputInvoice' && usesLiveModuleData) {
       return {
         ...baseConfig,
-        rows: mapLiveInvoiceRows(invoices, 'input'),
+        rows: mapLiveInvoiceRows(invoices, 'input', invoiceTagIds, businessTags),
         summary: summarizeLiveInvoices(invoices, 'input'),
       }
     }
@@ -5277,7 +5292,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -5435,6 +5450,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if ((kind === 'outputInvoice' || kind === 'inputInvoice') && isTauri && selectedCompanyId && currentPeriodId) {
       setEditingInvoiceId(null)
       setInvoiceDraft({ invoiceNo: '', invoiceCode: '', invoiceDate: currentPeriod?.end_date || '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
+      setSelectedInvoiceTagIds([])
       setShowInvoiceDialog(true)
       return
     }
@@ -5676,10 +5692,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           period_id: currentPeriodId!,
           ...input,
         })
+      await replaceInvoiceTags(invoice.id, selectedCompanyId, selectedInvoiceTagIds)
+      await fetchBusinessTags(selectedCompanyId)
       writeModuleAudit(editingInvoiceId ? '编辑发票' : kind === 'outputInvoice' ? '新增销项发票' : '新增进项发票', invoice.invoice_no, '中', '成功')
       setShowInvoiceDialog(false)
       setEditingInvoiceId(null)
       setInvoiceDraft({ invoiceNo: '', invoiceCode: '', invoiceDate: '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
+      setSelectedInvoiceTagIds([])
       setOperationNotice(`${kind === 'outputInvoice' ? '销项' : '进项'}发票已${editingInvoiceId ? '更新' : '保存'}到当前账套，可继续匹配凭证或进入发票勾选。`)
     } catch (error) {
       setOperationNotice(`新增发票失败：${String(error)}`)
@@ -6435,6 +6454,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         buyerTaxId: invoice.buyer_tax_id || '',
         remarks: invoice.remarks || '',
       })
+      setSelectedInvoiceTagIds(await fetchInvoiceTagIds(invoice.id, selectedCompanyId))
       setShowInvoiceDialog(true)
       return
     }
@@ -7346,6 +7366,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 <span>备注</span>
                 <input value={invoiceDraft.remarks} onChange={(event) => setInvoiceDraft((draft) => ({ ...draft, remarks: event.target.value }))} placeholder="可选" className="h-8 w-full border border-slate-300 px-2 text-sm text-slate-900" />
               </label>
+              <fieldset className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                <legend>业务标签</legend>
+                <div className="flex flex-wrap gap-2 border border-slate-200 p-2">
+                  {businessTags.filter((tag) => tag.is_enabled === 1).length === 0 && <span className="text-slate-400">请先在“标签”档案中维护可用标签。</span>}
+                  {businessTags.filter((tag) => tag.is_enabled === 1).map((tag) => <label key={tag.id} className="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-xs text-slate-700"><input type="checkbox" checked={selectedInvoiceTagIds.includes(tag.id)} onChange={(event) => setSelectedInvoiceTagIds((ids) => event.target.checked ? [...ids, tag.id] : ids.filter((id) => id !== tag.id))} />{tag.name}</label>)}
+                </div>
+              </fieldset>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
               <button type="button" onClick={() => setShowInvoiceDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>

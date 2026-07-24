@@ -158,8 +158,8 @@ const requiredPageSnippets = [
   ['current period integration', 'currentPeriodId'],
   ['live data refresh effect', 'fetchInvoices({'],
   ['live voucher query effect', 'queryVouchers({'],
-  ['output live row mapping', 'mapLiveInvoiceRows(invoices, \'output\')'],
-  ['input live row mapping', 'mapLiveInvoiceRows(invoices, \'input\')'],
+  ['output live row mapping', 'mapLiveInvoiceRows(invoices, \'output\', invoiceTagIds, businessTags)'],
+  ['input live row mapping', 'mapLiveInvoiceRows(invoices, \'input\', invoiceTagIds, businessTags)'],
   ['voucher live row mapping', 'mapLiveVoucherRows(vouchers)'],
   ['trial balance refresh', 'fetchTrialBalance(currentPeriodId)'],
   ['general ledger refresh', 'getGeneralLedger(currentPeriodId)'],
@@ -735,12 +735,16 @@ const requiredBusinessTagCommandSnippets = [
   ['business tag create command', 'pub async fn create_business_tag'],
   ['business tag update command', 'pub async fn update_business_tag'],
   ['business tag delete command', 'pub async fn delete_business_tag'],
+  ['invoice tag list command', 'pub async fn get_invoice_tag_ids'],
+  ['invoice tag replace command', 'pub async fn replace_invoice_tags'],
 ]
 const requiredBusinessTagStoreSnippets = [
   ['business tag fetch action', 'fetchBusinessTags: async'],
   ['business tag create action', 'createBusinessTag: async'],
   ['business tag update action', 'updateBusinessTag: async'],
   ['business tag delete action', 'deleteBusinessTag: async'],
+  ['invoice tag fetch action', 'fetchInvoiceTagIds: async'],
+  ['invoice tag replace action', 'replaceInvoiceTags: async'],
 ]
 const requiredBusinessTagPageSnippets = [
   ['business tag store binding', "from '../../stores/businessTagStore'"],
@@ -748,6 +752,9 @@ const requiredBusinessTagPageSnippets = [
   ['business tag row mapping', 'mapLiveBusinessTagRows(businessTags)'],
   ['business tag editor state', 'const [showBusinessTagDialog, setShowBusinessTagDialog] = useState(false)'],
   ['business tag save binding', 'createBusinessTag({'],
+  ['invoice tag selection state', 'const [selectedInvoiceTagIds, setSelectedInvoiceTagIds] = useState<string[]>([])'],
+  ['invoice tag save binding', 'replaceInvoiceTags(invoice.id, selectedCompanyId, selectedInvoiceTagIds)'],
+  ['invoice tag live mapper', 'mapLiveInvoiceRows(invoices, \'output\', invoiceTagIds, businessTags)'],
 ]
 const requiredCompanyAccountCommandSnippets = [
   ['company account list command', 'pub async fn get_company_accounts'],
@@ -1022,6 +1029,7 @@ const errors = [
   ...verify(assetCategoryStoreSource, requiredAssetCategoryStoreSnippets, 'asset category store'),
   ...verify(pageSource, requiredAssetCategoryPageSnippets, 'asset category module page'),
   ...verify(databaseSource, [['business tag schema', 'CREATE TABLE IF NOT EXISTS business_tags']], 'database schema'),
+  ...verify(databaseSource, [['invoice tag schema', 'CREATE TABLE IF NOT EXISTS invoice_tags']], 'database schema'),
   ...verify(businessTagCommandSource, requiredBusinessTagCommandSnippets, 'business tag commands'),
   ...verify(businessTagStoreSource, requiredBusinessTagStoreSnippets, 'business tag store'),
   ...verify(pageSource, requiredBusinessTagPageSnippets, 'business tag module page'),

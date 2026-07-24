@@ -60,7 +60,7 @@ function invoiceAttachment(invoice: Invoice) {
   return invoice.invoice_code ? `发票代码 ${invoice.invoice_code}` : '待关联影像'
 }
 
-export function mapLiveInvoiceRows(invoices: Invoice[], invoiceType: 'output' | 'input'): LiveModuleRow[] {
+export function mapLiveInvoiceRows(invoices: Invoice[], invoiceType: 'output' | 'input', invoiceTagIds: Record<string, string[]> = {}, businessTags: BusinessTag[] = []): LiveModuleRow[] {
   return invoices
     .filter((invoice) => invoice.invoice_type === invoiceType)
     .map((invoice) => {
@@ -73,6 +73,7 @@ export function mapLiveInvoiceRows(invoices: Invoice[], invoiceType: 'output' | 
         amount: currency(invoice.amount),
         taxRate: invoice.tax_rate === null ? '待核' : `${invoice.tax_rate}%`,
         tax: currency(invoice.tax_amount),
+        tags: (invoiceTagIds[invoice.id] || []).map((tagId) => businessTags.find((tag) => tag.id === tagId)?.name).filter(Boolean).join(' / ') || '-',
       }
 
       if (invoiceType === 'output') {
