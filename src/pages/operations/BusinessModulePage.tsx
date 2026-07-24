@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -3971,7 +3971,9 @@ function auditLogToModuleRow(log: AuditLog): ModuleRow {
 
 export function BusinessModulePage({ kind, title, description }: BusinessModulePageProps) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { id: voucherId } = useParams()
+  const aiVoucherSuggestionId = new URLSearchParams(location.search).get('aiSuggestion')
   const baseConfig = moduleConfigs[kind]
   const exportJobs = useExportJobs()
   const auditLogs = useAuditLogs()
@@ -4277,6 +4279,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
+  const [prefilledAiSuggestionId, setPrefilledAiSuggestionId] = useState<string | null>(null)
   const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)
   const [aiVoucherSuggestionDraft, setAiVoucherSuggestionDraft] = useState({ suggestionNo: '', sourceModule: '', sourceId: '', sourceFile: '', summary: '', debitSubject: '', creditSubject: '', amount: '', confidence: '90', riskLevel: 'normal' })
   const [selectedLedgerAccountCode, setSelectedLedgerAccountCode] = useState('')
@@ -4361,6 +4364,47 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       voucherWordId: draft.voucherWordId || voucherWords[0]?.id || '',
     }))
   }, [currentPeriod, kind, voucherWords])
+
+  useEffect(() => {
+    if (kind !== 'voucherCreate' || !isTauri || !selectedCompanyId || !aiVoucherSuggestionId || prefilledAiSuggestionId === aiVoucherSuggestionId || currentPeriodLabel === '当前账期' || accounts.length === 0) return
+    void automationApi.getAutomationJobs({ companyId: selectedCompanyId, period: currentPeriodLabel })
+      .then((result) => {
+        const suggestion = result.success ? result.data?.find((item) => item.id === aiVoucherSuggestionId && item.jobType === 'voucher_suggestion') : undefined
+        if (!suggestion) {
+          setOperationNotice('未找到当前账套、账期内的 AI 凭证建议。')
+          setPrefilledAiSuggestionId(aiVoucherSuggestionId)
+          return
+        }
+        if (suggestion.status.toLowerCase() !== 'confirmed') {
+          setOperationNotice('AI 凭证建议尚未人工确认，不能预填凭证草稿。')
+          setPrefilledAiSuggestionId(aiVoucherSuggestionId)
+          return
+        }
+        const debitCode = suggestion.debitSubject?.match(/^\s*(\d+)/)?.[1] || ''
+        const creditCode = suggestion.creditSubject?.match(/^\s*(\d+)/)?.[1] || ''
+        const debitAccountCode = accounts.some((account) => account.code === debitCode && account.is_enabled === 1) ? debitCode : ''
+        const creditAccountCode = accounts.some((account) => account.code === creditCode && account.is_enabled === 1) ? creditCode : ''
+        const amount = suggestion.suggestionAmount === null ? '' : String(suggestion.suggestionAmount)
+        setVoucherDraft((draft) => ({
+          ...draft,
+          voucherDate: draft.voucherDate || currentPeriod?.end_date || '',
+          voucherWordId: draft.voucherWordId || voucherWords[0]?.id || '',
+          summary: suggestion.resultSummary || draft.summary,
+          attachmentCount: suggestion.sourceFile ? '1' : draft.attachmentCount,
+          entries: [
+            { accountCode: debitAccountCode, direction: 'debit', amount },
+            { accountCode: creditAccountCode, direction: 'credit', amount },
+          ],
+        }))
+        setPrefilledAiSuggestionId(aiVoucherSuggestionId)
+        writeModuleAudit('预填AI凭证草稿', suggestion.suggestionNo || suggestion.id, '中', '成功')
+        setOperationNotice(
+          debitAccountCode && creditAccountCode
+            ? '已预填已确认的 AI 建议。请继续核验来源、科目和金额后保存凭证草稿，系统不会自动入账。'
+            : '已预填摘要和金额，但建议科目未在当前账套匹配。请人工选择借贷科目后再保存，系统不会自动入账。',
+        )
+      })
+  }, [accounts, aiVoucherSuggestionId, currentPeriod, currentPeriodLabel, kind, prefilledAiSuggestionId, selectedCompanyId, voucherWords])
 
   useEffect(() => {
     if (!['voucherEdit', 'voucherDetail'].includes(kind) || !isTauri || !selectedCompanyId || !voucherId) return
@@ -6973,9 +7017,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return
       }
       const suggestionNo = row.values.suggestNo || row.id
+      const suggestionJobId = row.id.replace('automation-suggestion-', '')
       writeModuleAudit('打开AI凭证草稿复核', suggestionNo, '中', '成功')
       setOperationNotice(`${suggestionNo} 已进入凭证草稿复核入口；请人工录入、校验借贷平衡并保存，系统不会自动生成或入账凭证。`)
-      navigate('/vouchers/new')
+      navigate(`/vouchers/new?aiSuggestion=${encodeURIComponent(suggestionJobId)}`)
       return
     }
     if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {

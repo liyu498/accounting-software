@@ -823,6 +823,11 @@ const requiredStructuredAiSuggestionPageSnippets = [
   ['AI suggestion editor state', 'const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)'],
   ['AI suggestion create binding', 'automationApi.createAutomationJob({'],
   ['AI suggestion editor title', '新增 AI 凭证建议'],
+  ['AI suggestion draft query id', "new URLSearchParams(location.search).get('aiSuggestion')"],
+  ['AI suggestion draft data request', 'automationApi.getAutomationJobs({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['AI suggestion draft confirmation guard', "suggestion.status.toLowerCase() !== 'confirmed'"],
+  ['AI suggestion draft prefill audit', "writeModuleAudit('预填AI凭证草稿'"],
+  ['AI suggestion draft deep link', "navigate(`/vouchers/new?aiSuggestion=${encodeURIComponent(suggestionJobId)}`)"],
 ]
 const requiredBusinessOrderPageSnippets = [
   ['business order live scope', "['purchaseManagement', 'salesManagement'].includes(kind)"],
