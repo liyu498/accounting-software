@@ -18,6 +18,7 @@ import type { SettlementRule } from '../stores/settlementRuleStore'
 import type { MatchingRule, MatchingRuleScope } from '../stores/matchingRuleStore'
 import type { AssetCategory } from '../stores/assetCategoryStore'
 import type { BusinessTag } from '../stores/businessTagStore'
+import type { CompanyAccount } from '../stores/companyAccountStore'
 import type { Currency } from '../stores/currencyStore'
 import type { CommonDigest, VoucherTemplateType, VoucherTemplateWithEntries } from '../stores/templateStore'
 import type { ReportItem, ReportTemplate } from '../stores/reportTemplateStore'
@@ -1991,5 +1992,32 @@ export function summarizeLiveBusinessTags(tags: BusinessTag[]): LiveSummaryItem[
     { label: '启用', value: `${enabled} 个`, tone: enabled > 0 ? 'green' : 'gray' },
     { label: '本期使用', value: `${tags.reduce((total, tag) => total + tag.usage_count, 0)} 次`, tone: 'amber' },
     { label: '停用', value: `${tags.length - enabled} 个`, tone: tags.length - enabled > 0 ? 'gray' : 'green' },
+  ]
+}
+
+export function mapLiveCompanyAccountRows(accounts: CompanyAccount[]): LiveModuleRow[] {
+  return accounts.map((account) => ({
+    id: `company-account-${account.id}`,
+    status: account.status,
+    voucher: '-',
+    attachment: account.attachment_note || '-',
+    values: {
+      name: account.account_name,
+      type: account.account_type,
+      bank: account.bank_name || '未维护开户机构',
+      number: account.account_number,
+      subject: account.subject_code,
+      balance: `¥${account.opening_balance.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    },
+  }))
+}
+
+export function summarizeLiveCompanyAccounts(accounts: CompanyAccount[]): LiveSummaryItem[] {
+  const enabled = accounts.filter((account) => account.status === '启用').length
+  return [
+    { label: '账户数量', value: `${accounts.length} 个`, tone: 'blue' },
+    { label: '启用', value: `${enabled} 个`, tone: enabled > 0 ? 'green' : 'gray' },
+    { label: '默认科目', value: `${accounts.filter((account) => account.subject_code.trim()).length} 个`, tone: 'amber' },
+    { label: '停用', value: `${accounts.length - enabled} 个`, tone: accounts.length - enabled > 0 ? 'gray' : 'green' },
   ]
 }

@@ -73,6 +73,12 @@ const businessTagStoreSource = existsSync('src/stores/businessTagStore.ts')
 const businessTagCommandSource = existsSync('src-tauri/src/commands/business_tags.rs')
   ? readFileSync('src-tauri/src/commands/business_tags.rs', 'utf8')
   : ''
+const companyAccountStoreSource = existsSync('src/stores/companyAccountStore.ts')
+  ? readFileSync('src/stores/companyAccountStore.ts', 'utf8')
+  : ''
+const companyAccountCommandSource = existsSync('src-tauri/src/commands/company_accounts.rs')
+  ? readFileSync('src-tauri/src/commands/company_accounts.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -85,8 +91,8 @@ const requiredAdapterSnippets = [
   ['income statement row mapper', 'export function mapLiveIncomeStatementRows'],
   ['cash flow row mapper', 'export function mapLiveCashFlowRows'],
   ['company info row mapper', 'export function mapLiveCompanyInfoRows'],
-  ['company bank account row mapper', 'export function mapLiveCompanyBankAccountRows'],
-  ['company bank account summary mapper', 'export function summarizeLiveCompanyBankAccounts'],
+  ['company account row mapper', 'export function mapLiveCompanyAccountRows'],
+  ['company account summary mapper', 'export function summarizeLiveCompanyAccounts'],
   ['initial balance row mapper', 'export function mapLiveInitialBalanceRows'],
   ['subject settings row mapper', 'export function mapLiveSubjectRows'],
   ['auxiliary archive row mapper', 'export function mapLiveAuxiliaryArchiveRows'],
@@ -166,7 +172,7 @@ const requiredPageSnippets = [
   ['income statement mapping', 'mapLiveIncomeStatementRows(liveReports.incomeStatement)'],
   ['cash flow mapping', 'mapLiveCashFlowRows(liveReports.cashFlow)'],
   ['company info mapping', 'mapLiveCompanyInfoRows(selectedCompany)'],
-  ['company bank account mapping', 'mapLiveCompanyBankAccountRows(selectedCompany)'],
+  ['company account mapping', 'mapLiveCompanyAccountRows(companyAccounts)'],
   ['company bank account live scope', 'usesLiveCompanyBankAccountData'],
   ['initial balance mapping', 'mapLiveInitialBalanceRows(liveReports.initialBalance)'],
   ['initial balance validation', 'validateInitialBalances(currentPeriodId)'],
@@ -743,6 +749,25 @@ const requiredBusinessTagPageSnippets = [
   ['business tag editor state', 'const [showBusinessTagDialog, setShowBusinessTagDialog] = useState(false)'],
   ['business tag save binding', 'createBusinessTag({'],
 ]
+const requiredCompanyAccountCommandSnippets = [
+  ['company account list command', 'pub async fn get_company_accounts'],
+  ['company account create command', 'pub async fn create_company_account'],
+  ['company account update command', 'pub async fn update_company_account'],
+  ['company account delete command', 'pub async fn delete_company_account'],
+]
+const requiredCompanyAccountStoreSnippets = [
+  ['company account fetch action', 'fetchCompanyAccounts: async'],
+  ['company account create action', 'createCompanyAccount: async'],
+  ['company account update action', 'updateCompanyAccount: async'],
+  ['company account delete action', 'deleteCompanyAccount: async'],
+]
+const requiredCompanyAccountPageSnippets = [
+  ['company account store binding', "from '../../stores/companyAccountStore'"],
+  ['company account live scope', "kind === 'accountArchive'"],
+  ['company account row mapping', 'mapLiveCompanyAccountRows(companyAccounts)'],
+  ['company account editor state', 'const [showCompanyAccountDialog, setShowCompanyAccountDialog] = useState(false)'],
+  ['company account save binding', 'createCompanyAccount({'],
+]
 
 const requiredSocialSecurityCommandSnippets = [
   ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
@@ -998,6 +1023,10 @@ const errors = [
   ...verify(businessTagCommandSource, requiredBusinessTagCommandSnippets, 'business tag commands'),
   ...verify(businessTagStoreSource, requiredBusinessTagStoreSnippets, 'business tag store'),
   ...verify(pageSource, requiredBusinessTagPageSnippets, 'business tag module page'),
+  ...verify(databaseSource, [['company account schema', 'CREATE TABLE IF NOT EXISTS company_accounts']], 'database schema'),
+  ...verify(companyAccountCommandSource, requiredCompanyAccountCommandSnippets, 'company account commands'),
+  ...verify(companyAccountStoreSource, requiredCompanyAccountStoreSnippets, 'company account store'),
+  ...verify(pageSource, requiredCompanyAccountPageSnippets, 'company account module page'),
   ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
   ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),

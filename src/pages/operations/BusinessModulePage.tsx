@@ -27,7 +27,7 @@ import {
   mapLiveBalanceSheetRows,
   mapLiveCashFlowRows,
   mapLiveCompanyInfoRows,
-  mapLiveCompanyBankAccountRows,
+  mapLiveCompanyAccountRows,
   mapLiveCommonDigestRows,
   mapLiveCurrencyRows,
   mapLiveGeneralLedgerRows,
@@ -68,7 +68,7 @@ import {
   summarizeLiveBalanceSheet,
   summarizeLiveCashFlow,
   summarizeLiveCompanyInfo,
-  summarizeLiveCompanyBankAccounts,
+  summarizeLiveCompanyAccounts,
   summarizeLiveCommonDigests,
   summarizeLiveCurrencies,
   summarizeLiveGeneralLedger,
@@ -134,6 +134,7 @@ import { useReportTemplateStore } from '../../stores/reportTemplateStore'
 import { useMatchingRuleStore, type MatchingRuleScope } from '../../stores/matchingRuleStore'
 import { useAssetCategoryStore } from '../../stores/assetCategoryStore'
 import { useBusinessTagStore } from '../../stores/businessTagStore'
+import { useCompanyAccountStore } from '../../stores/companyAccountStore'
 
 type ModuleKind =
   | 'attachmentCenter'
@@ -4065,6 +4066,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const createBusinessTag = useBusinessTagStore((state) => state.createBusinessTag)
   const updateBusinessTag = useBusinessTagStore((state) => state.updateBusinessTag)
   const deleteBusinessTag = useBusinessTagStore((state) => state.deleteBusinessTag)
+  const companyAccounts = useCompanyAccountStore((state) => state.companyAccounts)
+  const fetchCompanyAccounts = useCompanyAccountStore((state) => state.fetchCompanyAccounts)
+  const createCompanyAccount = useCompanyAccountStore((state) => state.createCompanyAccount)
+  const updateCompanyAccount = useCompanyAccountStore((state) => state.updateCompanyAccount)
+  const deleteCompanyAccount = useCompanyAccountStore((state) => state.deleteCompanyAccount)
   const usesLiveModuleData = isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice', 'voucher', 'riskCheck'].includes(kind)
   const usesLiveReportData = Boolean(
     isTauri &&
@@ -4206,6 +4212,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showBusinessTagDialog, setShowBusinessTagDialog] = useState(false)
   const [editingBusinessTagId, setEditingBusinessTagId] = useState<string | null>(null)
   const [businessTagDraft, setBusinessTagDraft] = useState({ name: '', applicableModules: '发票/流水/凭证', colorName: '蓝色', autoRule: '', remarks: '', isEnabled: true })
+  const [showCompanyAccountDialog, setShowCompanyAccountDialog] = useState(false)
+  const [editingCompanyAccountId, setEditingCompanyAccountId] = useState<string | null>(null)
+  const [companyAccountDraft, setCompanyAccountDraft] = useState({ accountName: '', accountType: '银行账户', bankName: '', accountNumber: '', subjectCode: '1002 银行存款', openingBalance: '0', attachmentNote: '', status: '启用' as '启用' | '停用' })
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -4510,6 +4519,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!usesLiveBusinessTagData || !selectedCompanyId) return
     void fetchBusinessTags(selectedCompanyId)
   }, [fetchBusinessTags, selectedCompanyId, usesLiveBusinessTagData])
+
+  useEffect(() => {
+    if (!usesLiveCompanyBankAccountData || !selectedCompanyId) return
+    void fetchCompanyAccounts(selectedCompanyId)
+  }, [fetchCompanyAccounts, selectedCompanyId, usesLiveCompanyBankAccountData])
 
   useEffect(() => {
     if (!usesLiveCurrencyData || !selectedCompanyId) return
@@ -5034,8 +5048,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'accountArchive' && usesLiveCompanyBankAccountData) {
       return {
         ...baseConfig,
-        rows: mapLiveCompanyBankAccountRows(selectedCompany),
-        summary: summarizeLiveCompanyBankAccounts(selectedCompany),
+        rows: mapLiveCompanyAccountRows(companyAccounts),
+        summary: summarizeLiveCompanyAccounts(companyAccounts),
       }
     }
 
@@ -5262,7 +5276,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, businessTags, commonDigests, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -5441,6 +5455,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (usesLiveBusinessTagData && selectedCompanyId) {
       resetBusinessTagDraft()
       setShowBusinessTagDialog(true)
+      return
+    }
+    if (usesLiveCompanyBankAccountData && selectedCompanyId) {
+      resetCompanyAccountDraft()
+      setShowCompanyAccountDialog(true)
       return
     }
     if (kind === 'auxiliaryCategories' && isTauri && selectedCompanyId) {
@@ -6044,6 +6063,36 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     catch (error) { setOperationNotice(`删除业务标签失败：${String(error)}`) }
   }
 
+  const resetCompanyAccountDraft = () => {
+    setEditingCompanyAccountId(null)
+    setCompanyAccountDraft({ accountName: '', accountType: '银行账户', bankName: '', accountNumber: '', subjectCode: '1002 银行存款', openingBalance: '0', attachmentNote: '', status: '启用' })
+  }
+
+  const handleSaveCompanyAccount = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    try {
+      const input = {
+        companyId: selectedCompanyId, accountName: companyAccountDraft.accountName.trim(), accountType: companyAccountDraft.accountType,
+        bankName: companyAccountDraft.bankName.trim() || undefined, accountNumber: companyAccountDraft.accountNumber.trim(),
+        subjectCode: companyAccountDraft.subjectCode.trim(), openingBalance: Number(companyAccountDraft.openingBalance || 0),
+        attachmentNote: companyAccountDraft.attachmentNote.trim() || undefined, status: companyAccountDraft.status,
+      }
+      const account = editingCompanyAccountId ? await updateCompanyAccount(editingCompanyAccountId, input) : await createCompanyAccount({ ...input })
+      writeModuleAudit(editingCompanyAccountId ? '编辑账户档案' : '新增账户档案', `${account.account_name}｜${account.account_number}`, '中', '成功')
+      setOperationNotice(`账户“${account.account_name}”已保存，可供银行流水、账户转账和资金余额表引用。`)
+      resetCompanyAccountDraft(); setShowCompanyAccountDialog(false)
+    } catch (error) { setOperationNotice(`保存账户档案失败：${String(error)}`) }
+  }
+
+  const handleDeleteCompanyAccount = async () => {
+    if (!selectedCompanyId || !editingCompanyAccountId) return
+    const account = companyAccounts.find((item) => item.id === editingCompanyAccountId)
+    if (!account || !window.confirm(`确认删除账户“${account.account_name}”吗？`)) return
+    try { await deleteCompanyAccount(account.id, selectedCompanyId); writeModuleAudit('删除账户档案', `${account.account_name}｜${account.account_number}`, '高', '成功'); setOperationNotice(`账户“${account.account_name}”已删除。`); resetCompanyAccountDraft(); setShowCompanyAccountDialog(false) }
+    catch (error) { setOperationNotice(`删除账户档案失败：${String(error)}`) }
+  }
+
   const resetAuxiliaryCategoryDraft = () => {
     setEditingAuxiliaryCategoryId(null)
     setAuxiliaryCategoryDraft({ code: '', name: '', sortOrder: '0' })
@@ -6432,6 +6481,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingBusinessTagId(tag.id)
       setBusinessTagDraft({ name: tag.name, applicableModules: tag.applicable_modules, colorName: tag.color_name, autoRule: tag.auto_rule || '', remarks: tag.remarks || '', isEnabled: tag.is_enabled === 1 })
       setShowBusinessTagDialog(true)
+      return
+    }
+    if (usesLiveCompanyBankAccountData && selectedCompanyId) {
+      const account = companyAccounts.find((item) => `company-account-${item.id}` === row.id)
+      if (!account) { setOperationNotice('未找到当前账套的账户档案。'); return }
+      setEditingCompanyAccountId(account.id)
+      setCompanyAccountDraft({ accountName: account.account_name, accountType: account.account_type, bankName: account.bank_name || '', accountNumber: account.account_number, subjectCode: account.subject_code, openingBalance: String(account.opening_balance), attachmentNote: account.attachment_note || '', status: account.status })
+      setShowCompanyAccountDialog(true)
       return
     }
     if (kind === 'auxiliaryCategories' && isTauri && selectedCompanyId) {
@@ -7504,6 +7561,24 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="inline-flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={businessTagDraft.isEnabled} onChange={(event) => setBusinessTagDraft((draft) => ({ ...draft, isEnabled: event.target.checked }))} />立即启用</label>
             </div>
             <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3"><div>{editingBusinessTagId && <button type="button" onClick={() => void handleDeleteBusinessTag()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700">删除标签</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowBusinessTagDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存标签</button></div></div>
+          </form>
+        </div>
+      )}
+      {showCompanyAccountDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingCompanyAccountId ? '编辑账户档案' : '新增账户档案'}>
+          <form onSubmit={handleSaveCompanyAccount} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingCompanyAccountId ? '编辑账户档案' : '新增账户档案'}</h2><p className="mt-0.5 text-xs text-slate-500">账户档案属于当前账套；银行直连或自动采集仍需在合法授权接口配置完成后启用。</p></div><button type="button" onClick={() => setShowCompanyAccountDialog(false)} className="text-xs text-slate-500">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">账户名称 *<input required value={companyAccountDraft.accountName} onChange={(event) => setCompanyAccountDraft((draft) => ({ ...draft, accountName: event.target.value }))} placeholder="如：工行基本户" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">账户类型 *<select value={companyAccountDraft.accountType} onChange={(event) => setCompanyAccountDraft((draft) => ({ ...draft, accountType: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option>银行账户</option><option>第三方支付</option><option>现金账户</option><option>其他货币资金</option></select></label>
+              <label className="grid gap-1 text-xs text-slate-600">开户机构<input value={companyAccountDraft.bankName} onChange={(event) => setCompanyAccountDraft((draft) => ({ ...draft, bankName: event.target.value }))} placeholder="如：工商银行上海分行" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">账号/标识 *<input required value={companyAccountDraft.accountNumber} onChange={(event) => setCompanyAccountDraft((draft) => ({ ...draft, accountNumber: event.target.value }))} placeholder="银行账号或支付账户标识" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">默认科目 *<input required value={companyAccountDraft.subjectCode} onChange={(event) => setCompanyAccountDraft((draft) => ({ ...draft, subjectCode: event.target.value }))} placeholder="如：1002 银行存款" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">期初余额<input type="number" step="0.01" value={companyAccountDraft.openingBalance} onChange={(event) => setCompanyAccountDraft((draft) => ({ ...draft, openingBalance: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">状态<select value={companyAccountDraft.status} onChange={(event) => setCompanyAccountDraft((draft) => ({ ...draft, status: event.target.value as '启用' | '停用' }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option>启用</option><option>停用</option></select></label>
+              <label className="grid gap-1 text-xs text-slate-600">附件/备注<input value={companyAccountDraft.attachmentNote} onChange={(event) => setCompanyAccountDraft((draft) => ({ ...draft, attachmentNote: event.target.value }))} placeholder="如：开户许可证、网银截图" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+            </div>
+            <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3"><div>{editingCompanyAccountId && <button type="button" onClick={() => void handleDeleteCompanyAccount()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700">删除账户</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowCompanyAccountDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存账户</button></div></div>
           </form>
         </div>
       )}

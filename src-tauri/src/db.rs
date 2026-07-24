@@ -145,6 +145,17 @@ impl Database {
         "#).execute(pool).await?;
 
         sqlx::query(r#"
+            CREATE TABLE IF NOT EXISTS company_accounts (
+                id TEXT PRIMARY KEY, company_id TEXT NOT NULL, account_name TEXT NOT NULL,
+                account_type TEXT NOT NULL DEFAULT '银行账户', bank_name TEXT, account_number TEXT NOT NULL,
+                subject_code TEXT NOT NULL, opening_balance REAL NOT NULL DEFAULT 0, attachment_note TEXT,
+                status TEXT NOT NULL DEFAULT '启用', created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, account_number)
+            )
+        "#).execute(pool).await?;
+
+        sqlx::query(r#"
             CREATE TABLE IF NOT EXISTS inventory_movements (
                 id TEXT PRIMARY KEY, company_id TEXT NOT NULL, period TEXT NOT NULL, movement_date TEXT NOT NULL,
                 bill_no TEXT NOT NULL, movement_type TEXT NOT NULL, inventory_name TEXT NOT NULL, warehouse TEXT NOT NULL,

@@ -5,6 +5,7 @@ pub mod backups;
 pub mod auth;
 pub mod auxiliary;
 pub mod companies;
+pub mod company_accounts;
 pub mod periods;
 pub mod subjects;
 pub mod templates;

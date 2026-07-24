@@ -261,6 +261,11 @@ pub fn run() {
             commands::business_tags::create_business_tag,
             commands::business_tags::update_business_tag,
             commands::business_tags::delete_business_tag,
+            // Company account archive commands
+            commands::company_accounts::get_company_accounts,
+            commands::company_accounts::create_company_account,
+            commands::company_accounts::update_company_account,
+            commands::company_accounts::delete_company_account,
             // Currency commands
             commands::currencies::get_currencies,
             commands::currencies::create_currency,
