@@ -1657,6 +1657,54 @@ export function summarizeLiveIncomeStatement(result: IncomeStatementResult): Liv
   ]
 }
 
+function incomeItemsByCode(result: IncomeStatementResult | null): Map<string, IncomeStatementItem> {
+  return new Map((result ? flattenIncomeStatementItems(result.items) : []).map((item) => [item.item_code, item]))
+}
+
+export function mapLiveIncomeQuarterRows(
+  result: IncomeStatementResult,
+  priorQuarterBaseline: IncomeStatementResult | null,
+  quarterLabel: string,
+  baselineMissing = false,
+): LiveModuleRow[] {
+  const priorItems = incomeItemsByCode(priorQuarterBaseline)
+  return flattenIncomeStatementItems(result.items).map((item) => {
+    const priorAmount = priorItems.get(item.item_code)?.year_to_date || 0
+    const quarterAmount = baselineMissing ? null : item.year_to_date - priorAmount
+    return {
+      id: `income-quarter-${item.item_code}`,
+      status: baselineMissing ? '待确认' : item.is_total ? '已通过' : '待确认',
+      voucher: `${quarterLabel} 取数快照`,
+      attachment: baselineMissing ? '缺上季末累计' : priorQuarterBaseline ? '季度累计对比' : '本年累计取数',
+      values: {
+        quarter: quarterLabel,
+        item: item.item_name,
+        formula: baselineMissing ? '待补上季末累计' : priorQuarterBaseline ? '本年累计 - 上季末累计' : '本年累计（Q1）',
+        currentQuarter: quarterAmount === null ? '待取数' : currency(quarterAmount),
+        yearTotal: currency(item.year_to_date),
+        taxAdjust: item.is_total ? '汇总项目' : '待人工判断',
+        check: item.is_total ? '通过' : '待复核',
+      },
+    }
+  })
+}
+
+export function summarizeLiveIncomeQuarter(
+  result: IncomeStatementResult,
+  priorQuarterBaseline: IncomeStatementResult | null,
+  baselineMissing = false,
+): LiveSummaryItem[] {
+  const quarterTotal = baselineMissing ? null : result.year_to_date_total - (priorQuarterBaseline?.year_to_date_total || 0)
+  const rows = mapLiveIncomeQuarterRows(result, priorQuarterBaseline, '本季', baselineMissing)
+  const review = rows.filter((row) => row.status === '待确认').length
+  return [
+    { label: '本季累计', value: quarterTotal === null ? '待取数' : currency(quarterTotal), tone: baselineMissing ? 'amber' : 'blue' },
+    { label: '本年累计', value: currency(result.year_to_date_total), tone: 'green' },
+    { label: '报表项目', value: `${rows.length} 行`, tone: 'amber' },
+    { label: '待纳调复核', value: `${review} 项`, tone: review > 0 ? 'red' : 'gray' },
+  ]
+}
+
 export function mapLiveCashFlowRows(result: CashFlowResult): LiveModuleRow[] {
   return result.items.map((item) => ({
     id: `cash-flow-${item.item_code}`,

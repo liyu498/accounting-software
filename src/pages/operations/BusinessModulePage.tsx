@@ -55,6 +55,7 @@ import {
   mapLiveSubjectRows,
   mapLiveSubsidiaryLedgerRows,
   mapLiveIncomeStatementRows,
+  mapLiveIncomeQuarterRows,
   mapLiveInvoiceRows,
   mapLiveTrialBalanceRows,
   mapLiveVoucherRows,
@@ -97,6 +98,7 @@ import {
   summarizeLiveSubjects,
   summarizeLiveSubsidiaryLedger,
   summarizeLiveIncomeStatement,
+  summarizeLiveIncomeQuarter,
   summarizeLiveInvoices,
   summarizeLiveTrialBalance,
   summarizeLiveVouchers,
@@ -276,6 +278,8 @@ type LiveReportData = {
   multiColumnLedger: GeneralLedgerItem[] | null
   balanceSheet: BalanceSheetResult | null
   incomeStatement: IncomeStatementResult | null
+  incomeQuarterBaseline: IncomeStatementResult | null
+  incomeQuarterBaselineMissing: boolean
   cashFlow: CashFlowResult | null
   initialBalance: TrialBalanceResult | null
   ledgerOverview: TrialBalanceResult | null
@@ -295,6 +299,8 @@ const emptyLiveReportData: LiveReportData = {
   multiColumnLedger: null,
   balanceSheet: null,
   incomeStatement: null,
+  incomeQuarterBaseline: null,
+  incomeQuarterBaselineMissing: false,
   cashFlow: null,
   initialBalance: null,
   ledgerOverview: null,
@@ -4092,7 +4098,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     isTauri &&
       selectedCompanyId &&
       currentPeriodId &&
-      ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'multiColumnLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'incomeTaxReport', 'cashFlowReport'].includes(kind),
+      ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'multiColumnLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'incomeQuarterReport', 'incomeTaxReport', 'cashFlowReport'].includes(kind),
   )
   const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
   const usesLiveCompanyBankAccountData = Boolean(isTauri && selectedCompanyId && kind === 'accountArchive')
@@ -4509,8 +4515,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           return
         }
 
-        if (kind === 'incomeStatementReport' || kind === 'incomeTaxReport') {
+        if (kind === 'incomeStatementReport' || kind === 'incomeQuarterReport' || kind === 'incomeTaxReport') {
           const incomeStatement = await getIncomeStatement(currentPeriodId)
+          if (kind === 'incomeQuarterReport') {
+            const quarterStartMonth = Math.floor(((currentPeriod?.period_month || 1) - 1) / 3) * 3 + 1
+            const priorQuarterPeriod = quarterStartMonth > 1
+              ? periods.find((period) => period.period_year === currentPeriod?.period_year && period.period_month === quarterStartMonth - 1)
+              : undefined
+            const incomeQuarterBaseline = priorQuarterPeriod ? await getIncomeStatement(priorQuarterPeriod.id) : null
+            if (active) setLiveReports((reports) => ({ ...reports, incomeStatement, incomeQuarterBaseline, incomeQuarterBaselineMissing: quarterStartMonth > 1 && !priorQuarterPeriod }))
+            return
+          }
           if (active) setLiveReports((reports) => ({ ...reports, incomeStatement }))
           return
         }
@@ -4529,6 +4544,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       active = false
     }
   }, [
+    currentPeriod,
     currentPeriodId,
     fetchTrialBalance,
     getBalanceSheet,
@@ -4536,6 +4552,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     getGeneralLedger,
     getIncomeStatement,
     kind,
+    periods,
     usesLiveReportData,
   ])
 
@@ -5153,6 +5170,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveIncomeStatementRows(liveReports.incomeStatement),
         summary: summarizeLiveIncomeStatement(liveReports.incomeStatement),
+      }
+    }
+
+    if (kind === 'incomeQuarterReport' && usesLiveReportData && liveReports.incomeStatement) {
+      const quarter = Math.ceil((currentPeriod?.period_month || 1) / 3)
+      const quarterLabel = `${currentPeriod?.period_year || '当前'}-Q${quarter}（截至${String(currentPeriod?.period_month || 0).padStart(2, '0')}月）`
+      return {
+        ...baseConfig,
+        rows: mapLiveIncomeQuarterRows(liveReports.incomeStatement, liveReports.incomeQuarterBaseline, quarterLabel, liveReports.incomeQuarterBaselineMissing),
+        summary: summarizeLiveIncomeQuarter(liveReports.incomeStatement, liveReports.incomeQuarterBaseline, liveReports.incomeQuarterBaselineMissing),
       }
     }
 

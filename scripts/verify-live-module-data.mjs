@@ -829,6 +829,15 @@ const requiredMultiColumnLedgerPageSnippets = [
   ['multi-column ledger report request', "kind === 'multiColumnLedgerReport'"],
   ['multi-column ledger live mapper', 'mapLiveMultiColumnLedgerRows(liveReports.multiColumnLedger)'],
 ]
+const requiredIncomeQuarterAdapterSnippets = [
+  ['income quarter row mapper', 'export function mapLiveIncomeQuarterRows'],
+  ['income quarter summary mapper', 'export function summarizeLiveIncomeQuarter'],
+]
+const requiredIncomeQuarterPageSnippets = [
+  ['income quarter live scope', "'incomeQuarterReport'"],
+  ['income quarter baseline request', 'getIncomeStatement(priorQuarterPeriod.id)'],
+  ['income quarter live mapper', 'mapLiveIncomeQuarterRows(liveReports.incomeStatement, liveReports.incomeQuarterBaseline'],
+]
 const requiredStructuredAiSuggestionPageSnippets = [
   ['AI suggestion editor state', 'const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)'],
   ['AI suggestion create binding', 'automationApi.createAutomationJob({'],
@@ -933,7 +942,7 @@ const requiredSocialSecurityTaxPageSnippets = [
 ]
 
 const requiredIncomeTaxPageSnippets = [
-  ['income tax report loader', "if (kind === 'incomeStatementReport' || kind === 'incomeTaxReport')"],
+  ['income tax report loader', "if (kind === 'incomeStatementReport' || kind === 'incomeQuarterReport' || kind === 'incomeTaxReport')"],
   ['income tax row mapper', 'mapLiveIncomeTaxRows(liveReports.incomeStatement)'],
   ['income tax summary mapper', 'summarizeLiveIncomeTax(liveReports.incomeStatement)'],
 ]
@@ -1212,11 +1221,13 @@ const errors = [
   ...verify(apiSource, requiredStructuredAiSuggestionApiSnippets, 'structured AI suggestion API'),
   ...verify(adapterSource, requiredStructuredAiSuggestionAdapterSnippets, 'structured AI suggestion adapter'),
   ...verify(adapterSource, requiredMultiColumnLedgerAdapterSnippets, 'multi-column ledger adapter'),
+  ...verify(adapterSource, requiredIncomeQuarterAdapterSnippets, 'income quarter adapter'),
   ...verify(pageSource, requiredStructuredAiSuggestionPageSnippets, 'structured AI suggestion module page'),
   ...verify(pageSource, requiredAiSuggestionVoucherLinkPageSnippets, 'AI suggestion voucher link module page'),
   ...verify(voucherCommandSource, requiredAiSuggestionVoucherUnlinkCommandSnippets, 'AI suggestion voucher unlink commands'),
   ...verify(pageSource, requiredAiSuggestionVoucherNavigationPageSnippets, 'AI suggestion voucher navigation module page'),
   ...verify(pageSource, requiredMultiColumnLedgerPageSnippets, 'multi-column ledger module page'),
+  ...verify(pageSource, requiredIncomeQuarterPageSnippets, 'income quarter module page'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
   ...verify(pageSource, requiredInventoryItemPageSnippets, 'inventory item module page'),
