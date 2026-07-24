@@ -3899,6 +3899,50 @@ function mapLiveDocumentRecordRows(documentRecords: DocumentRecord[]): ModuleRow
   }))
 }
 
+function stampTaxRecords(documentRecords: DocumentRecord[]) {
+  return documentRecords.filter((record) => record.stampTaxItem || /合同|购销|技术|产权/.test(record.businessType))
+}
+
+function stampTaxRecordStatus(record: DocumentRecord): ModuleRow['status'] {
+  if (record.status === '异常') return '异常'
+  if (!record.stampTaxItem || record.stampTaxRate === null || record.attachmentStatus !== '已归档') return '待确认'
+  return '已通过'
+}
+
+function mapLiveStampTaxRows(documentRecords: DocumentRecord[]): ModuleRow[] {
+  return stampTaxRecords(documentRecords).map((record) => {
+    const confirmed = Boolean(record.stampTaxItem) && record.stampTaxRate !== null && record.attachmentStatus === '已归档'
+    return {
+      id: `stamp-tax-${record.id}`,
+      status: stampTaxRecordStatus(record),
+      voucher: '印花税取数',
+      attachment: record.attachmentStatus,
+      values: {
+        contractNo: record.documentCode,
+        partner: record.partner || '待补相对方',
+        taxItem: record.stampTaxItem || '待确认税目',
+        signDate: record.businessDate || '待补日期',
+        amount: payrollCurrency(record.amount),
+        rate: record.stampTaxRate === null ? '待确认' : `${(record.stampTaxRate * 100).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}%`,
+        tax: confirmed ? payrollCurrency(record.amount * (record.stampTaxRate || 0)) : '待算',
+        check: confirmed ? '通过' : record.attachmentStatus !== '已归档' ? '合同附件待归档' : '税目或税率待确认',
+      },
+    }
+  })
+}
+
+function summarizeLiveStampTax(documentRecords: DocumentRecord[]): ModuleConfig['summary'] {
+  const records = stampTaxRecords(documentRecords)
+  const confirmed = records.filter((record) => record.stampTaxItem && record.stampTaxRate !== null && record.attachmentStatus === '已归档')
+  const pending = records.length - confirmed.length
+  return [
+    { label: '应税凭证', value: `${records.length} 份`, tone: records.length > 0 ? 'blue' : 'gray' },
+    { label: '计税金额', value: payrollCurrency(records.reduce((sum, record) => sum + record.amount, 0)), tone: 'green' },
+    { label: '已确认税额', value: payrollCurrency(confirmed.reduce((sum, record) => sum + record.amount * (record.stampTaxRate || 0), 0)), tone: 'amber' },
+    { label: '待确认', value: `${pending} 份`, tone: pending > 0 ? 'red' : 'gray' },
+  ]
+}
+
 function summarizeLiveDocumentRecords(documentRecords: DocumentRecord[]): ModuleConfig['summary'] {
   const pending = documentRecords.filter((record) => record.status !== '已生成凭证').length
   return [
@@ -4139,6 +4183,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveBankReconciliationRecordData = Boolean(isTauri && selectedCompanyId && kind === 'bankReconciliation')
   const usesLiveSettlementRecordData = Boolean(isTauri && selectedCompanyId && ['receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind))
   const usesLiveDocumentRecordData = Boolean(isTauri && selectedCompanyId && kind === 'documentRegister')
+  const usesLiveStampTaxData = Boolean(isTauri && selectedCompanyId && kind === 'stampTaxReport')
   const usesLiveExpenseReimbursementData = Boolean(isTauri && selectedCompanyId && kind === 'expenseReimbursement')
   const usesLiveReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'receipt')
   const usesLiveBusinessOrderData = Boolean(isTauri && selectedCompanyId && ['purchaseManagement', 'salesManagement'].includes(kind))
@@ -4228,7 +4273,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [bankTransactionDraft, setBankTransactionDraft] = useState({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' })
   const [showDocumentRecordDialog, setShowDocumentRecordDialog] = useState(false)
   const [editingDocumentRecordId, setEditingDocumentRecordId] = useState<string | null>(null)
-  const [documentRecordDraft, setDocumentRecordDraft] = useState({ businessDate: '', documentCode: '', businessType: '费用报销', partner: '', amount: '', owner: '', attachmentStatus: '待补附件' })
+  const [documentRecordDraft, setDocumentRecordDraft] = useState({ businessDate: '', documentCode: '', businessType: '费用报销', partner: '', amount: '', owner: '', attachmentStatus: '待补附件', stampTaxItem: '', stampTaxRate: '' })
   const [showBusinessOrderDialog, setShowBusinessOrderDialog] = useState(false)
   const [editingBusinessOrderId, setEditingBusinessOrderId] = useState<string | null>(null)
   const [businessOrderDraft, setBusinessOrderDraft] = useState({ orderNo: '', businessDate: '', counterparty: '', goodsName: '', amount: '', fulfillmentStatus: '待确认', invoiceStatus: '待开票', settlementStatus: '未结算', status: '待确认', sourceDocument: '' })
@@ -4485,9 +4530,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodLabel, selectedCompanyId, usesLiveBankTransactionData])
 
   useEffect(() => {
-    if (!(usesLiveDocumentRecordData || usesLiveExpenseReimbursementData || usesLiveReceiptData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!(usesLiveDocumentRecordData || usesLiveStampTaxData || usesLiveExpenseReimbursementData || usesLiveReceiptData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return
     void documentRecordApi.getDocumentRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setDocumentRecords(result.success ? result.data || [] : []))
-  }, [currentPeriodLabel, selectedCompanyId, usesLiveDocumentRecordData, usesLiveExpenseReimbursementData, usesLiveReceiptData])
+  }, [currentPeriodLabel, selectedCompanyId, usesLiveDocumentRecordData, usesLiveStampTaxData, usesLiveExpenseReimbursementData, usesLiveReceiptData])
   useEffect(() => { if (!usesLiveReconciliationData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void bankTransactionApi.getBankTransactions({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result)=>setBankTransactions(result.success?result.data||[]:[])); void fetchInvoices({ company_id:selectedCompanyId, period_id:currentPeriodId||undefined }) }, [currentPeriodId, currentPeriodLabel, fetchInvoices, selectedCompanyId, usesLiveReconciliationData])
   useEffect(() => { if (!usesLiveAccountTransferData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setAccountTransfers(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveAccountTransferData])
   useEffect(() => { if (!usesLiveFixedAssetData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void fixedAssetApi.getFixedAssets({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setFixedAssets(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveFixedAssetData])
@@ -5040,6 +5085,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'payableSettlement' && usesLiveSettlementRecordData) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'payable') }
     if (kind === 'receivablePayableAging' && usesLiveSettlementRecordData) return { ...baseConfig, rows: mapLiveSettlementAgingRows(settlementRecords) }
     if (kind === 'documentRegister' && usesLiveDocumentRecordData) return { ...baseConfig, rows: mapLiveDocumentRecordRows(documentRecords), summary: summarizeLiveDocumentRecords(documentRecords) }
+    if (kind === 'stampTaxReport' && usesLiveStampTaxData) return { ...baseConfig, rows: mapLiveStampTaxRows(documentRecords), summary: summarizeLiveStampTax(documentRecords) }
     if (kind === 'expenseReimbursement' && usesLiveExpenseReimbursementData) return { ...baseConfig, rows: mapLiveExpenseReimbursementRows(documentRecords), summary: summarizeLiveExpenseReimbursements(documentRecords) }
     if (kind === 'receipt' && usesLiveReceiptData) return { ...baseConfig, rows: mapLiveReceiptRows(documentRecords), summary: summarizeLiveReceipts(documentRecords) }
     if (kind === 'purchaseManagement' && usesLiveBusinessOrderData) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'purchase'), summary: summarizeLiveBusinessOrders(businessOrders, 'purchase', ['采购单', '已完成', '待处理', '异常单']) }
@@ -5485,7 +5531,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactionTagIds, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactionTagIds, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [businessTagFilter, setBusinessTagFilter] = useState('全部')
@@ -5804,9 +5850,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowBankTransactionDialog(true)
       return
     }
-    if (['documentRegister', 'expenseReimbursement', 'receipt'].includes(kind) && isTauri && selectedCompanyId) {
+    if (['documentRegister', 'expenseReimbursement', 'receipt', 'stampTaxReport'].includes(kind) && isTauri && selectedCompanyId) {
       setEditingDocumentRecordId(null)
-      setDocumentRecordDraft({ businessDate: '', documentCode: '', businessType: kind === 'expenseReimbursement' ? '费用报销' : kind === 'receipt' ? '收款票据' : '其他', partner: '', amount: '', owner: '', attachmentStatus: '待补附件' })
+      setDocumentRecordDraft({ businessDate: '', documentCode: '', businessType: kind === 'expenseReimbursement' ? '费用报销' : kind === 'receipt' ? '收款票据' : kind === 'stampTaxReport' ? '合同付款' : '其他', partner: '', amount: '', owner: '', attachmentStatus: '待补附件', stampTaxItem: '', stampTaxRate: '' })
       setShowDocumentRecordDialog(true)
       return
     }
@@ -6588,7 +6634,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
-      const recordInput = { companyId: selectedCompanyId, businessDate: documentRecordDraft.businessDate, documentCode: documentRecordDraft.documentCode, businessType: documentRecordDraft.businessType, partner: documentRecordDraft.partner || undefined, amount: Number(documentRecordDraft.amount || 0), owner: documentRecordDraft.owner || undefined, attachmentStatus: documentRecordDraft.attachmentStatus }
+      const recordInput = { companyId: selectedCompanyId, businessDate: documentRecordDraft.businessDate, documentCode: documentRecordDraft.documentCode, businessType: documentRecordDraft.businessType, partner: documentRecordDraft.partner || undefined, amount: Number(documentRecordDraft.amount || 0), owner: documentRecordDraft.owner || undefined, attachmentStatus: documentRecordDraft.attachmentStatus, stampTaxItem: documentRecordDraft.stampTaxItem || undefined, stampTaxRate: documentRecordDraft.stampTaxRate === '' ? undefined : Number(documentRecordDraft.stampTaxRate) / 100 }
       const result = editingDocumentRecordId
         ? await documentRecordApi.updateDocumentRecord({ id: editingDocumentRecordId, ...recordInput })
         : await documentRecordApi.createDocumentRecord({ ...recordInput, period: currentPeriodLabel })
@@ -6597,7 +6643,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       writeModuleAudit(editingDocumentRecordId ? '编辑登记单据' : '新增登记单据', result.data.documentCode, '中', '成功')
       setOperationNotice(editingDocumentRecordId ? `已更新 ${result.data.documentCode}，需重新审核后才可生成凭证。` : `已新增 ${result.data.documentCode}，等待审核和凭证生成确认。`)
       setEditingDocumentRecordId(null)
-      setDocumentRecordDraft({ businessDate: '', documentCode: '', businessType: '费用报销', partner: '', amount: '', owner: '', attachmentStatus: '待补附件' })
+      setDocumentRecordDraft({ businessDate: '', documentCode: '', businessType: '费用报销', partner: '', amount: '', owner: '', attachmentStatus: '待补附件', stampTaxItem: '', stampTaxRate: '' })
       setShowDocumentRecordDialog(false)
     } catch (error) { setOperationNotice(`${editingDocumentRecordId ? '编辑' : '新增'}登记单据失败：${String(error)}`) }
   }
@@ -7101,7 +7147,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return
       }
       setEditingDocumentRecordId(record.id)
-      setDocumentRecordDraft({ businessDate: record.businessDate, documentCode: record.documentCode, businessType: record.businessType, partner: record.partner || '', amount: String(record.amount), owner: record.owner || '', attachmentStatus: record.attachmentStatus })
+      setDocumentRecordDraft({ businessDate: record.businessDate, documentCode: record.documentCode, businessType: record.businessType, partner: record.partner || '', amount: String(record.amount), owner: record.owner || '', attachmentStatus: record.attachmentStatus, stampTaxItem: record.stampTaxItem || '', stampTaxRate: record.stampTaxRate === null ? '' : String(record.stampTaxRate * 100) })
       setShowDocumentRecordDialog(true)
       return
     }
@@ -8260,6 +8306,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               {([{ field: 'businessDate', label: '业务日期 *', type: 'date', required: true }, { field: 'documentCode', label: '单据编号 *', type: 'text', required: true }, { field: 'partner', label: '往来单位', type: 'text' }, { field: 'amount', label: '金额 *', type: 'number', required: true }, { field: 'owner', label: '经办人', type: 'text' }] as Array<{ field: keyof typeof documentRecordDraft; label: string; type: string; required?: boolean }>).map(({ field, label, type, required }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={required} type={type} min={type === 'number' ? '0.01' : undefined} step={type === 'number' ? '0.01' : undefined} value={documentRecordDraft[field]} onChange={(event) => setDocumentRecordDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}
               <label className="grid gap-1 text-xs text-slate-600">业务类型<select value={documentRecordDraft.businessType} onChange={(event) => setDocumentRecordDraft((draft) => ({ ...draft, businessType: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['费用报销', '采购入库', '差旅报销', '合同付款', '其他'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
               <label className="grid gap-1 text-xs text-slate-600">附件状态<select value={documentRecordDraft.attachmentStatus} onChange={(event) => setDocumentRecordDraft((draft) => ({ ...draft, attachmentStatus: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="待补附件">待补附件</option><option value="已归档">已归档</option></select></label>
+              <label className="grid gap-1 text-xs text-slate-600">印花税税目<input value={documentRecordDraft.stampTaxItem} onChange={(event) => setDocumentRecordDraft((draft) => ({ ...draft, stampTaxItem: event.target.value }))} placeholder="人工确认后填写" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">印花税率（%）<input min="0" step="0.0001" type="number" value={documentRecordDraft.stampTaxRate} onChange={(event) => setDocumentRecordDraft((draft) => ({ ...draft, stampTaxRate: event.target.value }))} placeholder="人工确认后填写" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowDocumentRecordDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingDocumentRecordId ? '保存修改' : '保存单据'}</button></div>
           </form>

@@ -279,6 +279,8 @@ impl Database {
                 amount REAL NOT NULL DEFAULT 0,
                 owner TEXT,
                 attachment_status TEXT NOT NULL DEFAULT '待补附件',
+                stamp_tax_item TEXT,
+                stamp_tax_rate REAL,
                 status TEXT NOT NULL DEFAULT '待审核',
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -289,6 +291,16 @@ impl Database {
         )
         .execute(pool)
         .await?;
+
+        // Document tax fields are optional so historical business records remain valid.
+        sqlx::query("ALTER TABLE document_records ADD COLUMN stamp_tax_item TEXT")
+            .execute(pool)
+            .await
+            .ok();
+        sqlx::query("ALTER TABLE document_records ADD COLUMN stamp_tax_rate REAL")
+            .execute(pool)
+            .await
+            .ok();
 
         sqlx::query(
             r#"
@@ -3246,6 +3258,8 @@ pub struct DocumentRecord {
     pub amount: f64,
     pub owner: Option<String>,
     pub attachment_status: String,
+    pub stamp_tax_item: Option<String>,
+    pub stamp_tax_rate: Option<f64>,
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
@@ -3262,6 +3276,8 @@ pub struct CreateDocumentRecordInput {
     pub amount: f64,
     pub owner: Option<String>,
     pub attachment_status: Option<String>,
+    pub stamp_tax_item: Option<String>,
+    pub stamp_tax_rate: Option<f64>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -3275,6 +3291,8 @@ pub struct UpdateDocumentRecordInput {
     pub amount: f64,
     pub owner: Option<String>,
     pub attachment_status: Option<String>,
+    pub stamp_tax_item: Option<String>,
+    pub stamp_tax_rate: Option<f64>,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
