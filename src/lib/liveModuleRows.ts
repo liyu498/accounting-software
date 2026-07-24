@@ -1626,6 +1626,77 @@ export function summarizeLiveBalanceSheet(result: BalanceSheetResult): LiveSumma
   ]
 }
 
+function equityBalanceItems(result: BalanceSheetResult): Map<string, BalanceSheetItem> {
+  return new Map(flattenBalanceSheetItems(result.items).filter((item) => item.section === 'equity').map((item) => [item.item_code, item]))
+}
+
+function equityValue(item: BalanceSheetItem | undefined, field: 'opening_balance' | 'ending_balance'): string {
+  return item ? currency(item[field]) : '-'
+}
+
+export function mapLiveEquityChangeRows(
+  balanceSheet: BalanceSheetResult,
+  incomeStatement: IncomeStatementResult,
+): LiveModuleRow[] {
+  const items = equityBalanceItems(balanceSheet)
+  const value = (itemCode: string, field: 'opening_balance' | 'ending_balance') => items.get(itemCode)?.[field] || 0
+  const total = (field: 'opening_balance' | 'ending_balance') => balanceSheet.items
+    ? field === 'opening_balance' ? balanceSheet.opening_total_equity : balanceSheet.total_equity
+    : 0
+  const columns = [
+    ['paidInCapital', 'BS601'],
+    ['capitalReserve', 'BS602'],
+    ['surplusReserve', 'BS603'],
+    ['undistributedProfit', 'BS604'],
+  ] as const
+  const display = (field: 'opening_balance' | 'ending_balance') => Object.fromEntries(columns.map(([key, itemCode]) => [key, equityValue(items.get(itemCode), field)]))
+  const changes = Object.fromEntries(columns.map(([key, itemCode]) => [key, currency(value(itemCode, 'ending_balance') - value(itemCode, 'opening_balance'))]))
+  const status: LiveModuleStatus = balanceSheet.is_balanced ? '已通过' : '异常'
+  return [
+    {
+      id: 'equity-opening',
+      status,
+      voucher: '权益期初快照',
+      attachment: '资产负债表',
+      values: { item: '期初余额', ...display('opening_balance'), total: currency(total('opening_balance')), source: '资产负债表期初数' },
+    },
+    {
+      id: 'equity-change',
+      status,
+      voucher: '本期权益变动',
+      attachment: '资产负债表',
+      values: { item: '本期变动', ...changes, total: currency(total('ending_balance') - total('opening_balance')), source: '期末余额 - 期初余额' },
+    },
+    {
+      id: 'equity-income-reference',
+      status: '待确认',
+      voucher: '利润表取数',
+      attachment: '累计净利润',
+      values: { item: '本年累计净利润（参考）', paidInCapital: '-', capitalReserve: '-', surplusReserve: '-', undistributedProfit: currency(incomeStatement.year_to_date_total), total: currency(incomeStatement.year_to_date_total), source: '利润表本年累计' },
+    },
+    {
+      id: 'equity-ending',
+      status,
+      voucher: '权益期末快照',
+      attachment: '资产负债表',
+      values: { item: '期末余额', ...display('ending_balance'), total: currency(total('ending_balance')), source: '资产负债表期末数' },
+    },
+  ]
+}
+
+export function summarizeLiveEquityChange(
+  balanceSheet: BalanceSheetResult,
+  incomeStatement: IncomeStatementResult,
+): LiveSummaryItem[] {
+  const change = balanceSheet.total_equity - balanceSheet.opening_total_equity
+  return [
+    { label: '期初权益', value: currency(balanceSheet.opening_total_equity), tone: 'blue' },
+    { label: '本年累计净利润', value: currency(incomeStatement.year_to_date_total), tone: 'green' },
+    { label: '权益实际变动', value: currency(change), tone: change >= 0 ? 'green' : 'amber' },
+    { label: '期末权益', value: currency(balanceSheet.total_equity), tone: balanceSheet.is_balanced ? 'green' : 'red' },
+  ]
+}
+
 function flattenIncomeStatementItems(items: IncomeStatementItem[]): IncomeStatementItem[] {
   return items.flatMap((item) => [item, ...flattenIncomeStatementItems(item.children || [])])
 }

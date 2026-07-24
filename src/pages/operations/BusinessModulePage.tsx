@@ -25,6 +25,7 @@ import { accountTransferApi, automationApi, backupApi, bankReconciliationApi, ba
 import { measurementUnitApi, type MeasurementUnit } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
+  mapLiveEquityChangeRows,
   mapLiveCashFlowRows,
   mapLiveCashFlowQuarterRows,
   mapLiveCompanyInfoRows,
@@ -69,6 +70,7 @@ import {
   mapLiveFinancialOverviewRows,
   mapLiveVoucherTemplateRows,
   summarizeLiveBalanceSheet,
+  summarizeLiveEquityChange,
   summarizeLiveCashFlow,
   summarizeLiveCashFlowQuarter,
   summarizeLiveCompanyInfo,
@@ -4104,7 +4106,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     isTauri &&
       selectedCompanyId &&
       currentPeriodId &&
-      ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'multiColumnLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'incomeQuarterReport', 'incomeTaxReport', 'cashFlowReport', 'cashFlowQuarterReport'].includes(kind),
+      ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'multiColumnLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'incomeQuarterReport', 'incomeTaxReport', 'cashFlowReport', 'cashFlowQuarterReport', 'equityChangeReport'].includes(kind),
   )
   const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
   const usesLiveCompanyBankAccountData = Boolean(isTauri && selectedCompanyId && kind === 'accountArchive')
@@ -4518,6 +4520,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         if (kind === 'balanceSheetReport') {
           const balanceSheet = await getBalanceSheet(currentPeriodId)
           if (active) setLiveReports((reports) => ({ ...reports, balanceSheet }))
+          return
+        }
+
+        if (kind === 'equityChangeReport') {
+          const [balanceSheet, incomeStatement] = await Promise.all([
+            getBalanceSheet(currentPeriodId),
+            getIncomeStatement(currentPeriodId),
+          ])
+          if (active) setLiveReports((reports) => ({ ...reports, balanceSheet, incomeStatement }))
           return
         }
 
@@ -5177,6 +5188,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveBalanceSheetRows(liveReports.balanceSheet),
         summary: summarizeLiveBalanceSheet(liveReports.balanceSheet),
+      }
+    }
+
+    if (kind === 'equityChangeReport' && usesLiveReportData && liveReports.balanceSheet && liveReports.incomeStatement) {
+      return {
+        ...baseConfig,
+        rows: mapLiveEquityChangeRows(liveReports.balanceSheet, liveReports.incomeStatement),
+        summary: summarizeLiveEquityChange(liveReports.balanceSheet, liveReports.incomeStatement),
       }
     }
 

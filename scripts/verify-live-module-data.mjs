@@ -848,6 +848,16 @@ const requiredCashFlowQuarterPageSnippets = [
   ['cash flow quarter baseline request', 'getCashFlowStatement(priorQuarterPeriod.id)'],
   ['cash flow quarter live mapper', 'mapLiveCashFlowQuarterRows(liveReports.cashFlow, liveReports.cashFlowQuarterBaseline'],
 ]
+const requiredEquityChangeAdapterSnippets = [
+  ['equity change row mapper', 'export function mapLiveEquityChangeRows'],
+  ['equity change summary mapper', 'export function summarizeLiveEquityChange'],
+]
+const requiredEquityChangePageSnippets = [
+  ['equity change live scope', "'equityChangeReport'"],
+  ['equity change balance sheet request', 'getBalanceSheet(currentPeriodId)'],
+  ['equity change income statement request', 'getIncomeStatement(currentPeriodId)'],
+  ['equity change live mapper', 'mapLiveEquityChangeRows(liveReports.balanceSheet, liveReports.incomeStatement)'],
+]
 const requiredCashFlowQuarterCommandSnippets = [
   ['cash flow YTD result field', 'net_increase_year_to_date: f64'],
   ['cash flow item YTD field', 'year_to_date: f64'],
@@ -1239,6 +1249,7 @@ const errors = [
   ...verify(adapterSource, requiredMultiColumnLedgerAdapterSnippets, 'multi-column ledger adapter'),
   ...verify(adapterSource, requiredIncomeQuarterAdapterSnippets, 'income quarter adapter'),
   ...verify(adapterSource, requiredCashFlowQuarterAdapterSnippets, 'cash flow quarter adapter'),
+  ...verify(adapterSource, requiredEquityChangeAdapterSnippets, 'equity change adapter'),
   ...verify(periodCommandSource, requiredCashFlowQuarterCommandSnippets, 'cash flow quarter commands'),
   ...verify(pageSource, requiredStructuredAiSuggestionPageSnippets, 'structured AI suggestion module page'),
   ...verify(pageSource, requiredAiSuggestionVoucherLinkPageSnippets, 'AI suggestion voucher link module page'),
@@ -1247,6 +1258,7 @@ const errors = [
   ...verify(pageSource, requiredMultiColumnLedgerPageSnippets, 'multi-column ledger module page'),
   ...verify(pageSource, requiredIncomeQuarterPageSnippets, 'income quarter module page'),
   ...verify(pageSource, requiredCashFlowQuarterPageSnippets, 'cash flow quarter module page'),
+  ...verify(pageSource, requiredEquityChangePageSnippets, 'equity change module page'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
   ...verify(pageSource, requiredInventoryItemPageSnippets, 'inventory item module page'),
