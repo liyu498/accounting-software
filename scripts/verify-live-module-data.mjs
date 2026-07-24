@@ -847,6 +847,10 @@ const requiredAiSuggestionVoucherLinkPageSnippets = [
 const requiredAiSuggestionVoucherLinkAdapterSnippets = [
   ['AI suggestion actual voucher display', 'voucher: job.generatedVoucherNumber || job.sourceId ||'],
 ]
+const requiredAiSuggestionVoucherUnlinkCommandSnippets = [
+  ['AI suggestion permanent-delete reset status', "SET generated_voucher_id = NULL, generated_voucher_number = NULL, status = 'confirmed'"],
+  ['AI suggestion permanent-delete reset scope', 'WHERE generated_voucher_id = ? AND company_id = ?'],
+]
 const requiredBusinessOrderPageSnippets = [
   ['business order live scope', "['purchaseManagement', 'salesManagement'].includes(kind)"],
   ['business order editor state', 'const [showBusinessOrderDialog, setShowBusinessOrderDialog] = useState(false)'],
@@ -1195,6 +1199,7 @@ const errors = [
   ...verify(adapterSource, requiredStructuredAiSuggestionAdapterSnippets, 'structured AI suggestion adapter'),
   ...verify(pageSource, requiredStructuredAiSuggestionPageSnippets, 'structured AI suggestion module page'),
   ...verify(pageSource, requiredAiSuggestionVoucherLinkPageSnippets, 'AI suggestion voucher link module page'),
+  ...verify(voucherCommandSource, requiredAiSuggestionVoucherUnlinkCommandSnippets, 'AI suggestion voucher unlink commands'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
   ...verify(pageSource, requiredInventoryItemPageSnippets, 'inventory item module page'),

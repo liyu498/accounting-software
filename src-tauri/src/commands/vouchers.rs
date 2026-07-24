@@ -800,6 +800,15 @@ pub async fn permanent_delete_voucher(
 
     let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
 
+    sqlx::query(
+        "UPDATE automation_jobs SET generated_voucher_id = NULL, generated_voucher_number = NULL, status = 'confirmed', updated_at = datetime('now') WHERE generated_voucher_id = ? AND company_id = ?",
+    )
+    .bind(&id)
+    .bind(&company_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| format!("Failed to unlink AI voucher suggestion: {}", e))?;
+
     sqlx::query("DELETE FROM voucher_logs WHERE voucher_id = ?")
         .bind(&id)
         .execute(&mut *tx)
