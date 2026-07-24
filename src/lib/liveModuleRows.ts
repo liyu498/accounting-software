@@ -17,6 +17,7 @@ import type { Voucher, VoucherEntry } from '../stores/voucherStore'
 import type { SettlementRule } from '../stores/settlementRuleStore'
 import type { MatchingRule, MatchingRuleScope } from '../stores/matchingRuleStore'
 import type { AssetCategory } from '../stores/assetCategoryStore'
+import type { BusinessTag } from '../stores/businessTagStore'
 import type { Currency } from '../stores/currencyStore'
 import type { CommonDigest, VoucherTemplateType, VoucherTemplateWithEntries } from '../stores/templateStore'
 import type { ReportItem, ReportTemplate } from '../stores/reportTemplateStore'
@@ -1963,5 +1964,32 @@ export function summarizeLiveAssetCategories(categories: AssetCategory[]): LiveS
     { label: '启用', value: `${enabled} 类`, tone: enabled > 0 ? 'green' : 'gray' },
     { label: '默认规则', value: `${categories.filter((category) => category.asset_account && category.accumulated_depreciation_account).length} 条`, tone: 'amber' },
     { label: '停用', value: `${categories.length - enabled} 类`, tone: categories.length - enabled > 0 ? 'gray' : 'green' },
+  ]
+}
+
+export function mapLiveBusinessTagRows(tags: BusinessTag[]): LiveModuleRow[] {
+  return tags.map((tag) => ({
+    id: `business-tag-${tag.id}`,
+    status: tag.is_enabled === 1 ? '启用' : '停用',
+    voucher: '-',
+    attachment: tag.updated_at,
+    values: {
+      name: tag.name,
+      module: tag.applicable_modules,
+      color: tag.color_name,
+      rule: tag.auto_rule || '无',
+      count: String(tag.usage_count),
+      remark: tag.remarks || '-',
+    },
+  }))
+}
+
+export function summarizeLiveBusinessTags(tags: BusinessTag[]): LiveSummaryItem[] {
+  const enabled = tags.filter((tag) => tag.is_enabled === 1).length
+  return [
+    { label: '标签数量', value: `${tags.length} 个`, tone: 'blue' },
+    { label: '启用', value: `${enabled} 个`, tone: enabled > 0 ? 'green' : 'gray' },
+    { label: '本期使用', value: `${tags.reduce((total, tag) => total + tag.usage_count, 0)} 次`, tone: 'amber' },
+    { label: '停用', value: `${tags.length - enabled} 个`, tone: tags.length - enabled > 0 ? 'gray' : 'green' },
   ]
 }

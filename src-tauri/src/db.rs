@@ -135,6 +135,16 @@ impl Database {
         "#).execute(pool).await?;
 
         sqlx::query(r#"
+            CREATE TABLE IF NOT EXISTS business_tags (
+                id TEXT PRIMARY KEY, company_id TEXT NOT NULL, name TEXT NOT NULL, applicable_modules TEXT NOT NULL,
+                color_name TEXT NOT NULL DEFAULT '蓝色', auto_rule TEXT, usage_count INTEGER NOT NULL DEFAULT 0,
+                remarks TEXT, is_enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, name)
+            )
+        "#).execute(pool).await?;
+
+        sqlx::query(r#"
             CREATE TABLE IF NOT EXISTS inventory_movements (
                 id TEXT PRIMARY KEY, company_id TEXT NOT NULL, period TEXT NOT NULL, movement_date TEXT NOT NULL,
                 bill_no TEXT NOT NULL, movement_type TEXT NOT NULL, inventory_name TEXT NOT NULL, warehouse TEXT NOT NULL,

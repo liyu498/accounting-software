@@ -256,6 +256,11 @@ pub fn run() {
             commands::asset_categories::update_asset_category,
             commands::asset_categories::delete_asset_category,
             commands::asset_categories::toggle_asset_category,
+            // Cross-module business tag commands
+            commands::business_tags::get_business_tags,
+            commands::business_tags::create_business_tag,
+            commands::business_tags::update_business_tag,
+            commands::business_tags::delete_business_tag,
             // Currency commands
             commands::currencies::get_currencies,
             commands::currencies::create_currency,

@@ -67,6 +67,12 @@ const assetCategoryStoreSource = existsSync('src/stores/assetCategoryStore.ts')
 const assetCategoryCommandSource = existsSync('src-tauri/src/commands/asset_categories.rs')
   ? readFileSync('src-tauri/src/commands/asset_categories.rs', 'utf8')
   : ''
+const businessTagStoreSource = existsSync('src/stores/businessTagStore.ts')
+  ? readFileSync('src/stores/businessTagStore.ts', 'utf8')
+  : ''
+const businessTagCommandSource = existsSync('src-tauri/src/commands/business_tags.rs')
+  ? readFileSync('src-tauri/src/commands/business_tags.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -718,6 +724,25 @@ const requiredAssetCategoryPageSnippets = [
   ['asset category editor state', 'const [showAssetCategoryDialog, setShowAssetCategoryDialog] = useState(false)'],
   ['asset category save binding', 'createAssetCategory({'],
 ]
+const requiredBusinessTagCommandSnippets = [
+  ['business tag list command', 'pub async fn get_business_tags'],
+  ['business tag create command', 'pub async fn create_business_tag'],
+  ['business tag update command', 'pub async fn update_business_tag'],
+  ['business tag delete command', 'pub async fn delete_business_tag'],
+]
+const requiredBusinessTagStoreSnippets = [
+  ['business tag fetch action', 'fetchBusinessTags: async'],
+  ['business tag create action', 'createBusinessTag: async'],
+  ['business tag update action', 'updateBusinessTag: async'],
+  ['business tag delete action', 'deleteBusinessTag: async'],
+]
+const requiredBusinessTagPageSnippets = [
+  ['business tag store binding', "from '../../stores/businessTagStore'"],
+  ['business tag live scope', "kind === 'tagArchive'"],
+  ['business tag row mapping', 'mapLiveBusinessTagRows(businessTags)'],
+  ['business tag editor state', 'const [showBusinessTagDialog, setShowBusinessTagDialog] = useState(false)'],
+  ['business tag save binding', 'createBusinessTag({'],
+]
 
 const requiredSocialSecurityCommandSnippets = [
   ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
@@ -969,6 +994,10 @@ const errors = [
   ...verify(assetCategoryCommandSource, requiredAssetCategoryCommandSnippets, 'asset category commands'),
   ...verify(assetCategoryStoreSource, requiredAssetCategoryStoreSnippets, 'asset category store'),
   ...verify(pageSource, requiredAssetCategoryPageSnippets, 'asset category module page'),
+  ...verify(databaseSource, [['business tag schema', 'CREATE TABLE IF NOT EXISTS business_tags']], 'database schema'),
+  ...verify(businessTagCommandSource, requiredBusinessTagCommandSnippets, 'business tag commands'),
+  ...verify(businessTagStoreSource, requiredBusinessTagStoreSnippets, 'business tag store'),
+  ...verify(pageSource, requiredBusinessTagPageSnippets, 'business tag module page'),
   ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
   ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),

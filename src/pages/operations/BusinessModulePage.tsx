@@ -109,6 +109,8 @@ import {
   mapLiveMatchingRuleRows,
   mapLiveAssetCategoryRows,
   summarizeLiveAssetCategories,
+  mapLiveBusinessTagRows,
+  summarizeLiveBusinessTags,
   summarizeLiveVoucherTemplates,
 } from '../../lib/liveModuleRows'
 import { useCompanyStore } from '../../stores/companyStore'
@@ -131,6 +133,7 @@ import { useTemplateStore, type TemplateEntry } from '../../stores/templateStore
 import { useReportTemplateStore } from '../../stores/reportTemplateStore'
 import { useMatchingRuleStore, type MatchingRuleScope } from '../../stores/matchingRuleStore'
 import { useAssetCategoryStore } from '../../stores/assetCategoryStore'
+import { useBusinessTagStore } from '../../stores/businessTagStore'
 
 type ModuleKind =
   | 'attachmentCenter'
@@ -4057,6 +4060,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const createAssetCategory = useAssetCategoryStore((state) => state.createAssetCategory)
   const updateAssetCategory = useAssetCategoryStore((state) => state.updateAssetCategory)
   const deleteAssetCategory = useAssetCategoryStore((state) => state.deleteAssetCategory)
+  const businessTags = useBusinessTagStore((state) => state.businessTags)
+  const fetchBusinessTags = useBusinessTagStore((state) => state.fetchBusinessTags)
+  const createBusinessTag = useBusinessTagStore((state) => state.createBusinessTag)
+  const updateBusinessTag = useBusinessTagStore((state) => state.updateBusinessTag)
+  const deleteBusinessTag = useBusinessTagStore((state) => state.deleteBusinessTag)
   const usesLiveModuleData = isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice', 'voucher', 'riskCheck'].includes(kind)
   const usesLiveReportData = Boolean(
     isTauri &&
@@ -4073,6 +4081,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveReportFormulaData = Boolean(isTauri && selectedCompanyId && kind === 'reportFormulaSettings')
   const usesLiveMatchingRuleData = Boolean(isTauri && selectedCompanyId && ['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping'].includes(kind))
   const usesLiveAssetCategoryData = Boolean(isTauri && selectedCompanyId && kind === 'assetCategory')
+  const usesLiveBusinessTagData = Boolean(isTauri && selectedCompanyId && kind === 'tagArchive')
   const matchingRuleScope: MatchingRuleScope = kind === 'invoiceMatchingRules' ? 'invoice' : kind === 'billMatchingRules' ? 'bill' : 'cash_flow'
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings', 'taxInit'].includes(kind))
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
@@ -4194,6 +4203,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showAssetCategoryDialog, setShowAssetCategoryDialog] = useState(false)
   const [editingAssetCategoryId, setEditingAssetCategoryId] = useState<string | null>(null)
   const [assetCategoryDraft, setAssetCategoryDraft] = useState({ code: '', name: '', usefulLifeMonths: '60', residualRate: '5', depreciationMethod: '平均年限法', assetAccount: '1601 固定资产', accumulatedDepreciationAccount: '1602 累计折旧', expenseAccount: '6602 管理费用', isEnabled: true })
+  const [showBusinessTagDialog, setShowBusinessTagDialog] = useState(false)
+  const [editingBusinessTagId, setEditingBusinessTagId] = useState<string | null>(null)
+  const [businessTagDraft, setBusinessTagDraft] = useState({ name: '', applicableModules: '发票/流水/凭证', colorName: '蓝色', autoRule: '', remarks: '', isEnabled: true })
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -4493,6 +4505,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!usesLiveAssetCategoryData || !selectedCompanyId) return
     void fetchAssetCategories(selectedCompanyId)
   }, [fetchAssetCategories, selectedCompanyId, usesLiveAssetCategoryData])
+
+  useEffect(() => {
+    if (!usesLiveBusinessTagData || !selectedCompanyId) return
+    void fetchBusinessTags(selectedCompanyId)
+  }, [fetchBusinessTags, selectedCompanyId, usesLiveBusinessTagData])
 
   useEffect(() => {
     if (!usesLiveCurrencyData || !selectedCompanyId) return
@@ -5180,6 +5197,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (usesLiveBusinessTagData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveBusinessTagRows(businessTags),
+        summary: summarizeLiveBusinessTags(businessTags),
+      }
+    }
+
     if (kind === 'auxiliaryItems' && usesLiveArchiveData) {
       return {
         ...baseConfig,
@@ -5237,7 +5262,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, commonDigests, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, businessTags, commonDigests, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -5411,6 +5436,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (usesLiveAssetCategoryData && selectedCompanyId) {
       resetAssetCategoryDraft()
       setShowAssetCategoryDialog(true)
+      return
+    }
+    if (usesLiveBusinessTagData && selectedCompanyId) {
+      resetBusinessTagDraft()
+      setShowBusinessTagDialog(true)
       return
     }
     if (kind === 'auxiliaryCategories' && isTauri && selectedCompanyId) {
@@ -5985,6 +6015,35 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     catch (error) { setOperationNotice(`删除资产类别失败：${String(error)}`) }
   }
 
+  const resetBusinessTagDraft = () => {
+    setEditingBusinessTagId(null)
+    setBusinessTagDraft({ name: '', applicableModules: '发票/流水/凭证', colorName: '蓝色', autoRule: '', remarks: '', isEnabled: true })
+  }
+
+  const handleSaveBusinessTag = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    try {
+      const input = {
+        companyId: selectedCompanyId, name: businessTagDraft.name.trim(), applicableModules: businessTagDraft.applicableModules.trim(),
+        colorName: businessTagDraft.colorName, autoRule: businessTagDraft.autoRule.trim() || undefined,
+        remarks: businessTagDraft.remarks.trim() || undefined, isEnabled: businessTagDraft.isEnabled,
+      }
+      const tag = editingBusinessTagId ? await updateBusinessTag(editingBusinessTagId, input) : await createBusinessTag({ ...input })
+      writeModuleAudit(editingBusinessTagId ? '编辑业务标签' : '新增业务标签', `${tag.color_name}｜${tag.name}`, '中', '成功')
+      setOperationNotice(`标签“${tag.name}”已保存，可作为发票、流水、凭证、风险和待办筛选条件。`)
+      resetBusinessTagDraft(); setShowBusinessTagDialog(false)
+    } catch (error) { setOperationNotice(`保存业务标签失败：${String(error)}`) }
+  }
+
+  const handleDeleteBusinessTag = async () => {
+    if (!selectedCompanyId || !editingBusinessTagId) return
+    const tag = businessTags.find((item) => item.id === editingBusinessTagId)
+    if (!tag || !window.confirm(`确认删除标签“${tag.name}”吗？`)) return
+    try { await deleteBusinessTag(tag.id, selectedCompanyId); writeModuleAudit('删除业务标签', `${tag.color_name}｜${tag.name}`, '高', '成功'); setOperationNotice(`标签“${tag.name}”已删除。`); resetBusinessTagDraft(); setShowBusinessTagDialog(false) }
+    catch (error) { setOperationNotice(`删除业务标签失败：${String(error)}`) }
+  }
+
   const resetAuxiliaryCategoryDraft = () => {
     setEditingAuxiliaryCategoryId(null)
     setAuxiliaryCategoryDraft({ code: '', name: '', sortOrder: '0' })
@@ -6365,6 +6424,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingAssetCategoryId(category.id)
       setAssetCategoryDraft({ code: category.code, name: category.name, usefulLifeMonths: String(category.useful_life_months), residualRate: String(category.residual_rate * 100), depreciationMethod: category.depreciation_method, assetAccount: category.asset_account, accumulatedDepreciationAccount: category.accumulated_depreciation_account, expenseAccount: category.expense_account || '', isEnabled: category.is_enabled === 1 })
       setShowAssetCategoryDialog(true)
+      return
+    }
+    if (usesLiveBusinessTagData && selectedCompanyId) {
+      const tag = businessTags.find((item) => `business-tag-${item.id}` === row.id)
+      if (!tag) { setOperationNotice('未找到当前账套的业务标签。'); return }
+      setEditingBusinessTagId(tag.id)
+      setBusinessTagDraft({ name: tag.name, applicableModules: tag.applicable_modules, colorName: tag.color_name, autoRule: tag.auto_rule || '', remarks: tag.remarks || '', isEnabled: tag.is_enabled === 1 })
+      setShowBusinessTagDialog(true)
       return
     }
     if (kind === 'auxiliaryCategories' && isTauri && selectedCompanyId) {
@@ -7421,6 +7488,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">风险提示<input value={adapterAuthorizationDraft.riskMessage} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, riskMessage: event.target.value }))} placeholder="例如：未完成企业授权，禁止自动提交" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowAdapterAuthorizationDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存脱敏配置</button></div>
+          </form>
+        </div>
+      )}
+      {showBusinessTagDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingBusinessTagId ? '编辑业务标签' : '新增业务标签'}>
+          <form onSubmit={handleSaveBusinessTag} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingBusinessTagId ? '编辑业务标签' : '新增业务标签'}</h2><p className="mt-0.5 text-xs text-slate-500">标签用于筛选和人工跟踪；自动标记规则只生成提示，不会改变账务或自动提交税务。</p></div><button type="button" onClick={() => setShowBusinessTagDialog(false)} className="text-xs text-slate-500">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">标签名称 *<input required value={businessTagDraft.name} onChange={(event) => setBusinessTagDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="如：需客户确认" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">颜色标识 *<select value={businessTagDraft.colorName} onChange={(event) => setBusinessTagDraft((draft) => ({ ...draft, colorName: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option>蓝色</option><option>绿色</option><option>橙色</option><option>红色</option><option>灰色</option></select></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">适用模块 *<input required value={businessTagDraft.applicableModules} onChange={(event) => setBusinessTagDraft((draft) => ({ ...draft, applicableModules: event.target.value }))} placeholder="如：发票/流水/凭证" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">自动标记规则<input value={businessTagDraft.autoRule} onChange={(event) => setBusinessTagDraft((draft) => ({ ...draft, autoRule: event.target.value }))} placeholder="如：金额差异、税率异常或资料缺失" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">备注<input value={businessTagDraft.remarks} onChange={(event) => setBusinessTagDraft((draft) => ({ ...draft, remarks: event.target.value }))} placeholder="如：待办跟踪说明" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="inline-flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={businessTagDraft.isEnabled} onChange={(event) => setBusinessTagDraft((draft) => ({ ...draft, isEnabled: event.target.checked }))} />立即启用</label>
+            </div>
+            <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3"><div>{editingBusinessTagId && <button type="button" onClick={() => void handleDeleteBusinessTag()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700">删除标签</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowBusinessTagDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存标签</button></div></div>
           </form>
         </div>
       )}
