@@ -16,6 +16,7 @@ import { cn } from '../../lib/utils'
 import { isTauri } from '../../lib/tauri'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { recordAuditLog, recordExportJob } from '../../lib/exportJobs'
+import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { automationApi, type OperationAuditLog, type TaxDeclarationTask } from '../../lib/api'
 import { useCompanyStore } from '../../stores/companyStore'
 import { usePeriodStore } from '../../stores/periodStore'
@@ -582,7 +583,63 @@ export function TaxWorkspace() {
     setOperationNotice('导入初始化已进入待确认留痕；后续会接入模板校验、字段映射和回滚清单。')
   }
 
-  const downloadTaxTemplate = () => {
+  const downloadTaxTemplate = async () => {
+    const fileName = `税务申报初始化模板-${currentPeriod}.xlsx`
+    const templateHeaders = [
+      '税种',
+      '申报表',
+      '所属期',
+      '取数状态',
+      '校验状态',
+      '计税依据(元)',
+      '抵扣/减免(元)',
+      '应缴金额(元)',
+      '风险项',
+      '取数依据/人工复核说明',
+      '授权适配器代码',
+    ]
+    const templateRows = currentRows.map((row) => [
+      row.category,
+      row.form,
+      row.period,
+      row.collectStatus,
+      row.checkStatus,
+      parseMoney(row.sales).toFixed(2),
+      parseMoney(row.deduction).toFixed(2),
+      parseMoney(row.payable).toFixed(2),
+      row.risk === '无' ? '' : row.risk,
+      row.source,
+      '',
+    ])
+
+    try {
+      await exportRowsToXlsx({
+        fileName,
+        sheetName: '税务申报初始化',
+        columnWidths: [
+          { wch: 16 }, { wch: 34 }, { wch: 13 }, { wch: 12 }, { wch: 12 }, { wch: 15 },
+          { wch: 15 }, { wch: 15 }, { wch: 28 }, { wch: 42 }, { wch: 22 },
+        ],
+        merges: [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+          { s: { r: templateRows.length + 6, c: 1 }, e: { r: templateRows.length + 6, c: 10 } },
+        ],
+        sheetRows: [
+          ['税务申报初始化模板'],
+          ['账套名称', taxPackageMetadata.companyName, '纳税人识别号', taxPackageMetadata.taxId, '所属期', currentPeriod],
+          ['模板用途', '本地税种认定、取数和校验参数维护'],
+          [],
+          templateHeaders,
+          ...templateRows,
+          [],
+          ['制表说明', '仅用于本地税种认定和取数维护；不包含税局密码，不提交税局、不扣款。'],
+        ],
+      })
+    } catch (error) {
+      setOperationNotice(`下载税务申报初始化模板失败：${String(error)}`)
+      return
+    }
+
     writeTaxAudit({
       action: '下载模板',
       object: '税务申报初始化模板',
@@ -592,14 +649,14 @@ export function TaxWorkspace() {
       attachment: '模板版本',
     })
     recordExportJob({
-      fileName: `税务申报初始化模板-${currentPeriod}.xlsx`,
+      fileName,
       moduleName: '税务申报工作台',
       format: 'Excel模板',
       scope: `${currentPeriod}/初始化`,
       templateKind: 'tax',
-      rowCount: 0,
+      rowCount: templateRows.length,
     })
-    setOperationNotice('税务申报初始化模板已写入下载中心；正式模板会继续绑定税种、地区和申报口径校验。')
+    setOperationNotice(`税务申报初始化模板已下载并写入下载中心，预填 ${templateRows.length} 条税种认定行；导入仍只维护本地数据，不会提交税局或扣款。`)
   }
 
   const openColumnSettings = () => {

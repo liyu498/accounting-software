@@ -343,6 +343,9 @@ const requiredTaxWorkspaceSnippets = [
   ['tax workspace detail editor state', 'const [showDeclarationDetailDialog, setShowDeclarationDetailDialog] = useState(false)'],
   ['tax workspace detail save binding', 'const saveDeclarationDetail = async'],
   ['tax workspace detail local boundary', '保存仅更新本地取数和校验状态'],
+  ['tax workspace initialization template export', 'exportRowsToXlsx({'],
+  ['tax workspace initialization template boundary', '仅用于本地税种认定和取数维护；不包含税局密码，不提交税局、不扣款。'],
+  ['tax workspace initialization template columns', "'取数依据/人工复核说明'"],
 ]
 
 const requiredWelcomeSnippets = [
