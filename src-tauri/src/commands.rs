@@ -22,5 +22,6 @@ pub mod account_transfers;
 pub mod fixed_assets;
 pub mod inventory_movements;
 pub mod inventory_items;
+pub mod matching_rules;
 pub mod units;
 pub mod roles;

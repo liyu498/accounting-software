@@ -245,6 +245,11 @@ pub fn run() {
             commands::settlement::update_settlement_rule,
             commands::settlement::delete_settlement_rule,
             commands::settlement::generate_settlement_voucher,
+            // Invoice, bank bill, and cash-flow matching rule commands
+            commands::matching_rules::get_matching_rules,
+            commands::matching_rules::create_matching_rule,
+            commands::matching_rules::update_matching_rule,
+            commands::matching_rules::delete_matching_rule,
             // Currency commands
             commands::currencies::get_currencies,
             commands::currencies::create_currency,

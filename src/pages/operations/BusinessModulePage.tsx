@@ -105,6 +105,8 @@ import {
   summarizeLiveAutomationJobs,
   summarizeLiveFinanceTaxReports,
   summarizeLiveFinancialOverview,
+  summarizeLiveMatchingRules,
+  mapLiveMatchingRuleRows,
   summarizeLiveVoucherTemplates,
 } from '../../lib/liveModuleRows'
 import { useCompanyStore } from '../../stores/companyStore'
@@ -125,6 +127,7 @@ import { useSettlementRuleStore } from '../../stores/settlementRuleStore'
 import { useCurrencyStore } from '../../stores/currencyStore'
 import { useTemplateStore, type TemplateEntry } from '../../stores/templateStore'
 import { useReportTemplateStore } from '../../stores/reportTemplateStore'
+import { useMatchingRuleStore, type MatchingRuleScope } from '../../stores/matchingRuleStore'
 
 type ModuleKind =
   | 'attachmentCenter'
@@ -4041,6 +4044,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const reportItems = useReportTemplateStore((state) => state.reportItems)
   const fetchReportTemplateWorkspace = useReportTemplateStore((state) => state.fetchReportTemplateWorkspace)
   const updateReportItem = useReportTemplateStore((state) => state.updateReportItem)
+  const matchingRules = useMatchingRuleStore((state) => state.rules)
+  const fetchMatchingRules = useMatchingRuleStore((state) => state.fetchMatchingRules)
+  const createMatchingRule = useMatchingRuleStore((state) => state.createMatchingRule)
+  const updateMatchingRule = useMatchingRuleStore((state) => state.updateMatchingRule)
+  const deleteMatchingRule = useMatchingRuleStore((state) => state.deleteMatchingRule)
   const usesLiveModuleData = isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice', 'voucher', 'riskCheck'].includes(kind)
   const usesLiveReportData = Boolean(
     isTauri &&
@@ -4055,6 +4063,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveCurrencyData = Boolean(isTauri && selectedCompanyId && kind === 'currencySettings')
   const usesLiveTemplateSettingsData = Boolean(isTauri && selectedCompanyId && ['commonDigests', 'voucherTemplateSettings'].includes(kind))
   const usesLiveReportFormulaData = Boolean(isTauri && selectedCompanyId && kind === 'reportFormulaSettings')
+  const usesLiveMatchingRuleData = Boolean(isTauri && selectedCompanyId && ['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping'].includes(kind))
+  const matchingRuleScope: MatchingRuleScope = kind === 'invoiceMatchingRules' ? 'invoice' : kind === 'billMatchingRules' ? 'bill' : 'cash_flow'
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings', 'taxInit'].includes(kind))
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
   const usesLiveExportData = Boolean(isTauri && selectedCompanyId && kind === 'exportCenter')
@@ -4169,6 +4179,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showReportFormulaDialog, setShowReportFormulaDialog] = useState(false)
   const [editingReportFormulaId, setEditingReportFormulaId] = useState<string | null>(null)
   const [reportFormulaDraft, setReportFormulaDraft] = useState({ itemName: '', formula: '', sortOrder: '0', isTotal: false })
+  const [showMatchingRuleDialog, setShowMatchingRuleDialog] = useState(false)
+  const [editingMatchingRuleId, setEditingMatchingRuleId] = useState<string | null>(null)
+  const [matchingRuleDraft, setMatchingRuleDraft] = useState({ name: '', conditionText: '', actionText: '', targetAccountCode: '', voucherTemplateId: '', priority: '50', isEnabled: true })
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -4458,6 +4471,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!usesLiveSettlementRuleData || !selectedCompanyId) return
     void fetchSettlementRules(selectedCompanyId)
   }, [fetchSettlementRules, selectedCompanyId, usesLiveSettlementRuleData])
+
+  useEffect(() => {
+    if (!usesLiveMatchingRuleData || !selectedCompanyId) return
+    void fetchMatchingRules(selectedCompanyId, matchingRuleScope)
+  }, [fetchMatchingRules, matchingRuleScope, selectedCompanyId, usesLiveMatchingRuleData])
 
   useEffect(() => {
     if (!usesLiveCurrencyData || !selectedCompanyId) return
@@ -5129,6 +5147,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (usesLiveMatchingRuleData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveMatchingRuleRows(matchingRules, matchingRuleScope),
+        summary: summarizeLiveMatchingRules(matchingRules),
+      }
+    }
+
     if (kind === 'auxiliaryItems' && usesLiveArchiveData) {
       return {
         ...baseConfig,
@@ -5350,6 +5376,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'employee' && isTauri && selectedCompanyId) {
       setEditingEmployeeId(null)
       setShowEmployeeDialog(true)
+      return
+    }
+    if (usesLiveMatchingRuleData && selectedCompanyId) {
+      resetMatchingRuleDraft()
+      setShowMatchingRuleDialog(true)
       return
     }
     if (kind === 'auxiliaryCategories' && isTauri && selectedCompanyId) {
@@ -5862,6 +5893,37 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const resetMatchingRuleDraft = () => {
+    setEditingMatchingRuleId(null)
+    setMatchingRuleDraft({ name: '', conditionText: '', actionText: matchingRuleScope === 'cash_flow' ? '现金流入' : '生成待确认凭证', targetAccountCode: '', voucherTemplateId: '', priority: '50', isEnabled: true })
+  }
+
+  const handleSaveMatchingRule = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId) return
+    try {
+      const input = {
+        companyId: selectedCompanyId, ruleScope: matchingRuleScope,
+        name: matchingRuleDraft.name.trim(), conditionText: matchingRuleDraft.conditionText.trim(), actionText: matchingRuleDraft.actionText.trim(),
+        targetAccountCode: matchingRuleDraft.targetAccountCode.trim() || undefined,
+        voucherTemplateId: matchingRuleDraft.voucherTemplateId.trim() || undefined,
+        priority: Number(matchingRuleDraft.priority || 0), isEnabled: matchingRuleDraft.isEnabled,
+      }
+      const rule = editingMatchingRuleId ? await updateMatchingRule(editingMatchingRuleId, input) : await createMatchingRule({ ...input })
+      writeModuleAudit(editingMatchingRuleId ? '编辑自动匹配规则' : '新增自动匹配规则', `${rule.rule_scope}｜${rule.name}`, '高', '成功')
+      setOperationNotice(`规则“${rule.name}”已保存。自动处理仅生成建议或待确认结果，不会自动提交税务或生成已审核凭证。`)
+      resetMatchingRuleDraft(); setShowMatchingRuleDialog(false)
+    } catch (error) { setOperationNotice(`保存自动匹配规则失败：${String(error)}`) }
+  }
+
+  const handleDeleteMatchingRule = async () => {
+    if (!selectedCompanyId || !editingMatchingRuleId) return
+    const rule = matchingRules.find((item) => item.id === editingMatchingRuleId)
+    if (!rule || !window.confirm(`确认删除规则“${rule.name}”吗？`)) return
+    try { await deleteMatchingRule(rule.id, selectedCompanyId); writeModuleAudit('删除自动匹配规则', `${rule.rule_scope}｜${rule.name}`, '高', '成功'); setOperationNotice(`规则“${rule.name}”已删除。`); resetMatchingRuleDraft(); setShowMatchingRuleDialog(false) }
+    catch (error) { setOperationNotice(`删除自动匹配规则失败：${String(error)}`) }
+  }
+
   const resetAuxiliaryCategoryDraft = () => {
     setEditingAuxiliaryCategoryId(null)
     setAuxiliaryCategoryDraft({ code: '', name: '', sortOrder: '0' })
@@ -6226,6 +6288,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingPayrollId(payroll.id)
       setPayrollDraft({ employeeId: payroll.employeeId, baseSalary: String(payroll.baseSalary), bonus: String(payroll.bonus), taxAmount: String(payroll.taxAmount), socialPersonal: String(payroll.socialPersonal) })
       setShowPayrollDialog(true)
+      return
+    }
+    if (usesLiveMatchingRuleData && selectedCompanyId) {
+      const rule = matchingRules.find((item) => `matching-rule-${item.id}` === row.id)
+      if (!rule) { setOperationNotice('未找到当前账套的自动匹配规则。'); return }
+      setEditingMatchingRuleId(rule.id)
+      setMatchingRuleDraft({ name: rule.name, conditionText: rule.condition_text, actionText: rule.action_text, targetAccountCode: rule.target_account_code || '', voucherTemplateId: rule.voucher_template_id || '', priority: String(rule.priority), isEnabled: rule.is_enabled === 1 })
+      setShowMatchingRuleDialog(true)
       return
     }
     if (kind === 'auxiliaryCategories' && isTauri && selectedCompanyId) {
@@ -7282,6 +7352,23 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">风险提示<input value={adapterAuthorizationDraft.riskMessage} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, riskMessage: event.target.value }))} placeholder="例如：未完成企业授权，禁止自动提交" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowAdapterAuthorizationDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存脱敏配置</button></div>
+          </form>
+        </div>
+      )}
+      {showMatchingRuleDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingMatchingRuleId ? '编辑自动匹配规则' : '新增自动匹配规则'}>
+          <form onSubmit={handleSaveMatchingRule} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingMatchingRuleId ? '编辑自动匹配规则' : '新增自动匹配规则'}</h2><p className="mt-0.5 text-xs text-slate-500">规则只生成匹配建议和待确认动作，自动生成凭证、税务提交仍需人工复核。</p></div><button type="button" onClick={() => setShowMatchingRuleDialog(false)} className="text-xs text-slate-500">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">规则名称 *<input required value={matchingRuleDraft.name} onChange={(event) => setMatchingRuleDraft((draft) => ({ ...draft, name: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">优先级<input type="number" min="0" value={matchingRuleDraft.priority} onChange={(event) => setMatchingRuleDraft((draft) => ({ ...draft, priority: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">匹配条件 *<textarea required rows={3} value={matchingRuleDraft.conditionText} onChange={(event) => setMatchingRuleDraft((draft) => ({ ...draft, conditionText: event.target.value }))} placeholder="如：摘要包含货款，且对方户名匹配客户" className="resize-y rounded border border-slate-300 px-2 py-1.5 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">处理动作 *<input required value={matchingRuleDraft.actionText} onChange={(event) => setMatchingRuleDraft((draft) => ({ ...draft, actionText: event.target.value }))} placeholder={matchingRuleScope === 'cash_flow' ? '如：经营活动现金流入' : '如：生成待确认凭证建议'} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">目标科目/现金流编码<input value={matchingRuleDraft.targetAccountCode} onChange={(event) => setMatchingRuleDraft((draft) => ({ ...draft, targetAccountCode: event.target.value }))} placeholder="如：1002/1122 或 CF-01" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">凭证模板（可选）<input value={matchingRuleDraft.voucherTemplateId} onChange={(event) => setMatchingRuleDraft((draft) => ({ ...draft, voucherTemplateId: event.target.value }))} placeholder="模板 ID 或名称" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="inline-flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={matchingRuleDraft.isEnabled} onChange={(event) => setMatchingRuleDraft((draft) => ({ ...draft, isEnabled: event.target.checked }))} />立即启用</label>
+            </div>
+            <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3"><div>{editingMatchingRuleId && <button type="button" onClick={() => void handleDeleteMatchingRule()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700">删除规则</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowMatchingRuleDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存规则</button></div></div>
           </form>
         </div>
       )}

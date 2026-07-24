@@ -55,6 +55,12 @@ const templateStoreSource = readFileSync('src/stores/templateStore.ts', 'utf8')
 const auxiliaryStoreSource = readFileSync('src/stores/auxiliaryStore.ts', 'utf8')
 const auxiliaryCommandSource = readFileSync('src-tauri/src/commands/auxiliary.rs', 'utf8')
 const voucherEntryRowSource = readFileSync('src/components/voucher/VoucherEntryRow.tsx', 'utf8')
+const matchingRuleStoreSource = existsSync('src/stores/matchingRuleStore.ts')
+  ? readFileSync('src/stores/matchingRuleStore.ts', 'utf8')
+  : ''
+const matchingRuleCommandSource = existsSync('src-tauri/src/commands/matching_rules.rs')
+  ? readFileSync('src-tauri/src/commands/matching_rules.rs', 'utf8')
+  : ''
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -663,6 +669,28 @@ const requiredVoucherEntryAuxiliarySnippets = [
   ['voucher auxiliary item company scope', 'fetchItems(cat.category_id, selectedCompanyId)'],
 ]
 
+const requiredMatchingRuleCommandSnippets = [
+  ['matching rule list command', 'pub async fn get_matching_rules'],
+  ['matching rule create command', 'pub async fn create_matching_rule'],
+  ['matching rule update command', 'pub async fn update_matching_rule'],
+  ['matching rule delete command', 'pub async fn delete_matching_rule'],
+]
+
+const requiredMatchingRuleStoreSnippets = [
+  ['matching rule fetch action', 'fetchMatchingRules: async'],
+  ['matching rule create action', 'createMatchingRule: async'],
+  ['matching rule update action', 'updateMatchingRule: async'],
+  ['matching rule delete action', 'deleteMatchingRule: async'],
+]
+
+const requiredMatchingRulePageSnippets = [
+  ['matching rule store binding', "from '../../stores/matchingRuleStore'"],
+  ['matching rule live scope', "['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping']"],
+  ['matching rule row mapping', 'mapLiveMatchingRuleRows(matchingRules, matchingRuleScope)'],
+  ['matching rule editor state', 'const [showMatchingRuleDialog, setShowMatchingRuleDialog] = useState(false)'],
+  ['matching rule save binding', 'createMatchingRule({'],
+]
+
 const requiredSocialSecurityCommandSnippets = [
   ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
   ['social security list command', 'pub async fn get_social_security_records'],
@@ -905,6 +933,10 @@ const errors = [
   ...verify(auxiliaryCommandSource, requiredAuxiliaryArchiveCommandSnippets, 'auxiliary archive commands'),
   ...verify(pageSource, requiredAuxiliaryArchivePageSnippets, 'auxiliary archive module page'),
   ...verify(voucherEntryRowSource, requiredVoucherEntryAuxiliarySnippets, 'voucher entry auxiliary selector'),
+  ...verify(databaseSource, [['matching rule schema', 'CREATE TABLE IF NOT EXISTS matching_rules']], 'database schema'),
+  ...verify(matchingRuleCommandSource, requiredMatchingRuleCommandSnippets, 'matching rule commands'),
+  ...verify(matchingRuleStoreSource, requiredMatchingRuleStoreSnippets, 'matching rule store'),
+  ...verify(pageSource, requiredMatchingRulePageSnippets, 'matching rule module page'),
   ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
   ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),

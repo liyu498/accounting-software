@@ -76,6 +76,30 @@ impl Database {
         .execute(pool)
         .await?;
 
+        // Invoice, bank bill, and cash-flow rules share one company-scoped rule registry.
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS matching_rules (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                rule_scope TEXT NOT NULL,
+                name TEXT NOT NULL,
+                condition_text TEXT NOT NULL,
+                action_text TEXT NOT NULL,
+                target_account_code TEXT,
+                voucher_template_id TEXT,
+                priority INTEGER NOT NULL DEFAULT 0,
+                is_enabled INTEGER NOT NULL DEFAULT 1,
+                hit_count INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
         sqlx::query(r#"
             CREATE TABLE IF NOT EXISTS account_transfers (
                 id TEXT PRIMARY KEY, company_id TEXT NOT NULL, period TEXT NOT NULL, transfer_date TEXT NOT NULL,
@@ -2028,6 +2052,10 @@ impl Database {
         .bind(&bs_id)
         .execute(pool)
         .await?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_matching_rules_company_scope ON matching_rules(company_id, rule_scope)")
+            .execute(pool)
+            .await?;
 
         // (item_code, item_name, parent_id, level, sort_order, is_total, formula)
         let bs_items: Vec<(&str, &str, Option<&str>, i32, i32, i32, Option<&str>)> = vec![

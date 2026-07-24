@@ -15,6 +15,7 @@ import type { AccountCode } from '../stores/accountStore'
 import type { AuxiliaryBalanceRow, AuxiliaryCategory, AuxiliaryItem, AuxiliaryLedgerRow } from '../stores/auxiliaryStore'
 import type { Voucher, VoucherEntry } from '../stores/voucherStore'
 import type { SettlementRule } from '../stores/settlementRuleStore'
+import type { MatchingRule, MatchingRuleScope } from '../stores/matchingRuleStore'
 import type { Currency } from '../stores/currencyStore'
 import type { CommonDigest, VoucherTemplateType, VoucherTemplateWithEntries } from '../stores/templateStore'
 import type { ReportItem, ReportTemplate } from '../stores/reportTemplateStore'
@@ -1902,5 +1903,37 @@ export function summarizeLiveAuxiliaryItems(items: AuxiliaryItem[]): LiveSummary
     { label: '启用', value: `${enabled} 个`, tone: 'green' },
     { label: '待补资料', value: `${missingRemark} 个`, tone: missingRemark > 0 ? 'amber' : 'gray' },
     { label: '停用', value: `${disabled} 个`, tone: disabled > 0 ? 'red' : 'gray' },
+  ]
+}
+
+export function mapLiveMatchingRuleRows(rules: MatchingRule[], scope: MatchingRuleScope): LiveModuleRow[] {
+  return rules
+    .filter((rule) => rule.rule_scope === scope)
+    .sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name))
+    .map((rule) => ({
+      id: `matching-rule-${rule.id}`,
+      status: rule.is_enabled === 1 ? '启用' : '停用',
+      voucher: rule.voucher_template_id || '未关联模板',
+      attachment: rule.created_at,
+      values: scope === 'cash_flow'
+        ? {
+            projectCode: rule.target_account_code || '待维护', projectName: rule.name,
+            subject: rule.action_text, keywords: rule.condition_text,
+            direction: rule.action_text.includes('流出') ? '流出' : rule.action_text.includes('流入') ? '流入' : '待确认',
+            source: '现金流规则', priority: String(rule.priority), hit: String(rule.hit_count),
+          }
+        : scope === 'invoice'
+          ? { name: rule.name, condition: rule.condition_text, template: rule.voucher_template_id || rule.action_text, subject: rule.target_account_code || '待维护', priority: String(rule.priority), hit: String(rule.hit_count) }
+          : { name: rule.name, condition: rule.condition_text, action: rule.action_text, subject: rule.target_account_code || '待维护', priority: String(rule.priority), hit: String(rule.hit_count) },
+    }))
+}
+
+export function summarizeLiveMatchingRules(rules: MatchingRule[]): LiveSummaryItem[] {
+  const enabled = rules.filter((rule) => rule.is_enabled === 1).length
+  return [
+    { label: '规则数量', value: `${rules.length} 条`, tone: 'blue' },
+    { label: '启用', value: `${enabled} 条`, tone: enabled > 0 ? 'green' : 'gray' },
+    { label: '待确认', value: `${rules.length - enabled} 条`, tone: rules.length - enabled > 0 ? 'amber' : 'gray' },
+    { label: '本期命中', value: `${rules.reduce((total, rule) => total + rule.hit_count, 0)} 次`, tone: 'gray' },
   ]
 }
