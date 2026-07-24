@@ -334,6 +334,9 @@ const requiredTaxWorkspaceSnippets = [
   ['tax workspace html export audit', "action: '导出申报包'"],
   ['tax workspace pdf export audit', "action: '导出申报包 PDF'"],
   ['tax workspace print export audit', "action: '打印申报包'"],
+  ['tax workspace selection state', 'const [selectedDeclarationIds, setSelectedDeclarationIds] = useState<Set<string>>(new Set())'],
+  ['tax workspace bulk confirmation action', "await confirmDeclaration(selectedDeclarationRows, '批量确认申报')"],
+  ['tax workspace confirmation boundary', '不会向税局提交或发起扣款'],
 ]
 
 const requiredWelcomeSnippets = [

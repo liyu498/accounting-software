@@ -283,6 +283,7 @@ export function TaxWorkspace() {
   const [backendAuditCount, setBackendAuditCount] = useState(0)
   const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
   const [backendAdapterStatus, setBackendAdapterStatus] = useState('未配置')
+  const [selectedDeclarationIds, setSelectedDeclarationIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     let cancelled = false
@@ -319,6 +320,14 @@ export function TaxWorkspace() {
     ? taxDeclarationTasks.map(mapTaxDeclarationTaskToRow)
     : declarationRows
   const currentRows = usesLiveTaxDeclarationData ? visibleDeclarationRows : declarationRows
+  const selectedDeclarationRows = currentRows.filter((row) => selectedDeclarationIds.has(row.id))
+  const areAllDeclarationsSelected = currentRows.length > 0 && selectedDeclarationIds.size === currentRows.length
+  const currentRowIdSignature = currentRows.map((row) => row.id).join('|')
+
+  useEffect(() => {
+    const validIds = new Set(currentRowIdSignature ? currentRowIdSignature.split('|') : [])
+    setSelectedDeclarationIds((ids) => new Set([...ids].filter((id) => validIds.has(id))))
+  }, [currentRowIdSignature])
   const scopedOperationAuditLogs = useMemo(() => operationAuditLogs.filter((log) => log.objectRef?.includes(currentPeriod)), [currentPeriod, operationAuditLogs])
   const visibleRiskRows = useMemo<RiskRow[]>(() => {
     if (!usesLiveTaxDeclarationData) return riskRows
@@ -450,45 +459,72 @@ export function TaxWorkspace() {
     setOperationNotice(`风险检查已记录：${blockerCount} 条阻断、${reviewCount} 条需复核，阻断项处理前不能提交。`)
   }
 
-  const confirmDeclaration = () => {
-    if (currentRows.length === 0) {
+  const confirmDeclaration = async (targetRows = currentRows, action = '确认申报') => {
+    if (targetRows.length === 0) {
       setOperationNotice('当前账套尚无待确认申报任务；未向电子税务局提交，也未写入示例数据。')
       return
     }
 
-    const blockers = currentRows.filter((row) => row.risk !== '无' || row.checkStatus !== '校验通过' || row.collectStatus === '待补资料')
+    if (!usesLiveTaxDeclarationData) {
+      setOperationNotice('浏览器预览只展示申报流程；请在桌面端选择账套和账期后执行本地确认。')
+      return
+    }
 
-    void Promise.all(currentRows.map((row) => persistDeclarationRow(row))).then(async (results) => {
-      const saved = results.filter((result) => result.success).length
-      if (saved > 0) setBackendTaskCount(saved)
+    const blockers = targetRows.filter((row) => row.risk !== '无' || row.checkStatus !== '校验通过' || row.collectStatus === '待补资料')
+    const results = await Promise.all(targetRows.map((row) => persistDeclarationRow(row)))
+    const saved = results.filter((result) => result.success).length
+    if (saved > 0) setBackendTaskCount(saved)
 
-      if (blockers.length > 0) {
-        writeTaxAudit({
-          action: '确认申报',
-          object: `税务申报包-${currentPeriod} 阻断${blockers.length}项`,
-          level: '高',
-          result: '待审批',
-          status: '待确认',
-          attachment: '待提交',
-        })
-        setOperationNotice(`确认申报已被本地规则阻断：${blockers.length} 个税种存在风险、资料待补或校验未通过；当前未向电子税务局提交，也未发起扣款。`)
-        return
-      }
-
-      await Promise.all(results
-        .map((result) => result.data)
-        .filter((task) => task && task.validationStatus === 'passed' && task.riskCount === 0)
-        .map((task) => automationApi.confirmTaxDeclarationTask({ id: task!.id, companyId, confirmedBy: 'admin' })))
+    if (blockers.length > 0) {
       writeTaxAudit({
-        action: '确认申报',
-        object: `税务申报包-${currentPeriod} 本地确认`,
+        action,
+        object: `税务申报包-${currentPeriod} 阻断${blockers.length}项`,
         level: '高',
         result: '待审批',
         status: '待确认',
         attachment: '待提交',
       })
-      setOperationNotice('本地申报确认已写入任务状态；真实税局提交、扣款和回执仍需合法 adapter 与人工审批。')
+      setOperationNotice(`${action}已被本地规则阻断：${blockers.length} 个税种存在风险、资料待补或校验未通过；当前未向电子税务局提交，也未发起扣款。`)
+      return
+    }
+
+    await Promise.all(results
+      .map((result) => result.data)
+      .filter((task) => task && task.validationStatus === 'passed' && task.riskCount === 0)
+      .map((task) => automationApi.confirmTaxDeclarationTask({ id: task!.id, companyId, confirmedBy: 'admin' })))
+    await reloadTaxDeclarationTasks()
+    setSelectedDeclarationIds(new Set())
+    writeTaxAudit({
+      action,
+      object: `税务申报包-${currentPeriod} 本地确认`,
+      level: '高',
+      result: '待审批',
+      status: '待确认',
+      attachment: '待提交',
     })
+    setOperationNotice(`${action}已写入本地任务状态；真实税局提交、扣款和回执仍需合法 adapter 与人工审批。`)
+  }
+
+  const toggleDeclarationSelection = (id: string, checked: boolean) => {
+    setSelectedDeclarationIds((ids) => {
+      const next = new Set(ids)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }
+
+  const toggleAllDeclarationSelection = (checked: boolean) => {
+    setSelectedDeclarationIds(checked ? new Set(currentRows.map((row) => row.id)) : new Set())
+  }
+
+  const confirmSelectedDeclarations = async () => {
+    if (selectedDeclarationRows.length === 0) {
+      setOperationNotice('请先勾选需要确认的申报事项。')
+      return
+    }
+    if (!window.confirm(`确认将已勾选的 ${selectedDeclarationRows.length} 个税种写入本地申报确认吗？不会向税局提交或发起扣款。`)) return
+    await confirmDeclaration(selectedDeclarationRows, '批量确认申报')
   }
 
   const importInitialization = () => {
@@ -691,7 +727,7 @@ export function TaxWorkspace() {
             <span className="mx-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">本地任务 {backendTaskCount} · 审计 {backendAuditCount} · adapter {backendAdapterStatus}</span>
             <button
               type="button"
-              onClick={confirmDeclaration}
+              onClick={() => void confirmDeclaration()}
               className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]"
             >
               <Play className="h-3.5 w-3.5" />
@@ -747,6 +783,7 @@ export function TaxWorkspace() {
           <div className="flex flex-wrap items-center gap-1 text-xs">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label="导入初始化" onClick={importInitialization} />
             <ToolbarButton icon={<FileSpreadsheet className="h-3.5 w-3.5" />} label="下载模板" onClick={downloadTaxTemplate} />
+            <ToolbarButton icon={<FileCheck2 className="h-3.5 w-3.5" />} label={`批量确认${selectedDeclarationRows.length ? ` (${selectedDeclarationRows.length})` : ''}`} onClick={confirmSelectedDeclarations} />
             <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="规则与日志" onClick={() => setShowRulesLog((value) => !value)} />
             <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="列设置" onClick={openColumnSettings} />
           </div>
@@ -769,7 +806,7 @@ export function TaxWorkspace() {
               <thead className="bg-[#eef3f8] text-slate-600">
                 <tr>
                   <th className="w-9 border-b border-slate-200 px-2 py-2">
-                    <input type="checkbox" aria-label="全选" />
+                    <input type="checkbox" aria-label="全选" checked={areAllDeclarationsSelected} onChange={(event) => toggleAllDeclarationSelection(event.target.checked)} />
                   </th>
                   <th className="border-b border-slate-200 px-2 py-2">税种</th>
                   <th className="border-b border-slate-200 px-2 py-2">申报表</th>
@@ -791,7 +828,7 @@ export function TaxWorkspace() {
                 {visibleDeclarationRows.map((row) => (
                   <tr key={row.id} className="hover:bg-[#f8fbff]">
                     <td className="border-b border-slate-100 px-2 py-2">
-                      <input type="checkbox" aria-label={`选择 ${row.category}`} />
+                      <input type="checkbox" aria-label={`选择 ${row.category}`} checked={selectedDeclarationIds.has(row.id)} onChange={(event) => toggleDeclarationSelection(row.id, event.target.checked)} />
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 font-medium text-slate-900">{row.category}</td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-700">{row.form}</td>
