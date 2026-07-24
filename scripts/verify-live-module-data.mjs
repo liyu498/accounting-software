@@ -769,6 +769,8 @@ const requiredBusinessTagPageSnippets = [
   ['bank transaction tag selection state', 'const [selectedBankTransactionTagIds, setSelectedBankTransactionTagIds] = useState<string[]>([])'],
   ['bank transaction tag save binding', 'replaceBankTransactionTags(result.data.id, selectedCompanyId, selectedBankTransactionTagIds)'],
   ['bank transaction tag live mapper', 'mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, businessTags)'],
+  ['business tag filter state', "const [businessTagFilter, setBusinessTagFilter] = useState('全部')"],
+  ['business tag filter binding', "businessTagFilter === '全部' || row.values.tags?.split(' / ').includes(businessTagFilter)"],
 ]
 const requiredCompanyAccountCommandSnippets = [
   ['company account list command', 'pub async fn get_company_accounts'],

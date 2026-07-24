@@ -5318,6 +5318,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactionTagIds, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
+  const [businessTagFilter, setBusinessTagFilter] = useState('全部')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set())
@@ -5329,11 +5330,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     const normalized = keyword.trim().toLowerCase()
     return config.rows.filter((row) => {
       const matchesStatus = status === '全部' || row.status === status || (status === '未匹配' && row.status === '待处理')
-      if (!matchesStatus) return false
+      const matchesBusinessTag = businessTagFilter === '全部' || row.values.tags?.split(' / ').includes(businessTagFilter)
+      if (!matchesStatus || !matchesBusinessTag) return false
       if (!normalized) return true
       return Object.values(row.values).some((value) => value.toLowerCase().includes(normalized)) || row.id.toLowerCase().includes(normalized)
     })
-  }, [config.rows, keyword, status])
+  }, [businessTagFilter, config.rows, keyword, status])
+
+  const supportsBusinessTagFilter = ['outputInvoice', 'inputInvoice', 'voucher', 'billList', 'bankStatement'].includes(kind)
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize))
   const pageStart = filteredRows.length === 0 ? 0 : (page - 1) * pageSize + 1
@@ -7118,6 +7122,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
+            {supportsBusinessTagFilter && businessTags.some((tag) => tag.is_enabled === 1) && (
+              <select
+                value={businessTagFilter}
+                onChange={(event) => setBusinessTagFilter(event.target.value)}
+                className="h-8 max-w-36 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#1f65a7]"
+                aria-label="业务标签筛选"
+              >
+                <option value="全部">全部标签</option>
+                {businessTags.filter((tag) => tag.is_enabled === 1).map((tag) => <option key={tag.id} value={tag.name}>{tag.name}</option>)}
+              </select>
+            )}
             {kind === 'subsidiaryLedgerReport' && usesLiveLedgerDetailData && (
               <select
                 aria-label="明细账科目"
