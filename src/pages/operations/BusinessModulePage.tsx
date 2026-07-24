@@ -64,6 +64,7 @@ import {
   mapLiveVoucherRecycleRows,
   mapLiveDeclarationReceiptRows,
   mapLiveDeclarationCalendarRows,
+  mapLiveNonTaxRevenueRows,
   mapLiveTaxInitRows,
   mapLiveTaxReportRows,
   mapLiveAutomationJobRows,
@@ -110,6 +111,7 @@ import {
   summarizeLiveVoucherRecycle,
   summarizeLiveDeclarationReceipts,
   summarizeLiveDeclarationCalendar,
+  summarizeLiveNonTaxRevenue,
   summarizeLiveTaxInit,
   summarizeLiveTaxReports,
   summarizeLiveAutomationJobs,
@@ -4201,6 +4203,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveTaxInitData = Boolean(isTauri && selectedCompanyId && kind === 'taxInit')
   const usesLiveTaxReportData = Boolean(isTauri && selectedCompanyId && kind === 'taxReport')
   const usesLiveFinanceTaxReportData = Boolean(isTauri && selectedCompanyId && kind === 'financeTaxReport')
+  const usesLiveNonTaxRevenueData = Boolean(isTauri && selectedCompanyId && kind === 'nonTaxRevenueReport')
   const usesLiveFinancialOverviewData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'financialReport')
   const usesLiveClosingTaskData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'closingTasks')
   const usesLiveInvoiceVoucherMatchingData = Boolean(isTauri && selectedCompanyId && kind === 'invoiceVoucherMatching')
@@ -4344,6 +4347,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [loadedVoucher, setLoadedVoucher] = useState<Voucher | null>(null)
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
+  const [showNonTaxRevenueDialog, setShowNonTaxRevenueDialog] = useState(false)
+  const [nonTaxRevenueDraft, setNonTaxRevenueDraft] = useState({ item: '工会经费', policy: '', source: '', basisAmount: '', payableAmount: '', receiptNo: '', riskCount: '0' })
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
   const [prefilledAiSuggestionId, setPrefilledAiSuggestionId] = useState<string | null>(null)
   const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)
@@ -4822,7 +4827,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [getDeletedVouchers, selectedCompanyId, usesLiveVoucherRecycleData])
 
   useEffect(() => {
-    if (!(usesLiveDeclarationReceiptData || usesLiveDeclarationCalendarData || usesLiveTaxInitData || usesLiveTaxReportData || usesLiveFinanceTaxReportData) || !selectedCompanyId) return
+    if (!(usesLiveDeclarationReceiptData || usesLiveDeclarationCalendarData || usesLiveTaxInitData || usesLiveTaxReportData || usesLiveFinanceTaxReportData || usesLiveNonTaxRevenueData) || !selectedCompanyId) return
     let active = true
     void automationApi.getTaxDeclarationTasks({ companyId: selectedCompanyId })
       .then((result) => {
@@ -4831,7 +4836,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     return () => {
       active = false
     }
-  }, [selectedCompanyId, usesLiveDeclarationReceiptData, usesLiveDeclarationCalendarData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveFinanceTaxReportData])
+  }, [selectedCompanyId, usesLiveDeclarationReceiptData, usesLiveDeclarationCalendarData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveFinanceTaxReportData, usesLiveNonTaxRevenueData])
 
   useEffect(() => {
     if (!usesLiveAutomationJobData || !selectedCompanyId) return
@@ -5134,6 +5139,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveFinanceTaxReportRows(taxDeclarationTasks),
         summary: summarizeLiveFinanceTaxReports(taxDeclarationTasks),
+      }
+    }
+
+    if (kind === 'nonTaxRevenueReport' && usesLiveNonTaxRevenueData) {
+      return {
+        ...baseConfig,
+        rows: mapLiveNonTaxRevenueRows(taxDeclarationTasks),
+        summary: summarizeLiveNonTaxRevenue(taxDeclarationTasks),
       }
     }
 
@@ -5531,7 +5544,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactionTagIds, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactionTagIds, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [businessTagFilter, setBusinessTagFilter] = useState('全部')
@@ -5733,6 +5746,38 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     )
   }
 
+  const handleSaveNonTaxRevenue = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || currentPeriodLabel === '当前账期') {
+      setOperationNotice('请先选择账套和账期，再登记非税缴费事项。')
+      return
+    }
+    const riskCount = Number(nonTaxRevenueDraft.riskCount || 0)
+    const result = await automationApi.upsertTaxDeclarationTask({
+      companyId: selectedCompanyId,
+      period: currentPeriodLabel,
+      taxType: nonTaxRevenueDraft.item,
+      formName: nonTaxRevenueDraft.policy.trim() || '待补地区政策',
+      collectStatus: 'collected',
+      validationStatus: riskCount > 0 ? 'pending' : 'passed',
+      declarationStatus: nonTaxRevenueDraft.receiptNo.trim() ? 'archived' : 'draft',
+      sourceSnapshot: nonTaxRevenueDraft.source.trim() || '待补计费依据',
+      taxableAmount: Number(nonTaxRevenueDraft.basisAmount || 0),
+      payableAmount: Number(nonTaxRevenueDraft.payableAmount || 0),
+      riskCount,
+      receiptNo: nonTaxRevenueDraft.receiptNo.trim() || undefined,
+    })
+    if (!result.success || !result.data) {
+      setOperationNotice(`保存非税缴费事项失败：${result.error || '未知错误'}`)
+      return
+    }
+    setTaxDeclarationTasks((tasks) => [result.data!, ...tasks.filter((task) => task.id !== result.data!.id)])
+    setShowNonTaxRevenueDialog(false)
+    setNonTaxRevenueDraft({ item: '工会经费', policy: '', source: '', basisAmount: '', payableAmount: '', receiptNo: '', riskCount: '0' })
+    writeModuleAudit('新增非税缴费事项', `${result.data.taxType}｜${result.data.period}`, '中', '成功')
+    setOperationNotice('非税缴费事项已登记为本地台账；金额、地区政策与缴款书均需人工核验，系统未向外部平台提交。')
+  }
+
   const handlePrimaryAction = async () => {
     if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData && selectedCompanyId) {
       await confirmAiVoucherSuggestions([...selectedRowIds])
@@ -5764,6 +5809,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (kind === 'voucher') {
       navigate('/vouchers/new')
+      return
+    }
+    if (kind === 'nonTaxRevenueReport' && usesLiveNonTaxRevenueData && selectedCompanyId) {
+      setNonTaxRevenueDraft({ item: '工会经费', policy: '', source: '', basisAmount: '', payableAmount: '', receiptNo: '', riskCount: '0' })
+      setShowNonTaxRevenueDialog(true)
       return
     }
     if ((kind === 'outputInvoice' || kind === 'inputInvoice') && isTauri && selectedCompanyId && currentPeriodId) {
@@ -8295,6 +8345,47 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               </fieldset>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowBankTransactionDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingBankTransactionId ? '保存修改' : '保存流水'}</button></div>
+          </form>
+        </div>
+      )}
+      {showNonTaxRevenueDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增非税缴费事项">
+          <form onSubmit={handleSaveNonTaxRevenue} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">新增非税缴费事项</h2>
+                <p className="mt-0.5 text-xs text-slate-500">登记本地计费台账；不会计算法定税额、生成外部缴款书或提交申报。</p>
+              </div>
+              <button type="button" onClick={() => setShowNonTaxRevenueDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">非税事项 *
+                <select value={nonTaxRevenueDraft.item} onChange={(event) => setNonTaxRevenueDraft((draft) => ({ ...draft, item: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  {['工会经费', '残保金', '水利建设基金', '其他非税'].map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">地区政策/计费口径 *
+                <input required value={nonTaxRevenueDraft.policy} onChange={(event) => setNonTaxRevenueDraft((draft) => ({ ...draft, policy: event.target.value }))} placeholder="例如：上海市政策口径，按工资总额" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">计费依据 *
+                <input required value={nonTaxRevenueDraft.source} onChange={(event) => setNonTaxRevenueDraft((draft) => ({ ...draft, source: event.target.value }))} placeholder="例如：工资表、营业收入台账" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">计费金额 *
+                <input required min="0" step="0.01" type="number" value={nonTaxRevenueDraft.basisAmount} onChange={(event) => setNonTaxRevenueDraft((draft) => ({ ...draft, basisAmount: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">应缴金额 *
+                <input required min="0" step="0.01" type="number" value={nonTaxRevenueDraft.payableAmount} onChange={(event) => setNonTaxRevenueDraft((draft) => ({ ...draft, payableAmount: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">风险项
+                <select value={nonTaxRevenueDraft.riskCount} onChange={(event) => setNonTaxRevenueDraft((draft) => ({ ...draft, riskCount: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="0">无</option><option value="1">1 项待复核</option><option value="2">2 项待复核</option><option value="3">3 项待复核</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">缴款书号
+                <input value={nonTaxRevenueDraft.receiptNo} onChange={(event) => setNonTaxRevenueDraft((draft) => ({ ...draft, receiptNo: event.target.value }))} placeholder="已有缴款书时人工填写；未填写则保持待确认" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowNonTaxRevenueDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存本地台账</button></div>
           </form>
         </div>
       )}

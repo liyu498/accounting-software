@@ -664,6 +664,49 @@ export function summarizeLiveFinanceTaxReports(tasks: TaxDeclarationTask[]): Liv
   ]
 }
 
+function isNonTaxRevenueTask(task: TaxDeclarationTask) {
+  return /非税|工会经费|残保金|水利建设基金/.test(`${task.taxType} ${task.formName}`)
+}
+
+export function mapLiveNonTaxRevenueRows(tasks: TaxDeclarationTask[]): LiveModuleRow[] {
+  return tasks
+    .filter(isNonTaxRevenueTask)
+    .sort((left, right) => left.period.localeCompare(right.period) || left.taxType.localeCompare(right.taxType, 'zh-CN'))
+    .map((task) => ({
+      id: `non-tax-revenue-${task.id}`,
+      status: taxReportStatus(task),
+      voucher: task.receiptNo || '待补缴款书',
+      attachment: task.sourceSnapshot || '待补计费依据',
+      values: {
+        item: task.taxType,
+        period: task.period,
+        basis: task.formName || '待补地区政策',
+        amount: currency(task.taxableAmount),
+        payable: currency(task.payableAmount),
+        receipt: task.receiptNo || '未生成',
+        archive: task.receiptNo ? '已归档' : task.declarationStatus === 'confirmed' ? '待归档' : '待确认',
+        check: task.riskCount > 0
+          ? `${task.riskCount} 项风险待复核`
+          : task.validationStatus === 'passed'
+            ? '人工校验通过'
+            : '待人工校验',
+      },
+    }))
+}
+
+export function summarizeLiveNonTaxRevenue(tasks: TaxDeclarationTask[]): LiveSummaryItem[] {
+  const scoped = tasks.filter(isNonTaxRevenueTask)
+  const payable = scoped.reduce((sum, task) => sum + task.payableAmount, 0)
+  const archived = scoped.filter((task) => Boolean(task.receiptNo)).length
+  const exception = scoped.filter((task) => taxReportStatus(task) === '异常').length
+  return [
+    { label: '非税事项', value: `${scoped.length} 项`, tone: scoped.length > 0 ? 'blue' : 'gray' },
+    { label: '待缴金额', value: currency(payable), tone: payable > 0 ? 'amber' : 'gray' },
+    { label: '已归档', value: `${archived} 项`, tone: archived > 0 ? 'green' : 'gray' },
+    { label: '异常', value: `${exception} 项`, tone: exception > 0 ? 'red' : 'gray' },
+  ]
+}
+
 export function mapLiveFinancialOverviewRows(
   balanceSheet: BalanceSheetResult,
   incomeStatement: IncomeStatementResult,

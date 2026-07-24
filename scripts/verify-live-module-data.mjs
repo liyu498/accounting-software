@@ -867,6 +867,19 @@ const requiredDeclarationCalendarPageSnippets = [
   ['declaration calendar task loader', 'usesLiveDeclarationCalendarData'],
   ['declaration calendar live mapper', 'mapLiveDeclarationCalendarRows(taxDeclarationTasks)'],
 ]
+const requiredNonTaxRevenueAdapterSnippets = [
+  ['non-tax revenue row mapper', 'export function mapLiveNonTaxRevenueRows'],
+  ['non-tax revenue summary mapper', 'export function summarizeLiveNonTaxRevenue'],
+  ['non-tax revenue task scope', 'function isNonTaxRevenueTask'],
+]
+const requiredNonTaxRevenuePageSnippets = [
+  ['non-tax revenue live scope', "kind === 'nonTaxRevenueReport'"],
+  ['non-tax revenue task loader', 'usesLiveNonTaxRevenueData'],
+  ['non-tax revenue live mapper', 'mapLiveNonTaxRevenueRows(taxDeclarationTasks)'],
+  ['non-tax revenue manual save', 'automationApi.upsertTaxDeclarationTask({'],
+  ['non-tax revenue editor title', '新增非税缴费事项'],
+  ['non-tax revenue external submission boundary', '不会计算法定税额、生成外部缴款书或提交申报'],
+]
 const requiredStampTaxSchemaSnippets = [
   ['stamp tax item column', 'stamp_tax_item TEXT'],
   ['stamp tax rate column', 'stamp_tax_rate REAL'],
@@ -1273,6 +1286,7 @@ const errors = [
   ...verify(adapterSource, requiredCashFlowQuarterAdapterSnippets, 'cash flow quarter adapter'),
   ...verify(adapterSource, requiredEquityChangeAdapterSnippets, 'equity change adapter'),
   ...verify(adapterSource, requiredDeclarationCalendarAdapterSnippets, 'declaration calendar adapter'),
+  ...verify(adapterSource, requiredNonTaxRevenueAdapterSnippets, 'non-tax revenue adapter'),
   ...verify(databaseSource, requiredStampTaxSchemaSnippets, 'stamp tax schema'),
   ...verify(documentRecordCommandSource, requiredStampTaxCommandSnippets, 'stamp tax document commands'),
   ...verify(periodCommandSource, requiredCashFlowQuarterCommandSnippets, 'cash flow quarter commands'),
@@ -1285,6 +1299,7 @@ const errors = [
   ...verify(pageSource, requiredCashFlowQuarterPageSnippets, 'cash flow quarter module page'),
   ...verify(pageSource, requiredEquityChangePageSnippets, 'equity change module page'),
   ...verify(pageSource, requiredDeclarationCalendarPageSnippets, 'declaration calendar module page'),
+  ...verify(pageSource, requiredNonTaxRevenuePageSnippets, 'non-tax revenue module page'),
   ...verify(pageSource, requiredStampTaxPageSnippets, 'stamp tax module page'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
