@@ -154,6 +154,15 @@ impl Database {
         "#).execute(pool).await?;
 
         sqlx::query(r#"
+            CREATE TABLE IF NOT EXISTS voucher_tags (
+                voucher_id TEXT NOT NULL, tag_id TEXT NOT NULL, company_id TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                PRIMARY KEY (voucher_id, tag_id), FOREIGN KEY (voucher_id) REFERENCES vouchers(id),
+                FOREIGN KEY (tag_id) REFERENCES business_tags(id), FOREIGN KEY (company_id) REFERENCES companies(id)
+            )
+        "#).execute(pool).await?;
+
+        sqlx::query(r#"
             CREATE TABLE IF NOT EXISTS company_accounts (
                 id TEXT PRIMARY KEY, company_id TEXT NOT NULL, account_name TEXT NOT NULL,
                 account_type TEXT NOT NULL DEFAULT '银行账户', bank_name TEXT, account_number TEXT NOT NULL,

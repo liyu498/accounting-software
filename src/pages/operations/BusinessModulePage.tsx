@@ -877,6 +877,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'source', label: '来源' },
       { key: 'maker', label: '制单人' },
       { key: 'auditor', label: '审核人' },
+      { key: 'tags', label: '标签' },
     ],
     rows: [
       { id: 'v-0051', status: '已生成凭证', voucher: '记-0051', attachment: '发票2', values: { date: '2026-05-03', wordNo: '记-0051', summary: '销售控制器', debitAccount: '应收账款', creditAccount: '主营业务收入/应交税费', debit: '¥97,180.00', credit: '¥97,180.00', source: '销项发票', maker: '王会计', auditor: '主管' } },
@@ -4065,12 +4066,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const deleteAssetCategory = useAssetCategoryStore((state) => state.deleteAssetCategory)
   const businessTags = useBusinessTagStore((state) => state.businessTags)
   const invoiceTagIds = useBusinessTagStore((state) => state.invoiceTagIds)
+  const voucherTagIds = useBusinessTagStore((state) => state.voucherTagIds)
   const fetchBusinessTags = useBusinessTagStore((state) => state.fetchBusinessTags)
   const createBusinessTag = useBusinessTagStore((state) => state.createBusinessTag)
   const updateBusinessTag = useBusinessTagStore((state) => state.updateBusinessTag)
   const deleteBusinessTag = useBusinessTagStore((state) => state.deleteBusinessTag)
   const fetchInvoiceTagIds = useBusinessTagStore((state) => state.fetchInvoiceTagIds)
   const replaceInvoiceTags = useBusinessTagStore((state) => state.replaceInvoiceTags)
+  const fetchVoucherTagIds = useBusinessTagStore((state) => state.fetchVoucherTagIds)
+  const replaceVoucherTags = useBusinessTagStore((state) => state.replaceVoucherTags)
   const companyAccounts = useCompanyAccountStore((state) => state.companyAccounts)
   const fetchCompanyAccounts = useCompanyAccountStore((state) => state.fetchCompanyAccounts)
   const createCompanyAccount = useCompanyAccountStore((state) => state.createCompanyAccount)
@@ -4094,7 +4098,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveAssetCategoryData = Boolean(isTauri && selectedCompanyId && kind === 'assetCategory')
   const needsLiveAssetCategories = Boolean(isTauri && selectedCompanyId && ['assetCategory', 'depreciation'].includes(kind))
   const usesLiveBusinessTagData = Boolean(isTauri && selectedCompanyId && kind === 'tagArchive')
-  const needsLiveBusinessTags = Boolean(isTauri && selectedCompanyId && ['tagArchive', 'outputInvoice', 'inputInvoice'].includes(kind))
+  const needsLiveBusinessTags = Boolean(isTauri && selectedCompanyId && ['tagArchive', 'outputInvoice', 'inputInvoice', 'voucher', 'voucherCreate', 'voucherEdit', 'voucherDetail'].includes(kind))
   const matchingRuleScope: MatchingRuleScope = kind === 'invoiceMatchingRules' ? 'invoice' : kind === 'billMatchingRules' ? 'bill' : 'cash_flow'
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings', 'taxInit'].includes(kind))
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
@@ -4238,6 +4242,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [selectedMatchVoucherId, setSelectedMatchVoucherId] = useState('')
   const [invoiceDraft, setInvoiceDraft] = useState({ invoiceNo: '', invoiceCode: '', invoiceDate: '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
   const [selectedInvoiceTagIds, setSelectedInvoiceTagIds] = useState<string[]>([])
+  const [selectedVoucherTagIds, setSelectedVoucherTagIds] = useState<string[]>([])
   const [voucherDraft, setVoucherDraft] = useState({
     voucherWordId: '',
     voucherDate: '',
@@ -4344,6 +4349,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return
       }
       setLoadedVoucher(voucher)
+      setSelectedVoucherTagIds(await fetchVoucherTagIds(voucher.id, selectedCompanyId))
       setVoucherDraft({
         voucherWordId: voucher.voucher_word_id,
         voucherDate: voucher.voucher_date,
@@ -4356,7 +4362,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         })),
       })
     })()
-  }, [getVoucher, kind, selectedCompanyId, voucherId])
+  }, [fetchVoucherTagIds, getVoucher, kind, selectedCompanyId, voucherId])
 
   useEffect(() => {
     if (!usesLiveInvoiceVoucherMatchingData || !selectedCompanyId) return
@@ -4535,6 +4541,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       .filter((invoice) => invoice.invoice_type === invoiceType)
       .map((invoice) => fetchInvoiceTagIds(invoice.id, selectedCompanyId)))
   }, [fetchInvoiceTagIds, invoices, kind, selectedCompanyId])
+
+  useEffect(() => {
+    if (!isTauri || !selectedCompanyId || kind !== 'voucher') return
+    void Promise.all(vouchers.map((voucher) => fetchVoucherTagIds(voucher.id, selectedCompanyId)))
+  }, [fetchVoucherTagIds, kind, selectedCompanyId, vouchers])
 
   useEffect(() => {
     if (!usesLiveCompanyBankAccountData || !selectedCompanyId) return
@@ -4823,7 +4834,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'voucher' && usesLiveModuleData) {
       return {
         ...baseConfig,
-        rows: mapLiveVoucherRows(vouchers),
+        rows: mapLiveVoucherRows(vouchers, voucherTagIds, businessTags),
         summary: summarizeLiveVouchers(vouchers),
       }
     }
@@ -5292,7 +5303,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localBackups, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, selectedVoucherTagIds, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [page, setPage] = useState(1)
@@ -6891,6 +6902,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             }
           }),
         }, selectedCompanyId)
+        await replaceVoucherTags(voucher.id, selectedCompanyId, selectedVoucherTagIds)
+        await fetchBusinessTags(selectedCompanyId)
         setLoadedVoucher(voucher)
         writeModuleAudit('保存凭证修改', voucher.voucher_number, '中', '成功')
         setOperationNotice(`凭证 ${voucher.voucher_number} 已保存修改。`)
@@ -6915,8 +6928,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           }
         }),
       })
+      await replaceVoucherTags(voucher.id, selectedCompanyId, selectedVoucherTagIds)
+      await fetchBusinessTags(selectedCompanyId)
       writeModuleAudit('保存凭证草稿', voucher.voucher_number, '中', '成功')
       setOperationNotice(`凭证 ${voucher.voucher_number} 已保存为草稿。`)
+      setSelectedVoucherTagIds([])
       setVoucherDraft((draft) => ({ ...draft, summary: '', attachmentCount: '0', entries: [{ accountCode: '', direction: 'debit', amount: '' }, { accountCode: '', direction: 'credit', amount: '' }] }))
     } catch (error) {
       setOperationNotice(`保存凭证失败：${String(error)}`)
@@ -6975,6 +6991,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <label className="space-y-1 text-xs text-slate-600"><span>凭证日期</span><input required readOnly={isVoucherReadOnly} type="date" value={voucherDraft.voucherDate} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, voucherDate: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm read-only:bg-slate-100" /></label>
             <label className="space-y-1 text-xs text-slate-600"><span>附件张数</span><input readOnly={isVoucherReadOnly} min="0" step="1" type="number" value={voucherDraft.attachmentCount} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, attachmentCount: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm read-only:bg-slate-100" /></label>
             <label className="space-y-1 text-xs text-slate-600 md:col-span-1"><span>摘要</span><input required readOnly={isVoucherReadOnly} value={voucherDraft.summary} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, summary: event.target.value }))} placeholder="请输入凭证摘要" className="h-8 w-full border border-slate-300 px-2 text-sm read-only:bg-slate-100" /></label>
+            <fieldset className="space-y-1 text-xs text-slate-600 md:col-span-4">
+              <legend>业务标签</legend>
+              <div className="flex min-h-8 flex-wrap items-center gap-2 border border-slate-200 bg-white px-2 py-1.5">
+                {businessTags.filter((tag) => tag.is_enabled === 1).length === 0 && <span className="text-slate-400">请先在“标签”档案中维护可用标签。</span>}
+                {businessTags.filter((tag) => tag.is_enabled === 1).map((tag) => isVoucherReadOnly
+                  ? <span key={tag.id} className={cn('border px-2 py-1', selectedVoucherTagIds.includes(tag.id) ? 'border-[#1f65a7] bg-blue-50 text-[#1f65a7]' : 'border-slate-200 text-slate-400')}>{tag.name}</span>
+                  : <label key={tag.id} className="inline-flex items-center gap-1 border border-slate-300 px-2 py-1 text-xs text-slate-700"><input type="checkbox" checked={selectedVoucherTagIds.includes(tag.id)} onChange={(event) => setSelectedVoucherTagIds((ids) => event.target.checked ? [...ids, tag.id] : ids.filter((id) => id !== tag.id))} />{tag.name}</label>) }
+              </div>
+            </fieldset>
           </div>
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2"><h2 className="text-sm font-semibold">凭证分录</h2>{!isVoucherReadOnly && <button type="button" onClick={() => setVoucherDraft((draft) => ({ ...draft, entries: [...draft.entries, { accountCode: '', direction: 'debit', amount: '' }] }))} className="h-7 border border-[#1f65a7] px-2 text-xs text-[#1f65a7]">新增分录</button>}</div>
           <div className="overflow-x-auto">

@@ -263,6 +263,8 @@ pub fn run() {
             commands::business_tags::delete_business_tag,
             commands::business_tags::get_invoice_tag_ids,
             commands::business_tags::replace_invoice_tags,
+            commands::business_tags::get_voucher_tag_ids,
+            commands::business_tags::replace_voucher_tags,
             // Company account archive commands
             commands::company_accounts::get_company_accounts,
             commands::company_accounts::create_company_account,

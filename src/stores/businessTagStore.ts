@@ -28,6 +28,7 @@ export interface BusinessTagInput {
 interface BusinessTagState {
   businessTags: BusinessTag[]
   invoiceTagIds: Record<string, string[]>
+  voucherTagIds: Record<string, string[]>
   isLoading: boolean
   error: string | null
   fetchBusinessTags: (companyId: string) => Promise<void>
@@ -36,6 +37,8 @@ interface BusinessTagState {
   deleteBusinessTag: (id: string, companyId: string) => Promise<void>
   fetchInvoiceTagIds: (invoiceId: string, companyId: string) => Promise<string[]>
   replaceInvoiceTags: (invoiceId: string, companyId: string, tagIds: string[]) => Promise<void>
+  fetchVoucherTagIds: (voucherId: string, companyId: string) => Promise<string[]>
+  replaceVoucherTags: (voucherId: string, companyId: string, tagIds: string[]) => Promise<void>
 }
 
 const toCommandInput = (input: BusinessTagInput) => ({
@@ -45,7 +48,7 @@ const toCommandInput = (input: BusinessTagInput) => ({
 })
 
 export const useBusinessTagStore = create<BusinessTagState>((set) => ({
-  businessTags: [], invoiceTagIds: {}, isLoading: false, error: null,
+  businessTags: [], invoiceTagIds: {}, voucherTagIds: {}, isLoading: false, error: null,
   fetchBusinessTags: async (companyId) => {
     set({ isLoading: true, error: null })
     try { set({ businessTags: await invoke<BusinessTag[]>('get_business_tags', { companyId }), isLoading: false }) }
@@ -74,6 +77,19 @@ export const useBusinessTagStore = create<BusinessTagState>((set) => ({
     try {
       const savedTagIds = await invoke<string[]>('replace_invoice_tags', { invoiceId, companyId, tagIds })
       set((state) => ({ invoiceTagIds: { ...state.invoiceTagIds, [invoiceId]: savedTagIds } }))
+    } catch (error) { set({ error: String(error) }); throw error }
+  },
+  fetchVoucherTagIds: async (voucherId, companyId) => {
+    try {
+      const tagIds = await invoke<string[]>('get_voucher_tag_ids', { voucherId, companyId })
+      set((state) => ({ voucherTagIds: { ...state.voucherTagIds, [voucherId]: tagIds } }))
+      return tagIds
+    } catch (error) { set({ error: String(error) }); return [] }
+  },
+  replaceVoucherTags: async (voucherId, companyId, tagIds) => {
+    try {
+      const savedTagIds = await invoke<string[]>('replace_voucher_tags', { voucherId, companyId, tagIds })
+      set((state) => ({ voucherTagIds: { ...state.voucherTagIds, [voucherId]: savedTagIds } }))
     } catch (error) { set({ error: String(error) }); throw error }
   },
 }))

@@ -148,7 +148,7 @@ function voucherStatus(voucher: Voucher): LiveModuleStatus {
   return '待处理'
 }
 
-export function mapLiveVoucherRows(vouchers: Voucher[]): LiveModuleRow[] {
+export function mapLiveVoucherRows(vouchers: Voucher[], voucherTagIds: Record<string, string[]> = {}, businessTags: BusinessTag[] = []): LiveModuleRow[] {
   return vouchers.map((voucher) => ({
     id: voucher.id,
     status: voucherStatus(voucher),
@@ -165,6 +165,7 @@ export function mapLiveVoucherRows(vouchers: Voucher[]): LiveModuleRow[] {
       source: voucher.is_system ? '系统结转' : '本地账套',
       maker: voucher.created_by || '系统',
       auditor: voucher.approved_by || '未审',
+      tags: (voucherTagIds[voucher.id] || []).map((tagId) => businessTags.find((tag) => tag.id === tagId)?.name).filter(Boolean).join(' / ') || '-',
     },
   }))
 }
