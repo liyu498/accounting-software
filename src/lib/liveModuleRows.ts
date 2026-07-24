@@ -578,6 +578,49 @@ export function summarizeLiveTaxReports(tasks: TaxDeclarationTask[]): LiveSummar
   ]
 }
 
+function taxCalendarNextStep(task: TaxDeclarationTask): string {
+  if (task.receiptNo) return '归档回执'
+  if (task.riskCount > 0 || task.validationStatus === 'failed') return '复核风险'
+  if (task.validationStatus === 'passed') return '确认申报包'
+  return '重新取数'
+}
+
+export function mapLiveDeclarationCalendarRows(tasks: TaxDeclarationTask[]): LiveModuleRow[] {
+  return [...tasks]
+    .sort((left, right) => left.period.localeCompare(right.period) || left.taxType.localeCompare(right.taxType, 'zh-CN'))
+    .map((task) => {
+      const status = taxReportStatus(task)
+      return {
+        id: `declaration-calendar-${task.id}`,
+        status,
+        voucher: task.receiptNo || '申报任务',
+        attachment: task.sourceSnapshot || '待生成取数快照',
+        values: {
+          taxType: task.taxType,
+          period: task.period,
+          deadline: '待配置',
+          stage: task.declarationStatus || task.validationStatus || '待取数',
+          owner: task.confirmedBy || '待分配',
+          source: task.sourceSnapshot || '待生成取数快照',
+          risk: task.riskCount > 0 ? `${task.riskCount} 项风险` : '无',
+          next: taxCalendarNextStep(task),
+        },
+      }
+    })
+}
+
+export function summarizeLiveDeclarationCalendar(tasks: TaxDeclarationTask[]): LiveSummaryItem[] {
+  const passed = tasks.filter((task) => taxReportStatus(task) === '已通过').length
+  const pending = tasks.filter((task) => taxReportStatus(task) === '待确认').length
+  const risk = tasks.filter((task) => task.riskCount > 0 || taxReportStatus(task) === '异常').length
+  return [
+    { label: '申报事项', value: `${tasks.length} 项`, tone: tasks.length > 0 ? 'blue' : 'gray' },
+    { label: '已校验', value: `${passed} 项`, tone: passed > 0 ? 'green' : 'gray' },
+    { label: '待确认', value: `${pending} 项`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '风险事项', value: `${risk} 项`, tone: risk > 0 ? 'red' : 'gray' },
+  ]
+}
+
 function isFinanceTaxReportTask(task: TaxDeclarationTask) {
   return /资产负债|利润表|现金流|财报|财务报表/.test(`${task.taxType} ${task.formName}`)
 }
