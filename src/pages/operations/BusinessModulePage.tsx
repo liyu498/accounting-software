@@ -31,6 +31,7 @@ import {
   mapLiveCommonDigestRows,
   mapLiveCurrencyRows,
   mapLiveGeneralLedgerRows,
+  mapLiveMultiColumnLedgerRows,
   mapLiveInitialBalanceRows,
   mapLiveAuxiliaryArchiveRows,
   mapLiveAuxiliaryCategoryRows,
@@ -72,6 +73,7 @@ import {
   summarizeLiveCommonDigests,
   summarizeLiveCurrencies,
   summarizeLiveGeneralLedger,
+  summarizeLiveMultiColumnLedger,
   summarizeLiveInitialBalance,
   summarizeLiveAuxiliaryArchive,
   summarizeLiveAuxiliaryCategories,
@@ -271,6 +273,7 @@ interface ModuleConfig {
 type LiveReportData = {
   trialBalance: TrialBalanceResult | null
   generalLedger: GeneralLedgerItem[] | null
+  multiColumnLedger: GeneralLedgerItem[] | null
   balanceSheet: BalanceSheetResult | null
   incomeStatement: IncomeStatementResult | null
   cashFlow: CashFlowResult | null
@@ -289,6 +292,7 @@ type LiveReportData = {
 const emptyLiveReportData: LiveReportData = {
   trialBalance: null,
   generalLedger: null,
+  multiColumnLedger: null,
   balanceSheet: null,
   incomeStatement: null,
   cashFlow: null,
@@ -4088,7 +4092,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     isTauri &&
       selectedCompanyId &&
       currentPeriodId &&
-      ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'incomeTaxReport', 'cashFlowReport'].includes(kind),
+      ['ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'multiColumnLedgerReport', 'balanceSheetReport', 'incomeStatementReport', 'incomeTaxReport', 'cashFlowReport'].includes(kind),
   )
   const usesLiveInitialBalanceData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'initialBalance')
   const usesLiveCompanyBankAccountData = Boolean(isTauri && selectedCompanyId && kind === 'accountArchive')
@@ -4489,9 +4493,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           return
         }
 
-        if (kind === 'generalLedgerReport' || kind === 'accountSummaryReport') {
+        if (kind === 'generalLedgerReport' || kind === 'accountSummaryReport' || kind === 'multiColumnLedgerReport') {
           const generalLedger = await getGeneralLedger(currentPeriodId)
-          if (active) setLiveReports((reports) => kind === 'accountSummaryReport' ? { ...reports, accountSummary: generalLedger } : { ...reports, generalLedger })
+          if (active) setLiveReports((reports) => kind === 'accountSummaryReport'
+            ? { ...reports, accountSummary: generalLedger }
+            : kind === 'multiColumnLedgerReport'
+              ? { ...reports, multiColumnLedger: generalLedger }
+              : { ...reports, generalLedger })
           return
         }
 
@@ -5090,6 +5098,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLiveGeneralLedgerRows(liveReports.generalLedger),
         summary: summarizeLiveGeneralLedger(liveReports.generalLedger),
+      }
+    }
+
+    if (kind === 'multiColumnLedgerReport' && usesLiveReportData && liveReports.multiColumnLedger) {
+      return {
+        ...baseConfig,
+        rows: mapLiveMultiColumnLedgerRows(liveReports.multiColumnLedger),
+        summary: summarizeLiveMultiColumnLedger(liveReports.multiColumnLedger),
       }
     }
 

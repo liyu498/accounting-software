@@ -820,6 +820,15 @@ const requiredStructuredAiSuggestionAdapterSnippets = [
   ['AI suggestion structured credit row', 'credit: job.creditSubject ||'],
   ['AI suggestion structured amount row', 'amount: job.suggestionAmount === null'],
 ]
+const requiredMultiColumnLedgerAdapterSnippets = [
+  ['multi-column ledger row mapper', 'export function mapLiveMultiColumnLedgerRows'],
+  ['multi-column ledger summary mapper', 'export function summarizeLiveMultiColumnLedger'],
+]
+const requiredMultiColumnLedgerPageSnippets = [
+  ['multi-column ledger live scope', "'multiColumnLedgerReport'"],
+  ['multi-column ledger report request', "kind === 'multiColumnLedgerReport'"],
+  ['multi-column ledger live mapper', 'mapLiveMultiColumnLedgerRows(liveReports.multiColumnLedger)'],
+]
 const requiredStructuredAiSuggestionPageSnippets = [
   ['AI suggestion editor state', 'const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)'],
   ['AI suggestion create binding', 'automationApi.createAutomationJob({'],
@@ -1202,10 +1211,12 @@ const errors = [
   ...verify(voucherCommandSource, requiredAiSuggestionVoucherLinkCommandSnippets, 'AI suggestion voucher link commands'),
   ...verify(apiSource, requiredStructuredAiSuggestionApiSnippets, 'structured AI suggestion API'),
   ...verify(adapterSource, requiredStructuredAiSuggestionAdapterSnippets, 'structured AI suggestion adapter'),
+  ...verify(adapterSource, requiredMultiColumnLedgerAdapterSnippets, 'multi-column ledger adapter'),
   ...verify(pageSource, requiredStructuredAiSuggestionPageSnippets, 'structured AI suggestion module page'),
   ...verify(pageSource, requiredAiSuggestionVoucherLinkPageSnippets, 'AI suggestion voucher link module page'),
   ...verify(voucherCommandSource, requiredAiSuggestionVoucherUnlinkCommandSnippets, 'AI suggestion voucher unlink commands'),
   ...verify(pageSource, requiredAiSuggestionVoucherNavigationPageSnippets, 'AI suggestion voucher navigation module page'),
+  ...verify(pageSource, requiredMultiColumnLedgerPageSnippets, 'multi-column ledger module page'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
   ...verify(pageSource, requiredInventoryItemPageSnippets, 'inventory item module page'),

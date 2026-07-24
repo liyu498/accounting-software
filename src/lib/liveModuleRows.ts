@@ -950,6 +950,55 @@ export function summarizeLiveGeneralLedger(items: GeneralLedgerItem[]): LiveSumm
   ]
 }
 
+function multiColumnBucket(accountName: string, summary: string): 'office' | 'travel' | 'salary' | null {
+  const text = `${accountName} ${summary}`
+  if (/办公|文具|打印|快递/.test(text)) return 'office'
+  if (/差旅|住宿|交通|出差/.test(text)) return 'travel'
+  if (/工资|薪酬|社保|公积金/.test(text)) return 'salary'
+  return null
+}
+
+export function mapLiveMultiColumnLedgerRows(items: GeneralLedgerItem[]): LiveModuleRow[] {
+  return items.flatMap((item) => item.entries.map((entry, index) => {
+    const bucket = multiColumnBucket(item.account_name, entry.summary || '')
+    const amount = currency(entry.amount)
+    return {
+      id: `multi-column-${item.account_code}-${entry.voucher_id}-${index}`,
+      status: bucket ? '已通过' : '待确认',
+      voucher: entry.voucher_number || '未记录凭证',
+      attachment: bucket ? '凭证穿透' : '待配置栏目',
+      values: {
+        subject: `${item.account_code} ${item.account_name}`,
+        date: entry.voucher_date || '未记录日期',
+        wordNo: entry.voucher_number || '未记录凭证',
+        summary: entry.summary || '未记录摘要',
+        office: bucket === 'office' ? amount : '-',
+        travel: bucket === 'travel' ? amount : '-',
+        salary: bucket === 'salary' ? amount : '-',
+        total: amount,
+      },
+    }
+  }))
+}
+
+export function summarizeLiveMultiColumnLedger(items: GeneralLedgerItem[]): LiveSummaryItem[] {
+  const rows = mapLiveMultiColumnLedgerRows(items)
+  const sum = (bucket: 'office' | 'travel' | 'salary') => items.reduce(
+    (total, item) => total + item.entries.reduce(
+      (entryTotal, entry) => multiColumnBucket(item.account_name, entry.summary || '') === bucket ? entryTotal + entry.amount : entryTotal,
+      0,
+    ),
+    0,
+  )
+  const unconfigured = rows.filter((row) => row.status === '待确认').length
+  return [
+    { label: '多栏明细', value: `${rows.length} 笔`, tone: rows.length > 0 ? 'blue' : 'gray' },
+    { label: '办公费', value: currency(sum('office')), tone: 'green' },
+    { label: '差旅费', value: currency(sum('travel')), tone: 'amber' },
+    { label: '待配置栏目', value: `${unconfigured} 笔`, tone: unconfigured > 0 ? 'red' : 'gray' },
+  ]
+}
+
 export function mapLiveSubsidiaryLedgerRows(items: SubsidiaryLedgerItem[]): LiveModuleRow[] {
   return items.map((item, index) => ({
     id: `subsidiary-${item.voucher_id || item.voucher_number || index}`,
