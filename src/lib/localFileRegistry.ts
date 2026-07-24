@@ -80,6 +80,21 @@ function removeRecord<T extends { id: string }>(key: string, id: string) {
   return true
 }
 
+function updateRecord<T extends { id: string }>(key: string, id: string, patch: Partial<T>) {
+  const storage = safeStorage()
+  if (!storage) return null
+  let updated: T | null = null
+  const nextRows = readRecords<T>(key).map((record) => {
+    if (record.id !== id) return record
+    updated = { ...record, ...patch }
+    return updated
+  })
+  if (!updated) return null
+  storage.setItem(key, JSON.stringify(nextRows))
+  window.dispatchEvent(new CustomEvent(CHANGE_EVENT))
+  return updated
+}
+
 function fileFormat(file: File) {
   const extension = file.name.split('.').pop()?.trim().toUpperCase()
   return extension || file.type || '未知格式'
@@ -154,6 +169,15 @@ export function removeLocalImportJob(id: string) {
 
 export function removeLocalAttachment(id: string) {
   return removeRecord<LocalAttachmentRecord>(ATTACHMENT_STORAGE_KEY, id)
+}
+
+export function updateLocalAttachmentAssociation(id: string, relatedDocument: string) {
+  const normalizedRelatedDocument = relatedDocument.trim()
+  if (!normalizedRelatedDocument) return null
+  return updateRecord<LocalAttachmentRecord>(ATTACHMENT_STORAGE_KEY, id, {
+    relatedDocument: normalizedRelatedDocument,
+    status: '已关联',
+  })
 }
 
 function useScopedRegistryRows<T extends { companyId: string; period: string }>(key: string, scope: LocalFileScope, list: (nextScope: LocalFileScope) => T[]) {

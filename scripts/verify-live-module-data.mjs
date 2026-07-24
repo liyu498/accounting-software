@@ -320,6 +320,9 @@ const requiredPageSnippets = [
   ['local file record removal', 'removeLocalImportJob(row.id)'],
   ['local attachment record removal', 'removeLocalAttachment(row.id)'],
   ['local file action label', "kind === 'attachmentCenter' || kind === 'importCenter' ? '撤销登记'"],
+  ['attachment association registry update', 'updateLocalAttachmentAssociation'],
+  ['attachment association editor', '关联本地附件单据'],
+  ['attachment association boundary', '不会移动原始文件、写入外部存储或修改凭证'],
 ]
 
 const requiredTaxWorkspaceSnippets = [

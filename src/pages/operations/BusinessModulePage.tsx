@@ -20,7 +20,7 @@ import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
-import { formatLocalFileSize, recordLocalAttachment, recordLocalImportJob, removeLocalAttachment, removeLocalImportJob, useLocalAttachmentRecords, useLocalImportJobs, type LocalAttachmentRecord, type LocalImportJob } from '../../lib/localFileRegistry'
+import { formatLocalFileSize, recordLocalAttachment, recordLocalImportJob, removeLocalAttachment, removeLocalImportJob, updateLocalAttachmentAssociation, useLocalAttachmentRecords, useLocalImportJobs, type LocalAttachmentRecord, type LocalImportJob } from '../../lib/localFileRegistry'
 import { isTauri } from '../../lib/tauri'
 import { accountTransferApi, automationApi, backupApi, bankReconciliationApi, bankTransactionApi, businessOrderApi, costCarryoverApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, settlementRecordApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankReconciliationRecord, type BankTransaction, type BusinessOrder, type CostCarryoverRecord, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SettlementRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import { measurementUnitApi, type MeasurementUnit } from '../../lib/api'
@@ -3581,7 +3581,7 @@ function mapLocalAttachmentRows(records: LocalAttachmentRecord[]): ModuleRow[] {
       hash: record.checksum.startsWith('meta-') ? record.checksum : `SHA-256 ${record.checksum.slice(0, 12)}...`,
       uploader: record.operator,
       time: record.createdAt,
-      archive: record.status === '异常' ? '需重传' : '待关联',
+      archive: record.status === '异常' ? '需重传' : record.status === '已关联' ? '已关联' : '待关联',
     },
   }))
 }
@@ -4404,6 +4404,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [taxInitDraft, setTaxInitDraft] = useState({ taskId: '', taxType: '', formName: '', sourceSnapshot: '', taxableAmount: '', payableAmount: '', riskCount: '0', collectStatus: 'collected', validationStatus: 'pending', adapterCode: '' })
   const [showNonTaxRevenueDialog, setShowNonTaxRevenueDialog] = useState(false)
   const [nonTaxRevenueDraft, setNonTaxRevenueDraft] = useState({ item: '工会经费', policy: '', source: '', basisAmount: '', payableAmount: '', receiptNo: '', riskCount: '0' })
+  const [showAttachmentAssociationDialog, setShowAttachmentAssociationDialog] = useState(false)
+  const [attachmentAssociationDraft, setAttachmentAssociationDraft] = useState({ id: '', fileName: '', relatedDocument: '' })
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
   const [prefilledAiSuggestionId, setPrefilledAiSuggestionId] = useState<string | null>(null)
   const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)
@@ -7132,7 +7134,27 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     navigate(`/vouchers/detail/${job.generatedVoucherId}`)
   }
 
+  const handleSaveAttachmentAssociation = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const updated = updateLocalAttachmentAssociation(attachmentAssociationDraft.id, attachmentAssociationDraft.relatedDocument)
+    if (!updated) {
+      setOperationNotice('关联本地附件失败，请填写关联单据并刷新后重试。')
+      return
+    }
+    setShowAttachmentAssociationDialog(false)
+    writeModuleAudit('关联本地附件', `${updated.fileName}｜${updated.relatedDocument}`, '中', '成功')
+    setOperationNotice('附件关联已登记到本机台账；不会移动原始文件、写入外部存储或修改凭证。')
+  }
+
   const handleViewRow = async (row: ModuleRow) => {
+    if (kind === 'attachmentCenter') {
+      const attachment = localAttachmentRecords.find((item) => item.id === row.id)
+      if (attachment) {
+        setAttachmentAssociationDraft({ id: attachment.id, fileName: attachment.fileName, relatedDocument: attachment.relatedDocument === '待关联单据' ? '' : attachment.relatedDocument })
+        setShowAttachmentAssociationDialog(true)
+        return
+      }
+    }
     if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData && selectedCompanyId) {
       if (row.status === '已生成凭证') {
         openLinkedAiSuggestionVoucher(row)
@@ -8079,7 +8101,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
                         <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                          {kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                          {kind === 'attachmentCenter' ? '关联单据' : kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
                       {!isLocalTaxTaskKind && kind !== 'declarationReceipt' && kind !== 'taxInit' && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
@@ -8132,6 +8154,33 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
         </section>
       </div>
+      {showAttachmentAssociationDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="关联本地附件单据">
+          <form onSubmit={handleSaveAttachmentAssociation} className="w-full max-w-lg border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">关联本地附件单据</h2>
+                <p className="mt-0.5 text-xs text-slate-500">仅更新本机附件台账的关联关系，不会移动原始文件或写入外部存储。</p>
+              </div>
+              <button type="button" onClick={() => setShowAttachmentAssociationDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4">
+              <label className="grid gap-1 text-xs text-slate-600">附件文件
+                <input readOnly value={attachmentAssociationDraft.fileName} className="h-8 border border-slate-300 bg-slate-100 px-2 text-sm text-slate-700" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">关联单据/凭证号
+                <input required autoFocus value={attachmentAssociationDraft.relatedDocument} onChange={(event) => setAttachmentAssociationDraft((draft) => ({ ...draft, relatedDocument: event.target.value }))} placeholder="例如：销项发票 310026000118 或 记-0051" className="h-8 border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <p className="text-xs leading-5 text-slate-500">安全边界：关联不会移动原始文件、写入外部存储或修改凭证；后续凭证附件张数仍需在凭证页人工维护。</p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowAttachmentAssociationDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存关联</button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {showInvoiceVoucherMatchDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="人工匹配发票与凭证">
           <form onSubmit={handleMatchInvoiceToVoucher} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
