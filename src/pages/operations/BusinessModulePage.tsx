@@ -6865,6 +6865,48 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     return row.voucher && row.voucher !== '-' ? row.voucher : firstValue || row.id
   }
 
+  const isLocalTaxTaskKind = ['declarationCalendar', 'taxReport', 'financeTaxReport', 'nonTaxRevenueReport'].includes(kind)
+
+  const taxTaskForRow = (row: ModuleRow) => {
+    const id = row.id
+      .replace('declaration-calendar-', '')
+      .replace('tax-report-', '')
+      .replace('finance-tax-report-', '')
+      .replace('non-tax-revenue-', '')
+    return taxDeclarationTasks.find((task) => task.id === id)
+  }
+
+  const isConfirmedTaxTask = (row: ModuleRow) => {
+    const status = taxTaskForRow(row)?.declarationStatus.toLowerCase()
+    return Boolean(status && ['confirmed', 'archived', 'submitted', 'completed'].includes(status))
+  }
+
+  const confirmTaxTaskFromRow = async (row: ModuleRow) => {
+    if (!selectedCompanyId) return
+    const task = taxTaskForRow(row)
+    if (!task) {
+      setOperationNotice('未找到当前账套的申报事项，请刷新后重试。')
+      return
+    }
+    if (['confirmed', 'archived', 'submitted', 'completed'].includes(task.declarationStatus.toLowerCase())) {
+      setOperationNotice(`${task.taxType}已完成本地确认；回执、缴款书和外部提交状态需另行归档核验。`)
+      return
+    }
+    if (task.riskCount > 0 || task.validationStatus !== 'passed') {
+      setOperationNotice(`${task.taxType}存在未处理风险或未通过校验，不能确认。`)
+      return
+    }
+    if (!window.confirm(`确认 ${task.taxType}（${task.period}）的本地申报事项吗？此操作仅记录人工确认，不会向税局提交。`)) return
+    const result = await automationApi.confirmTaxDeclarationTask({ id: task.id, companyId: selectedCompanyId, confirmedBy: 'admin' })
+    if (!result.success || !result.data) {
+      setOperationNotice(`确认申报事项失败：${result.error || '未知错误'}`)
+      return
+    }
+    setTaxDeclarationTasks((tasks) => tasks.map((item) => item.id === result.data!.id ? result.data! : item))
+    writeModuleAudit('确认申报事项', `${result.data.taxType}｜${result.data.period}`, '高', '成功')
+    setOperationNotice(`${result.data.taxType}已完成本地人工确认；外部申报、缴款和回执收取仍需通过合法渠道执行。`)
+  }
+
   const openLinkedAiSuggestionVoucher = (row: ModuleRow) => {
     const suggestionJobId = row.id.replace('automation-suggestion-', '')
     const job = automationJobs.find((item) => item.id === suggestionJobId)
@@ -6892,6 +6934,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (kind === 'voucher') {
       navigate(`/vouchers/detail/${row.id}`)
+      return
+    }
+    if (isLocalTaxTaskKind && isTauri && selectedCompanyId) {
+      await confirmTaxTaskFromRow(row)
       return
     }
     if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {
@@ -7786,12 +7832,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
                         <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                          {kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                          {kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
-                      <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
+                      {!isLocalTaxTaskKind && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'aiVoucherSuggestions' ? row.status === '已生成凭证' ? '查看凭证' : '进入草稿' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
-                      </button>
+                      </button>}
                     </td>
                   </tr>
                 ))}

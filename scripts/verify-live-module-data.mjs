@@ -880,6 +880,13 @@ const requiredNonTaxRevenuePageSnippets = [
   ['non-tax revenue editor title', '新增非税缴费事项'],
   ['non-tax revenue external submission boundary', '不会计算法定税额、生成外部缴款书或提交申报'],
 ]
+const requiredTaxTaskConfirmationPageSnippets = [
+  ['local tax task kind guard', "const isLocalTaxTaskKind = ['declarationCalendar', 'taxReport', 'financeTaxReport', 'nonTaxRevenueReport'].includes(kind)"],
+  ['local tax task lookup', 'const taxTaskForRow = (row: ModuleRow) =>'],
+  ['local tax task confirmation binding', 'automationApi.confirmTaxDeclarationTask({'],
+  ['local tax task confirmation boundary', '不会向税局提交'],
+  ['local tax task action label', "isConfirmedTaxTask(row) ? '已确认' : '确认事项'"],
+]
 const requiredStampTaxSchemaSnippets = [
   ['stamp tax item column', 'stamp_tax_item TEXT'],
   ['stamp tax rate column', 'stamp_tax_rate REAL'],
@@ -1300,6 +1307,7 @@ const errors = [
   ...verify(pageSource, requiredEquityChangePageSnippets, 'equity change module page'),
   ...verify(pageSource, requiredDeclarationCalendarPageSnippets, 'declaration calendar module page'),
   ...verify(pageSource, requiredNonTaxRevenuePageSnippets, 'non-tax revenue module page'),
+  ...verify(pageSource, requiredTaxTaskConfirmationPageSnippets, 'local tax task confirmation'),
   ...verify(pageSource, requiredStampTaxPageSnippets, 'stamp tax module page'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
