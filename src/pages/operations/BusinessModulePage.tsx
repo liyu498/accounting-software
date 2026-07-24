@@ -21,7 +21,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { accountTransferApi, automationApi, backupApi, bankReconciliationApi, bankTransactionApi, businessOrderApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, settlementRecordApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankReconciliationRecord, type BankTransaction, type BusinessOrder, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SettlementRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
+import { accountTransferApi, automationApi, backupApi, bankReconciliationApi, bankTransactionApi, businessOrderApi, costCarryoverApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, settlementRecordApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankReconciliationRecord, type BankTransaction, type BusinessOrder, type CostCarryoverRecord, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SettlementRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import { measurementUnitApi, type MeasurementUnit } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
@@ -3946,8 +3946,8 @@ function mapLiveInventoryMovementRows(inventoryMovements: InventoryMovement[]): 
 function summarizeLiveInventoryMovements(inventoryMovements: InventoryMovement[]): ModuleConfig['summary'] { const inbound = inventoryMovements.filter((movement) => movement.movementType.includes('入库')); const outbound = inventoryMovements.filter((movement) => movement.movementType.includes('出库')); return [{ label: '本月入库', value: payrollCurrency(inbound.reduce((sum, movement) => sum + movement.amount, 0)), tone: 'blue' }, { label: '本月出库', value: payrollCurrency(outbound.reduce((sum, movement) => sum + movement.amount, 0)), tone: 'amber' }, { label: '已匹配发票', value: `${inventoryMovements.filter((movement) => movement.status === '已匹配').length} 单`, tone: 'green' }, { label: '异常单据', value: `${inventoryMovements.filter((movement) => movement.status === '异常').length} 单`, tone: 'red' }] }
 function mapLiveInventoryItemRows(inventoryItems: InventoryItem[]): ModuleRow[] { return inventoryItems.map((item) => ({ id: item.id, status: item.status === '异常' ? '异常' : item.status === '停用' ? '停用' : '启用', voucher: '-', attachment: '-', values: { code: item.itemCode, name: item.itemName, spec: item.specification || '-', unit: item.unit, taxRate: item.taxRate === null ? '待补' : `${item.taxRate * 100}%`, subject: item.defaultSubject || '待设置' } })) }
 function mapLiveMeasurementUnitRows(measurementUnits: MeasurementUnit[]): ModuleRow[] { return measurementUnits.map((unit) => ({ id:unit.id,status:unit.status==='停用'?'停用':'启用',voucher:'-',attachment:'-',values:{name:unit.unitName,group:unit.unitGroup||'-',base:unit.baseUnit||unit.unitName,rate:String(unit.conversionRate),precision:String(unit.precisionDigits),remark:unit.remark||'-'} })) }
-function mapLiveCostCarryoverRows(inventoryMovements: InventoryMovement[]): ModuleRow[] { return inventoryMovements.filter((movement) => movement.movementType.includes('出库')).map((movement) => ({ id: `cost-${movement.id}`, status: movement.status === '异常' ? '异常' : '待确认', voucher: '未生成', attachment: movement.sourceDocument || '出库单', values: { batch: `CB-${movement.period.replace('-', '')}-${movement.billNo}`, method: '待选计价方法', source: `${movement.movementType}｜${movement.billNo}`, debit: movement.movementType.includes('销售') ? '主营业务成本' : '待人工选择', credit: '库存商品', cost: payrollCurrency(movement.amount), difference: '待核价' } })) }
-function summarizeLiveCostCarryover(inventoryMovements: InventoryMovement[]): ModuleConfig['summary'] { const outbound = inventoryMovements.filter((movement) => movement.movementType.includes('出库')); return [{ label: '结转批次', value: `${outbound.length} 批`, tone: 'blue' }, { label: '待结转成本', value: payrollCurrency(outbound.reduce((sum, movement) => sum + movement.amount, 0)), tone: 'amber' }, { label: '已生成凭证', value: '0 张', tone: 'green' }, { label: '阻断项', value: `${outbound.filter((movement) => !movement.sourceDocument).length} 项`, tone: 'red' }] }
+function mapLiveCostCarryoverRows(costCarryoverRecords: CostCarryoverRecord[]): ModuleRow[] { return costCarryoverRecords.map((record) => ({ id:record.id,status:record.status==='异常'?'异常':record.voucherNo?'已生成凭证':'待确认',voucher:record.voucherNo||'未生成',attachment:record.sourceDocument||'待补附件',values:{batch:record.batchNo,method:record.valuationMethod,source:`${record.inventoryName}｜${record.sourceBillNo}`,debit:record.debitSubject,credit:record.creditSubject,cost:payrollCurrency(record.costAmount),difference:payrollCurrency(record.differenceAmount)}})) }
+function summarizeLiveCostCarryover(costCarryoverRecords: CostCarryoverRecord[]): ModuleConfig['summary'] { return [{label:'结转批次',value:`${costCarryoverRecords.length} 批`,tone:'blue'},{label:'结转成本',value:payrollCurrency(costCarryoverRecords.reduce((s,r)=>s+r.costAmount,0)),tone:'amber'},{label:'已生成凭证',value:`${costCarryoverRecords.filter(r=>r.voucherNo).length} 张`,tone:'green'},{label:'阻断项',value:`${costCarryoverRecords.filter(r=>r.status==='异常').length} 项`,tone:'red'}] }
 
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
@@ -4122,6 +4122,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveAccountTransferData = Boolean(isTauri && selectedCompanyId && kind === 'transfer')
   const usesLiveFixedAssetData = Boolean(isTauri && selectedCompanyId && kind === 'depreciation')
   const usesLiveInventoryMovementData = Boolean(isTauri && selectedCompanyId && ['inventoryMovement', 'costCarryover'].includes(kind))
+  const usesLiveCostCarryoverData = Boolean(isTauri && selectedCompanyId && kind === 'costCarryover')
   const usesLiveInventoryItemData = Boolean(isTauri && selectedCompanyId && kind === 'inventorySettings')
   const usesLiveMeasurementUnitData = Boolean(isTauri && selectedCompanyId && kind === 'unitSettings')
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
@@ -4165,6 +4166,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [businessOrders, setBusinessOrders] = useState<BusinessOrder[]>([])
   const [settlementRecords, setSettlementRecords] = useState<SettlementRecord[]>([])
   const [bankReconciliationRecords, setBankReconciliationRecords] = useState<BankReconciliationRecord[]>([])
+  const [costCarryoverRecords, setCostCarryoverRecords] = useState<CostCarryoverRecord[]>([])
+  const [showCostCarryoverDialog, setShowCostCarryoverDialog] = useState(false)
+  const [editingCostCarryoverId, setEditingCostCarryoverId] = useState<string | null>(null)
+  const [costCarryoverDraft, setCostCarryoverDraft] = useState({ batchNo: '', carryoverDate: '', valuationMethod: '移动加权', sourceBillNo: '', inventoryName: '', debitSubject: '主营业务成本', creditSubject: '库存商品', costAmount: '', differenceAmount: '0', voucherNo: '', status: '待确认', sourceDocument: '' })
   const [showBankReconciliationDialog, setShowBankReconciliationDialog] = useState(false)
   const [editingBankReconciliationId, setEditingBankReconciliationId] = useState<string | null>(null)
   const [bankReconciliationDraft, setBankReconciliationDraft] = useState({ reconciliationNo: '', reconciliationDate: '', accountName: '', transactionNo: '', summary: '', bankAmount: '', bookAmount: '', voucherNo: '', matchStatus: '待人工对账', owner: '', status: '待处理', note: '' })
@@ -4419,6 +4424,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   useEffect(() => { if (!usesLiveAccountTransferData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setAccountTransfers(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveAccountTransferData])
   useEffect(() => { if (!usesLiveFixedAssetData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void fixedAssetApi.getFixedAssets({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setFixedAssets(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveFixedAssetData])
   useEffect(() => { if (!usesLiveInventoryMovementData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void inventoryMovementApi.getInventoryMovements({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setInventoryMovements(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveInventoryMovementData])
+  useEffect(() => { if (!usesLiveCostCarryoverData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void costCarryoverApi.getCostCarryoverRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setCostCarryoverRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveCostCarryoverData])
   useEffect(() => { if (!usesLiveInventoryItemData || !selectedCompanyId) return; void inventoryItemApi.getInventoryItems({ companyId: selectedCompanyId }).then((result) => setInventoryItems(result.success ? result.data || [] : [])) }, [selectedCompanyId, usesLiveInventoryItemData])
   useEffect(() => { if (!usesLiveMeasurementUnitData || !selectedCompanyId) return; void measurementUnitApi.getMeasurementUnits({ companyId: selectedCompanyId }).then((result) => setMeasurementUnits(result.success ? result.data || [] : [])) }, [selectedCompanyId, usesLiveMeasurementUnitData])
 
@@ -4940,7 +4946,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'transfer' && usesLiveAccountTransferData) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
     if (kind === 'depreciation' && usesLiveFixedAssetData) return { ...baseConfig, rows: mapLiveFixedAssetRows(fixedAssets), summary: summarizeLiveFixedAssets(fixedAssets) }
     if (kind === 'inventoryMovement' && usesLiveInventoryMovementData) return { ...baseConfig, rows: mapLiveInventoryMovementRows(inventoryMovements), summary: summarizeLiveInventoryMovements(inventoryMovements) }
-    if (kind === 'costCarryover' && usesLiveInventoryMovementData) return { ...baseConfig, rows: mapLiveCostCarryoverRows(inventoryMovements), summary: summarizeLiveCostCarryover(inventoryMovements) }
+    if (kind === 'costCarryover' && usesLiveCostCarryoverData) return { ...baseConfig, rows: mapLiveCostCarryoverRows(costCarryoverRecords), summary: summarizeLiveCostCarryover(costCarryoverRecords) }
     if (kind === 'inventorySettings' && usesLiveInventoryItemData) return { ...baseConfig, rows: mapLiveInventoryItemRows(inventoryItems), summary: [{ label: '存货档案', value: `${inventoryItems.length} 项`, tone: 'blue' }, { label: '启用', value: `${inventoryItems.filter((item) => item.status !== '停用').length} 项`, tone: 'green' }, { label: '待补税率', value: `${inventoryItems.filter((item) => item.taxRate === null).length} 项`, tone: 'amber' }, { label: '停用', value: `${inventoryItems.filter((item) => item.status === '停用').length} 项`, tone: 'gray' }] as ModuleConfig['summary'] }
     if (kind === 'unitSettings' && usesLiveMeasurementUnitData) return { ...baseConfig, rows: mapLiveMeasurementUnitRows(measurementUnits) }
 
@@ -5596,8 +5602,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (kind === 'unitSettings' && isTauri && selectedCompanyId) { setEditingMeasurementUnitId(null); setShowMeasurementUnitDialog(true); return }
     if (kind === 'costCarryover' && isTauri && selectedCompanyId) {
-      writeModuleAudit('执行成本结转', `${currentPeriodLabel}｜${inventoryMovements.filter((movement) => movement.movementType.includes('出库')).length} 笔出库单`, '高', '待审批')
-      setOperationNotice('已生成成本结转预检任务。需人工选择计价方法、核验出库单价并确认后，才可生成会计凭证。')
+      setEditingCostCarryoverId(null)
+      setCostCarryoverDraft({ batchNo: '', carryoverDate: currentPeriod?.end_date || '', valuationMethod: '移动加权', sourceBillNo: '', inventoryName: '', debitSubject: '主营业务成本', creditSubject: '库存商品', costAmount: '', differenceAmount: '0', voucherNo: '', status: '待确认', sourceDocument: '' })
+      setShowCostCarryoverDialog(true)
       return
     }
     if (kind === 'payroll' && isTauri && selectedCompanyId) {
@@ -6420,6 +6427,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingBankReconciliationId(null)
       setShowBankReconciliationDialog(false)
     } catch (error) { setOperationNotice(`保存银行对账失败：${String(error)}`) }
+  }
+
+  const handleSaveCostCarryover = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    try {
+      const input = { companyId:selectedCompanyId, batchNo:costCarryoverDraft.batchNo, carryoverDate:costCarryoverDraft.carryoverDate, valuationMethod:costCarryoverDraft.valuationMethod, sourceBillNo:costCarryoverDraft.sourceBillNo, inventoryName:costCarryoverDraft.inventoryName, debitSubject:costCarryoverDraft.debitSubject, creditSubject:costCarryoverDraft.creditSubject, costAmount:Number(costCarryoverDraft.costAmount||0), differenceAmount:Number(costCarryoverDraft.differenceAmount||0), voucherNo:costCarryoverDraft.voucherNo||undefined, status:costCarryoverDraft.status, sourceDocument:costCarryoverDraft.sourceDocument||undefined }
+      const result=editingCostCarryoverId?await costCarryoverApi.updateCostCarryoverRecord({id:editingCostCarryoverId,...input}):await costCarryoverApi.createCostCarryoverRecord({...input,period:currentPeriodLabel})
+      if(!result.success||!result.data) throw new Error(result.error||'未返回成本结转记录')
+      setCostCarryoverRecords((records)=>editingCostCarryoverId?records.map((item)=>item.id===result.data!.id?result.data!:item):[result.data!,...records])
+      writeModuleAudit(editingCostCarryoverId?'编辑成本结转':'新增成本结转',result.data.batchNo,'高','成功')
+      setOperationNotice(`已保存 ${result.data.batchNo}；成本和差异仍需人工复核后再关联凭证。`)
+      setEditingCostCarryoverId(null);setShowCostCarryoverDialog(false)
+    }catch(error){setOperationNotice(`保存成本结转失败：${String(error)}`)}
   }
 
   const handleSaveAccountTransfer = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -7987,6 +8008,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowBusinessOrderDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingBusinessOrderId ? '保存修改' : '保存订单'}</button></div>
           </form>
         </div>
+      )}
+      {showCostCarryoverDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true"><form onSubmit={handleSaveCostCarryover} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl"><div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><div><h2 className="text-sm font-semibold text-slate-900">{editingCostCarryoverId?'编辑成本结转':'新增成本结转'}</h2><p className="mt-0.5 text-xs text-slate-500">结转批次不会自动生成凭证，须复核成本和差异。</p></div><button type="button" onClick={()=>setShowCostCarryoverDialog(false)} className="text-xs text-slate-500">取消</button></div><div className="grid gap-3 p-4 sm:grid-cols-2">{([{field:'carryoverDate',label:'结转日期 *',type:'date'},{field:'batchNo',label:'结转批次 *',type:'text'},{field:'sourceBillNo',label:'来源单号 *',type:'text'},{field:'inventoryName',label:'存货名称 *',type:'text'},{field:'debitSubject',label:'借方科目 *',type:'text'},{field:'creditSubject',label:'贷方科目 *',type:'text'},{field:'costAmount',label:'结转成本 *',type:'number'},{field:'differenceAmount',label:'差异金额',type:'number'},{field:'voucherNo',label:'关联凭证号',type:'text'},{field:'sourceDocument',label:'来源附件',type:'text'}] as Array<{field:keyof typeof costCarryoverDraft;label:string;type:string}>).map(({field,label,type})=><label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['carryoverDate','batchNo','sourceBillNo','inventoryName','debitSubject','creditSubject','costAmount'].includes(field)} type={type} min={type==='number'?'0':undefined} step={type==='number'?'0.01':undefined} value={costCarryoverDraft[field]} onChange={(event)=>setCostCarryoverDraft((draft)=>({...draft,[field]:event.target.value}))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900"/></label>)}<label className="grid gap-1 text-xs text-slate-600">计价方法<select value={costCarryoverDraft.valuationMethod} onChange={(event)=>setCostCarryoverDraft((draft)=>({...draft,valuationMethod:event.target.value}))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['移动加权','月末一次加权','先进先出','个别计价'].map((item)=><option key={item} value={item}>{item}</option>)}</select></label><label className="grid gap-1 text-xs text-slate-600">状态<select value={costCarryoverDraft.status} onChange={(event)=>setCostCarryoverDraft((draft)=>({...draft,status:event.target.value}))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['待确认','已生成凭证','异常'].map((item)=><option key={item} value={item}>{item}</option>)}</select></label></div><div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={()=>setShowCostCarryoverDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存结转</button></div></form></div>
       )}
       {showBankReconciliationDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true">

@@ -388,6 +388,14 @@ impl Database {
             .execute(&pool)
             .await?;
 
+        sqlx::query(r#"CREATE TABLE IF NOT EXISTS cost_carryover_records (
+            id TEXT PRIMARY KEY, company_id TEXT NOT NULL, period TEXT NOT NULL, batch_no TEXT NOT NULL, carryover_date TEXT NOT NULL,
+            valuation_method TEXT NOT NULL, source_bill_no TEXT NOT NULL, inventory_name TEXT NOT NULL, debit_subject TEXT NOT NULL, credit_subject TEXT NOT NULL,
+            cost_amount REAL NOT NULL DEFAULT 0, difference_amount REAL NOT NULL DEFAULT 0, voucher_no TEXT, status TEXT NOT NULL DEFAULT '待确认', source_document TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (company_id) REFERENCES companies(id), UNIQUE (company_id, batch_no))"#).execute(&pool).await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_cost_carryover_records_company_period ON cost_carryover_records(company_id, period)").execute(&pool).await?;
+
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS payroll_records (
@@ -3387,6 +3395,13 @@ pub struct CreateBankReconciliationRecordInput {
 pub struct UpdateBankReconciliationRecordInput {
     pub id: String, pub company_id: String, pub reconciliation_no: String, pub reconciliation_date: String, pub bank_transaction_id: Option<String>, pub account_name: String, pub transaction_no: String, pub summary: Option<String>, pub bank_amount: f64, pub book_amount: f64, pub voucher_no: Option<String>, pub match_status: Option<String>, pub owner: Option<String>, pub status: Option<String>, pub note: Option<String>,
 }
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct CostCarryoverRecord { pub id:String, pub company_id:String, pub period:String, pub batch_no:String, pub carryover_date:String, pub valuation_method:String, pub source_bill_no:String, pub inventory_name:String, pub debit_subject:String, pub credit_subject:String, pub cost_amount:f64, pub difference_amount:f64, pub voucher_no:Option<String>, pub status:String, pub source_document:Option<String>, pub created_at:String, pub updated_at:String }
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateCostCarryoverRecordInput { pub company_id:String, pub period:String, pub batch_no:String, pub carryover_date:String, pub valuation_method:String, pub source_bill_no:String, pub inventory_name:String, pub debit_subject:String, pub credit_subject:String, pub cost_amount:f64, pub difference_amount:Option<f64>, pub voucher_no:Option<String>, pub status:Option<String>, pub source_document:Option<String> }
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateCostCarryoverRecordInput { pub id:String, pub company_id:String, pub batch_no:String, pub carryover_date:String, pub valuation_method:String, pub source_bill_no:String, pub inventory_name:String, pub debit_subject:String, pub credit_subject:String, pub cost_amount:f64, pub difference_amount:Option<f64>, pub voucher_no:Option<String>, pub status:Option<String>, pub source_document:Option<String> }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct AccountTransfer { pub id: String, pub company_id: String, pub period: String, pub transfer_date: String, pub from_account: String, pub to_account: String, pub amount: f64, pub fee: f64, pub serial_no: Option<String>, pub status: String, pub created_at: String, pub updated_at: String }

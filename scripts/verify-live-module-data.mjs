@@ -82,6 +82,9 @@ const settlementRecordCommandSource = existsSync('src-tauri/src/commands/settlem
 const bankReconciliationCommandSource = existsSync('src-tauri/src/commands/bank_reconciliation_records.rs')
   ? readFileSync('src-tauri/src/commands/bank_reconciliation_records.rs', 'utf8')
   : ''
+const costCarryoverCommandSource = existsSync('src-tauri/src/commands/cost_carryover_records.rs')
+  ? readFileSync('src-tauri/src/commands/cost_carryover_records.rs', 'utf8')
+  : ''
 const companyAccountStoreSource = existsSync('src/stores/companyAccountStore.ts')
   ? readFileSync('src/stores/companyAccountStore.ts', 'utf8')
   : ''
@@ -975,7 +978,14 @@ const requiredInventoryMovementPageSnippets = [
   ['inventory movement edit state', 'const [editingInventoryMovementId, setEditingInventoryMovementId] = useState<string | null>(null)'],
   ['inventory movement edit row binding', "if (kind === 'inventoryMovement' && isTauri && selectedCompanyId)"],
   ['inventory movement row mapper', 'mapLiveInventoryMovementRows(inventoryMovements)'],
-  ['cost carryover local source', 'mapLiveCostCarryoverRows(inventoryMovements)'],
+  ['cost carryover live scope', "const usesLiveCostCarryoverData = Boolean(isTauri && selectedCompanyId && kind === 'costCarryover')"],
+  ['cost carryover list request', 'costCarryoverApi.getCostCarryoverRecords'],
+  ['cost carryover row mapper', 'mapLiveCostCarryoverRows(costCarryoverRecords)'],
+]
+const requiredCostCarryoverCommandSnippets = [
+  ['cost carryover list command', 'pub async fn get_cost_carryover_records'],
+  ['cost carryover create command', 'pub async fn create_cost_carryover_record'],
+  ['cost carryover update command', 'pub async fn update_cost_carryover_record'],
 ]
 
 const requiredInventoryItemCommandSnippets = [
@@ -1117,6 +1127,8 @@ const errors = [
   ...verify(databaseSource, requiredInventoryMovementCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryMovementCommandSource, requiredInventoryMovementCommandSnippets.slice(1), 'inventory movement commands'),
   ...verify(pageSource, requiredInventoryMovementPageSnippets, 'inventory movement module page'),
+  ...verify(databaseSource, [['cost carryover schema', 'CREATE TABLE IF NOT EXISTS cost_carryover_records']], 'database schema'),
+  ...verify(costCarryoverCommandSource, requiredCostCarryoverCommandSnippets, 'cost carryover commands'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
   ...verify(pageSource, requiredInventoryItemPageSnippets, 'inventory item module page'),
