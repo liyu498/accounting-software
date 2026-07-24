@@ -323,6 +323,9 @@ const requiredPageSnippets = [
   ['attachment association registry update', 'updateLocalAttachmentAssociation'],
   ['attachment association editor', '关联本地附件单据'],
   ['attachment association boundary', '不会移动原始文件、写入外部存储或修改凭证'],
+  ['local import validation registry update', 'updateLocalImportJobValidation'],
+  ['local import validation editor', '核验本机导入批次'],
+  ['local import validation boundary', '不会写入账套业务数据或调用外部系统'],
 ]
 
 const requiredTaxWorkspaceSnippets = [

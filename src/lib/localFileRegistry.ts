@@ -4,7 +4,7 @@ const IMPORT_STORAGE_KEY = 'accounting_local_import_jobs_v1'
 const ATTACHMENT_STORAGE_KEY = 'accounting_local_attachment_records_v1'
 const CHANGE_EVENT = 'accounting-local-file-registry-updated'
 
-export type LocalFileStatus = '待确认' | '已关联' | '异常'
+export type LocalFileStatus = '待确认' | '已关联' | '已校验' | '异常'
 
 export interface LocalImportJob {
   id: string
@@ -17,6 +17,9 @@ export interface LocalImportJob {
   fileFormat: string
   checksum: string
   status: LocalFileStatus
+  rowCount: number | null
+  columnPreview: string[]
+  validationNote: string
   operator: string
   createdAt: string
 }
@@ -100,6 +103,46 @@ function fileFormat(file: File) {
   return extension || file.type || '未知格式'
 }
 
+function compactImportCell(value: unknown) {
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  return String(value ?? '').trim()
+}
+
+function parseCsvRows(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.split(',').map((cell) => cell.trim()))
+    .filter((row) => row.some(Boolean))
+}
+
+async function inspectImportFile(file: File) {
+  const name = file.name.toLowerCase()
+  try {
+    const rows = name.endsWith('.xlsx')
+      ? (await (await import('read-excel-file/browser')).readSheet(file)).map((row) => row.map(compactImportCell))
+      : name.endsWith('.csv')
+        ? parseCsvRows(await file.text())
+        : []
+    if (rows.length === 0) {
+      return { rowCount: null, columnPreview: [], validationNote: '该格式仅登记文件元数据，需在目标模块完成字段映射。' }
+    }
+    const headerIndex = rows.findIndex((row) => row.filter(Boolean).length >= 3)
+    const safeHeaderIndex = headerIndex >= 0 ? headerIndex : 0
+    const header = rows[safeHeaderIndex] || []
+    const dataRows = rows.slice(safeHeaderIndex + 1).filter((row) => {
+      const firstCell = row.find(Boolean) || ''
+      return row.filter(Boolean).length >= 2 && !/^(制表说明|边界说明|本页小计|合计)/.test(firstCell)
+    })
+    return {
+      rowCount: dataRows.length,
+      columnPreview: header.filter(Boolean).slice(0, 12).map((cell) => cell.slice(0, 40)),
+      validationNote: `已识别表头并读取 ${dataRows.length} 条候选数据行，尚未写入账套。`,
+    }
+  } catch {
+    return { rowCount: null, columnPreview: [], validationNote: '无法读取表格结构，需在目标模块完成格式校验。' }
+  }
+}
+
 function fallbackFingerprint(file: File) {
   let hash = 0x811c9dc5
   for (const value of `${file.name}|${file.size}|${file.lastModified}`) {
@@ -127,7 +170,8 @@ export function listLocalAttachmentRecords(scope: LocalFileScope) {
   return scopedRows<LocalAttachmentRecord>(ATTACHMENT_STORAGE_KEY, scope)
 }
 
-export async function recordLocalImportJob(input: Omit<LocalImportJob, 'id' | 'fileName' | 'fileSize' | 'fileFormat' | 'checksum' | 'status' | 'createdAt'> & { file: File }) {
+export async function recordLocalImportJob(input: Omit<LocalImportJob, 'id' | 'fileName' | 'fileSize' | 'fileFormat' | 'checksum' | 'status' | 'rowCount' | 'columnPreview' | 'validationNote' | 'createdAt'> & { file: File }) {
+  const inspection = await inspectImportFile(input.file)
   const record: LocalImportJob = {
     id: `import-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     companyId: input.companyId,
@@ -139,6 +183,9 @@ export async function recordLocalImportJob(input: Omit<LocalImportJob, 'id' | 'f
     fileFormat: fileFormat(input.file),
     checksum: await fileChecksum(input.file),
     status: '待确认',
+    rowCount: inspection.rowCount,
+    columnPreview: inspection.columnPreview,
+    validationNote: inspection.validationNote,
     operator: input.operator,
     createdAt: new Date().toLocaleString('zh-CN'),
   }
@@ -165,6 +212,13 @@ export async function recordLocalAttachment(input: Omit<LocalAttachmentRecord, '
 
 export function removeLocalImportJob(id: string) {
   return removeRecord<LocalImportJob>(IMPORT_STORAGE_KEY, id)
+}
+
+export function updateLocalImportJobValidation(id: string) {
+  return updateRecord<LocalImportJob>(IMPORT_STORAGE_KEY, id, {
+    status: '已校验',
+    validationNote: '已完成人工表头与行数核验；未执行字段映射或写入账套。',
+  })
 }
 
 export function removeLocalAttachment(id: string) {

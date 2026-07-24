@@ -20,7 +20,7 @@ import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
-import { formatLocalFileSize, recordLocalAttachment, recordLocalImportJob, removeLocalAttachment, removeLocalImportJob, updateLocalAttachmentAssociation, useLocalAttachmentRecords, useLocalImportJobs, type LocalAttachmentRecord, type LocalImportJob } from '../../lib/localFileRegistry'
+import { formatLocalFileSize, recordLocalAttachment, recordLocalImportJob, removeLocalAttachment, removeLocalImportJob, updateLocalAttachmentAssociation, updateLocalImportJobValidation, useLocalAttachmentRecords, useLocalImportJobs, type LocalAttachmentRecord, type LocalImportJob } from '../../lib/localFileRegistry'
 import { isTauri } from '../../lib/tauri'
 import { accountTransferApi, automationApi, backupApi, bankReconciliationApi, bankTransactionApi, businessOrderApi, costCarryoverApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, settlementRecordApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankReconciliationRecord, type BankTransaction, type BusinessOrder, type CostCarryoverRecord, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SettlementRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import { measurementUnitApi, type MeasurementUnit } from '../../lib/api'
@@ -3544,7 +3544,7 @@ function mapOperationAuditImportRows(logs: OperationAuditLog[]): ModuleRow[] {
 
 function localFileStatus(status: LocalImportJob['status'] | LocalAttachmentRecord['status']): ModuleRow['status'] {
   if (status === '异常') return '异常'
-  if (status === '已关联') return '已匹配'
+  if (status === '已关联' || status === '已校验') return '已通过'
   return '待确认'
 }
 
@@ -3558,8 +3558,8 @@ function mapLocalImportJobRows(jobs: LocalImportJob[]): ModuleRow[] {
       template: job.operation,
       module: job.moduleName,
       file: job.fileName,
-      rows: '待解析',
-      success: '待校验',
+      rows: job.rowCount === null || job.rowCount === undefined ? '待解析' : String(job.rowCount),
+      success: job.status === '已校验' ? '已核验' : '待校验',
       failed: '0',
       operator: job.operator,
       time: job.createdAt,
@@ -4406,6 +4406,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [nonTaxRevenueDraft, setNonTaxRevenueDraft] = useState({ item: '工会经费', policy: '', source: '', basisAmount: '', payableAmount: '', receiptNo: '', riskCount: '0' })
   const [showAttachmentAssociationDialog, setShowAttachmentAssociationDialog] = useState(false)
   const [attachmentAssociationDraft, setAttachmentAssociationDraft] = useState({ id: '', fileName: '', relatedDocument: '' })
+  const [showImportValidationDialog, setShowImportValidationDialog] = useState(false)
+  const [importValidationJob, setImportValidationJob] = useState<LocalImportJob | null>(null)
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
   const [prefilledAiSuggestionId, setPrefilledAiSuggestionId] = useState<string | null>(null)
   const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)
@@ -7146,12 +7148,33 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('附件关联已登记到本机台账；不会移动原始文件、写入外部存储或修改凭证。')
   }
 
+  const handleValidateLocalImportJob = () => {
+    if (!importValidationJob) return
+    const updated = updateLocalImportJobValidation(importValidationJob.id)
+    if (!updated) {
+      setOperationNotice('核验本机导入批次失败，请刷新后重试。')
+      return
+    }
+    setShowImportValidationDialog(false)
+    setImportValidationJob(null)
+    writeModuleAudit('核验本机导入批次', `${updated.fileName}｜${updated.rowCount ?? '待解析'} 行`, '中', '成功')
+    setOperationNotice('本机导入批次已标记为人工核验；不会写入账套业务数据或调用外部系统。')
+  }
+
   const handleViewRow = async (row: ModuleRow) => {
     if (kind === 'attachmentCenter') {
       const attachment = localAttachmentRecords.find((item) => item.id === row.id)
       if (attachment) {
         setAttachmentAssociationDraft({ id: attachment.id, fileName: attachment.fileName, relatedDocument: attachment.relatedDocument === '待关联单据' ? '' : attachment.relatedDocument })
         setShowAttachmentAssociationDialog(true)
+        return
+      }
+    }
+    if (kind === 'importCenter') {
+      const importJob = localImportJobs.find((item) => item.id === row.id)
+      if (importJob) {
+        setImportValidationJob(importJob)
+        setShowImportValidationDialog(true)
         return
       }
     }
@@ -7522,7 +7545,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleGenerateVoucher = async (row: ModuleRow) => {
-    if (kind === 'attachmentCenter' || kind === 'importCenter') {
+    const isLocalFileRegistryRow = kind === 'attachmentCenter'
+      ? localAttachmentRecords.some((item) => item.id === row.id)
+      : kind === 'importCenter' && localImportJobs.some((item) => item.id === row.id)
+    if ((kind === 'attachmentCenter' || kind === 'importCenter') && isLocalFileRegistryRow) {
       if (!window.confirm(`确认撤销 ${row.values.file || row.values.name || row.id} 的本机登记吗？不会删除原始文件或影响已入账数据。`)) return
       const removed = kind === 'attachmentCenter'
         ? removeLocalAttachment(row.id)
@@ -8070,7 +8096,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 </tr>
               </thead>
               <tbody>
-                {pagedRows.map((row) => (
+                {pagedRows.map((row) => {
+                  const isLocalRegistryRow = kind === 'attachmentCenter'
+                    ? localAttachmentRecords.some((item) => item.id === row.id)
+                    : kind === 'importCenter' && localImportJobs.some((item) => item.id === row.id)
+                  const isLocalRegistryModule = kind === 'attachmentCenter' || kind === 'importCenter'
+                  return (
                   <tr key={row.id} className="hover:bg-[#f8fbff]">
                     <td className="border-b border-slate-100 px-2 py-2">
                       <input
@@ -8101,15 +8132,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
                         <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                          {kind === 'attachmentCenter' ? '关联单据' : kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                          {kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
-                      {!isLocalTaxTaskKind && kind !== 'declarationReceipt' && kind !== 'taxInit' && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
+                      {!isLocalTaxTaskKind && kind !== 'declarationReceipt' && kind !== 'taxInit' && !(isLocalRegistryModule && !isLocalRegistryRow) && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'attachmentCenter' || kind === 'importCenter' ? '撤销登记' : kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'aiVoucherSuggestions' ? row.status === '已生成凭证' ? '查看凭证' : '进入草稿' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
                       </button>}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
               <tfoot className="bg-[#f8fafc]">
                 <tr>
@@ -8178,6 +8210,42 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存关联</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {showImportValidationDialog && importValidationJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="核验本机导入批次">
+          <div className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">核验本机导入批次</h2>
+                <p className="mt-0.5 text-xs text-slate-500">核对本次解析出的文件元数据、表头和候选数据行。</p>
+              </div>
+              <button type="button" onClick={() => { setShowImportValidationDialog(false); setImportValidationJob(null) }} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 text-sm text-slate-700">
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                <div><dt className="text-slate-500">文件名称</dt><dd className="mt-1 break-all text-slate-900">{importValidationJob.fileName}</dd></div>
+                <div><dt className="text-slate-500">文件格式 / 大小</dt><dd className="mt-1 text-slate-900">{importValidationJob.fileFormat} / {formatLocalFileSize(importValidationJob.fileSize)}</dd></div>
+                <div><dt className="text-slate-500">候选数据行</dt><dd className="mt-1 text-slate-900">{importValidationJob.rowCount === null || importValidationJob.rowCount === undefined ? '待解析' : `${importValidationJob.rowCount} 行`}</dd></div>
+                <div><dt className="text-slate-500">校验状态</dt><dd className="mt-1 text-slate-900">{importValidationJob.status === '已校验' ? '已人工核验' : '待人工核验'}</dd></div>
+              </dl>
+              <div className="border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-medium text-slate-700">识别到的表头</p>
+                {importValidationJob.columnPreview?.length ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {importValidationJob.columnPreview.map((column) => <span key={column} className="border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">{column}</span>)}
+                  </div>
+                ) : <p className="mt-2 text-xs text-slate-500">当前格式未解析出表头，需在对应业务模块完成格式校验。</p>}
+              </div>
+              <p className="text-xs leading-5 text-slate-500">{importValidationJob.validationNote || '历史批次尚未保存解析摘要，请在对应业务模块人工核验。'}</p>
+              <p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 text-xs leading-5 text-slate-700">安全边界：核验只更新本机导入批次的状态，不会写入账套业务数据或调用外部系统。</p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => { setShowImportValidationDialog(false); setImportValidationJob(null) }} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="button" disabled={importValidationJob.status === '已校验'} onClick={handleValidateLocalImportJob} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82] disabled:cursor-not-allowed disabled:bg-slate-400">{importValidationJob.status === '已校验' ? '已核验' : '确认核验'}</button>
+            </div>
+          </div>
         </div>
       )}
 
