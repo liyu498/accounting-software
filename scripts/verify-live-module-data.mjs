@@ -617,6 +617,15 @@ const requiredAdapterAuthorizationEntryPageSnippets = [
   ['adapter authorization save binding', 'automationApi.upsertAdapterAuthorization({'],
 ]
 
+const requiredReportFormulaEntryStoreSnippets = [
+  ['report formula update action', 'updateReportItem: async'],
+]
+
+const requiredReportFormulaEntryPageSnippets = [
+  ['report formula edit state', 'const [editingReportFormulaId, setEditingReportFormulaId] = useState<string | null>(null)'],
+  ['report formula update binding', 'updateReportItem({'],
+]
+
 const requiredSocialSecurityCommandSnippets = [
   ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
   ['social security list command', 'pub async fn get_social_security_records'],
@@ -853,6 +862,8 @@ const errors = [
   ...verify(templateStoreSource, requiredVoucherTemplateEntryStoreSnippets, 'voucher template store'),
   ...verify(pageSource, requiredVoucherTemplateEntryPageSnippets, 'voucher template module page'),
   ...verify(pageSource, requiredAdapterAuthorizationEntryPageSnippets, 'adapter authorization module page'),
+  ...verify(readFileSync('src/stores/reportTemplateStore.ts', 'utf8'), requiredReportFormulaEntryStoreSnippets, 'report formula store'),
+  ...verify(pageSource, requiredReportFormulaEntryPageSnippets, 'report formula module page'),
   ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
   ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),

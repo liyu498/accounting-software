@@ -29,6 +29,7 @@ interface ReportTemplateState {
   isLoading: boolean
   error: string | null
   fetchReportTemplateWorkspace(companyId: string): Promise<void>
+  updateReportItem(input: { id: string; companyId: string; itemName: string; formula: string; sortOrder: number; isTotal: number }): Promise<ReportItem>
 }
 
 export const useReportTemplateStore = create<ReportTemplateState>((set) => ({
@@ -51,5 +52,20 @@ export const useReportTemplateStore = create<ReportTemplateState>((set) => ({
     } catch (error) {
       set({ error: String(error), isLoading: false })
     }
+  },
+
+  updateReportItem: async (input) => {
+    const item = await invoke<ReportItem>('update_report_item', {
+      companyId: input.companyId,
+      input: {
+        id: input.id,
+        item_name: input.itemName,
+        formula: input.formula,
+        sort_order: input.sortOrder,
+        is_total: input.isTotal,
+      },
+    })
+    set((state) => ({ reportItems: state.reportItems.map((current) => current.id === item.id ? item : current) }))
+    return item
   },
 }))

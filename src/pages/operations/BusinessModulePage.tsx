@@ -2682,7 +2682,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   },
   reportFormulaSettings: {
     keywordPlaceholder: '搜索报表、项目、行次、取数科目、重分类',
-    primaryAction: '新增公式',
+    primaryAction: '复核标准公式',
     importLabel: '导入公式',
     statusOptions: ['全部', '启用', '停用', '待确认', '异常'],
     summary: [
@@ -4033,6 +4033,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const reportTemplates = useReportTemplateStore((state) => state.reportTemplates)
   const reportItems = useReportTemplateStore((state) => state.reportItems)
   const fetchReportTemplateWorkspace = useReportTemplateStore((state) => state.fetchReportTemplateWorkspace)
+  const updateReportItem = useReportTemplateStore((state) => state.updateReportItem)
   const usesLiveModuleData = isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice', 'voucher', 'riskCheck'].includes(kind)
   const usesLiveReportData = Boolean(
     isTauri &&
@@ -4158,6 +4159,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showAdapterAuthorizationDialog, setShowAdapterAuthorizationDialog] = useState(false)
   const [editingAdapterAuthorizationId, setEditingAdapterAuthorizationId] = useState<string | null>(null)
   const [adapterAuthorizationDraft, setAdapterAuthorizationDraft] = useState({ adapterCode: '', region: '', authStatus: 'pending', accountMask: '', loginIdentity: '', capabilityScope: '', expiresAt: '', riskMessage: '' })
+  const [showReportFormulaDialog, setShowReportFormulaDialog] = useState(false)
+  const [editingReportFormulaId, setEditingReportFormulaId] = useState<string | null>(null)
+  const [reportFormulaDraft, setReportFormulaDraft] = useState({ itemName: '', formula: '', sortOrder: '0', isTotal: false })
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false)
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
   const [employeeDraft, setEmployeeDraft] = useState({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
@@ -5806,6 +5810,31 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const handleSaveReportFormula = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || !editingReportFormulaId) return
+    const item = reportItems.find((current) => current.id === editingReportFormulaId)
+    const template = item ? reportTemplates.find((current) => current.id === item.template_id) : undefined
+    const impact = template?.is_system === 1 ? '该标准报表模板会影响所有账套的后续取数。确认已完成复核后保存吗？' : '确认保存当前账套报表模板公式吗？'
+    if (!window.confirm(impact)) return
+    try {
+      const result = await updateReportItem({
+        id: editingReportFormulaId,
+        companyId: selectedCompanyId,
+        itemName: reportFormulaDraft.itemName.trim(),
+        formula: reportFormulaDraft.formula.trim(),
+        sortOrder: Number(reportFormulaDraft.sortOrder || 0),
+        isTotal: reportFormulaDraft.isTotal ? 1 : 0,
+      })
+      writeModuleAudit('编辑报表公式', `${template?.template_name || '报表'}｜${result.item_code}`, '高', '成功')
+      setOperationNotice(`已更新 ${result.item_name} 的取数公式；请重算报表并人工复核取数结果。`)
+      setEditingReportFormulaId(null)
+      setShowReportFormulaDialog(false)
+    } catch (error) {
+      setOperationNotice(`更新报表公式失败：${String(error)}`)
+    }
+  }
+
   const handleSaveSocialSecurityRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
@@ -6122,6 +6151,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingAdapterAuthorizationId(adapter.id)
       setAdapterAuthorizationDraft({ adapterCode: adapter.adapterCode, region: adapter.region || '', authStatus: adapter.authStatus, accountMask: adapter.accountMask || '', loginIdentity: adapter.loginIdentity || '', capabilityScope: adapter.capabilityScope || '', expiresAt: adapter.expiresAt || '', riskMessage: adapter.riskMessage || '' })
       setShowAdapterAuthorizationDialog(true)
+      return
+    }
+    if (kind === 'reportFormulaSettings' && isTauri && selectedCompanyId) {
+      const item = reportItems.find((current) => `report-formula-${current.id}` === row.id)
+      if (!item) {
+        setOperationNotice('未找到报表公式项目。')
+        return
+      }
+      setEditingReportFormulaId(item.id)
+      setReportFormulaDraft({ itemName: item.item_name, formula: item.formula || '', sortOrder: String(item.sort_order), isTotal: item.is_total === 1 })
+      setShowReportFormulaDialog(true)
       return
     }
     if (kind === 'socialSecurity' && isTauri && selectedCompanyId) { const record=socialSecurityRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSocialSecurityId(record.id);setSocialSecurityDraft({employeeId:record.employeeId,city:record.city||'',base:String(record.contributionBase),company:String(record.companyAmount),personal:String(record.personalAmount),fund:String(record.fundAmount)});setShowSocialSecurityDialog(true);return }
@@ -6736,7 +6776,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
@@ -7077,6 +7117,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">风险提示<input value={adapterAuthorizationDraft.riskMessage} onChange={(event) => setAdapterAuthorizationDraft((draft) => ({ ...draft, riskMessage: event.target.value }))} placeholder="例如：未完成企业授权，禁止自动提交" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowAdapterAuthorizationDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存脱敏配置</button></div>
+          </form>
+        </div>
+      )}
+      {showReportFormulaDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="编辑报表公式">
+          <form onSubmit={handleSaveReportFormula} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">编辑报表公式</h2><p className="mt-0.5 text-xs text-amber-700">标准模板修改会影响后续报表取数，保存前必须完成公式和重算结果复核。</p></div><button type="button" onClick={() => setShowReportFormulaDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">报表项目 *<input required value={reportFormulaDraft.itemName} onChange={(event) => setReportFormulaDraft((draft) => ({ ...draft, itemName: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">显示顺序<input required type="number" min="0" step="1" value={reportFormulaDraft.sortOrder} onChange={(event) => setReportFormulaDraft((draft) => ({ ...draft, sortOrder: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">取数公式/科目 *<textarea required rows={4} value={reportFormulaDraft.formula} onChange={(event) => setReportFormulaDraft((draft) => ({ ...draft, formula: event.target.value }))} placeholder="如：1001+1002+1012" className="resize-y rounded border border-slate-300 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
+              <label className="inline-flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={reportFormulaDraft.isTotal} onChange={(event) => setReportFormulaDraft((draft) => ({ ...draft, isTotal: event.target.checked }))} />汇总项目</label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowReportFormulaDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">确认保存并复核</button></div>
           </form>
         </div>
       )}
