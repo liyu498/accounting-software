@@ -11,7 +11,7 @@ import {
   ShieldAlert,
   Upload,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '../../lib/utils'
 import { isTauri } from '../../lib/tauri'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
@@ -121,6 +121,21 @@ type DeclarationDraft = {
   riskCount: string
 }
 
+type TaxInitializationImportCandidate = {
+  rowNumber: number
+  taxType: string
+  formName: string
+  period: string
+  collectStatus: string
+  validationStatus: string
+  taxableAmount: number
+  deductionAmount: number
+  payableAmount: number
+  riskCount: number
+  sourceSnapshot: string
+  adapterCode: string
+}
+
 const riskRows: RiskRow[] = [
   ['阻断', '增值税及附加', '进项发票未完成勾选，抵扣税额不能进入申报主表', '发票勾选'],
   ['提示', '扣缴所得税', '员工王五专项附加扣除缺少结束月份', '专项附加扣除'],
@@ -162,6 +177,29 @@ function displayTaxDeclarationStatus(value: string) {
 
 function formatTaxNumber(value: number) {
   return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function taxImportCellText(value: unknown) {
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  return value === null || value === undefined ? '' : String(value).trim()
+}
+
+function normalizeTaxImportHeader(value: string) {
+  return value.replace(/[（(].*?[）)]/g, '').replace(/[\s/]/g, '').trim()
+}
+
+function parseTaxImportMoney(value: string) {
+  if (!value) return 0
+  const parsed = Number(value.replace(/,/g, ''))
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : Number.NaN
+}
+
+function normalizeImportedCollectStatus(value: string) {
+  return ['已取数', '待补资料', '未取数'].includes(value) ? value : '未取数'
+}
+
+function normalizeImportedValidationStatus(value: string) {
+  return ['校验通过', '需复核', '待确认'].includes(value) ? value : '待确认'
 }
 
 function mapTaxDeclarationTaskToRow(task: TaxDeclarationTask): DeclarationRow {
@@ -302,6 +340,11 @@ export function TaxWorkspace() {
   const [declarationStatusFilter, setDeclarationStatusFilter] = useState('全部')
   const [validationStatusFilter, setValidationStatusFilter] = useState('全部')
   const [showDeclarationDetailDialog, setShowDeclarationDetailDialog] = useState(false)
+  const [showTaxInitializationImportDialog, setShowTaxInitializationImportDialog] = useState(false)
+  const [taxInitializationImportFileName, setTaxInitializationImportFileName] = useState('')
+  const [taxInitializationImportPreview, setTaxInitializationImportPreview] = useState<TaxInitializationImportCandidate[]>([])
+  const [taxInitializationImportErrors, setTaxInitializationImportErrors] = useState<string[]>([])
+  const taxInitializationInputRef = useRef<HTMLInputElement>(null)
   const [declarationDraft, setDeclarationDraft] = useState<DeclarationDraft>({
     id: '', category: '', form: '', period: '', source: '', taxableAmount: '', deductionAmount: '', payableAmount: '', collectStatus: '已取数', validationStatus: '待确认', riskCount: '0',
   })
@@ -559,28 +602,121 @@ export function TaxWorkspace() {
   }
 
   const importInitialization = () => {
-    void automationApi.upsertAdapterAuthorization({
+    taxInitializationInputRef.current?.click()
+  }
+
+  const handleTaxInitializationFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
+      setOperationNotice('税务申报初始化仅支持导入本系统下载的 .xlsx 模板。')
+      return
+    }
+
+    try {
+      const { readSheet } = await import('read-excel-file/browser')
+      const rawRows = await readSheet(file)
+      const rows = rawRows.map((row) => row.map(taxImportCellText))
+      const headerIndex = rows.findIndex((row) => row.some((cell) => normalizeTaxImportHeader(cell) === '税种') && row.some((cell) => normalizeTaxImportHeader(cell) === '申报表'))
+      if (headerIndex < 0) throw new Error('未找到“税种、申报表”表头，请使用系统下载的初始化模板。')
+
+      const headerMap = new Map(rows[headerIndex].map((header, index) => [normalizeTaxImportHeader(header), index]))
+      const getCell = (row: string[], header: string) => row[headerMap.get(normalizeTaxImportHeader(header)) ?? -1] || ''
+      const errors: string[] = []
+      const candidates: TaxInitializationImportCandidate[] = []
+
+      rows.slice(headerIndex + 1).forEach((row, index) => {
+        const rowNumber = headerIndex + index + 2
+        const taxType = getCell(row, '税种')
+        const formName = getCell(row, '申报表')
+        const period = getCell(row, '所属期')
+        if (!taxType && !formName && !period) return
+        if (['制表说明', '边界说明', '本页小计', '合计'].includes(taxType)) return
+        if (!taxType || !formName || !period) {
+          errors.push(`第 ${rowNumber} 行缺少税种、申报表或所属期。`)
+          return
+        }
+        if (period !== currentPeriod) {
+          errors.push(`第 ${rowNumber} 行所属期为 ${period}，与当前账期 ${currentPeriod} 不一致。`)
+          return
+        }
+        const taxableAmount = parseTaxImportMoney(getCell(row, '计税依据'))
+        const deductionAmount = parseTaxImportMoney(getCell(row, '抵扣减免'))
+        const payableAmount = parseTaxImportMoney(getCell(row, '应缴金额'))
+        if ([taxableAmount, deductionAmount, payableAmount].some((value) => Number.isNaN(value))) {
+          errors.push(`第 ${rowNumber} 行金额必须是非负数字。`)
+          return
+        }
+        const risk = getCell(row, '风险项')
+        candidates.push({
+          rowNumber,
+          taxType,
+          formName,
+          period,
+          collectStatus: normalizeImportedCollectStatus(getCell(row, '取数状态')),
+          validationStatus: normalizeImportedValidationStatus(getCell(row, '校验状态')),
+          taxableAmount,
+          deductionAmount,
+          payableAmount,
+          riskCount: risk ? 1 : 0,
+          sourceSnapshot: getCell(row, '取数依据人工复核说明'),
+          adapterCode: getCell(row, '授权适配器代码'),
+        })
+      })
+      if (candidates.length === 0) errors.push('模板中没有可导入的申报事项。')
+      setTaxInitializationImportFileName(file.name)
+      setTaxInitializationImportPreview(candidates)
+      setTaxInitializationImportErrors(errors)
+      setShowTaxInitializationImportDialog(true)
+    } catch (error) {
+      setOperationNotice(`解析税务申报初始化模板失败：${String(error)}`)
+    }
+  }
+
+  const confirmTaxInitializationImport = async () => {
+    if (!usesLiveTaxDeclarationData || !selectedCompanyId) {
+      setOperationNotice('浏览器预览只展示模板解析；请在桌面端选择账套和账期后确认写入本地申报事项。')
+      return
+    }
+    if (taxInitializationImportPreview.length === 0 || taxInitializationImportErrors.length > 0) {
+      setOperationNotice('当前模板存在校验错误，修正后才能确认写入本地申报事项。')
+      return
+    }
+
+    const results = await Promise.all(taxInitializationImportPreview.map((item) => automationApi.upsertTaxDeclarationTask({
       companyId,
-      adapterType: 'tax',
-      adapterCode: 'local-preview',
-      region: '上海',
-      authStatus: 'pending',
-      accountMask: '未保存明文账号',
-      loginIdentity: '办税员/代理记账授权',
-      capabilityScope: '税种取数/申报包生成/回执归档',
-      riskMessage: '当前仅维护授权状态，不保存密码，不执行真实提交',
-    }).then((response) => {
-      if (response.success) setBackendAdapterStatus(response.data?.authStatus ?? 'pending')
-    })
+      period: item.period,
+      taxType: item.taxType,
+      formName: item.formName,
+      collectStatus: item.collectStatus,
+      validationStatus: normalizeTaxValidationStatus(item.validationStatus),
+      declarationStatus: 'draft',
+      sourceSnapshot: item.sourceSnapshot || undefined,
+      taxableAmount: item.taxableAmount,
+      deductionAmount: item.deductionAmount,
+      payableAmount: item.payableAmount,
+      riskCount: item.riskCount,
+      adapterCode: item.adapterCode || 'local-template',
+    })))
+    const saved = results.filter((result) => result.success).length
+    if (saved !== taxInitializationImportPreview.length) {
+      setOperationNotice(`仅写入 ${saved}/${taxInitializationImportPreview.length} 条本地申报事项，请检查失败项后重试。`)
+      return
+    }
+    await reloadTaxDeclarationTasks()
     writeTaxAudit({
       action: '导入初始化',
-      object: '税种认定/期初留抵/申报参数',
+      object: `税种认定/取数参数 ${saved} 条`,
       level: '中',
-      result: '待审批',
-      status: '待确认',
-      attachment: '初始化导入批次',
+      result: '成功',
+      status: '已通过',
+      attachment: taxInitializationImportFileName,
     })
-    setOperationNotice('导入初始化已进入待确认留痕；后续会接入模板校验、字段映射和回滚清单。')
+    setShowTaxInitializationImportDialog(false)
+    setTaxInitializationImportPreview([])
+    setTaxInitializationImportErrors([])
+    setOperationNotice(`已确认写入 ${saved} 条本地申报事项；不会向税局提交申报、发起扣款或保存税局密码。`)
   }
 
   const downloadTaxTemplate = async () => {
@@ -945,6 +1081,42 @@ export function TaxWorkspace() {
       </div>
 
       {showRulesLog && <TaxRulesLogPanel riskRows={visibleRiskRows} logs={visibleRuleLogs} onRiskLink={handleRiskLink} />}
+
+      <input ref={taxInitializationInputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={handleTaxInitializationFile} />
+
+      {showTaxInitializationImportDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="导入税务申报初始化模板">
+          <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">导入税务申报初始化模板</h2>
+                <p className="mt-0.5 text-xs text-slate-500">{taxInitializationImportFileName}，先校验预览，确认后才写入当前账套的本地申报事项。</p>
+              </div>
+              <button type="button" onClick={() => setShowTaxInitializationImportDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto p-4">
+              {taxInitializationImportErrors.length > 0 && (
+                <div className="mb-3 border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                  <div className="font-medium">发现 {taxInitializationImportErrors.length} 项模板校验错误</div>
+                  <ul className="mt-1 list-disc space-y-1 pl-4">{taxInitializationImportErrors.map((error) => <li key={error}>{error}</li>)}</ul>
+                </div>
+              )}
+              <div className="mb-2 text-xs text-slate-500">待写入 {taxInitializationImportPreview.length} 条，仅支持当前账期 {currentPeriod}；风险项会以待复核本地事项保存。</div>
+              <div className="overflow-x-auto border border-slate-200">
+                <table className="min-w-[980px] w-full border-collapse text-left text-xs">
+                  <thead className="bg-[#eef3f8] text-slate-600"><tr><th className="px-2 py-2">行号</th><th className="px-2 py-2">税种</th><th className="px-2 py-2">申报表</th><th className="px-2 py-2">取数状态</th><th className="px-2 py-2">校验状态</th><th className="px-2 py-2 text-right">计税依据</th><th className="px-2 py-2 text-right">抵扣/减免</th><th className="px-2 py-2 text-right">应缴金额</th><th className="px-2 py-2">风险</th></tr></thead>
+                  <tbody>{taxInitializationImportPreview.map((item) => <tr key={`${item.rowNumber}-${item.taxType}`}><td className="border-t border-slate-100 px-2 py-2 text-slate-500">{item.rowNumber}</td><td className="border-t border-slate-100 px-2 py-2 font-medium">{item.taxType}</td><td className="border-t border-slate-100 px-2 py-2">{item.formName}</td><td className="border-t border-slate-100 px-2 py-2">{item.collectStatus}</td><td className="border-t border-slate-100 px-2 py-2">{item.validationStatus}</td><td className="border-t border-slate-100 px-2 py-2 text-right font-mono">{formatTaxNumber(item.taxableAmount)}</td><td className="border-t border-slate-100 px-2 py-2 text-right font-mono">{formatTaxNumber(item.deductionAmount)}</td><td className="border-t border-slate-100 px-2 py-2 text-right font-mono">{formatTaxNumber(item.payableAmount)}</td><td className="border-t border-slate-100 px-2 py-2">{item.riskCount > 0 ? '待复核' : '无'}</td></tr>)}</tbody>
+                </table>
+              </div>
+              <p className="mt-3 text-xs leading-5 text-slate-500">安全边界：导入只写入本地税种认定、取数和校验参数，不会向税局提交申报、发起扣款或保存税局密码。</p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowTaxInitializationImportDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="button" disabled={taxInitializationImportPreview.length === 0 || taxInitializationImportErrors.length > 0} onClick={() => void confirmTaxInitializationImport()} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300">确认写入本地申报事项</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDeclarationDetailDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="编辑本地申报事项">

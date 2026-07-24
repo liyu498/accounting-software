@@ -354,6 +354,10 @@ const requiredTaxWorkspaceSnippets = [
   ['tax workspace initialization template export', 'exportRowsToXlsx({'],
   ['tax workspace initialization template boundary', '仅用于本地税种认定和取数维护；不包含税局密码，不提交税局、不扣款。'],
   ['tax workspace initialization template columns', "'取数依据/人工复核说明'"],
+  ['tax workspace initialization template parser', "await import('read-excel-file/browser')"],
+  ['tax workspace initialization import preview', 'setTaxInitializationImportPreview'],
+  ['tax workspace initialization import confirmation', '确认写入本地申报事项'],
+  ['tax workspace initialization import boundary', '不会向税局提交申报、发起扣款或保存税局密码'],
 ]
 
 const requiredWelcomeSnippets = [
