@@ -251,7 +251,7 @@ interface ModuleColumn {
 
 interface ModuleRow {
   id: string
-  status: '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
+  status: '待处理' | '已匹配' | '已确认' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
   voucher?: string
   attachment?: string
   values: Record<string, string>
@@ -465,7 +465,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     keywordPlaceholder: '搜索建议号、来源、摘要、科目、置信度',
     primaryAction: '批量确认',
     importLabel: '导出建议',
-    statusOptions: ['全部', '待处理', '待确认', '已生成凭证', '异常'],
+    statusOptions: ['全部', '待处理', '待确认', '已确认', '已生成凭证', '异常'],
     summary: [
       { label: '凭证建议', value: '54 条', tone: 'blue' },
       { label: '可确认', value: '38 条', tone: 'green' },
@@ -3040,6 +3040,7 @@ function statusBadge(status: ModuleRow['status']) {
   const className = {
     待处理: 'bg-amber-50 text-amber-700 ring-amber-100',
     已匹配: 'bg-blue-50 text-blue-700 ring-blue-100',
+    已确认: 'bg-green-50 text-green-700 ring-green-100',
     已生成凭证: 'bg-green-50 text-green-700 ring-green-100',
     待确认: 'bg-amber-50 text-amber-700 ring-amber-100',
     异常: 'bg-red-50 text-red-700 ring-red-100',
@@ -5470,7 +5471,50 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('模板下载已记录；正式模板会继续绑定固定 Excel/PDF 版本和字段校验规则。')
   }
 
+  const confirmAiVoucherSuggestions = async (rowIds: string[]) => {
+    if (!selectedCompanyId) return
+    const jobs = rowIds
+      .map((rowId) => automationJobs.find((job) => `automation-suggestion-${job.id}` === rowId))
+      .filter((job): job is AutomationJob => Boolean(job))
+      .filter((job) => !['confirmed', 'completed', 'succeeded', 'approved'].includes(job.status.toLowerCase()))
+
+    if (jobs.length === 0) {
+      setOperationNotice('请先勾选待确认的 AI 凭证建议。')
+      return
+    }
+    if (!window.confirm(`确认 ${jobs.length} 条 AI 凭证建议吗？确认后仅进入凭证草稿复核队列，不会自动生成或入账凭证。`)) return
+
+    const reviewer = 'admin'
+    const results = await Promise.all(jobs.map(async (job) => {
+      const confirmationNote = `${job.resultSummary || '未记录建议摘要'}｜${reviewer} 已人工确认，待在凭证草稿中复核。`
+      return automationApi.updateAutomationJobStatus({
+        id: job.id,
+        companyId: selectedCompanyId,
+        status: 'confirmed',
+        resultSummary: confirmationNote,
+        reviewer,
+      })
+    }))
+    const updatedJobs = results.flatMap((result) => result.success && result.data ? [result.data] : [])
+    const failedCount = results.length - updatedJobs.length
+    if (updatedJobs.length > 0) {
+      const updatedById = new Map(updatedJobs.map((job) => [job.id, job]))
+      setAutomationJobs((items) => items.map((job) => updatedById.get(job.id) || job))
+      setSelectedRowIds(new Set())
+      writeModuleAudit('确认AI凭证建议', `${updatedJobs.length} 条`, '中', '成功')
+    }
+    setOperationNotice(
+      failedCount > 0
+        ? `已确认 ${updatedJobs.length} 条建议，${failedCount} 条更新失败；已确认建议仍需在凭证草稿中人工复核，不会自动生成或入账凭证。`
+        : `已确认 ${updatedJobs.length} 条建议，已进入凭证草稿复核队列；不会自动生成或入账凭证。`,
+    )
+  }
+
   const handlePrimaryAction = async () => {
+    if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData && selectedCompanyId) {
+      await confirmAiVoucherSuggestions([...selectedRowIds])
+      return
+    }
     if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {
       const selectedIds = [...selectedRowIds].filter((id) => deletedVouchers.some((voucher) => voucher.id === id))
       if (selectedIds.length === 0) {
@@ -6549,6 +6593,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleViewRow = async (row: ModuleRow) => {
+    if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData && selectedCompanyId) {
+      const suggestionJobId = row.id.replace('automation-suggestion-', '')
+      await confirmAiVoucherSuggestions([`automation-suggestion-${suggestionJobId}`])
+      return
+    }
     if (kind === 'voucher') {
       navigate(`/vouchers/detail/${row.id}`)
       return
@@ -6881,6 +6930,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleGenerateVoucher = async (row: ModuleRow) => {
     if (kind === 'voucher') {
       navigate(`/vouchers/edit/${row.id}`)
+      return
+    }
+    if (kind === 'aiVoucherSuggestions') {
+      if (row.status !== '已确认') {
+        setOperationNotice('请先人工确认 AI 凭证建议，再进入凭证草稿复核；系统不会自动生成或入账凭证。')
+        return
+      }
+      const suggestionNo = row.values.suggestNo || row.id
+      writeModuleAudit('打开AI凭证草稿复核', suggestionNo, '中', '成功')
+      setOperationNotice(`${suggestionNo} 已进入凭证草稿复核入口；请人工录入、校验借贷平衡并保存，系统不会自动生成或入账凭证。`)
+      navigate('/vouchers/new')
       return
     }
     if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {
@@ -7420,10 +7480,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        {kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? '确认' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                       </button>
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
-                        {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
+                        {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'aiVoucherSuggestions' ? '进入草稿' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
                       </button>
                     </td>
                   </tr>

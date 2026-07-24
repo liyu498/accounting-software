@@ -24,7 +24,7 @@ import type { CommonDigest, VoucherTemplateType, VoucherTemplateWithEntries } fr
 import type { ReportItem, ReportTemplate } from '../stores/reportTemplateStore'
 import type { AdapterAuthorization, AutomationJob, OperationAuditLog, TaxDeclarationTask } from '../lib/api'
 
-export type LiveModuleStatus = '待处理' | '已匹配' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
+export type LiveModuleStatus = '待处理' | '已匹配' | '已确认' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
 
 export interface LiveModuleRow {
   id: string
@@ -703,7 +703,8 @@ function automationJobStatus(job: AutomationJob): LiveModuleStatus {
 function automationSuggestionStatus(job: AutomationJob): LiveModuleStatus {
   const status = job.status.toLowerCase()
   if (['failed', 'error', 'rejected', 'cancelled'].includes(status)) return '异常'
-  if (['completed', 'succeeded', 'approved', 'confirmed'].includes(status)) return '已生成凭证'
+  if (status === 'confirmed') return '已确认'
+  if (['completed', 'succeeded', 'approved'].includes(status)) return '已生成凭证'
   if (['pending', 'review', 'awaiting_review', 'waiting_confirmation', 'needs_review'].includes(status)) return '待确认'
   return '待处理'
 }
@@ -791,6 +792,7 @@ export function summarizeLiveAutomationJobs(jobs: AutomationJob[], view: 'queue'
   const statusForView = view === 'suggestion' ? automationSuggestionStatus : automationJobStatus
   const riskJobs = visibleJobs.filter((job) => ['high', 'critical'].includes(job.riskLevel.toLowerCase()) || statusForView(job) === '异常').length
   const completed = visibleJobs.filter((job) => statusForView(job) === (view === 'suggestion' ? '已生成凭证' : '已通过')).length
+  const confirmed = visibleJobs.filter((job) => view === 'suggestion' && statusForView(job) === '已确认').length
   const pending = visibleJobs.filter((job) => statusForView(job) === '待确认').length
   const waiting = visibleJobs.filter((job) => statusForView(job) === '待处理').length
   const exception = visibleJobs.filter((job) => statusForView(job) === '异常').length
@@ -798,8 +800,8 @@ export function summarizeLiveAutomationJobs(jobs: AutomationJob[], view: 'queue'
   if (view === 'suggestion') {
     return [
       { label: '凭证建议', value: `${visibleJobs.length} 条`, tone: visibleJobs.length > 0 ? 'blue' : 'gray' },
-      { label: '可确认', value: `${pending} 条`, tone: pending > 0 ? 'green' : 'gray' },
-      { label: '待修改', value: `${waiting} 条`, tone: waiting > 0 ? 'amber' : 'gray' },
+      { label: '待确认', value: `${pending} 条`, tone: pending > 0 ? 'amber' : 'gray' },
+      { label: '已确认', value: `${confirmed} 条`, tone: confirmed > 0 ? 'green' : 'gray' },
       { label: '高风险', value: `${riskJobs} 条`, tone: riskJobs > 0 ? 'red' : 'gray' },
     ]
   }
