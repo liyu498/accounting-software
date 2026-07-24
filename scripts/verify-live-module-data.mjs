@@ -851,6 +851,11 @@ const requiredAiSuggestionVoucherUnlinkCommandSnippets = [
   ['AI suggestion permanent-delete reset status', "SET generated_voucher_id = NULL, generated_voucher_number = NULL, status = 'confirmed'"],
   ['AI suggestion permanent-delete reset scope', 'WHERE generated_voucher_id = ? AND company_id = ?'],
 ]
+const requiredAiSuggestionVoucherNavigationPageSnippets = [
+  ['AI suggestion linked voucher lookup', 'job.generatedVoucherId'],
+  ['AI suggestion linked voucher navigation', 'navigate(`/vouchers/detail/${job.generatedVoucherId}`)'],
+  ['AI suggestion linked voucher action label', "row.status === '已生成凭证' ? '查看凭证'"],
+]
 const requiredBusinessOrderPageSnippets = [
   ['business order live scope', "['purchaseManagement', 'salesManagement'].includes(kind)"],
   ['business order editor state', 'const [showBusinessOrderDialog, setShowBusinessOrderDialog] = useState(false)'],
@@ -1200,6 +1205,7 @@ const errors = [
   ...verify(pageSource, requiredStructuredAiSuggestionPageSnippets, 'structured AI suggestion module page'),
   ...verify(pageSource, requiredAiSuggestionVoucherLinkPageSnippets, 'AI suggestion voucher link module page'),
   ...verify(voucherCommandSource, requiredAiSuggestionVoucherUnlinkCommandSnippets, 'AI suggestion voucher unlink commands'),
+  ...verify(pageSource, requiredAiSuggestionVoucherNavigationPageSnippets, 'AI suggestion voucher navigation module page'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
   ...verify(pageSource, requiredInventoryItemPageSnippets, 'inventory item module page'),

@@ -6671,8 +6671,27 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     return row.voucher && row.voucher !== '-' ? row.voucher : firstValue || row.id
   }
 
+  const openLinkedAiSuggestionVoucher = (row: ModuleRow) => {
+    const suggestionJobId = row.id.replace('automation-suggestion-', '')
+    const job = automationJobs.find((item) => item.id === suggestionJobId)
+    if (!job?.generatedVoucherId) {
+      setOperationNotice('该 AI 建议未记录可打开的凭证草稿，请刷新列表后重试。')
+      return
+    }
+    writeModuleAudit('查看AI关联凭证', job.generatedVoucherNumber || job.suggestionNo || job.id, '中', '成功')
+    navigate(`/vouchers/detail/${job.generatedVoucherId}`)
+  }
+
   const handleViewRow = async (row: ModuleRow) => {
     if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData && selectedCompanyId) {
+      if (row.status === '已生成凭证') {
+        openLinkedAiSuggestionVoucher(row)
+        return
+      }
+      if (row.status === '已确认') {
+        setOperationNotice('该 AI 凭证建议已确认，请进入凭证草稿继续人工核验和保存。')
+        return
+      }
       const suggestionJobId = row.id.replace('automation-suggestion-', '')
       await confirmAiVoucherSuggestions([`automation-suggestion-${suggestionJobId}`])
       return
@@ -7012,6 +7031,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'aiVoucherSuggestions') {
+      if (row.status === '已生成凭证') {
+        openLinkedAiSuggestionVoucher(row)
+        return
+      }
       if (row.status !== '已确认') {
         setOperationNotice('请先人工确认 AI 凭证建议，再进入凭证草稿复核；系统不会自动生成或入账凭证。')
         return
@@ -7567,11 +7590,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                       </span>
                     </td>
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
-                      <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                        {kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? '确认' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
-                      </button>
+                      {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
+                        <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
+                          {kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        </button>
+                      )}
                       <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
-                        {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'aiVoucherSuggestions' ? '进入草稿' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
+                        {kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'aiVoucherSuggestions' ? row.status === '已生成凭证' ? '查看凭证' : '进入草稿' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
                       </button>
                     </td>
                   </tr>
