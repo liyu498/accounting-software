@@ -758,12 +758,12 @@ export function mapLiveAutomationJobRows(jobs: AutomationJob[], view: 'queue' | 
         return {
           ...shared,
           values: {
-            suggestNo: job.id,
+            suggestNo: job.suggestionNo || job.id,
             source: [job.sourceModule, job.sourceId].filter(Boolean).join(' / ') || '未记录来源',
             summary: job.resultSummary || '未记录摘要',
-            debit: '未记录分录',
-            credit: '未记录分录',
-            amount: '未记录金额',
+            debit: job.debitSubject || '未记录分录',
+            credit: job.creditSubject || '未记录分录',
+            amount: job.suggestionAmount === null ? '未记录金额' : currency(job.suggestionAmount),
             confidence: automationConfidence(job.confidence),
             risk: job.riskLevel || '未记录',
           },

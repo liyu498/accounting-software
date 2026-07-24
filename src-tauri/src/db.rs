@@ -1297,6 +1297,10 @@ impl Database {
                 source_module TEXT NOT NULL,
                 source_id TEXT,
                 source_file TEXT,
+                suggestion_no TEXT,
+                debit_subject TEXT,
+                credit_subject TEXT,
+                suggestion_amount REAL,
                 status TEXT NOT NULL DEFAULT 'queued',
                 confidence REAL,
                 result_summary TEXT,
@@ -1508,6 +1512,18 @@ impl Database {
 
         // Add role_id column to users if not exists
         let _ = sqlx::query("ALTER TABLE users ADD COLUMN role_id TEXT REFERENCES roles(id)")
+            .execute(pool)
+            .await;
+        let _ = sqlx::query("ALTER TABLE automation_jobs ADD COLUMN suggestion_no TEXT")
+            .execute(pool)
+            .await;
+        let _ = sqlx::query("ALTER TABLE automation_jobs ADD COLUMN debit_subject TEXT")
+            .execute(pool)
+            .await;
+        let _ = sqlx::query("ALTER TABLE automation_jobs ADD COLUMN credit_subject TEXT")
+            .execute(pool)
+            .await;
+        let _ = sqlx::query("ALTER TABLE automation_jobs ADD COLUMN suggestion_amount REAL")
             .execute(pool)
             .await;
 
@@ -3656,6 +3672,10 @@ pub struct AutomationJob {
     pub source_module: String,
     pub source_id: Option<String>,
     pub source_file: Option<String>,
+    pub suggestion_no: Option<String>,
+    pub debit_subject: Option<String>,
+    pub credit_subject: Option<String>,
+    pub suggestion_amount: Option<f64>,
     pub status: String,
     pub confidence: Option<f64>,
     pub result_summary: Option<String>,
@@ -3674,6 +3694,10 @@ pub struct CreateAutomationJobInput {
     pub source_module: String,
     pub source_id: Option<String>,
     pub source_file: Option<String>,
+    pub suggestion_no: Option<String>,
+    pub debit_subject: Option<String>,
+    pub credit_subject: Option<String>,
+    pub suggestion_amount: Option<f64>,
     pub status: Option<String>,
     pub confidence: Option<f64>,
     pub result_summary: Option<String>,

@@ -33,6 +33,10 @@ async fn get_automation_job_by_id(
             j.source_module,
             j.source_id,
             j.source_file,
+            j.suggestion_no,
+            j.debit_subject,
+            j.credit_subject,
+            j.suggestion_amount,
             j.status,
             j.confidence,
             j.result_summary,
@@ -147,6 +151,10 @@ pub async fn get_automation_jobs(
             j.source_module,
             j.source_id,
             j.source_file,
+            j.suggestion_no,
+            j.debit_subject,
+            j.credit_subject,
+            j.suggestion_amount,
             j.status,
             j.confidence,
             j.result_summary,
@@ -190,9 +198,10 @@ pub async fn create_automation_job(
         r#"
         INSERT INTO automation_jobs (
             id, company_id, period, job_type, source_module, source_id, source_file,
+            suggestion_no, debit_subject, credit_subject, suggestion_amount,
             status, confidence, result_summary, risk_level, reviewer, created_by
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         "#,
     )
     .bind(&id)
@@ -202,6 +211,10 @@ pub async fn create_automation_job(
     .bind(&input.source_module)
     .bind(&input.source_id)
     .bind(&input.source_file)
+    .bind(&input.suggestion_no)
+    .bind(&input.debit_subject)
+    .bind(&input.credit_subject)
+    .bind(input.suggestion_amount)
     .bind(&status)
     .bind(input.confidence)
     .bind(&input.result_summary)

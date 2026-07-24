@@ -273,6 +273,10 @@ export interface AutomationJob {
   sourceModule: string
   sourceId: string | null
   sourceFile: string | null
+  suggestionNo: string | null
+  debitSubject: string | null
+  creditSubject: string | null
+  suggestionAmount: number | null
   status: string
   confidence: number | null
   resultSummary: string | null
@@ -930,6 +934,10 @@ type RawAutomationJob = {
   source_module: string
   source_id: string | null
   source_file: string | null
+  suggestion_no: string | null
+  debit_subject: string | null
+  credit_subject: string | null
+  suggestion_amount: number | null
   status: string
   confidence: number | null
   result_summary: string | null
@@ -1153,6 +1161,10 @@ const mapAutomationJob = (item: RawAutomationJob): AutomationJob => ({
   sourceModule: item.source_module,
   sourceId: item.source_id,
   sourceFile: item.source_file,
+  suggestionNo: item.suggestion_no,
+  debitSubject: item.debit_subject,
+  creditSubject: item.credit_subject,
+  suggestionAmount: item.suggestion_amount,
   status: item.status,
   confidence: item.confidence,
   resultSummary: item.result_summary,
@@ -1439,6 +1451,10 @@ export const automationApi = {
     sourceModule: string
     sourceId?: string
     sourceFile?: string
+    suggestionNo?: string
+    debitSubject?: string
+    creditSubject?: string
+    suggestionAmount?: number
     status?: string
     confidence?: number
     resultSummary?: string
@@ -1455,6 +1471,10 @@ export const automationApi = {
           source_module: input.sourceModule,
           source_id: input.sourceId,
           source_file: input.sourceFile,
+          suggestion_no: input.suggestionNo,
+          debit_subject: input.debitSubject,
+          credit_subject: input.creditSubject,
+          suggestion_amount: input.suggestionAmount,
           status: input.status,
           confidence: input.confidence,
           result_summary: input.resultSummary,

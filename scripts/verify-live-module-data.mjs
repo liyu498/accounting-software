@@ -91,6 +91,7 @@ const companyAccountStoreSource = existsSync('src/stores/companyAccountStore.ts'
 const companyAccountCommandSource = existsSync('src-tauri/src/commands/company_accounts.rs')
   ? readFileSync('src-tauri/src/commands/company_accounts.rs', 'utf8')
   : ''
+const automationCommandSource = readFileSync('src-tauri/src/commands/automation.rs', 'utf8')
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -796,6 +797,33 @@ const requiredBusinessOrderCommandSnippets = [
   ['business order create command', 'pub async fn create_business_order'],
   ['business order update command', 'pub async fn update_business_order'],
 ]
+const requiredStructuredAiSuggestionSchemaSnippets = [
+  ['AI suggestion number column', 'suggestion_no TEXT'],
+  ['AI suggestion debit column', 'debit_subject TEXT'],
+  ['AI suggestion credit column', 'credit_subject TEXT'],
+  ['AI suggestion amount column', 'suggestion_amount REAL'],
+]
+const requiredStructuredAiSuggestionCommandSnippets = [
+  ['AI suggestion structured read', 'j.suggestion_no'],
+  ['AI suggestion structured insert', 'suggestion_no, debit_subject, credit_subject, suggestion_amount'],
+]
+const requiredStructuredAiSuggestionApiSnippets = [
+  ['AI suggestion typed debit subject', 'debitSubject: string | null'],
+  ['AI suggestion typed credit subject', 'creditSubject: string | null'],
+  ['AI suggestion typed amount', 'suggestionAmount: number | null'],
+  ['AI suggestion API debit mapping', 'debit_subject: input.debitSubject'],
+  ['AI suggestion API amount mapping', 'suggestion_amount: input.suggestionAmount'],
+]
+const requiredStructuredAiSuggestionAdapterSnippets = [
+  ['AI suggestion structured debit row', 'debit: job.debitSubject ||'],
+  ['AI suggestion structured credit row', 'credit: job.creditSubject ||'],
+  ['AI suggestion structured amount row', 'amount: job.suggestionAmount === null'],
+]
+const requiredStructuredAiSuggestionPageSnippets = [
+  ['AI suggestion editor state', 'const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)'],
+  ['AI suggestion create binding', 'automationApi.createAutomationJob({'],
+  ['AI suggestion editor title', '新增 AI 凭证建议'],
+]
 const requiredBusinessOrderPageSnippets = [
   ['business order live scope', "['purchaseManagement', 'salesManagement'].includes(kind)"],
   ['business order editor state', 'const [showBusinessOrderDialog, setShowBusinessOrderDialog] = useState(false)'],
@@ -1136,6 +1164,11 @@ const errors = [
   ...verify(pageSource, requiredInventoryMovementPageSnippets, 'inventory movement module page'),
   ...verify(databaseSource, [['cost carryover schema', 'CREATE TABLE IF NOT EXISTS cost_carryover_records']], 'database schema'),
   ...verify(costCarryoverCommandSource, requiredCostCarryoverCommandSnippets, 'cost carryover commands'),
+  ...verify(databaseSource, requiredStructuredAiSuggestionSchemaSnippets, 'structured AI suggestion schema'),
+  ...verify(automationCommandSource, requiredStructuredAiSuggestionCommandSnippets, 'structured AI suggestion commands'),
+  ...verify(apiSource, requiredStructuredAiSuggestionApiSnippets, 'structured AI suggestion API'),
+  ...verify(adapterSource, requiredStructuredAiSuggestionAdapterSnippets, 'structured AI suggestion adapter'),
+  ...verify(pageSource, requiredStructuredAiSuggestionPageSnippets, 'structured AI suggestion module page'),
   ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
   ...verify(pageSource, requiredInventoryItemPageSnippets, 'inventory item module page'),

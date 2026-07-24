@@ -4277,6 +4277,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
+  const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)
+  const [aiVoucherSuggestionDraft, setAiVoucherSuggestionDraft] = useState({ suggestionNo: '', sourceModule: '', sourceId: '', sourceFile: '', summary: '', debitSubject: '', creditSubject: '', amount: '', confidence: '90', riskLevel: 'normal' })
   const [selectedLedgerAccountCode, setSelectedLedgerAccountCode] = useState('')
   const [selectedAuxiliaryCategoryId, setSelectedAuxiliaryCategoryId] = useState('')
   const [selectedAuxiliaryItemId, setSelectedAuxiliaryItemId] = useState('')
@@ -5469,6 +5471,39 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleTemplateAction = () => {
     writeModuleAudit('下载模板', `${title}-导入模板`)
     setOperationNotice('模板下载已记录；正式模板会继续绑定固定 Excel/PDF 版本和字段校验规则。')
+  }
+
+  const handleCreateAiVoucherSuggestion = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || currentPeriodLabel === '当前账期') {
+      setOperationNotice('请先选择账套和账期，再登记 AI 凭证建议。')
+      return
+    }
+    const result = await automationApi.createAutomationJob({
+      companyId: selectedCompanyId,
+      period: currentPeriodLabel,
+      jobType: 'voucher_suggestion',
+      sourceModule: aiVoucherSuggestionDraft.sourceModule.trim(),
+      sourceId: aiVoucherSuggestionDraft.sourceId.trim() || undefined,
+      sourceFile: aiVoucherSuggestionDraft.sourceFile.trim() || undefined,
+      suggestionNo: aiVoucherSuggestionDraft.suggestionNo.trim() || undefined,
+      debitSubject: aiVoucherSuggestionDraft.debitSubject.trim(),
+      creditSubject: aiVoucherSuggestionDraft.creditSubject.trim(),
+      suggestionAmount: Number(aiVoucherSuggestionDraft.amount),
+      status: 'waiting_confirmation',
+      confidence: Number(aiVoucherSuggestionDraft.confidence) / 100,
+      resultSummary: aiVoucherSuggestionDraft.summary.trim(),
+      riskLevel: aiVoucherSuggestionDraft.riskLevel,
+      createdBy: 'admin',
+    })
+    if (!result.success || !result.data) {
+      setOperationNotice(`新增 AI 凭证建议失败：${result.error || '未知错误'}`)
+      return
+    }
+    setAutomationJobs((jobs) => [result.data!, ...jobs])
+    setShowAiVoucherSuggestionDialog(false)
+    writeModuleAudit('新增AI凭证建议', result.data.suggestionNo || result.data.id, '中', '成功')
+    setOperationNotice('AI 凭证建议已登记为待确认记录；请人工核验来源、借贷科目和金额，系统不会自动生成或入账凭证。')
   }
 
   const confirmAiVoucherSuggestions = async (rowIds: string[]) => {
@@ -7241,6 +7276,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
+            {kind === 'aiVoucherSuggestions' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增建议" onClick={() => { setAiVoucherSuggestionDraft({ suggestionNo: '', sourceModule: '', sourceId: '', sourceFile: '', summary: '', debitSubject: '', creditSubject: '', amount: '', confidence: '90', riskLevel: 'normal' }); setShowAiVoucherSuggestionDialog(true) }} />}
             {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => { setEditingPayrollId(null); setPayrollDraft({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' }); setShowPayrollDialog(true) }} />}
             {kind === 'settlementRules' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
             {kind === 'currencySettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
@@ -8066,6 +8102,50 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600">订单状态<select value={businessOrderDraft.status} onChange={(event) => setBusinessOrderDraft((draft) => ({ ...draft, status: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['待确认', '已完成', '异常'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowBusinessOrderDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingBusinessOrderId ? '保存修改' : '保存订单'}</button></div>
+          </form>
+        </div>
+      )}
+      {showAiVoucherSuggestionDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增 AI 凭证建议">
+          <form onSubmit={handleCreateAiVoucherSuggestion} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">新增 AI 凭证建议</h2>
+                <p className="mt-0.5 text-xs text-slate-500">记录待复核的来源、分录和置信度；保存后不生成或入账凭证。</p>
+              </div>
+              <button type="button" onClick={() => setShowAiVoucherSuggestionDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              {([
+                { field: 'suggestionNo', label: '建议号', type: 'text', required: false },
+                { field: 'sourceModule', label: '来源模块 *', type: 'text', required: true },
+                { field: 'sourceId', label: '来源单据号', type: 'text', required: false },
+                { field: 'sourceFile', label: '来源文件', type: 'text', required: false },
+                { field: 'debitSubject', label: '借方科目 *', type: 'text', required: true },
+                { field: 'creditSubject', label: '贷方科目 *', type: 'text', required: true },
+                { field: 'amount', label: '建议金额 *', type: 'number', required: true },
+                { field: 'confidence', label: '置信度（%）*', type: 'number', required: true },
+              ] as Array<{ field: keyof typeof aiVoucherSuggestionDraft; label: string; type: string; required: boolean }>).map(({ field, label, type, required }) => (
+                <label key={field} className="grid gap-1 text-xs text-slate-600">
+                  {label}
+                  <input required={required} type={type} min={type === 'number' ? '0' : undefined} max={field === 'confidence' ? '100' : undefined} step={type === 'number' ? '0.01' : undefined} value={aiVoucherSuggestionDraft[field]} onChange={(event) => setAiVoucherSuggestionDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+                </label>
+              ))}
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">
+                建议摘要 *
+                <input required value={aiVoucherSuggestionDraft.summary} onChange={(event) => setAiVoucherSuggestionDraft((draft) => ({ ...draft, summary: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">
+                风险等级
+                <select value={aiVoucherSuggestionDraft.riskLevel} onChange={(event) => setAiVoucherSuggestionDraft((draft) => ({ ...draft, riskLevel: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="low">低</option><option value="normal">一般</option><option value="high">高</option><option value="critical">阻断</option>
+                </select>
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowAiVoucherSuggestionDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存待确认建议</button>
+            </div>
           </form>
         </div>
       )}
