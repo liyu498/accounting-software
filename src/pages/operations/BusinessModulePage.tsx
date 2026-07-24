@@ -4087,6 +4087,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveReportFormulaData = Boolean(isTauri && selectedCompanyId && kind === 'reportFormulaSettings')
   const usesLiveMatchingRuleData = Boolean(isTauri && selectedCompanyId && ['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping'].includes(kind))
   const usesLiveAssetCategoryData = Boolean(isTauri && selectedCompanyId && kind === 'assetCategory')
+  const needsLiveAssetCategories = Boolean(isTauri && selectedCompanyId && ['assetCategory', 'depreciation'].includes(kind))
   const usesLiveBusinessTagData = Boolean(isTauri && selectedCompanyId && kind === 'tagArchive')
   const matchingRuleScope: MatchingRuleScope = kind === 'invoiceMatchingRules' ? 'invoice' : kind === 'billMatchingRules' ? 'bill' : 'cash_flow'
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings', 'taxInit'].includes(kind))
@@ -4511,9 +4512,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [fetchMatchingRules, matchingRuleScope, selectedCompanyId, usesLiveMatchingRuleData])
 
   useEffect(() => {
-    if (!usesLiveAssetCategoryData || !selectedCompanyId) return
+    if (!needsLiveAssetCategories || !selectedCompanyId) return
     void fetchAssetCategories(selectedCompanyId)
-  }, [fetchAssetCategories, selectedCompanyId, usesLiveAssetCategoryData])
+  }, [fetchAssetCategories, needsLiveAssetCategories, selectedCompanyId])
 
   useEffect(() => {
     if (!usesLiveBusinessTagData || !selectedCompanyId) return
@@ -5484,7 +5485,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (kind === 'depreciation' && isTauri && selectedCompanyId) {
       setEditingFixedAssetId(null)
-      setFixedAssetDraft({ assetCode: '', assetName: '', category: '', startDate: '', originalValue: '', usefulLifeMonths: '', residualRate: '5', sourceDocument: '' })
+      const category = assetCategories.find((category) => category.is_enabled === 1)
+      setFixedAssetDraft({ assetCode: '', assetName: '', category: category?.name || '', startDate: '', originalValue: '', usefulLifeMonths: category ? String(category.useful_life_months) : '', residualRate: category ? String(category.residual_rate * 100) : '5', sourceDocument: '' })
       setShowFixedAssetDialog(true)
       return
     }
@@ -7777,7 +7779,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingFixedAssetId ? '编辑固定资产' : '新增固定资产'}>
           <form onSubmit={handleSaveFixedAsset} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><h2 className="text-sm font-semibold text-slate-900">{editingFixedAssetId ? '编辑固定资产' : '新增固定资产'}</h2><button type="button" onClick={() => setShowFixedAssetDialog(false)} className="text-xs text-slate-500">取消</button></div>
-            <div className="grid gap-3 p-4 sm:grid-cols-2">{([{ field: 'assetCode', label: '资产编号 *', type: 'text' }, { field: 'assetName', label: '资产名称 *', type: 'text' }, { field: 'category', label: '资产类别 *', type: 'text' }, { field: 'startDate', label: '开始使用日期 *', type: 'date' }, { field: 'originalValue', label: '资产原值 *', type: 'number' }, { field: 'usefulLifeMonths', label: '折旧期限（月）*', type: 'number' }, { field: 'residualRate', label: '残值率（%）', type: 'number' }, { field: 'sourceDocument', label: '来源凭据', type: 'text' }] as Array<{ field: keyof typeof fixedAssetDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['assetCode', 'assetName', 'category', 'startDate', 'originalValue', 'usefulLifeMonths'].includes(field)} type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={fixedAssetDraft[field]} onChange={(event) => setFixedAssetDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}</div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">{([{ field: 'assetCode', label: '资产编号 *', type: 'text' }, { field: 'assetName', label: '资产名称 *', type: 'text' }, { field: 'category', label: '资产类别 *', type: 'text' }, { field: 'startDate', label: '开始使用日期 *', type: 'date' }, { field: 'originalValue', label: '资产原值 *', type: 'number' }, { field: 'usefulLifeMonths', label: '折旧期限（月）*', type: 'number' }, { field: 'residualRate', label: '残值率（%）', type: 'number' }, { field: 'sourceDocument', label: '来源凭据', type: 'text' }] as Array<{ field: keyof typeof fixedAssetDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['assetCode', 'assetName', 'category', 'startDate', 'originalValue', 'usefulLifeMonths'].includes(field)} type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} list={field === 'category' ? 'asset-category-options' : undefined} value={fixedAssetDraft[field]} onChange={(event) => setFixedAssetDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}</div>
+            <datalist id="asset-category-options">{assetCategories.filter((category) => category.is_enabled === 1).map((category) => <option key={category.id} value={category.name}>{category.code}｜{category.depreciation_method}｜{category.useful_life_months} 月</option>)}</datalist>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowFixedAssetDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingFixedAssetId ? '保存修改' : '保存资产'}</button></div>
           </form>
         </div>

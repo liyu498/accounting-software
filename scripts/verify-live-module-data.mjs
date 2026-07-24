@@ -907,6 +907,8 @@ const requiredFixedAssetPageSnippets = [
   ['fixed asset edit state', 'const [editingFixedAssetId, setEditingFixedAssetId] = useState<string | null>(null)'],
   ['fixed asset edit row binding', "if (kind === 'depreciation' && isTauri && selectedCompanyId)"],
   ['fixed asset row mapper', 'mapLiveFixedAssetRows(fixedAssets)'],
+  ['fixed asset category suggestion', "list={field === 'category' ? 'asset-category-options'"],
+  ['fixed asset category default', 'assetCategories.find((category) => category.is_enabled === 1)'],
 ]
 
 const requiredInventoryMovementCommandSnippets = [
