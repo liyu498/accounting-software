@@ -324,6 +324,38 @@ impl Database {
 
         sqlx::query(
             r#"
+            CREATE TABLE IF NOT EXISTS settlement_records (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                period TEXT NOT NULL,
+                settlement_type TEXT NOT NULL CHECK (settlement_type IN ('receivable', 'payable')),
+                settlement_no TEXT NOT NULL,
+                settlement_date TEXT NOT NULL,
+                counterparty TEXT NOT NULL,
+                invoice_no TEXT,
+                transaction_no TEXT,
+                total_amount REAL NOT NULL DEFAULT 0,
+                settled_amount REAL NOT NULL DEFAULT 0,
+                balance_amount REAL NOT NULL DEFAULT 0,
+                settlement_method TEXT NOT NULL DEFAULT '待人工核销',
+                owner TEXT,
+                status TEXT NOT NULL DEFAULT '待确认',
+                source_document TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id),
+                UNIQUE (company_id, settlement_type, settlement_no)
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_settlement_records_company_period ON settlement_records(company_id, period, settlement_type)")
+            .execute(&pool)
+            .await?;
+
+        sqlx::query(
+            r#"
             CREATE TABLE IF NOT EXISTS payroll_records (
                 id TEXT PRIMARY KEY,
                 company_id TEXT NOT NULL,
@@ -3228,6 +3260,63 @@ pub struct UpdateBusinessOrderInput {
     pub fulfillment_status: Option<String>,
     pub invoice_status: Option<String>,
     pub settlement_status: Option<String>,
+    pub status: Option<String>,
+    pub source_document: Option<String>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+pub struct SettlementRecord {
+    pub id: String,
+    pub company_id: String,
+    pub period: String,
+    pub settlement_type: String,
+    pub settlement_no: String,
+    pub settlement_date: String,
+    pub counterparty: String,
+    pub invoice_no: Option<String>,
+    pub transaction_no: Option<String>,
+    pub total_amount: f64,
+    pub settled_amount: f64,
+    pub balance_amount: f64,
+    pub settlement_method: String,
+    pub owner: Option<String>,
+    pub status: String,
+    pub source_document: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct CreateSettlementRecordInput {
+    pub company_id: String,
+    pub period: String,
+    pub settlement_type: String,
+    pub settlement_no: String,
+    pub settlement_date: String,
+    pub counterparty: String,
+    pub invoice_no: Option<String>,
+    pub transaction_no: Option<String>,
+    pub total_amount: f64,
+    pub settled_amount: f64,
+    pub settlement_method: Option<String>,
+    pub owner: Option<String>,
+    pub status: Option<String>,
+    pub source_document: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateSettlementRecordInput {
+    pub id: String,
+    pub company_id: String,
+    pub settlement_no: String,
+    pub settlement_date: String,
+    pub counterparty: String,
+    pub invoice_no: Option<String>,
+    pub transaction_no: Option<String>,
+    pub total_amount: f64,
+    pub settled_amount: f64,
+    pub settlement_method: Option<String>,
+    pub owner: Option<String>,
     pub status: Option<String>,
     pub source_document: Option<String>,
 }

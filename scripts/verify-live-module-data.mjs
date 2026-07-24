@@ -76,6 +76,9 @@ const businessTagCommandSource = existsSync('src-tauri/src/commands/business_tag
 const businessOrderCommandSource = existsSync('src-tauri/src/commands/business_orders.rs')
   ? readFileSync('src-tauri/src/commands/business_orders.rs', 'utf8')
   : ''
+const settlementRecordCommandSource = existsSync('src-tauri/src/commands/settlement_records.rs')
+  ? readFileSync('src-tauri/src/commands/settlement_records.rs', 'utf8')
+  : ''
 const companyAccountStoreSource = existsSync('src/stores/companyAccountStore.ts')
   ? readFileSync('src/stores/companyAccountStore.ts', 'utf8')
   : ''
@@ -906,9 +909,16 @@ const requiredReceiptPageSnippets = [
 const requiredReconciliationPageSnippets = [
   ['bank reconciliation local scope', "const usesLiveReconciliationData = Boolean(isTauri && selectedCompanyId && ['bankReconciliation', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind))"],
   ['bank reconciliation row mapper', 'mapLiveBankReconciliationRows(bankTransactions)'],
-  ['receivable settlement row mapper', 'mapLiveSettlementRows(invoices, \'output\')'],
-  ['payable settlement row mapper', 'mapLiveSettlementRows(invoices, \'input\')'],
-  ['aging row mapper', 'mapLiveAgingRows(invoices)'],
+  ['settlement records live scope', "['receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind)"],
+  ['settlement records list request', 'settlementRecordApi.getSettlementRecords'],
+  ['receivable settlement row mapper', "mapLiveSettlementRecordRows(settlementRecords, 'receivable')"],
+  ['payable settlement row mapper', "mapLiveSettlementRecordRows(settlementRecords, 'payable')"],
+  ['aging row mapper', 'mapLiveSettlementAgingRows(settlementRecords)'],
+]
+const requiredSettlementRecordCommandSnippets = [
+  ['settlement record list command', 'pub async fn get_settlement_records'],
+  ['settlement record create command', 'pub async fn create_settlement_record'],
+  ['settlement record update command', 'pub async fn update_settlement_record'],
 ]
 
 const requiredAccountTransferPageSnippets = [
@@ -1084,6 +1094,8 @@ const errors = [
   ...verify(pageSource, requiredDocumentRecordPageSnippets, 'document register module page'),
   ...verify(pageSource, requiredExpenseReimbursementPageSnippets, 'expense reimbursement module page'),
   ...verify(pageSource, requiredReceiptPageSnippets, 'receipt module page'),
+  ...verify(databaseSource, [['settlement record schema', 'CREATE TABLE IF NOT EXISTS settlement_records']], 'database schema'),
+  ...verify(settlementRecordCommandSource, requiredSettlementRecordCommandSnippets, 'settlement record commands'),
   ...verify(pageSource, requiredReconciliationPageSnippets, 'reconciliation module page'),
   ...verify(databaseSource, requiredAccountTransferPageSnippets.slice(0, 1), 'database schema'),
   ...verify(accountTransferCommandSource, requiredAccountTransferPageSnippets.slice(1, 4), 'account transfer commands'),

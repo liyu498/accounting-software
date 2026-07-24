@@ -21,7 +21,7 @@ import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { isTauri } from '../../lib/tauri'
-import { accountTransferApi, automationApi, backupApi, bankTransactionApi, businessOrderApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankTransaction, type BusinessOrder, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
+import { accountTransferApi, automationApi, backupApi, bankTransactionApi, businessOrderApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, settlementRecordApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankTransaction, type BusinessOrder, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SettlementRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import { measurementUnitApi, type MeasurementUnit } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
@@ -3865,8 +3865,8 @@ function summarizeLiveBankTransactions(bankTransactions: BankTransaction[], kind
   ]
 }
 function mapLiveBankReconciliationRows(bankTransactions: BankTransaction[]): ModuleRow[] { return bankTransactions.map((record) => { const amount=record.incomeAmount||record.expenseAmount; const matched=record.status==='已匹配'; return {id:record.id,status:matched?'已匹配':record.status==='异常'?'异常':'待处理',voucher:matched?'已关联':'未生成',attachment:record.receiptStatus,values:{account:record.accountName,statementNo:record.serialNo,date:record.transactionDate,summary:record.summary||'-',bankAmount:payrollCurrency(amount),bookAmount:matched?payrollCurrency(amount):'¥0.00',difference:matched?'¥0.00':payrollCurrency(amount),matchStatus:matched?'已匹配':'待人工对账'}} }) }
-function mapLiveSettlementRows(invoices: Invoice[], invoiceType: 'output' | 'input'): ModuleRow[] { return invoices.filter((invoice)=>invoice.invoice_type===invoiceType).map((invoice)=>{const amount=invoice.total_amount;const output=invoiceType==='output';return{id:invoice.id,status:['void','rejected','error'].includes(invoice.status)?'异常':'待确认',voucher:invoice.voucher_id||'未生成',attachment:'发票',values:output?{customer:invoice.buyer_name||'待补客户',invoiceNo:invoice.invoice_no,receivable:payrollCurrency(amount),receipt:'待人工匹配流水',settled:'¥0.00',balance:payrollCurrency(amount),method:'待人工核销',owner:'待分配'}:{supplier:invoice.seller_name||'待补供应商',invoiceNo:invoice.invoice_no,payable:payrollCurrency(amount),payment:'待人工匹配流水',settled:'¥0.00',balance:payrollCurrency(amount),method:'待人工核销',owner:'待分配'}}}) }
-function mapLiveAgingRows(invoices: Invoice[]): ModuleRow[] { return invoices.map((invoice) => { const output = invoice.invoice_type === 'output'; const amount = invoice.total_amount; return { id: invoice.id, status: ['void', 'rejected', 'error'].includes(invoice.status) ? '异常' : '待确认', voucher: invoice.voucher_id || '未生成', attachment: '发票', values: { counterparty: output ? (invoice.buyer_name || '待补客户') : (invoice.seller_name || '待补供应商'), subject: output ? '应收账款' : '应付账款', direction: output ? '借方' : '贷方', balance: payrollCurrency(amount), age: '待按业务日期计算', overdue: '待确认', lastVoucher: invoice.voucher_id || '未生成', owner: '待分配' } } }) }
+function mapLiveSettlementRecordRows(records: SettlementRecord[], settlementType: 'receivable' | 'payable'): ModuleRow[] { return records.filter((record) => record.settlementType === settlementType).map((record) => ({ id: record.id, status: record.status === '异常' ? '异常' : record.balanceAmount === 0 ? '已匹配' : '待确认', voucher: record.transactionNo || '待关联流水', attachment: record.sourceDocument || '待补附件', values: settlementType === 'receivable' ? { customer: record.counterparty, invoiceNo: record.invoiceNo || record.settlementNo, receivable: payrollCurrency(record.totalAmount), receipt: record.transactionNo || '待匹配流水', settled: payrollCurrency(record.settledAmount), balance: payrollCurrency(record.balanceAmount), method: record.settlementMethod, owner: record.owner || '待分配' } : { supplier: record.counterparty, invoiceNo: record.invoiceNo || record.settlementNo, payable: payrollCurrency(record.totalAmount), payment: record.transactionNo || '待匹配流水', settled: payrollCurrency(record.settledAmount), balance: payrollCurrency(record.balanceAmount), method: record.settlementMethod, owner: record.owner || '待分配' } })) }
+function mapLiveSettlementAgingRows(records: SettlementRecord[]): ModuleRow[] { return records.filter((record) => record.balanceAmount > 0).map((record) => { const days = Math.max(0, Math.floor((Date.now() - new Date(record.settlementDate).getTime()) / 86400000)); return { id: record.id, status: record.status === '异常' ? '异常' : '待确认', voucher: record.transactionNo || '待关联流水', attachment: record.sourceDocument || '待补附件', values: { counterparty: record.counterparty, subject: record.settlementType === 'receivable' ? '应收账款' : '应付账款', direction: record.settlementType === 'receivable' ? '借方' : '贷方', balance: payrollCurrency(record.balanceAmount), age: days <= 30 ? '0-30天' : days <= 60 ? '31-60天' : days <= 90 ? '61-90天' : '90天以上', overdue: `${days} 天`, lastVoucher: record.transactionNo || '待关联流水', owner: record.owner || '待分配' } } }) }
 
 function mapLiveDocumentRecordRows(documentRecords: DocumentRecord[]): ModuleRow[] {
   return documentRecords.map((record) => ({
@@ -4113,6 +4113,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveVatTaxData = Boolean(isTauri && selectedCompanyId && kind === 'vatTaxReport')
   const usesLiveBankTransactionData = Boolean(isTauri && selectedCompanyId && ['billList', 'bankStatement'].includes(kind))
   const usesLiveReconciliationData = Boolean(isTauri && selectedCompanyId && ['bankReconciliation', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind))
+  const usesLiveSettlementRecordData = Boolean(isTauri && selectedCompanyId && ['receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind))
   const usesLiveDocumentRecordData = Boolean(isTauri && selectedCompanyId && kind === 'documentRegister')
   const usesLiveExpenseReimbursementData = Boolean(isTauri && selectedCompanyId && kind === 'expenseReimbursement')
   const usesLiveReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'receipt')
@@ -4161,6 +4162,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])
   const [documentRecords, setDocumentRecords] = useState<DocumentRecord[]>([])
   const [businessOrders, setBusinessOrders] = useState<BusinessOrder[]>([])
+  const [settlementRecords, setSettlementRecords] = useState<SettlementRecord[]>([])
   const [accountTransfers, setAccountTransfers] = useState<AccountTransfer[]>([])
   const [fixedAssets, setFixedAssets] = useState<FixedAsset[]>([])
   const [showFixedAssetDialog, setShowFixedAssetDialog] = useState(false)
@@ -4196,6 +4198,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showBusinessOrderDialog, setShowBusinessOrderDialog] = useState(false)
   const [editingBusinessOrderId, setEditingBusinessOrderId] = useState<string | null>(null)
   const [businessOrderDraft, setBusinessOrderDraft] = useState({ orderNo: '', businessDate: '', counterparty: '', goodsName: '', amount: '', fulfillmentStatus: '待确认', invoiceStatus: '待开票', settlementStatus: '未结算', status: '待确认', sourceDocument: '' })
+  const [showSettlementRecordDialog, setShowSettlementRecordDialog] = useState(false)
+  const [editingSettlementRecordId, setEditingSettlementRecordId] = useState<string | null>(null)
+  const [settlementRecordDraft, setSettlementRecordDraft] = useState({ settlementNo: '', settlementDate: '', counterparty: '', invoiceNo: '', transactionNo: '', totalAmount: '', settledAmount: '0', settlementMethod: '银行转账', owner: '', status: '待确认', sourceDocument: '' })
   const [showPayrollDialog, setShowPayrollDialog] = useState(false)
   const [editingPayrollId, setEditingPayrollId] = useState<string | null>(null)
   const [payrollDraft, setPayrollDraft] = useState({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
@@ -4384,6 +4389,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     const orderType = kind === 'purchaseManagement' ? 'purchase' : 'sales'
     void businessOrderApi.getBusinessOrders({ companyId: selectedCompanyId, period: currentPeriodLabel, orderType }).then((result) => setBusinessOrders(result.success ? result.data || [] : []))
   }, [currentPeriodLabel, kind, selectedCompanyId, usesLiveBusinessOrderData])
+
+  useEffect(() => {
+    if (!usesLiveSettlementRecordData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    const settlementType = kind === 'payableSettlement' ? 'payable' : 'receivable'
+    void settlementRecordApi.getSettlementRecords({ companyId: selectedCompanyId, period: currentPeriodLabel, settlementType }).then((result) => setSettlementRecords(result.success ? result.data || [] : []))
+  }, [currentPeriodLabel, kind, selectedCompanyId, usesLiveSettlementRecordData])
 
   useEffect(() => {
     if (!usesLiveBankTransactionData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
@@ -4908,9 +4919,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
     if ((kind === 'billList' || kind === 'bankStatement') && usesLiveBankTransactionData) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, businessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
     if (kind === 'bankReconciliation' && usesLiveReconciliationData) return { ...baseConfig, rows: mapLiveBankReconciliationRows(bankTransactions) }
-    if (kind === 'receivableSettlement' && usesLiveReconciliationData) return { ...baseConfig, rows: mapLiveSettlementRows(invoices, 'output') }
-    if (kind === 'payableSettlement' && usesLiveReconciliationData) return { ...baseConfig, rows: mapLiveSettlementRows(invoices, 'input') }
-    if (kind === 'receivablePayableAging' && usesLiveReconciliationData) return { ...baseConfig, rows: mapLiveAgingRows(invoices) }
+    if (kind === 'receivableSettlement' && usesLiveSettlementRecordData) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'receivable') }
+    if (kind === 'payableSettlement' && usesLiveSettlementRecordData) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'payable') }
+    if (kind === 'receivablePayableAging' && usesLiveSettlementRecordData) return { ...baseConfig, rows: mapLiveSettlementAgingRows(settlementRecords) }
     if (kind === 'documentRegister' && usesLiveDocumentRecordData) return { ...baseConfig, rows: mapLiveDocumentRecordRows(documentRecords), summary: summarizeLiveDocumentRecords(documentRecords) }
     if (kind === 'expenseReimbursement' && usesLiveExpenseReimbursementData) return { ...baseConfig, rows: mapLiveExpenseReimbursementRows(documentRecords), summary: summarizeLiveExpenseReimbursements(documentRecords) }
     if (kind === 'receipt' && usesLiveReceiptData) return { ...baseConfig, rows: mapLiveReceiptRows(documentRecords), summary: summarizeLiveReceipts(documentRecords) }
@@ -5484,6 +5495,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingBusinessOrderId(null)
       setBusinessOrderDraft({ orderNo: '', businessDate: currentPeriod?.end_date || '', counterparty: '', goodsName: '', amount: '', fulfillmentStatus: isPurchaseOrder ? '待入库' : '待出库', invoiceStatus: isPurchaseOrder ? '待收票' : '待开票', settlementStatus: isPurchaseOrder ? '未付款' : '未收款', status: '待确认', sourceDocument: '' })
       setShowBusinessOrderDialog(true)
+      return
+    }
+    if (usesLiveSettlementRecordData && selectedCompanyId && kind !== 'receivablePayableAging') {
+      setEditingSettlementRecordId(null)
+      setSettlementRecordDraft({ settlementNo: '', settlementDate: currentPeriod?.end_date || '', counterparty: '', invoiceNo: '', transactionNo: '', totalAmount: '', settledAmount: '0', settlementMethod: '银行转账', owner: '', status: '待确认', sourceDocument: '' })
+      setShowSettlementRecordDialog(true)
       return
     }
     if (kind === 'employee' && isTauri && selectedCompanyId) {
@@ -6359,6 +6376,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     } catch (error) { setOperationNotice(`${editingBusinessOrderId ? '编辑' : '新增'}业务订单失败：${String(error)}`) }
   }
 
+  const handleSaveSettlementRecord = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    try {
+      const recordInput = { companyId: selectedCompanyId, settlementNo: settlementRecordDraft.settlementNo, settlementDate: settlementRecordDraft.settlementDate, counterparty: settlementRecordDraft.counterparty, invoiceNo: settlementRecordDraft.invoiceNo || undefined, transactionNo: settlementRecordDraft.transactionNo || undefined, totalAmount: Number(settlementRecordDraft.totalAmount || 0), settledAmount: Number(settlementRecordDraft.settledAmount || 0), settlementMethod: settlementRecordDraft.settlementMethod, owner: settlementRecordDraft.owner || undefined, status: settlementRecordDraft.status, sourceDocument: settlementRecordDraft.sourceDocument || undefined }
+      const result = editingSettlementRecordId ? await settlementRecordApi.updateSettlementRecord({ id: editingSettlementRecordId, ...recordInput }) : await settlementRecordApi.createSettlementRecord({ ...recordInput, period: currentPeriodLabel, settlementType: kind === 'payableSettlement' ? 'payable' : 'receivable' })
+      if (!result.success || !result.data) throw new Error(result.error || '未返回核销记录')
+      setSettlementRecords((records) => editingSettlementRecordId ? records.map((item) => item.id === result.data!.id ? result.data! : item) : [result.data!, ...records])
+      writeModuleAudit(editingSettlementRecordId ? '编辑核销台账' : '新增核销台账', result.data.settlementNo, '中', '成功')
+      setOperationNotice(`已保存 ${result.data.settlementNo}，发票和银行流水关联仍需人工核验。`)
+      setEditingSettlementRecordId(null)
+      setShowSettlementRecordDialog(false)
+    } catch (error) { setOperationNotice(`保存核销台账失败：${String(error)}`) }
+  }
+
   const handleSaveAccountTransfer = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
@@ -6524,6 +6556,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingBusinessOrderId(order.id)
       setBusinessOrderDraft({ orderNo: order.orderNo, businessDate: order.businessDate, counterparty: order.counterparty, goodsName: order.goodsName, amount: String(order.amount), fulfillmentStatus: order.fulfillmentStatus, invoiceStatus: order.invoiceStatus, settlementStatus: order.settlementStatus, status: order.status, sourceDocument: order.sourceDocument || '' })
       setShowBusinessOrderDialog(true)
+      return
+    }
+    if ((kind === 'receivableSettlement' || kind === 'payableSettlement') && isTauri && selectedCompanyId) {
+      const record = settlementRecords.find((item) => item.id === row.id)
+      if (!record) return
+      setEditingSettlementRecordId(record.id)
+      setSettlementRecordDraft({ settlementNo: record.settlementNo, settlementDate: record.settlementDate, counterparty: record.counterparty, invoiceNo: record.invoiceNo || '', transactionNo: record.transactionNo || '', totalAmount: String(record.totalAmount), settledAmount: String(record.settledAmount), settlementMethod: record.settlementMethod, owner: record.owner || '', status: record.status, sourceDocument: record.sourceDocument || '' })
+      setShowSettlementRecordDialog(true)
       return
     }
     if (kind === 'employee' && isTauri) {
@@ -7906,6 +7946,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600">订单状态<select value={businessOrderDraft.status} onChange={(event) => setBusinessOrderDraft((draft) => ({ ...draft, status: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['待确认', '已完成', '异常'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowBusinessOrderDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingBusinessOrderId ? '保存修改' : '保存订单'}</button></div>
+          </form>
+        </div>
+      )}
+      {showSettlementRecordDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true">
+          <form onSubmit={handleSaveSettlementRecord} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><div><h2 className="text-sm font-semibold text-slate-900">{editingSettlementRecordId ? '编辑核销台账' : kind === 'payableSettlement' ? '新增应付核销' : '新增应收核销'}</h2><p className="mt-0.5 text-xs text-slate-500">核销记录不自动勾销发票或银行流水，须经人工核验后关联。</p></div><button type="button" onClick={() => setShowSettlementRecordDialog(false)} className="text-xs text-slate-500">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">{([{ field: 'settlementDate', label: '核销日期 *', type: 'date' }, { field: 'settlementNo', label: '核销编号 *', type: 'text' }, { field: 'counterparty', label: kind === 'payableSettlement' ? '供应商 *' : '客户 *', type: 'text' }, { field: 'invoiceNo', label: '关联发票号', type: 'text' }, { field: 'transactionNo', label: '银行流水号', type: 'text' }, { field: 'totalAmount', label: kind === 'payableSettlement' ? '应付金额 *' : '应收金额 *', type: 'number' }, { field: 'settledAmount', label: '本次核销金额 *', type: 'number' }, { field: 'owner', label: '经办人', type: 'text' }, { field: 'sourceDocument', label: '来源单据', type: 'text' }] as Array<{ field: keyof typeof settlementRecordDraft; label: string; type: string }>).map(({ field, label, type }) => <label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['settlementDate', 'settlementNo', 'counterparty', 'totalAmount', 'settledAmount'].includes(field)} type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? '0.01' : undefined} value={settlementRecordDraft[field]} onChange={(event) => setSettlementRecordDraft((draft) => ({ ...draft, [field]: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>)}
+              <label className="grid gap-1 text-xs text-slate-600">核销方式<select value={settlementRecordDraft.settlementMethod} onChange={(event) => setSettlementRecordDraft((draft) => ({ ...draft, settlementMethod: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['银行转账', '现金', '票据', '其他'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600">状态<select value={settlementRecordDraft.status} onChange={(event) => setSettlementRecordDraft((draft) => ({ ...draft, status: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['待确认', '已完成', '异常'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowSettlementRecordDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存核销</button></div>
           </form>
         </div>
       )}
