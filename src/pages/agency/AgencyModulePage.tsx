@@ -944,7 +944,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           setRemoteRows(null)
           return
         }
-        const response = await agencyApi.getOverview()
+        const response = await agencyApi.getOverview(agencyPeriodLabel)
         if (!response.success) throw new Error(response.error || '机构统计读取失败')
         setAgencyOverview(response.data ?? null)
         setRemoteRows([])
@@ -956,7 +956,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         return
       }
 
-      const nextRows = await fetchAgencyRows(kind, activeTab)
+      const nextRows = await fetchAgencyRows(kind, activeTab, agencyPeriodLabel)
       setRemoteRows(nextRows)
     } catch {
       if (kind === 'dataStats') setAgencyOverview(null)
@@ -970,7 +970,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     setRemoteRows(null)
     setAgencyOverview(null)
     void loadRemoteRows()
-  }, [activeTab, fetchCompanies, kind])
+  }, [activeTab, agencyPeriodLabel, fetchCompanies, kind])
 
   useEffect(() => {
     setLocalRows([])
@@ -1890,9 +1890,9 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   )
 }
 
-async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promise<AgencyRow[]> {
+async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string, period: string): Promise<AgencyRow[]> {
   if (kind === 'automation') {
-    const response = await agencyApi.getAutomationJobs()
+    const response = await agencyApi.getAutomationJobs({ period })
     if (!response.success) throw new Error(response.error || '自动化任务读取失败')
     const rows = (response.data ?? []).map(mapAgencyAutomationJobRow)
     if (activeTab === '采集预检') return rows.filter((row) => row.values.name.includes('采集预检'))
@@ -1902,7 +1902,7 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
   }
 
   if (kind === 'healthCheck') {
-    const response = await agencyApi.getHealthChecks()
+    const response = await agencyApi.getHealthChecks(period)
     if (!response.success) throw new Error(response.error || '健康检查读取失败')
     const rows = (response.data ?? []).map(mapAgencyHealthCheckRow)
     if (activeTab === '发票风险') return rows.filter((row) => row.values.module === '发票')
@@ -1912,7 +1912,7 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
   }
 
   if (kind === 'batchOps') {
-    const response = await agencyApi.getBatchTasks()
+    const response = await agencyApi.getBatchTasks({ period })
     if (!response.success) throw new Error(response.error || '批量任务读取失败')
     return filterAgencyBatchTaskRows((response.data ?? []).map(mapAgencyBatchTaskRow), activeTab)
   }
@@ -1930,7 +1930,7 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
   }
 
   if (kind === 'invoiceManagement') {
-    const response = await agencyApi.getFeeCollections()
+    const response = await agencyApi.getFeeCollections({ period })
     if (!response.success) throw new Error(response.error || '服务费开票记录读取失败')
     const rows = (response.data ?? []).map(mapAgencyInvoiceManagementRow)
     if (activeTab === '待开票') return rows.filter((row) => row.values.invoice !== '已开票')
@@ -1940,7 +1940,7 @@ async function fetchAgencyRows(kind: AgencyModuleKind, activeTab: string): Promi
   }
 
   if (kind === 'serviceContracts' && activeTab === '收费管理') {
-    const response = await agencyApi.getFeeCollections()
+    const response = await agencyApi.getFeeCollections({ period })
     if (!response.success) throw new Error(response.error || '收费记录读取失败')
     return response.data?.map(mapFeeCollectionRow) ?? []
   }
