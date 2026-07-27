@@ -532,6 +532,12 @@ const requiredAgencyBatchTaskPageSnippets = [
   ['agency batch task rejection action', '驳回预检'],
   ['agency batch task local tab filter', 'filterAgencyBatchTaskRows(localRows, activeTab)'],
   ['agency batch task local row lifecycle', 'setLocalRows([])\n    setOperationNotice(null)\n  }, [kind])'],
+  ['agency account import handoff', "navigate('/?importCompanies=1')"],
+]
+
+const requiredWelcomeImportHandoffSnippets = [
+  ['welcome agency import query trigger', "get('importCompanies') === '1'"],
+  ['welcome company import picker trigger', 'companyImportRef.current?.click()'],
 ]
 
 const requiredMeasurementUnitEntryPageSnippets = [
@@ -1277,6 +1283,7 @@ const errors = [
   ...verify(apiSource, requiredAgencyBatchTaskApiSnippets, 'agency batch task api bindings'),
   ...verify(agencyCommandSource, requiredAgencyBatchTaskCommandSnippets, 'agency batch task commands'),
   ...verify(agencyModuleSource, requiredAgencyBatchTaskPageSnippets, 'agency batch task page'),
+  ...verify(welcomeSource, requiredWelcomeImportHandoffSnippets, 'welcome company import handoff'),
   ...verify(pageSource, requiredMeasurementUnitEntryPageSnippets, 'measurement unit entry page'),
   ...verify(pageSource, requiredInventoryItemEntryPageSnippets, 'inventory item entry page'),
   ...verify(pageSource, requiredSocialSecurityEntryPageSnippets, 'social security entry page'),

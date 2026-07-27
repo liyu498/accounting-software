@@ -1119,6 +1119,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }
 
   const handleImport = () => {
+    if (kind === 'clients' || kind === 'accountManagement') {
+      writeAgencyAudit('导入企业档案', `${pageConfig.title}-${activeTab}`, '中', '待审批')
+      navigate('/?importCompanies=1')
+      return
+    }
     writeAgencyAudit('导入资料', `${pageConfig.title}-导入批次`, '中', '待审批')
     setOperationNotice('导入任务已进入待确认留痕；后续会接入文件选择、字段映射和错误清单。')
   }

@@ -392,6 +392,10 @@ export function Welcome() {
       setNewCompany(emptyCompanyForm)
       setShowAddModal(true)
     }
+    if (new URLSearchParams(location.search).get('importCompanies') === '1') {
+      setOperationNotice('请选择企业 Excel 或 CSV 文件导入；仅处理基础档案，不导入密码、账号、验证码、Cookie 或外部授权凭据。')
+      companyImportRef.current?.click()
+    }
   }, [location.search])
 
   const realRows = useMemo(
