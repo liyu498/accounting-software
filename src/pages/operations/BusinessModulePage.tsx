@@ -3480,6 +3480,18 @@ function buildImportTemplate(params: {
   }
 }
 
+function buildImportFieldMappings(headers: string[], columns: ModuleColumn[]) {
+  const normalize = (value: string) => value.replace(/[\s（）()\-_/]/g, '').toLowerCase()
+  return headers.map((header) => {
+    const source = normalize(header)
+    const target = columns.find((column) => {
+      const label = normalize(column.label)
+      return label === source || label.includes(source) || source.includes(label)
+    })
+    return { header, target: target?.label || '未匹配字段' }
+  })
+}
+
 function exportJobToModuleRow(job: ExportJob): ModuleRow {
   return {
     id: job.id,
@@ -8314,6 +8326,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                   </div>
                 ) : <p className="mt-2 text-xs text-slate-500">当前格式未解析出表头，需在对应业务模块完成格式校验。</p>}
               </div>
+              {importValidationJob.columnPreview?.length > 0 && (
+                <div className="border border-slate-200 bg-white p-3">
+                  <p className="text-xs font-medium text-slate-700">字段映射建议</p>
+                  <div className="mt-2 grid gap-1 text-xs">
+                    {buildImportFieldMappings(importValidationJob.columnPreview, config.columns).map(({ header, target }) => (
+                      <div key={header} className="grid grid-cols-[minmax(0,1fr)_20px_minmax(0,1fr)] gap-2 border-b border-slate-100 py-1 last:border-0"><span className="truncate text-slate-600">{header}</span><span className="text-center text-slate-400">→</span><span className={cn('truncate', target === '未匹配字段' ? 'text-amber-700' : 'text-slate-800')}>{target}</span></div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {importValidationJob.previewRows?.length > 0 && (
                 <div className="border border-slate-200 bg-white p-3">
                   <p className="text-xs font-medium text-slate-700">候选数据预览</p>

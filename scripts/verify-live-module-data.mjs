@@ -252,6 +252,8 @@ const requiredPageSnippets = [
   ['module import template export', 'await exportRowsToXlsx({\n      sheetRows,\n      columnWidths,\n      merges,\n      sheetName: `${title}导入模板`,'],
   ['module import template audit', "writeModuleAudit('下载导入模板', fileName, '普通', '成功')"],
   ['module import candidate preview', '候选数据预览'],
+  ['module import field mapping', 'function buildImportFieldMappings(headers: string[], columns: ModuleColumn[])'],
+  ['module import mapping panel', '字段映射建议'],
   ['module current period export file', 'const exportPeriodLabel = currentPeriodLabel === \'当前账期\' ? \'2026-05\' : currentPeriodLabel'],
   ['module excel export audit', "writeModuleAudit('导出Excel', fileName"],
   ['module pdf export audit', "writeModuleAudit('导出PDF', fileName"],
