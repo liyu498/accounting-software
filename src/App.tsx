@@ -86,7 +86,7 @@ function App() {
             }
           >
             <Route path="/agency/clients" element={agencyPage('clients')} />
-            <Route path="/agency/accounts" element={agencyPage('accountManagement')} />
+            <Route path="/agency/accounts" element={<Navigate to="/" replace />} />
             <Route path="/agency/authorizations" element={agencyPage('authorizationCenter')} />
             <Route path="/agency/service-contracts" element={agencyPage('serviceContracts')} />
             <Route path="/agency/fees" element={<Navigate to="/agency/service-contracts" replace />} />

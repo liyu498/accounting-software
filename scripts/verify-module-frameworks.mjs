@@ -32,6 +32,8 @@ const missingAgencyUnion = agencyRouteKinds.filter((kind) => !agencyUnionKinds.i
 const missingAgencyConfig = agencyRouteKinds.filter((kind) => !agencyConfigKinds.includes(kind))
 const unusedAgencyUnion = agencyUnionKinds.filter((kind) => !agencyRouteKinds.includes(kind))
 const agencyNavWithoutRoute = agencyNavPaths.filter((path) => !routePaths.includes(path))
+const duplicateAccountRoute = '<Route path="/agency/accounts" element={agencyPage(\'accountManagement\')} />'
+const accountRedirectRoute = '<Route path="/agency/accounts" element={<Navigate to="/" replace />} />'
 
 const summary = {
   businessRoutes: routeKinds.length,
@@ -55,6 +57,12 @@ const errors = [
   ...missingAgencyConfig.map((kind) => `agencyPage kind '${kind}' is missing from agency configs`),
   ...unusedAgencyUnion.map((kind) => `AgencyModuleKind '${kind}' is not used by any agency route`),
   ...agencyNavWithoutRoute.map((path) => `agency nav path '${path}' has no matching <Route>`),
+  ...(agencyRouteKinds.includes('accountManagement') ? ['duplicate agency account-management page is still routed'] : []),
+  ...(agencyUnionKinds.includes('accountManagement') ? ['duplicate accountManagement kind is still declared'] : []),
+  ...(agencyConfigKinds.includes('accountManagement') ? ['duplicate accountManagement config is still declared'] : []),
+  ...(agencyNavSource.includes("path: '/agency/accounts'") ? ['duplicate account-management item is still in agency navigation'] : []),
+  ...(appSource.includes(duplicateAccountRoute) ? ['agency accounts route still renders the duplicate page'] : []),
+  ...(!appSource.includes(accountRedirectRoute) ? ['agency accounts route must redirect to the home account-management workspace'] : []),
 ]
 
 if (errors.length > 0) {

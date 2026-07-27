@@ -21,7 +21,6 @@ export interface AgencyNavItem {
 
 export const agencyNavItems: AgencyNavItem[] = [
   { id: 'agency-clients', label: '客户总览', icon: <Building2 className="h-4 w-4" />, path: '/agency/clients', description: '跨客户账套进度、风险、负责人和账期状态。' },
-  { id: 'agency-accounts', label: '账套管理', icon: <Building2 className="h-4 w-4" />, path: '/agency/accounts', description: '多客户企业档案、授权、采集状态和进入账套入口。' },
   { id: 'agency-authorizations', label: '授权中心', icon: <KeyRound className="h-4 w-4" />, path: '/agency/authorizations', description: '多客户税务、银行、个税、工商和票池授权状态。' },
   { id: 'agency-service-contracts', label: '服务合同', icon: <Notebook className="h-4 w-4" />, path: '/agency/service-contracts', description: '代账合同、收费、客户协同、服务套餐、续费和归档。' },
   { id: 'agency-downloads', label: '下载中心', icon: <Download className="h-4 w-4" />, path: '/agency/downloads', description: '跨客户导出文件、申报包、账簿和归档包下载。' },

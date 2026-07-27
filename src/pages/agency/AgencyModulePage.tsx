@@ -39,7 +39,6 @@ import { recordAuditLog, recordExportJob, useExportJobs, type ExportJob } from '
 
 export type AgencyModuleKind =
   | 'clients'
-  | 'accountManagement'
   | 'authorizationCenter'
   | 'serviceContracts'
   | 'downloadCenter'
@@ -122,42 +121,6 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     queueTitle: '待办队列',
     queue: ['杭州辰光贸易缺少 32 张销项票', '上海云启利润表需复核管理费用', '12 户客户增值税申报待确认'],
     notes: ['这里是机构层客户总览，不替代单账套内的业务处理页面。', '点击客户后进入单账套工作台，保持竞品同类“客户列表 -> 账套内页”的操作路径。'],
-  },
-  accountManagement: {
-    title: '账套管理',
-    description: '按竞品账套管理方式维护多客户企业档案、采集状态、税务登录信息、服务期限、主办会计和进入账套入口。',
-    tabs: ['正常', '停用', '一般纳税人', '小规模纳税人'],
-    primaryAction: '新增企业',
-    keywordPlaceholder: '搜索企业名称、编码、纳税人识别号、登录人员',
-    summary: [
-      { label: '正常账套', value: '128 户', tone: 'blue' },
-      { label: '采集成功', value: '102 户', tone: 'green' },
-      { label: '采集警告', value: '18 户', tone: 'amber' },
-      { label: '采集失败', value: '8 户', tone: 'red' },
-    ],
-    columns: [
-      { key: 'tag', label: '企业标签' },
-      { key: 'code', label: '编码' },
-      { key: 'name', label: '企业名称' },
-      { key: 'type', label: '企业类型' },
-      { key: 'taxType', label: '纳税人资格' },
-      { key: 'collect', label: '采集状态' },
-      { key: 'credit', label: '信用等级', align: 'center' },
-      { key: 'importedAt', label: '客户导入时间' },
-      { key: 'owner', label: '主办会计' },
-      { key: 'serviceEnd', label: '服务期限' },
-      { key: 'manager', label: '部门主管' },
-      { key: 'period', label: '账期', align: 'center' },
-      { key: 'taxOffice', label: '主管税务机关' },
-    ],
-    rows: [
-      { id: 'am-001', status: '已完成', values: { tag: '重点客户', code: '20258497', name: '上海王家德餐饮管理有限公司', type: '私营有限责任公司', taxType: '小规模纳税人', collect: '采集成功 06-26 18:09', credit: 'M', importedAt: '2026-06-26 17:40', owner: '李喻', serviceEnd: '2026-12', manager: '李喻', period: '2026-06', taxOffice: '普陀区税务局第十六税务所' } },
-      { id: 'am-002', status: '待确认', values: { tag: '新签', code: '20258493', name: '上海蓝雀元智能科技有限公司', type: '私营有限责任公司', taxType: '小规模纳税人', collect: '采集成功 06-26 17:57', credit: 'M', importedAt: '2026-06-26 17:26', owner: '李喻', serviceEnd: '2027-05', manager: '李喻', period: '2026-06', taxOffice: '宝山区税务局第十六税务所' } },
-      { id: 'am-003', status: '异常', values: { tag: '需回执', code: '20258486', name: '上海爱恩客工业科技有限公司', type: '内资企业', taxType: '一般纳税人', collect: '采集失败 06-26 17:54', credit: '-', importedAt: '2026-06-26 17:09', owner: '李喻', serviceEnd: '2026-06', manager: '李喻', period: '2026-06', taxOffice: '嘉定区税务局第十三税务所' } },
-    ],
-    queueTitle: '批量动作',
-    queue: ['新增企业、导入、导出、采集、批量删除、批量停用只在机构层出现', '采集通过维护的税务登录方式获取客户基础资料、税种、主管税务机关和企业类型', '操作列保留编辑、删除、停用、备忘录、进入账套、登录税务局'],
-    notes: ['账套管理负责多家公司档案和授权状态；进入单账套后只保留该公司的业务处理。', '采集、登录税务局等能力后续通过合法 adapter 接入，不在前端伪造真实提交。'],
   },
   authorizationCenter: {
     title: '授权中心',
@@ -460,57 +423,30 @@ function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLive
     }
   }
 
-  if (useLiveDesktopData && (baseConfig.title === '客户总览' || baseConfig.title === '账套管理')) {
-    const isAccountManagement = baseConfig.title === '账套管理'
+  if (useLiveDesktopData && baseConfig.title === '客户总览') {
     return {
       ...baseConfig,
-      description: isAccountManagement
-        ? '维护本地企业档案、会计制度、启用账期和进入账套入口。采集、授权等外部能力由合法 adapter 单独接入。'
-        : '集中查看本地客户账套、纳税人性质、启用账期和账套状态；业务进度在进入对应账套后处理。',
-      summary: isAccountManagement
-        ? [
-            { label: '本地账套', value: '0 户', tone: 'blue' },
-            { label: '一般纳税人', value: '0 户', tone: 'green' },
-            { label: '小规模纳税人', value: '0 户', tone: 'amber' },
-            { label: '已停用', value: '0 户', tone: 'red' },
-          ]
-        : [
-            { label: '本地客户', value: '0 户', tone: 'blue' },
-            { label: '启用账套', value: '0 户', tone: 'green' },
-            { label: '一般纳税人', value: '0 户', tone: 'amber' },
-            { label: '已停用', value: '0 户', tone: 'red' },
-          ],
-      keywordPlaceholder: isAccountManagement
-        ? '搜索企业名称、编码、纳税人识别号、地区'
-        : '搜索客户名称、编码、纳税人识别号、行业',
-      columns: isAccountManagement
-        ? [
-            { key: 'code', label: '编码' },
-            { key: 'name', label: '企业名称' },
-            { key: 'taxId', label: '纳税人识别号' },
-            { key: 'region', label: '地区' },
-            { key: 'taxType', label: '纳税人资格' },
-            { key: 'accountingSystem', label: '会计制度' },
-            { key: 'enablePeriod', label: '启用账期', align: 'center' },
-            { key: 'industry', label: '会计行业' },
-            { key: 'createdAt', label: '建档时间' },
-            { key: 'accountStatus', label: '账套状态' },
-          ]
-        : [
-            { key: 'code', label: '客户编码' },
-            { key: 'name', label: '客户名称' },
-            { key: 'taxId', label: '纳税人识别号' },
-            { key: 'taxType', label: '纳税人资格' },
-            { key: 'enablePeriod', label: '启用账期', align: 'center' },
-            { key: 'accountingSystem', label: '会计制度' },
-            { key: 'industry', label: '会计行业' },
-            { key: 'accountStatus', label: '账套状态' },
-          ],
+      description: '集中查看本地客户账套、纳税人性质、启用账期和账套状态；业务进度在进入对应账套后处理。完整企业建档和批量管理只在首页进行。',
+      summary: [
+        { label: '本地客户', value: '0 户', tone: 'blue' },
+        { label: '启用账套', value: '0 户', tone: 'green' },
+        { label: '一般纳税人', value: '0 户', tone: 'amber' },
+        { label: '已停用', value: '0 户', tone: 'red' },
+      ],
+      keywordPlaceholder: '搜索客户名称、编码、纳税人识别号、行业',
+      columns: [
+        { key: 'code', label: '客户编码' },
+        { key: 'name', label: '客户名称' },
+        { key: 'taxId', label: '纳税人识别号' },
+        { key: 'taxType', label: '纳税人资格' },
+        { key: 'enablePeriod', label: '启用账期', align: 'center' },
+        { key: 'accountingSystem', label: '会计制度' },
+        { key: 'industry', label: '会计行业' },
+        { key: 'accountStatus', label: '账套状态' },
+      ],
       rows: [],
-      queueTitle: isAccountManagement ? '账套说明' : '客户说明',
-      queue: isAccountManagement
-        ? ['本地企业档案以 SQLite 公司表为准，启用账期由企业建档信息决定。', '税务采集、授权、主管税务机关等外部信息需通过合法 adapter 写入后再展示。']
-        : ['客户总览只列出本地企业事实，不伪造发票、凭证、申报或风险数量。', '进入账套后查看该客户的发票、凭证、报表和税务处理。'],
+      queueTitle: '客户说明',
+      queue: ['客户总览只列出本地企业事实，不伪造发票、凭证、申报或风险数量。', '进入账套后查看该客户的发票、凭证、报表和税务处理。'],
       notes: ['桌面端无企业记录时显示空表，浏览器预览使用现有静态布局样例。'],
     }
   }
@@ -927,14 +863,14 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const loadRemoteRows = async () => {
     setIsLoadingRows(true)
     try {
-      if (kind === 'clients' || kind === 'accountManagement') {
+      if (kind === 'clients') {
         if (!isTauri) {
           setRemoteRows(null)
           return
         }
         await fetchCompanies()
         const liveCompanies = useCompanyStore.getState().companies
-        const companyRows = liveCompanies.map((item) => mapAgencyCompanyRow(item, kind))
+        const companyRows = liveCompanies.map((item) => mapAgencyCompanyRow(item))
         setRemoteRows(filterAgencyCompanyRows(companyRows, activeTab))
         return
       }
@@ -1106,7 +1042,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const handleEnterAccount = async (row: AgencyRow) => {
     const object = rowObjectLabel(row)
     writeAgencyAudit('进入账套', `${pageConfig.title}-${object}`)
-    if (isTauri && (kind === 'clients' || kind === 'accountManagement')) {
+    if (isTauri && kind === 'clients') {
       selectCompany(row.id)
       await fetchPeriods(row.id)
       await fetchVoucherWords(row.id)
@@ -1120,7 +1056,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }
 
   const handleImport = () => {
-    if (kind === 'clients' || kind === 'accountManagement') {
+    if (kind === 'clients') {
       writeAgencyAudit('导入企业档案', `${pageConfig.title}-${activeTab}`, '中', '待审批')
       navigate('/?importCompanies=1')
       return
@@ -1155,7 +1091,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       setShowCollaborationDialog(true)
       return
     }
-    if (kind === 'clients' || kind === 'accountManagement') {
+    if (kind === 'clients') {
       writeAgencyAudit('打开新增企业表单', `${pageConfig.title}-${activeTab}`)
       navigate('/?createCompany=1')
       return
@@ -1839,7 +1775,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                             处理
                           </button>
                         )}
-                        {(kind === 'clients' || kind === 'accountManagement') && (
+                        {kind === 'clients' && (
                           <button type="button" onClick={() => handleEnterAccount(row)} className="text-[#1f65a7] hover:underline">
                             进入账套
                           </button>
@@ -2095,7 +2031,7 @@ function isAuthorizationExpiryReminder(expiresAt: string | null) {
   return expiresAtValue <= Date.now() + reminderWindow
 }
 
-function mapAgencyCompanyRow(item: Company, kind: AgencyModuleKind): AgencyRow {
+function mapAgencyCompanyRow(item: Company): AgencyRow {
   const taxType = item.tax_type === 'general' ? '一般纳税人' : item.tax_type === 'small' ? '小规模纳税人' : '未设置'
   const accountingSystem = formatAccountingSystem(item.accounting_system)
   const enablePeriod = item.enable_year && item.enable_month
@@ -2131,7 +2067,7 @@ function mapAgencyCompanyRow(item: Company, kind: AgencyModuleKind): AgencyRow {
   return {
     id: item.id,
     status: item.is_active ? '进行中' : '异常',
-    values: kind === 'accountManagement' ? values : {
+    values: {
       code: values.code,
       name: values.name,
       taxId: values.taxId,
