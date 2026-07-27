@@ -256,7 +256,7 @@ const requiredPageSnippets = [
   ['module import mapping panel', '字段映射建议'],
   ['module import write confirmation', '确认写入本地台账'],
   ['module import write handler', 'const handleCommitLocalImport = async () => {'],
-  ['module import inventory closing targets', "type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover'"],
+  ['module import account archive target', "type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover' | 'companyAccount'"],
   ['module import committed status', "status === '已关联' || status === '已校验' || status === '已写入'"],
   ['module receipt and expense import scope', "if (kind === 'documentRegister' || kind === 'receipt' || kind === 'expenseReimbursement') return 'document'"],
   ['module import failure rows', 'const failureRows: LocalImportFailure[] = []'],
