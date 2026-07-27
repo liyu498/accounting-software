@@ -3451,6 +3451,35 @@ function buildExcelTemplate(params: {
   return buildGenericExcelTemplate(params)
 }
 
+function buildImportTemplate(params: {
+  title: string
+  config: ModuleConfig
+  context: ExportDocumentContext
+}): ExcelTemplateData {
+  const headers = params.config.columns.map((column) => column.label)
+  const sampleRow = params.config.rows[0]
+  const examples = headers.map((_, index) => {
+    const column = params.config.columns[index]
+    return sampleRow?.values[column.key] || `示例${index + 1}`
+  })
+  const sheetRows = [
+    [`${params.title}导入模板`],
+    ['公司', params.context.companyName, '所属期', params.context.periodLabel],
+    ['填写要求', '请保留第 5 行字段名称；一行对应一条业务记录。导入后先进入待确认清单，须人工复核后才可写入账套。'],
+    [],
+    headers,
+    examples,
+    [],
+    ['边界说明', '本模板只用于本地数据采集和字段核验；不调用税局、银行或发票外部系统，不会自动生成或入账凭证。'],
+  ]
+
+  return {
+    sheetRows,
+    columnWidths: excelColumnWidths(headers),
+    merges: excelMerges(sheetRows, headers.length),
+  }
+}
+
 function exportJobToModuleRow(job: ExportJob): ModuleRow {
   return {
     id: job.id,
@@ -5780,9 +5809,30 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('已刷新当前列表并记录筛选条件。')
   }
 
-  const handleTemplateAction = () => {
-    writeModuleAudit('下载模板', `${title}-导入模板`)
-    setOperationNotice('模板下载已记录；正式模板会继续绑定固定 Excel/PDF 版本和字段校验规则。')
+  const handleTemplateAction = async () => {
+    const fileName = `${title}-导入模板-${exportPeriodLabel}.xlsx`
+    const { sheetRows, columnWidths, merges } = buildImportTemplate({
+      title,
+      config,
+      context: exportDocumentContext,
+    })
+    await exportRowsToXlsx({
+      sheetRows,
+      columnWidths,
+      merges,
+      sheetName: `${title}导入模板`,
+      fileName,
+    })
+    recordExportJob({
+      fileName,
+      moduleName: title,
+      format: 'Excel模板',
+      scope: currentPeriodLabel,
+      templateKind: 'import',
+      rowCount: 1,
+    })
+    writeModuleAudit('下载导入模板', fileName, '普通', '成功')
+    setOperationNotice('已生成当前模块的本地 Excel 导入模板。请保留字段表头，导入后仍需在待确认清单完成核验。')
   }
 
   const handleCreateAiVoucherSuggestion = async (event: React.FormEvent<HTMLFormElement>) => {
