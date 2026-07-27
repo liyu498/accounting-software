@@ -258,6 +258,7 @@ const requiredPageSnippets = [
   ['module import write handler', 'const handleCommitLocalImport = async () => {'],
   ['module import inventory closing targets', "type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover'"],
   ['module import committed status', "status === '已关联' || status === '已校验' || status === '已写入'"],
+  ['module receipt and expense import scope', "if (kind === 'documentRegister' || kind === 'receipt' || kind === 'expenseReimbursement') return 'document'"],
   ['module current period export file', 'const exportPeriodLabel = currentPeriodLabel === \'当前账期\' ? \'2026-05\' : currentPeriodLabel'],
   ['module excel export audit', "writeModuleAudit('导出Excel', fileName"],
   ['module pdf export audit', "writeModuleAudit('导出PDF', fileName"],

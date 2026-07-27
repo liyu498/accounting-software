@@ -349,7 +349,7 @@ type LocalImportCommitDraft = { jobId: string; fileName: string; headers: string
 function localImportWriteTarget(kind: ModuleKind): LocalImportWriteTarget | null {
   if (kind === 'outputInvoice' || kind === 'inputInvoice') return 'invoice'
   if (kind === 'billList' || kind === 'bankStatement') return 'bank'
-  if (kind === 'documentRegister') return 'document'
+  if (kind === 'documentRegister' || kind === 'receipt' || kind === 'expenseReimbursement') return 'document'
   if (kind === 'purchaseManagement' || kind === 'salesManagement') return 'businessOrder'
   if (kind === 'employee') return 'employee'
   if (kind === 'payroll') return 'payroll'
@@ -7298,10 +7298,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           if (!result.success || !result.data) throw new Error(result.error || '流水写入失败')
           createdBankTransactions.push(result.data)
         } else if (importCommitDraft.target === 'document') {
-          const documentCode = importRowValue(importCommitDraft.headers, row, ['单据编号', '单据号'])
-          const amount = importAmount(importRowValue(importCommitDraft.headers, row, ['金额', '价税合计']))
+          const documentCode = importRowValue(importCommitDraft.headers, row, ['单据编号', '单据号', '收款单号', '报销单号'])
+          const amount = importAmount(importRowValue(importCommitDraft.headers, row, ['金额', '价税合计', '收款金额', '报销金额']))
           if (!documentCode || !date || amount <= 0) throw new Error('单据必填字段不完整')
-          const result = await documentRecordApi.createDocumentRecord({ companyId: selectedCompanyId, period: currentPeriodLabel, businessDate: date, documentCode, businessType: importRowValue(importCommitDraft.headers, row, ['业务类型']) || '其他', partner: importRowValue(importCommitDraft.headers, row, ['往来单位', '对方单位']) || undefined, amount, owner: importRowValue(importCommitDraft.headers, row, ['经办人', '负责人']) || undefined, attachmentStatus: importRowValue(importCommitDraft.headers, row, ['附件状态']) || '待补附件' })
+          const defaultBusinessType = kind === 'receipt' ? '收款' : kind === 'expenseReimbursement' ? '费用报销' : '其他'
+          const result = await documentRecordApi.createDocumentRecord({ companyId: selectedCompanyId, period: currentPeriodLabel, businessDate: date, documentCode, businessType: importRowValue(importCommitDraft.headers, row, ['业务类型', '费用类型']) || defaultBusinessType, partner: importRowValue(importCommitDraft.headers, row, ['往来单位', '对方单位', '收款单位', '报销人']) || undefined, amount, owner: importRowValue(importCommitDraft.headers, row, ['经办人', '负责人', '报销人']) || undefined, attachmentStatus: importRowValue(importCommitDraft.headers, row, ['附件状态', '票据状态']) || '待补附件' })
           if (!result.success || !result.data) throw new Error(result.error || '单据写入失败')
           createdDocuments.push(result.data)
         } else if (importCommitDraft.target === 'businessOrder') {
