@@ -343,7 +343,7 @@ type ExcelTemplateData = {
   merges: SheetMerge[]
 }
 
-type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll'
+type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction'
 type LocalImportCommitDraft = { jobId: string; fileName: string; headers: string[]; rows: string[][]; target: LocalImportWriteTarget }
 
 function localImportWriteTarget(kind: ModuleKind): LocalImportWriteTarget | null {
@@ -353,6 +353,8 @@ function localImportWriteTarget(kind: ModuleKind): LocalImportWriteTarget | null
   if (kind === 'purchaseManagement' || kind === 'salesManagement') return 'businessOrder'
   if (kind === 'employee') return 'employee'
   if (kind === 'payroll') return 'payroll'
+  if (kind === 'socialSecurity') return 'socialSecurity'
+  if (kind === 'specialDeduction') return 'specialDeduction'
   return null
 }
 
@@ -7259,6 +7261,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     const createdBusinessOrders: BusinessOrder[] = []
     const createdEmployees: Employee[] = []
     const createdPayrollRecords: PayrollRecord[] = []
+    const createdSocialSecurityRecords: SocialSecurityRecord[] = []
+    const createdSpecialDeductionRecords: SpecialDeductionRecord[] = []
 
     for (const row of importCommitDraft.rows) {
       try {
@@ -7300,7 +7304,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           const result = await employeeApi.createEmployee({ companyId: selectedCompanyId, employeeCode, name, idNo: importRowValue(importCommitDraft.headers, row, ['身份证号', '证件号码']) || undefined, department: importRowValue(importCommitDraft.headers, row, ['部门']) || undefined, position: importRowValue(importCommitDraft.headers, row, ['岗位', '职务']) || undefined, mobile: importRowValue(importCommitDraft.headers, row, ['手机号', '手机']) || undefined, entryDate: date || undefined, employmentStatus: importRowValue(importCommitDraft.headers, row, ['状态', '在职状态']) || '在职' })
           if (!result.success || !result.data) throw new Error(result.error || '人员写入失败')
           createdEmployees.push(result.data)
-        } else {
+        } else if (importCommitDraft.target === 'payroll') {
           const employeeRef = importRowValue(importCommitDraft.headers, row, ['员工编码', '人员编码', '工号', '员工姓名', '姓名'])
           const employee = [...createdEmployees, ...employees].find((item) => item.employeeCode === employeeRef || item.name === employeeRef)
           const baseSalary = importAmount(importRowValue(importCommitDraft.headers, row, ['基本工资', '应发工资']))
@@ -7308,6 +7312,23 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           const result = await payrollApi.createPayrollRecord({ companyId: selectedCompanyId, employeeId: employee.id, period: currentPeriodLabel, baseSalary, bonus: importAmount(importRowValue(importCommitDraft.headers, row, ['奖金', '补贴'])), taxAmount: importAmount(importRowValue(importCommitDraft.headers, row, ['个税', '个人所得税'])), socialPersonal: importAmount(importRowValue(importCommitDraft.headers, row, ['个人社保', '社保个人'])) })
           if (!result.success || !result.data) throw new Error(result.error || '薪酬写入失败')
           createdPayrollRecords.push(result.data)
+        } else if (importCommitDraft.target === 'socialSecurity') {
+          const employeeRef = importRowValue(importCommitDraft.headers, row, ['员工编码', '人员编码', '工号', '员工姓名', '姓名'])
+          const employee = [...createdEmployees, ...employees].find((item) => item.employeeCode === employeeRef || item.name === employeeRef)
+          if (!employee) throw new Error('社保员工未匹配')
+          const result = await socialSecurityApi.createSocialSecurityRecord({ companyId: selectedCompanyId, employeeId: employee.id, period: currentPeriodLabel, city: importRowValue(importCommitDraft.headers, row, ['城市', '参保城市']) || '待补', contributionBase: importAmount(importRowValue(importCommitDraft.headers, row, ['缴费基数', '基数'])), companyAmount: importAmount(importRowValue(importCommitDraft.headers, row, ['单位缴费', '单位金额'])), personalAmount: importAmount(importRowValue(importCommitDraft.headers, row, ['个人缴费', '个人金额'])), fundAmount: importAmount(importRowValue(importCommitDraft.headers, row, ['公积金', '公积金金额'])) })
+          if (!result.success || !result.data) throw new Error(result.error || '社保写入失败')
+          createdSocialSecurityRecords.push(result.data)
+        } else {
+          const employeeRef = importRowValue(importCommitDraft.headers, row, ['员工编码', '人员编码', '工号', '员工姓名', '姓名'])
+          const employee = [...createdEmployees, ...employees].find((item) => item.employeeCode === employeeRef || item.name === employeeRef)
+          const deductionType = importRowValue(importCommitDraft.headers, row, ['扣除类型', '专项附加扣除类型'])
+          const startMonth = importRowValue(importCommitDraft.headers, row, ['开始月份', '起始月份'])
+          const monthlyAmount = importAmount(importRowValue(importCommitDraft.headers, row, ['月扣除额', '月度金额', '金额']))
+          if (!employee || !deductionType || !startMonth || monthlyAmount <= 0) throw new Error('专项扣除字段不完整')
+          const result = await specialDeductionApi.createSpecialDeductionRecord({ companyId: selectedCompanyId, employeeId: employee.id, deductionType, startMonth, endMonth: importRowValue(importCommitDraft.headers, row, ['结束月份']) || undefined, monthlyAmount, source: '导入' })
+          if (!result.success || !result.data) throw new Error(result.error || '专项扣除写入失败')
+          createdSpecialDeductionRecords.push(result.data)
         }
         successCount += 1
       } catch {
@@ -7319,6 +7340,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (createdBusinessOrders.length) setBusinessOrders((items) => [...createdBusinessOrders, ...items])
     if (createdEmployees.length) setEmployees((items) => [...createdEmployees, ...items])
     if (createdPayrollRecords.length) setPayrollRecords((items) => [...createdPayrollRecords, ...items])
+    if (createdSocialSecurityRecords.length) setSocialSecurityRecords((items) => [...createdSocialSecurityRecords, ...items])
+    if (createdSpecialDeductionRecords.length) setSpecialDeductionRecords((items) => [...createdSpecialDeductionRecords, ...items])
     updateLocalImportJobCommit(importCommitDraft.jobId, successCount, failedCount)
     writeModuleAudit('确认写入本地台账', `${importCommitDraft.fileName}｜成功 ${successCount} 行`, '中', successCount > 0 ? '成功' : '失败')
     setImportCommitDraft(null)
@@ -8419,7 +8442,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="确认写入本地台账">
           <div className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-start justify-between border-b border-slate-200 px-4 py-3"><div><h2 className="text-sm font-semibold text-slate-900">确认写入本地台账</h2><p className="mt-1 text-xs text-slate-500">{importCommitDraft.fileName}，共 {importCommitDraft.rows.length} 行候选数据。</p></div><button type="button" onClick={() => setImportCommitDraft(null)} className="text-xs text-slate-500">取消</button></div>
-            <div className="space-y-3 p-4 text-xs text-slate-700"><p>目标模块：{importCommitDraft.target === 'invoice' ? '发票台账' : importCommitDraft.target === 'bank' ? '银行流水台账' : importCommitDraft.target === 'document' ? '单据登记台账' : importCommitDraft.target === 'businessOrder' ? '采购/销售订单台账' : importCommitDraft.target === 'employee' ? '人员档案' : '薪酬台账'}。不完整或格式错误的行会被跳过并保留在导入批次中。</p><div className="border border-slate-200 bg-slate-50 p-3"><p className="font-medium">字段映射建议</p>{buildImportFieldMappings(importCommitDraft.headers, config.columns).map(({ header, target }) => <div key={header} className="mt-1 grid grid-cols-[1fr_20px_1fr] gap-2"><span className="truncate">{header}</span><span className="text-center text-slate-400">→</span><span className="truncate">{target}</span></div>)}</div><p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 leading-5">安全边界：本操作只写入当前桌面端账套和账期的本地台账，不会采集发票、登录银行、生成凭证或向税局提交。</p></div>
+            <div className="space-y-3 p-4 text-xs text-slate-700"><p>目标模块：{importCommitDraft.target === 'invoice' ? '发票台账' : importCommitDraft.target === 'bank' ? '银行流水台账' : importCommitDraft.target === 'document' ? '单据登记台账' : importCommitDraft.target === 'businessOrder' ? '采购/销售订单台账' : importCommitDraft.target === 'employee' ? '人员档案' : importCommitDraft.target === 'payroll' ? '薪酬台账' : importCommitDraft.target === 'socialSecurity' ? '社保公积金台账' : '专项附加扣除台账'}。不完整或格式错误的行会被跳过并保留在导入批次中。</p><div className="border border-slate-200 bg-slate-50 p-3"><p className="font-medium">字段映射建议</p>{buildImportFieldMappings(importCommitDraft.headers, config.columns).map(({ header, target }) => <div key={header} className="mt-1 grid grid-cols-[1fr_20px_1fr] gap-2"><span className="truncate">{header}</span><span className="text-center text-slate-400">→</span><span className="truncate">{target}</span></div>)}</div><p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 leading-5">安全边界：本操作只写入当前桌面端账套和账期的本地台账，不会采集发票、登录银行、生成凭证或向税局提交。</p></div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setImportCommitDraft(null)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="button" onClick={handleCommitLocalImport} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">确认写入</button></div>
           </div>
         </div>
