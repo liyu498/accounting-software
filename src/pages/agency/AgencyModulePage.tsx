@@ -73,6 +73,23 @@ interface AgencyConfig {
   notes: string[]
 }
 
+interface AgencyBatchTaskOption {
+  id: string
+  label: string
+  scope: string
+  detail: string
+  requiresApproval: boolean
+}
+
+const agencyBatchTaskOptions: AgencyBatchTaskOption[] = [
+  { id: 'invoice_collection', label: '批量采集发票', scope: '全部已授权税务客户', detail: '核验税务授权范围和发票采集条件。', requiresApproval: false },
+  { id: 'bank_collection', label: '批量采集银行流水', scope: '已授权银行客户', detail: '核验银行授权状态和可用导入范围。', requiresApproval: false },
+  { id: 'voucher_generation_precheck', label: '批量生成凭证预检', scope: '已完成资料核验客户', detail: '只生成凭证建议与待确认草稿，不自动入账。', requiresApproval: false },
+  { id: 'closing_precheck', label: '批量结账预检', scope: '待结账客户', detail: '核验凭证、报表和税务风险，进入审批队列。', requiresApproval: true },
+  { id: 'tax_declaration_precheck', label: '批量申报预检', scope: '待申报税种', detail: '只生成申报包和风险清单，不提交税局。', requiresApproval: true },
+  { id: 'declaration_receipt_archive', label: '申报回执归档预检', scope: '已确认申报事项', detail: '核验本地回执和缴款书归档条件。', requiresApproval: true },
+]
+
 const configs: Record<AgencyModuleKind, AgencyConfig> = {
   clients: {
     title: '客户总览',
@@ -826,6 +843,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [pageSize, setPageSize] = useState(20)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
   const [localRows, setLocalRows] = useState<AgencyRow[]>([])
+  const [showBatchTaskDialog, setShowBatchTaskDialog] = useState(false)
+  const [selectedBatchTaskTypes, setSelectedBatchTaskTypes] = useState<string[]>(() => agencyBatchTaskOptions.map((option) => option.id))
   const [showContractDialog, setShowContractDialog] = useState(false)
   const [contractDraft, setContractDraft] = useState({ companyId: '', contractNo: '', servicePackage: '', serviceStart: '', serviceEnd: '', monthlyFee: '', owner: '' })
   const [showFeeDialog, setShowFeeDialog] = useState(false)
@@ -1125,28 +1144,58 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       return
     }
 
+    setShowBatchTaskDialog(true)
+  }
+
+  const handleCreateBatchTasks = async () => {
+    if (selectedBatchTaskTypes.length === 0) {
+      setOperationNotice('请选择至少一个批量预检任务。')
+      return
+    }
+
     if (isTauri) {
-      const response = await agencyApi.createBatchTasks({ period: agencyPeriodLabel, operator: 'admin' })
+      const response = await agencyApi.createBatchTasks({ period: agencyPeriodLabel, taskTypes: selectedBatchTaskTypes, operator: 'admin' })
       if (!response.success) {
         setOperationNotice(response.error || '批量预检任务创建失败。')
         return
       }
       await loadRemoteRows()
-      writeAgencyAudit('新建批量任务', '批量采集发票/流水/结账预检/申报预检', '高', '待审批')
-      setOperationNotice('已写入本地批量预检队列；采集、结账和申报均需后续人工确认，不会自动提交税局或银行。')
+      setShowBatchTaskDialog(false)
+      const created = response.data?.created ?? 0
+      const skipped = response.data?.skipped ?? 0
+      writeAgencyAudit('新建批量任务', `${selectedBatchTaskTypes.length} 类任务 / 新建${created} / 跳过${skipped}`, '高', '待审批')
+      setOperationNotice(`已写入本地批量预检队列：新建 ${created} 个，跳过 ${skipped} 个未完成同类任务。采集、结账、申报和回执归档均需后续人工确认，不会自动提交税局或银行。`)
       return
     }
 
     const started = new Date().toLocaleString('zh-CN')
-    const nextRows: AgencyRow[] = [
-      { id: `local-batch-invoice-${Date.now()}`, status: '进行中', values: { task: '批量采集发票', scope: '全部授权客户', period: agencyPeriodLabel, progress: '0/待计算', operator: 'admin', started, result: '检查税局授权后执行' } },
-      { id: `local-batch-bank-${Date.now()}`, status: '进行中', values: { task: '批量采集银行流水', scope: '已授权银行客户', period: agencyPeriodLabel, progress: '0/待计算', operator: 'admin', started, result: '检查银行授权后执行' } },
-      { id: `local-batch-close-${Date.now()}`, status: '待确认', values: { task: '批量结账预检', scope: '待结账客户', period: agencyPeriodLabel, progress: '待预检', operator: 'admin', started, result: '需完成风险检查' } },
-      { id: `local-batch-tax-${Date.now()}`, status: '待确认', values: { task: '批量申报预检', scope: '待申报税种', period: agencyPeriodLabel, progress: '待预检', operator: 'admin', started, result: '只生成申报包，不自动提交税局' } },
-    ]
-    setLocalRows((current) => [...nextRows, ...current].slice(0, 12))
-    writeAgencyAudit('新建批量任务', '批量采集发票/流水/结账预检/申报预检', '高', '待审批')
-    setOperationNotice('已创建批量采集、批量结账预检和批量申报预检任务；当前只进入队列和审计日志，不自动提交税局或银行。')
+    const existingTaskTypes = new Set(
+      agencyBatchTaskOptions
+        .filter((option) => localRows.some((row) => row.id.startsWith(`local-batch-${option.id}-`)))
+        .map((option) => option.id),
+    )
+    const selectedOptions = agencyBatchTaskOptions.filter((option) => selectedBatchTaskTypes.includes(option.id))
+    const nextRows = selectedOptions
+      .filter((option) => !existingTaskTypes.has(option.id))
+      .map((option, index): AgencyRow => ({
+        id: `local-batch-${option.id}-${Date.now()}-${index}`,
+        status: option.requiresApproval ? '待确认' : '待处理',
+        values: {
+          task: option.label,
+          scope: option.scope,
+          period: agencyPeriodLabel,
+          progress: '待预检',
+          operator: 'admin',
+          started,
+          result: `${option.detail} 当前仅创建本地预检队列。`,
+          approval: option.requiresApproval ? '需审批' : '无需审批',
+        },
+      }))
+    const skipped = selectedOptions.length - nextRows.length
+    setLocalRows((current) => [...nextRows, ...current].slice(0, 18))
+    setShowBatchTaskDialog(false)
+    writeAgencyAudit('新建批量任务', `${selectedOptions.length} 类任务 / 新建${nextRows.length} / 跳过${skipped}`, '高', '待审批')
+    setOperationNotice(`已创建 ${nextRows.length} 个本地批量预检任务，跳过 ${skipped} 个未完成同类任务；不会自动提交税局、银行或外部系统。`)
   }
 
   const handleExportExcel = async () => {
@@ -1525,6 +1574,56 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
               <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存授权记录</button>
             </div>
           </form>
+        </div>
+      )}
+      {showBatchTaskDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="选择批量预检任务">
+          <div className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">选择批量预检任务</h2>
+                <p className="mt-1 text-xs text-slate-500">按当前账期 {agencyPeriodLabel} 创建本地预检队列。未完成的同类型任务不会重复入队。</p>
+              </div>
+              <button type="button" onClick={() => setShowBatchTaskDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
+            </div>
+            <div className="space-y-3 p-4">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">已选择 {selectedBatchTaskTypes.length} / {agencyBatchTaskOptions.length} 类任务</span>
+                <button type="button" onClick={() => setSelectedBatchTaskTypes((selected) => selected.length === agencyBatchTaskOptions.length ? [] : agencyBatchTaskOptions.map((option) => option.id))} className="text-[#1f65a7] hover:underline">
+                  {selectedBatchTaskTypes.length === agencyBatchTaskOptions.length ? '清空选择' : '全选任务'}
+                </button>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {agencyBatchTaskOptions.map((option) => {
+                  const checked = selectedBatchTaskTypes.includes(option.id)
+                  return (
+                    <label key={option.id} className={cn('flex cursor-pointer gap-3 border p-3', checked ? 'border-[#1f65a7] bg-blue-50' : 'border-slate-200 bg-white')}>
+                      <input
+                        type="checkbox"
+                        aria-label={`选择 ${option.label}`}
+                        checked={checked}
+                        onChange={() => setSelectedBatchTaskTypes((selected) => checked ? selected.filter((taskType) => taskType !== option.id) : [...selected, option.id])}
+                        className="mt-0.5"
+                      />
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-2 text-sm font-medium text-slate-800">
+                          {option.label}
+                          {option.requiresApproval && <span className="border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-normal text-amber-700">需审批</span>}
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-500">范围：{option.scope}</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-600">{option.detail}</span>
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+              <p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 text-xs leading-5 text-slate-700">安全边界：创建和执行的都是本地预检任务。不会登录电子税务局、银行或自然人税收系统，也不会自动报税、扣款、结账或生成入账凭证。</p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowBatchTaskDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="button" disabled={selectedBatchTaskTypes.length === 0} onClick={() => void handleCreateBatchTasks()} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82] disabled:cursor-not-allowed disabled:bg-slate-400">创建本地预检任务</button>
+            </div>
+          </div>
         </div>
       )}
       <div className="border border-slate-200 bg-white">

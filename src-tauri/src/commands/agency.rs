@@ -30,6 +30,12 @@ pub struct AgencyHealthCheckItem {
     pub resolution_status: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct CreateAgencyBatchTasksResult {
+    pub created: i64,
+    pub skipped: i64,
+}
+
 #[tauri::command]
 pub async fn get_agency_service_contracts(
     company_id: Option<String>,
@@ -339,7 +345,7 @@ pub async fn get_agency_batch_tasks(
 pub async fn create_agency_batch_tasks(
     input: CreateAgencyBatchTasksInput,
     db: State<'_, Database>,
-) -> Result<(), String> {
+) -> Result<CreateAgencyBatchTasksResult, String> {
     if input.period.trim().is_empty() {
         return Err("period cannot be empty".to_string());
     }
@@ -348,19 +354,49 @@ pub async fn create_agency_batch_tasks(
     let templates = [
         ("invoice_collection", "批量采集发票", "全部已授权税务客户", "检查税务授权后执行", "medium", 0),
         ("bank_collection", "批量采集银行流水", "已授权银行客户", "检查银行授权后执行", "medium", 0),
+        ("voucher_generation_precheck", "批量生成凭证预检", "已完成资料核验客户", "只生成凭证建议与待确认草稿", "medium", 0),
         ("closing_precheck", "批量结账预检", "待结账客户", "需完成风险检查", "high", 1),
         ("tax_declaration_precheck", "批量申报预检", "待申报税种", "只生成申报包，不自动提交税局", "high", 1),
+        ("declaration_receipt_archive", "申报回执归档预检", "已确认申报事项", "只核验本地回执和缴款书归档条件", "high", 1),
     ];
 
+    let selected_task_types = input.task_types.unwrap_or_else(|| templates.iter().map(|(task_type, ..)| task_type.to_string()).collect());
+    if selected_task_types.is_empty() {
+        return Err("至少选择一个批量预检任务".to_string());
+    }
+    if let Some(unknown_task_type) = selected_task_types.iter().find(|task_type| {
+        !templates
+            .iter()
+            .any(|(known_task_type, ..)| *known_task_type == task_type.as_str())
+    }) {
+        return Err(format!("不支持的批量任务类型: {unknown_task_type}"));
+    }
+
+    let mut created = 0_i64;
+    let mut skipped = 0_i64;
+
     for (task_type, task_name, customer_scope, result_summary, risk_level, requires_approval) in templates {
+        if !selected_task_types
+            .iter()
+            .any(|selected_task_type| selected_task_type.as_str() == task_type)
+        {
+            continue;
+        }
         let id = uuid::Uuid::new_v4().to_string();
-        sqlx::query(
+        let result = sqlx::query(
             r#"
             INSERT INTO agency_batch_tasks (
                 id, task_type, task_name, period, customer_scope, status,
                 result_summary, risk_level, operator, requires_approval
             )
-            VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)
+            SELECT ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM agency_batch_tasks
+                WHERE period = ?
+                  AND task_type = ?
+                  AND status NOT IN ('completed', 'cancelled')
+            )
             "#,
         )
         .bind(&id)
@@ -372,12 +408,20 @@ pub async fn create_agency_batch_tasks(
         .bind(risk_level)
         .bind(&operator)
         .bind(requires_approval)
+        .bind(&input.period)
+        .bind(task_type)
         .execute(db.pool())
         .await
         .map_err(|e| format!("Database error: {}", e))?;
+
+        if result.rows_affected() == 1 {
+            created += 1;
+        } else {
+            skipped += 1;
+        }
     }
 
-    Ok(())
+    Ok(CreateAgencyBatchTasksResult { created, skipped })
 }
 
 #[derive(Debug, Clone, Deserialize)]

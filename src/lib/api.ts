@@ -1389,15 +1389,16 @@ export const agencyApi = {
     }
   },
 
-  createBatchTasks: async (input: { period: string; operator?: string }): Promise<ApiResponse<void>> => {
+  createBatchTasks: async (input: { period: string; taskTypes?: string[]; operator?: string }): Promise<ApiResponse<{ created: number; skipped: number }>> => {
     try {
-      await invoke('create_agency_batch_tasks', {
+      const result = await invoke('create_agency_batch_tasks', {
         input: {
           period: input.period,
+          task_types: input.taskTypes,
           operator: input.operator,
         },
-      })
-      return { success: true }
+      }) as { created: number; skipped: number }
+      return { success: true, data: result }
     } catch (error) {
       return { success: false, error: String(error) }
     }

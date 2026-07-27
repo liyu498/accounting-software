@@ -462,7 +462,7 @@ const requiredAgencyModuleSnippets = [
   ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
   ['agency selected period store', 'const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)'],
   ['agency dynamic period label', 'const agencyPeriodLabel = currentPeriod'],
-  ['agency batch task period binding', 'agencyApi.createBatchTasks({ period: agencyPeriodLabel, operator: \'admin\' })'],
+  ['agency batch task period binding', 'agencyApi.createBatchTasks({ period: agencyPeriodLabel, taskTypes: selectedBatchTaskTypes, operator: \'admin\' })'],
   ['agency audit persistence', 'automationApi.writeOperationAuditLog({'],
   ['agency excel current period export', 'const fileName = `${pageConfig.title}-${agencyPeriodLabel}.xlsx`'],
   ['agency pdf current period export', 'const fileName = `${pageConfig.title}-${agencyPeriodLabel}.pdf`'],
@@ -508,6 +508,22 @@ const requiredAgencyServiceContractEntryPageSnippets = [
   ['agency service contract create dialog', '新增服务合同'],
   ['agency service contract structured form', '<span>服务开始</span>'],
   ['agency service contract create binding', 'agencyApi.createServiceContract({'],
+]
+
+const requiredAgencyBatchTaskApiSnippets = [
+  ['agency batch task selection input', 'taskTypes?: string[]'],
+]
+
+const requiredAgencyBatchTaskCommandSnippets = [
+  ['agency batch task type filter', 'task_types'],
+  ['agency batch task deduplication', 'WHERE NOT EXISTS'],
+  ['agency batch task result summary', 'CreateAgencyBatchTasksResult'],
+]
+
+const requiredAgencyBatchTaskPageSnippets = [
+  ['agency batch task selection dialog', '选择批量预检任务'],
+  ['agency batch task selection state', 'selectedBatchTaskTypes'],
+  ['agency batch task selected API call', 'taskTypes: selectedBatchTaskTypes'],
 ]
 
 const requiredMeasurementUnitEntryPageSnippets = [
@@ -1250,6 +1266,9 @@ const errors = [
   ...verify(agencyModuleSource, requiredAgencyCollaborationEntryPageSnippets, 'agency collaboration entry page'),
   ...verify(agencyModuleSource, requiredAgencyAuthorizationEntryPageSnippets, 'agency authorization entry page'),
   ...verify(agencyModuleSource, requiredAgencyServiceContractEntryPageSnippets, 'agency service contract entry page'),
+  ...verify(apiSource, requiredAgencyBatchTaskApiSnippets, 'agency batch task api bindings'),
+  ...verify(agencyCommandSource, requiredAgencyBatchTaskCommandSnippets, 'agency batch task commands'),
+  ...verify(agencyModuleSource, requiredAgencyBatchTaskPageSnippets, 'agency batch task page'),
   ...verify(pageSource, requiredMeasurementUnitEntryPageSnippets, 'measurement unit entry page'),
   ...verify(pageSource, requiredInventoryItemEntryPageSnippets, 'inventory item entry page'),
   ...verify(pageSource, requiredSocialSecurityEntryPageSnippets, 'social security entry page'),

@@ -3697,6 +3697,8 @@ pub struct AgencyBatchTask {
 pub struct CreateAgencyBatchTasksInput {
     pub period: String,
     pub operator: Option<String>,
+    #[serde(default)]
+    pub task_types: Option<Vec<String>>,
 }
 
 // ==================== Automation and Adapter Structs ====================
