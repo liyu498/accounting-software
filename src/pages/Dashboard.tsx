@@ -91,8 +91,6 @@ export function Dashboard() {
   const [taxTasks, setTaxTasks] = useState<TaxDeclarationTask[]>([])
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
   const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
-  const companies = useCompanyStore((state) => state.companies)
-  const selectedCompany = useMemo(() => companies.find((company) => company.id === selectedCompanyId), [companies, selectedCompanyId])
   const invoices = useInvoiceStore((state) => state.invoices)
   const fetchInvoices = useInvoiceStore((state) => state.fetchInvoices)
   const vouchers = useVoucherStore((state) => state.vouchers)
@@ -211,9 +209,7 @@ export function Dashboard() {
     setOperationNotice('已重新读取当前账套的本地发票、凭证、AI 队列和税务任务。')
   }
 
-  const headline = usesLiveDashboardData
-    ? `${selectedCompany?.name || '当前账套'} · ${currentPeriodLabel} 账期，集中处理资料、AI 做账、凭证、报表、结账和申报。`
-    : '浏览器预览展示布局样例；桌面端将按当前账套和账期读取本地数据。'
+  const headline = '集中处理资料、AI 做账、凭证、报表、结账和申报。'
 
   return (
     <div className="space-y-4">

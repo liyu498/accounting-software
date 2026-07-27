@@ -670,6 +670,16 @@ const requiredDashboardSnippets = [
   ['dashboard voucher refresh', 'queryVouchers({ company_id: selectedCompanyId, period_id: currentPeriodId, page: 1, page_size: 100 })'],
   ['dashboard tax task source', 'automationApi.getTaxDeclarationTasks({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
   ['dashboard AI task source', 'automationApi.getAutomationJobs({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
+  ['dashboard context-neutral headline', '集中处理资料、AI 做账、凭证、报表、结账和申报。'],
+]
+
+const forbiddenDashboardSnippets = [
+  ['dashboard duplicated company and period', "${selectedCompany?.name || '当前账套'} · ${currentPeriodLabel} 账期"],
+]
+
+const forbiddenBusinessModulePageSnippets = [
+  ['voucher workspace duplicated company and period', "当前账套：{selectedCompany?.name || '未选择'}，账期：{currentPeriodLabel}"],
+  ['invoice dialog duplicated company and period', "登记到当前账套 ${selectedCompany?.name || ''} 与账期 ${currentPeriodLabel}"],
 ]
 
 const requiredBackupCommandSnippets = [
@@ -1309,6 +1319,12 @@ function verify(source, checks, sourceName) {
     .map(([label, snippet]) => `${sourceName}: ${label} missing snippet: ${snippet}`)
 }
 
+function verifyAbsent(source, checks, sourceName) {
+  return checks
+    .filter(([, snippet]) => source.includes(snippet))
+    .map(([label, snippet]) => `${sourceName}: ${label} still contains forbidden snippet: ${snippet}`)
+}
+
 const errors = [
   ...verify(adapterSource, requiredAdapterSnippets, 'live module adapter'),
   ...verify(pageSource, requiredPageSnippets, 'business module page'),
@@ -1340,6 +1356,8 @@ const errors = [
   ...verify(appSource, requiredAppSnippets, 'application routes'),
   ...verify(shellSource, requiredShellSnippets, 'application shell'),
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),
+  ...verifyAbsent(dashboardSource, forbiddenDashboardSnippets, 'company dashboard'),
+  ...verifyAbsent(pageSource, forbiddenBusinessModulePageSnippets, 'business module page'),
   ...verify(backupCommandSource, requiredBackupCommandSnippets, 'backup commands'),
   ...verify(pageSource, requiredBackupPageSnippets, 'backup module page'),
   ...verify(databaseSource, requiredEmployeeCommandSnippets.slice(0, 1), 'database schema'),

@@ -8300,7 +8300,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-2">
             <div>
               <h1 className="text-base font-semibold">{voucherWorkspaceTitle}</h1>
-              <p className="mt-0.5 text-xs text-slate-500">当前账套：{selectedCompany?.name || '未选择'}，账期：{currentPeriodLabel}</p>
+              <p className="mt-0.5 text-xs text-slate-500">凭证表头、分录和借贷平衡需要人工复核后保存。</p>
             </div>
             <div className="flex items-center gap-2">
               {(isVoucherEdit || isVoucherReadOnly) && loadedVoucher && <span className="text-xs text-slate-500">凭证号：{loadedVoucher.voucher_number}，状态：{loadedVoucher.status}</span>}
@@ -8820,7 +8820,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">{editingInvoiceId ? '编辑' : '新增'}{kind === 'outputInvoice' ? '销项' : '进项'}发票</h2>
-                <p className="mt-0.5 text-xs text-slate-500">{editingInvoiceId ? '仅更新本地账套发票资料，不触发税局开票或验真。' : `登记到当前账套 ${selectedCompany?.name || ''} 与账期 ${currentPeriodLabel}，不执行税局开票或验真。`}</p>
+                <p className="mt-0.5 text-xs text-slate-500">仅登记或更新本地发票资料，不触发税局开票、验真或提交。</p>
               </div>
               <button type="button" onClick={() => setShowInvoiceDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
             </div>
