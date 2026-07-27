@@ -3189,6 +3189,10 @@ type ExportDocumentContext = {
   taxpayerId: string
 }
 
+function formatPrintAmount(value: number) {
+  return `¥${Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 function renderGenericPrintHtml(params: {
   title: string
   headers: string[]
@@ -3236,6 +3240,32 @@ function renderVoucherPrintHtml(title: string, rows: ReturnType<typeof printable
     table{width:100%;border-collapse:collapse;font-size:12px} thead{display:table-header-group} th,td{border:1px solid #111827;padding:9px 8px} th{background:#f1f5f9}.amount{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
     tr{break-inside:avoid;page-break-inside:avoid}
   </style></head><body>${items}</body></html>`
+}
+
+function renderVoucherDetailPrintHtml(title: string, voucher: Voucher, exportedAt: string, context: ExportDocumentContext) {
+  const entryRows = voucher.entries.map((entry) => `<tr>
+    <td>${escapeHtml(entry.summary || voucher.summary || '')}</td>
+    <td>${entry.direction === 'debit' ? escapeHtml(`${entry.account_code} ${entry.account_name}`) : ''}</td>
+    <td>${entry.direction === 'credit' ? escapeHtml(`${entry.account_code} ${entry.account_name}`) : ''}</td>
+    <td class="amount">${entry.direction === 'debit' ? formatPrintAmount(entry.amount) : ''}</td>
+    <td class="amount">${entry.direction === 'credit' ? formatPrintAmount(entry.amount) : ''}</td>
+  </tr>`).join('')
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
+    @page{size:A4;margin:12mm}
+    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:0;color:#111827}
+    .voucher{border:1.5px solid #111827;padding:12px}
+    .voucher-head{display:flex;align-items:center;justify-content:center;position:relative;font-size:20px;font-weight:700}
+    .voucher-head .no{position:absolute;right:0;font-size:13px;font-weight:500}
+    .meta,.sign{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;font-size:12px;color:#334155}
+    table{width:100%;border-collapse:collapse;font-size:12px} thead{display:table-header-group} tfoot{display:table-footer-group} th,td{border:1px solid #111827;padding:9px 8px;word-break:break-word} th{background:#f1f5f9}.amount{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace} tfoot td{font-weight:700;background:#f8fafc}
+    tr{break-inside:avoid;page-break-inside:avoid}
+  </style></head><body><section class="voucher">
+    <div class="voucher-head"><div>记账凭证</div><div class="no">${escapeHtml(voucher.voucher_number)}</div></div>
+    <div class="meta"><span>公司: ${escapeHtml(context.companyName)}</span><span>日期: ${escapeHtml(voucher.voucher_date)}</span><span>附件: ${voucher.attachment_count} 张</span><span>状态: ${escapeHtml(voucher.status)}</span></div>
+    <table><thead><tr><th>摘要</th><th>借方科目</th><th>贷方科目</th><th>借方金额</th><th>贷方金额</th></tr></thead><tbody>${entryRows}</tbody><tfoot><tr><td colspan="3">合计</td><td class="amount">${formatPrintAmount(voucher.total_debit)}</td><td class="amount">${formatPrintAmount(voucher.total_credit)}</td></tr></tfoot></table>
+    <div class="sign"><span>制单: ${escapeHtml(voucher.created_by || '系统')}</span><span>审核: ${escapeHtml(voucher.approved_by || '未审')}</span><span>修改: ${escapeHtml(voucher.modified_by || '-')}</span><span>打印: ${escapeHtml(exportedAt)}</span></div>
+  </section></body></html>`
 }
 
 function renderLedgerPrintHtml(title: string, headers: string[], rows: ReturnType<typeof printableRows>, exportedAt: string, context: ExportDocumentContext) {
@@ -8121,16 +8151,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     const fileName = `${title}-${exportPeriodLabel}-print`
     const exportScope = `${status}/${keyword.trim() || '全部'}`
     const templateKind = printTemplateKind(kind)
-    const html = buildPrintHtml({
-      kind,
-      title,
-      config,
-      rows: filteredRows,
-      exportedAt,
-      status,
-      keyword: keyword.trim(),
-      context: exportDocumentContext,
-    })
+    if (kind === 'voucherDetail' && !loadedVoucher) {
+      setOperationNotice('当前凭证尚未加载完成，无法打印。')
+      return
+    }
+    const html = kind === 'voucherDetail' && loadedVoucher
+      ? renderVoucherDetailPrintHtml(title, loadedVoucher, exportedAt, exportDocumentContext)
+      : buildPrintHtml({
+        kind,
+        title,
+        config,
+        rows: filteredRows,
+        exportedAt,
+        status,
+        keyword: keyword.trim(),
+        context: exportDocumentContext,
+      })
     const printWindow = window.open('', '_blank')
     if (!printWindow) {
       setOperationNotice('浏览器阻止了打印窗口，请允许本应用打开打印预览后重试。')
@@ -8319,6 +8355,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <div className="flex items-center gap-2">
               {(isVoucherEdit || isVoucherReadOnly) && loadedVoucher && <span className="text-xs text-slate-500">凭证号：{loadedVoucher.voucher_number}，状态：{loadedVoucher.status}</span>}
               <span className={cn('text-xs font-medium', voucherBalanced ? 'text-emerald-700' : 'text-red-600')}>借贷{voucherBalanced ? '平衡' : '不平衡'}</span>
+              {isVoucherReadOnly && loadedVoucher && <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印凭证" onClick={handlePrint} />}
               {isVoucherReadOnly && loadedVoucher && <button type="button" onClick={handleVoucherApproval} className="h-8 border border-[#1f65a7] px-3 text-xs font-medium text-[#1f65a7] hover:bg-blue-50">{loadedVoucher.status === 'approved' ? '反审核' : '审核'}</button>}
               {isVoucherReadOnly && loadedVoucher?.status === 'draft' && <button type="button" onClick={handleDeleteVoucher} className="h-8 border border-red-300 px-3 text-xs font-medium text-red-600 hover:bg-red-50">删除</button>}
               {!isVoucherReadOnly && <button type="submit" disabled={isVoucherEdit && !loadedVoucher} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82] disabled:bg-slate-300">{isVoucherEdit ? '保存修改' : '保存凭证草稿'}</button>}

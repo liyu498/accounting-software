@@ -8,6 +8,9 @@ const pdfSource = readFileSync('src/lib/pdfExport.ts', 'utf8')
 
 const requiredBusinessSnippets = [
   ['voucher print template', 'function renderVoucherPrintHtml'],
+  ['voucher detail print template', 'function renderVoucherDetailPrintHtml'],
+  ['voucher detail entries', 'voucher.entries.map((entry) =>'],
+  ['voucher detail print action', 'label="打印凭证" onClick={handlePrint}'],
   ['voucher excel template', 'function buildVoucherExcelTemplate'],
   ['voucher fields', "'凭证日期', '凭证字号', '摘要', '借方科目', '贷方科目', '借方金额', '贷方金额'"],
   ['ledger print template', 'function renderLedgerPrintHtml'],
