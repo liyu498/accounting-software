@@ -343,7 +343,7 @@ type ExcelTemplateData = {
   merges: SheetMerge[]
 }
 
-type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset'
+type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation'
 type LocalImportCommitDraft = { jobId: string; fileName: string; headers: string[]; rows: string[][]; target: LocalImportWriteTarget }
 
 function localImportWriteTarget(kind: ModuleKind): LocalImportWriteTarget | null {
@@ -357,6 +357,9 @@ function localImportWriteTarget(kind: ModuleKind): LocalImportWriteTarget | null
   if (kind === 'specialDeduction') return 'specialDeduction'
   if (kind === 'inventoryMovement') return 'inventoryMovement'
   if (kind === 'depreciation') return 'fixedAsset'
+  if (kind === 'inventorySettings') return 'inventoryItem'
+  if (kind === 'receivableSettlement' || kind === 'payableSettlement') return 'settlement'
+  if (kind === 'bankReconciliation') return 'bankReconciliation'
   return null
 }
 
@@ -7267,6 +7270,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     const createdSpecialDeductionRecords: SpecialDeductionRecord[] = []
     const createdInventoryMovements: InventoryMovement[] = []
     const createdFixedAssets: FixedAsset[] = []
+    const createdInventoryItems: InventoryItem[] = []
+    const createdSettlementRecords: SettlementRecord[] = []
+    const createdBankReconciliationRecords: BankReconciliationRecord[] = []
 
     for (const row of importCommitDraft.rows) {
       try {
@@ -7342,7 +7348,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           const result = await inventoryMovementApi.createInventoryMovement({ companyId: selectedCompanyId, period: currentPeriodLabel, movementDate: date, billNo, movementType: importRowValue(importCommitDraft.headers, row, ['出入库类型', '业务类型']) || '采购入库', inventoryName, warehouse: importRowValue(importCommitDraft.headers, row, ['仓库']) || '默认仓', counterparty: importRowValue(importCommitDraft.headers, row, ['往来单位', '供应商', '客户']) || undefined, unit: importRowValue(importCommitDraft.headers, row, ['单位']) || '个', quantity, amount, sourceDocument: importRowValue(importCommitDraft.headers, row, ['来源单据', '合同']) || undefined })
           if (!result.success || !result.data) throw new Error(result.error || '出入库写入失败')
           createdInventoryMovements.push(result.data)
-        } else {
+        } else if (importCommitDraft.target === 'fixedAsset') {
           const assetCode = importRowValue(importCommitDraft.headers, row, ['资产编码', '固定资产编码'])
           const assetName = importRowValue(importCommitDraft.headers, row, ['资产名称', '固定资产名称'])
           const originalValue = importAmount(importRowValue(importCommitDraft.headers, row, ['原值', '资产原值']))
@@ -7351,6 +7357,35 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           const result = await fixedAssetApi.createFixedAsset({ companyId: selectedCompanyId, period: currentPeriodLabel, assetCode, assetName, category: importRowValue(importCommitDraft.headers, row, ['资产类别', '类别']) || '其他', startDate: date, originalValue, usefulLifeMonths, residualRate: importAmount(importRowValue(importCommitDraft.headers, row, ['残值率'])) / 100, sourceDocument: importRowValue(importCommitDraft.headers, row, ['来源单据', '合同']) || undefined })
           if (!result.success || !result.data) throw new Error(result.error || '固定资产写入失败')
           createdFixedAssets.push(result.data)
+        } else if (importCommitDraft.target === 'inventoryItem') {
+          const itemCode = importRowValue(importCommitDraft.headers, row, ['存货编码', '商品编码'])
+          const itemName = importRowValue(importCommitDraft.headers, row, ['存货名称', '商品名称'])
+          const unit = importRowValue(importCommitDraft.headers, row, ['计量单位', '单位'])
+          if (!itemCode || !itemName || !unit) throw new Error('存货字段不完整')
+          const result = await inventoryItemApi.createInventoryItem({ companyId: selectedCompanyId, itemCode, itemName, specification: importRowValue(importCommitDraft.headers, row, ['规格型号', '规格']) || undefined, unit, taxRate: importAmount(importRowValue(importCommitDraft.headers, row, ['税率'])) / 100, defaultSubject: importRowValue(importCommitDraft.headers, row, ['默认科目', '会计科目']) || undefined })
+          if (!result.success || !result.data) throw new Error(result.error || '存货写入失败')
+          createdInventoryItems.push(result.data)
+        } else if (importCommitDraft.target === 'settlement') {
+          const settlementNo = importRowValue(importCommitDraft.headers, row, ['核销编号', '结算编号'])
+          const settlementDate = importRowValue(importCommitDraft.headers, row, ['核销日期', '结算日期', '业务日期', '日期'])
+          const counterparty = importRowValue(importCommitDraft.headers, row, kind === 'payableSettlement' ? ['供应商', '往来单位'] : ['客户', '往来单位'])
+          const totalAmount = importAmount(importRowValue(importCommitDraft.headers, row, kind === 'payableSettlement' ? ['应付金额', '金额'] : ['应收金额', '金额']))
+          const settledAmount = importAmount(importRowValue(importCommitDraft.headers, row, ['本次核销金额', '已核销金额', '结算金额']))
+          if (!settlementNo || !settlementDate || !counterparty || totalAmount <= 0 || settledAmount < 0 || settledAmount > totalAmount) throw new Error('核销字段不完整')
+          const result = await settlementRecordApi.createSettlementRecord({ companyId: selectedCompanyId, period: currentPeriodLabel, settlementType: kind === 'payableSettlement' ? 'payable' : 'receivable', settlementNo, settlementDate, counterparty, invoiceNo: importRowValue(importCommitDraft.headers, row, ['关联发票号', '发票号码']) || undefined, transactionNo: importRowValue(importCommitDraft.headers, row, ['银行流水号', '流水号']) || undefined, totalAmount, settledAmount, settlementMethod: importRowValue(importCommitDraft.headers, row, ['核销方式', '结算方式']) || '银行转账', owner: importRowValue(importCommitDraft.headers, row, ['经办人', '负责人']) || undefined, status: importRowValue(importCommitDraft.headers, row, ['状态']) || '待确认', sourceDocument: importRowValue(importCommitDraft.headers, row, ['来源单据', '合同']) || undefined })
+          if (!result.success || !result.data) throw new Error(result.error || '核销写入失败')
+          createdSettlementRecords.push(result.data)
+        } else {
+          const reconciliationNo = importRowValue(importCommitDraft.headers, row, ['对账编号'])
+          const reconciliationDate = importRowValue(importCommitDraft.headers, row, ['对账日期', '业务日期', '日期'])
+          const accountName = importRowValue(importCommitDraft.headers, row, ['银行账户', '账户'])
+          const transactionNo = importRowValue(importCommitDraft.headers, row, ['流水号', '交易流水号'])
+          const bankAmount = importAmount(importRowValue(importCommitDraft.headers, row, ['银行金额', '流水金额']))
+          const bookAmount = importAmount(importRowValue(importCommitDraft.headers, row, ['账面金额', '凭证金额']))
+          if (!reconciliationNo || !reconciliationDate || !accountName || !transactionNo || bankAmount < 0 || bookAmount < 0) throw new Error('银行对账字段不完整')
+          const result = await bankReconciliationApi.createBankReconciliationRecord({ companyId: selectedCompanyId, period: currentPeriodLabel, reconciliationNo, reconciliationDate, accountName, transactionNo, summary: importRowValue(importCommitDraft.headers, row, ['摘要']) || undefined, bankAmount, bookAmount, voucherNo: importRowValue(importCommitDraft.headers, row, ['凭证号', '凭证字号']) || undefined, matchStatus: importRowValue(importCommitDraft.headers, row, ['匹配状态', '对账状态']) || '待人工对账', owner: importRowValue(importCommitDraft.headers, row, ['经办人', '负责人']) || undefined, status: importRowValue(importCommitDraft.headers, row, ['状态']) || '待处理', note: importRowValue(importCommitDraft.headers, row, ['备注', '差异说明']) || undefined })
+          if (!result.success || !result.data) throw new Error(result.error || '银行对账写入失败')
+          createdBankReconciliationRecords.push(result.data)
         }
         successCount += 1
       } catch {
@@ -7366,6 +7401,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (createdSpecialDeductionRecords.length) setSpecialDeductionRecords((items) => [...createdSpecialDeductionRecords, ...items])
     if (createdInventoryMovements.length) setInventoryMovements((items) => [...createdInventoryMovements, ...items])
     if (createdFixedAssets.length) setFixedAssets((items) => [...createdFixedAssets, ...items])
+    if (createdInventoryItems.length) setInventoryItems((items) => [...createdInventoryItems, ...items])
+    if (createdSettlementRecords.length) setSettlementRecords((items) => [...createdSettlementRecords, ...items])
+    if (createdBankReconciliationRecords.length) setBankReconciliationRecords((items) => [...createdBankReconciliationRecords, ...items])
     updateLocalImportJobCommit(importCommitDraft.jobId, successCount, failedCount)
     writeModuleAudit('确认写入本地台账', `${importCommitDraft.fileName}｜成功 ${successCount} 行`, '中', successCount > 0 ? '成功' : '失败')
     setImportCommitDraft(null)
@@ -8466,7 +8504,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="确认写入本地台账">
           <div className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-start justify-between border-b border-slate-200 px-4 py-3"><div><h2 className="text-sm font-semibold text-slate-900">确认写入本地台账</h2><p className="mt-1 text-xs text-slate-500">{importCommitDraft.fileName}，共 {importCommitDraft.rows.length} 行候选数据。</p></div><button type="button" onClick={() => setImportCommitDraft(null)} className="text-xs text-slate-500">取消</button></div>
-            <div className="space-y-3 p-4 text-xs text-slate-700"><p>目标模块：{importCommitDraft.target === 'invoice' ? '发票台账' : importCommitDraft.target === 'bank' ? '银行流水台账' : importCommitDraft.target === 'document' ? '单据登记台账' : importCommitDraft.target === 'businessOrder' ? '采购/销售订单台账' : importCommitDraft.target === 'employee' ? '人员档案' : importCommitDraft.target === 'payroll' ? '薪酬台账' : importCommitDraft.target === 'socialSecurity' ? '社保公积金台账' : importCommitDraft.target === 'specialDeduction' ? '专项附加扣除台账' : importCommitDraft.target === 'inventoryMovement' ? '出入库台账' : '固定资产台账'}。不完整或格式错误的行会被跳过并保留在导入批次中。</p><div className="border border-slate-200 bg-slate-50 p-3"><p className="font-medium">字段映射建议</p>{buildImportFieldMappings(importCommitDraft.headers, config.columns).map(({ header, target }) => <div key={header} className="mt-1 grid grid-cols-[1fr_20px_1fr] gap-2"><span className="truncate">{header}</span><span className="text-center text-slate-400">→</span><span className="truncate">{target}</span></div>)}</div><p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 leading-5">安全边界：本操作只写入当前桌面端账套和账期的本地台账，不会采集发票、登录银行、生成凭证或向税局提交。</p></div>
+            <div className="space-y-3 p-4 text-xs text-slate-700"><p>目标模块：{importCommitDraft.target === 'invoice' ? '发票台账' : importCommitDraft.target === 'bank' ? '银行流水台账' : importCommitDraft.target === 'document' ? '单据登记台账' : importCommitDraft.target === 'businessOrder' ? '采购/销售订单台账' : importCommitDraft.target === 'employee' ? '人员档案' : importCommitDraft.target === 'payroll' ? '薪酬台账' : importCommitDraft.target === 'socialSecurity' ? '社保公积金台账' : importCommitDraft.target === 'specialDeduction' ? '专项附加扣除台账' : importCommitDraft.target === 'inventoryMovement' ? '出入库台账' : importCommitDraft.target === 'fixedAsset' ? '固定资产台账' : importCommitDraft.target === 'inventoryItem' ? '存货档案' : importCommitDraft.target === 'settlement' ? '核销台账' : '银行对账台账'}。不完整或格式错误的行会被跳过并保留在导入批次中。</p><div className="border border-slate-200 bg-slate-50 p-3"><p className="font-medium">字段映射建议</p>{buildImportFieldMappings(importCommitDraft.headers, config.columns).map(({ header, target }) => <div key={header} className="mt-1 grid grid-cols-[1fr_20px_1fr] gap-2"><span className="truncate">{header}</span><span className="text-center text-slate-400">→</span><span className="truncate">{target}</span></div>)}</div><p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 leading-5">安全边界：本操作只写入当前桌面端账套和账期的本地台账，不会采集发票、登录银行、生成凭证或向税局提交。</p></div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setImportCommitDraft(null)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="button" onClick={handleCommitLocalImport} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">确认写入</button></div>
           </div>
         </div>

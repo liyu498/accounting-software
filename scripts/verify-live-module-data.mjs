@@ -256,7 +256,7 @@ const requiredPageSnippets = [
   ['module import mapping panel', '字段映射建议'],
   ['module import write confirmation', '确认写入本地台账'],
   ['module import write handler', 'const handleCommitLocalImport = async () => {'],
-  ['module import asset targets', "type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset'"],
+  ['module import reconciliation targets', "type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation'"],
   ['module import committed status', "status === '已关联' || status === '已校验' || status === '已写入'"],
   ['module current period export file', 'const exportPeriodLabel = currentPeriodLabel === \'当前账期\' ? \'2026-05\' : currentPeriodLabel'],
   ['module excel export audit', "writeModuleAudit('导出Excel', fileName"],
