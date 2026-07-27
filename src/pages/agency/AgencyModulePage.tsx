@@ -1209,21 +1209,26 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = `${pageConfig.title}-${agencyPeriodLabel}.xlsx`
     const scope = `${agencyPeriodLabel}/${activeTab}/${query.trim() || '全部'}`
-    await exportRowsToXlsx({
-      sheetRows: buildAgencySheetRows(pageConfig, filteredRows, exportedAt, activeTab, query.trim(), agencyPeriodLabel),
-      columnWidths: [{ wch: 18 }, { wch: 12 }, ...pageConfig.columns.map((column) => ({ wch: Math.max(14, column.label.length * 3) }))],
-      sheetName: pageConfig.title,
-      fileName,
-    })
-    recordExportJob({
-      fileName,
-      moduleName: `机构-${pageConfig.title}`,
-      format: 'Excel',
-      scope,
-      templateKind: 'agency',
-      rowCount: filteredRows.length,
-    })
-    writeAgencyAudit('导出Excel', fileName)
+    try {
+      await exportRowsToXlsx({
+        sheetRows: buildAgencySheetRows(pageConfig, filteredRows, exportedAt, activeTab, query.trim(), agencyPeriodLabel),
+        columnWidths: [{ wch: 18 }, { wch: 12 }, ...pageConfig.columns.map((column) => ({ wch: Math.max(14, column.label.length * 3) }))],
+        sheetName: pageConfig.title,
+        fileName,
+      })
+      recordExportJob({
+        fileName,
+        moduleName: `机构-${pageConfig.title}`,
+        format: 'Excel',
+        scope,
+        templateKind: 'agency',
+        rowCount: filteredRows.length,
+      })
+      writeAgencyAudit('导出Excel', fileName)
+    } catch (error) {
+      setOperationNotice(`Excel 导出失败：${String(error)}`)
+      writeAgencyAudit('导出Excel', fileName, '普通', '失败')
+    }
   }
 
   const handlePrint = () => {

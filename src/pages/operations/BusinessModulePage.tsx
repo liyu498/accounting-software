@@ -5934,23 +5934,28 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       config,
       context: exportDocumentContext,
     })
-    await exportRowsToXlsx({
-      sheetRows,
-      columnWidths,
-      merges,
-      sheetName: `${title}导入模板`,
-      fileName,
-    })
-    recordExportJob({
-      fileName,
-      moduleName: title,
-      format: 'Excel模板',
-      scope: currentPeriodLabel,
-      templateKind: 'import',
-      rowCount: 1,
-    })
-    writeModuleAudit('下载导入模板', fileName, '普通', '成功')
-    setOperationNotice('已生成当前模块的本地 Excel 导入模板。请保留字段表头，导入后仍需在待确认清单完成核验。')
+    try {
+      await exportRowsToXlsx({
+        sheetRows,
+        columnWidths,
+        merges,
+        sheetName: `${title}导入模板`,
+        fileName,
+      })
+      recordExportJob({
+        fileName,
+        moduleName: title,
+        format: 'Excel模板',
+        scope: currentPeriodLabel,
+        templateKind: 'import',
+        rowCount: 1,
+      })
+      writeModuleAudit('下载导入模板', fileName, '普通', '成功')
+      setOperationNotice('已生成当前模块的本地 Excel 导入模板。请保留字段表头，导入后仍需在待确认清单完成核验。')
+    } catch (error) {
+      setOperationNotice(`导入模板生成失败：${String(error)}`)
+      writeModuleAudit('下载导入模板', fileName, '普通', '失败')
+    }
   }
 
   const handleCreateAiVoucherSuggestion = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -8128,22 +8133,27 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       keyword: keyword.trim(),
       context: exportDocumentContext,
     })
-    await exportRowsToXlsx({
-      sheetRows,
-      columnWidths,
-      merges,
-      sheetName: title,
-      fileName,
-    })
-    recordExportJob({
-      fileName,
-      moduleName: title,
-      format: 'Excel',
-      scope: exportScope,
-      templateKind,
-      rowCount: filteredRows.length,
-    })
-    writeModuleAudit('导出Excel', fileName, '普通', '成功')
+    try {
+      await exportRowsToXlsx({
+        sheetRows,
+        columnWidths,
+        merges,
+        sheetName: title,
+        fileName,
+      })
+      recordExportJob({
+        fileName,
+        moduleName: title,
+        format: 'Excel',
+        scope: exportScope,
+        templateKind,
+        rowCount: filteredRows.length,
+      })
+      writeModuleAudit('导出Excel', fileName, '普通', '成功')
+    } catch (error) {
+      setOperationNotice(`Excel 导出失败：${String(error)}`)
+      writeModuleAudit('导出Excel', fileName, '普通', '失败')
+    }
   }
 
   const handlePrint = () => {

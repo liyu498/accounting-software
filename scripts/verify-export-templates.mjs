@@ -31,6 +31,10 @@ const requiredBusinessSnippets = [
   ['print window feedback', '浏览器阻止了打印窗口，请允许本应用打开打印预览后重试。'],
   ['business PDF failure feedback', 'PDF 导出失败：'],
   ['business PDF failure audit', "writeModuleAudit('导出PDF', fileName, '普通', '失败')"],
+  ['business Excel failure feedback', 'Excel 导出失败：'],
+  ['business Excel failure audit', "writeModuleAudit('导出Excel', fileName, '普通', '失败')"],
+  ['business import template failure feedback', '导入模板生成失败：'],
+  ['business import template failure audit', "writeModuleAudit('下载导入模板', fileName, '普通', '失败')"],
 ]
 
 const requiredTaxSnippets = [
@@ -47,6 +51,8 @@ const requiredAgencySnippets = [
   ['agency row pagination guard', 'tr { break-inside: avoid; page-break-inside: avoid; }'],
   ['agency PDF failure feedback', 'PDF 导出失败：'],
   ['agency PDF failure audit', "writeAgencyAudit('导出PDF', fileName, '普通', '失败')"],
+  ['agency Excel failure feedback', 'Excel 导出失败：'],
+  ['agency Excel failure audit', "writeAgencyAudit('导出Excel', fileName, '普通', '失败')"],
 ]
 
 const requiredXlsxSnippets = [
