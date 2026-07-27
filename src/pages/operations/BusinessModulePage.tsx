@@ -5727,7 +5727,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set())
-  const [showRulesLog, setShowRulesLog] = useState(false)
+  const [showRulesLogDialog, setShowRulesLogDialog] = useState(false)
   const [detailRow, setDetailRow] = useState<ModuleRow | null>(null)
   const importFileRef = useRef<HTMLInputElement>(null)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
@@ -8516,13 +8516,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-1">
-            <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="规则与日志" onClick={() => setShowRulesLog((value) => !value)} />
+            <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="规则与日志" onClick={() => setShowRulesLogDialog(true)} />
             <ToolbarButton icon={<Columns3 className="h-3.5 w-3.5" />} label="列设置" />
           </div>
         </div>
       </div>
 
-      {showRulesLog && <RulesLogPanel notes={config.notes} logs={visibleRuleLogs} usesLiveData={usesLiveRuleLogData} />}
+      {showRulesLogDialog && <RulesLogDialog notes={config.notes} logs={visibleRuleLogs} usesLiveData={usesLiveRuleLogData} onClose={() => setShowRulesLogDialog(false)} />}
 
       <div className="min-w-0 pt-3">
         <section className="min-w-0 border border-slate-200 bg-white">
@@ -9639,14 +9639,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   )
 }
 
-function RulesLogPanel({
+function RulesLogDialog({
   notes,
   logs,
   usesLiveData,
+  onClose,
 }: {
   notes: string[]
   logs: Array<{ time: string; action: string; detail: string }>
   usesLiveData: boolean
+  onClose: () => void
 }) {
   const previewLogs = [
     { time: '09:30', action: '刷新列表', detail: '系统记录操作人、账期、筛选条件和导出文件名称。' },
@@ -9656,39 +9658,43 @@ function RulesLogPanel({
   const visibleLogs = usesLiveData ? logs : previewLogs
 
   return (
-    <section className="mt-3 border border-slate-200 bg-white">
-      <div className="flex h-9 items-center gap-2 border-b border-slate-200 bg-[#f8fafc] px-3 text-sm font-semibold">
-        <Settings2 className="h-4 w-4 text-[#1f65a7]" />
-        规则与日志
-      </div>
-      <div className="grid gap-0 md:grid-cols-2">
-        <div className="border-b border-slate-200 md:border-b-0 md:border-r">
-          <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">规则与提示</div>
-          {notes.map((note, index) => (
-            <div key={note} className="border-b border-slate-100 p-3 text-xs leading-5 text-slate-600 last:border-b-0">
-              <div className="mb-1 flex items-center gap-2 font-medium text-slate-800">
-                {index === 0 ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> : <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
-                {index === 0 ? '业务边界' : '自动化说明'}
-              </div>
-              {note}
-            </div>
-          ))}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-label="规则与日志">
+      <section className="flex max-h-[min(720px,calc(100vh-2rem))] w-full max-w-5xl flex-col border border-slate-300 bg-white shadow-xl">
+        <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-[#f8fafc] px-4 text-sm font-semibold">
+          <span className="flex items-center gap-2"><Settings2 className="h-4 w-4 text-[#1f65a7]" />规则与日志</span>
+          <button type="button" onClick={onClose} className="h-7 border border-slate-300 px-2 text-xs font-medium text-slate-600 hover:border-[#1f65a7] hover:text-[#1f65a7]">关闭</button>
         </div>
-        <div>
-          <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">操作日志</div>
-          {visibleLogs.length === 0 && <div className="p-3 text-xs text-slate-500">当前账期无本地操作日志。</div>}
-          {visibleLogs.map((log) => (
-            <div key={`${log.time}-${log.action}`} className="border-b border-slate-100 p-3 text-xs last:border-b-0">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-800">{log.action}</span>
-                <span className="font-mono text-slate-400">{log.time}</span>
-              </div>
-              <div className="mt-1 text-slate-500">{log.detail}</div>
+        <div className="min-h-0 overflow-y-auto">
+          <div className="grid gap-0 md:grid-cols-2">
+            <div className="border-b border-slate-200 md:border-b-0 md:border-r">
+              <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">规则与提示</div>
+              {notes.map((note, index) => (
+                <div key={note} className="border-b border-slate-100 p-3 text-xs leading-5 text-slate-600 last:border-b-0">
+                  <div className="mb-1 flex items-center gap-2 font-medium text-slate-800">
+                    {index === 0 ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> : <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
+                    {index === 0 ? '业务边界' : '自动化说明'}
+                  </div>
+                  {note}
+                </div>
+              ))}
             </div>
-          ))}
+            <div>
+              <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">操作日志</div>
+              {visibleLogs.length === 0 && <div className="p-3 text-xs text-slate-500">当前账期无本地操作日志。</div>}
+              {visibleLogs.map((log) => (
+                <div key={`${log.time}-${log.action}`} className="border-b border-slate-100 p-3 text-xs last:border-b-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-slate-800">{log.action}</span>
+                    <span className="font-mono text-slate-400">{log.time}</span>
+                  </div>
+                  <div className="mt-1 text-slate-500">{log.detail}</div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   )
 }
 
