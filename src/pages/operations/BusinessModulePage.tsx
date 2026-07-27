@@ -20,7 +20,7 @@ import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
-import { formatLocalFileSize, parseLocalImportFile, recordLocalAttachment, recordLocalImportJob, removeLocalAttachment, removeLocalImportJob, updateLocalAttachmentAssociation, updateLocalImportJobCommit, updateLocalImportJobValidation, useLocalAttachmentRecords, useLocalImportJobs, type LocalAttachmentRecord, type LocalImportJob } from '../../lib/localFileRegistry'
+import { formatLocalFileSize, parseLocalImportFile, recordLocalAttachment, recordLocalImportJob, removeLocalAttachment, removeLocalImportJob, updateLocalAttachmentAssociation, updateLocalImportJobCommit, updateLocalImportJobValidation, useLocalAttachmentRecords, useLocalImportJobs, type LocalAttachmentRecord, type LocalImportFailure, type LocalImportJob } from '../../lib/localFileRegistry'
 import { isTauri } from '../../lib/tauri'
 import { accountTransferApi, automationApi, backupApi, bankReconciliationApi, bankTransactionApi, businessOrderApi, costCarryoverApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, settlementRecordApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankReconciliationRecord, type BankTransaction, type BusinessOrder, type CostCarryoverRecord, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SettlementRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import { measurementUnitApi, type MeasurementUnit } from '../../lib/api'
@@ -3638,8 +3638,8 @@ function mapLocalImportJobRows(jobs: LocalImportJob[]): ModuleRow[] {
       module: job.moduleName,
       file: job.fileName,
       rows: job.rowCount === null || job.rowCount === undefined ? '待解析' : String(job.rowCount),
-      success: job.status === '已校验' ? '已核验' : '待校验',
-      failed: '0',
+      success: job.status === '已写入' ? String(job.writtenRowCount || 0) : job.status === '已校验' ? '已核验' : '待校验',
+      failed: job.status === '已写入' ? String(job.failedRowCount || 0) : '0',
       operator: job.operator,
       time: job.createdAt,
     },
@@ -7264,6 +7264,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!importCommitDraft || !selectedCompanyId || currentPeriodLabel === '当前账期') return
     let successCount = 0
     let failedCount = 0
+    const failureRows: LocalImportFailure[] = []
     const createdBankTransactions: BankTransaction[] = []
     const createdDocuments: DocumentRecord[] = []
     const createdBusinessOrders: BusinessOrder[] = []
@@ -7280,7 +7281,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     const createdAccountTransfers: AccountTransfer[] = []
     const createdCostCarryoverRecords: CostCarryoverRecord[] = []
 
-    for (const row of importCommitDraft.rows) {
+    for (const [rowIndex, row] of importCommitDraft.rows.entries()) {
       try {
         const date = importRowValue(importCommitDraft.headers, row, ['开票日期', '交易日期', '业务日期', '日期'])
         if (importCommitDraft.target === 'invoice') {
@@ -7424,8 +7425,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           createdCostCarryoverRecords.push(result.data)
         }
         successCount += 1
-      } catch {
+      } catch (error) {
         failedCount += 1
+        if (failureRows.length < 20) {
+          failureRows.push({ rowNumber: rowIndex + 2, message: error instanceof Error ? error.message : String(error) })
+        }
       }
     }
     if (createdBankTransactions.length) setBankTransactions((items) => [...createdBankTransactions, ...items])
@@ -7443,7 +7447,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (createdMeasurementUnits.length) setMeasurementUnits((items) => [...createdMeasurementUnits, ...items])
     if (createdAccountTransfers.length) setAccountTransfers((items) => [...createdAccountTransfers, ...items])
     if (createdCostCarryoverRecords.length) setCostCarryoverRecords((items) => [...createdCostCarryoverRecords, ...items])
-    updateLocalImportJobCommit(importCommitDraft.jobId, successCount, failedCount)
+    updateLocalImportJobCommit(importCommitDraft.jobId, successCount, failedCount, failureRows)
     writeModuleAudit('确认写入本地台账', `${importCommitDraft.fileName}｜成功 ${successCount} 行`, '中', successCount > 0 ? '成功' : '失败')
     setImportCommitDraft(null)
     setOperationNotice(`本地导入已完成：成功 ${successCount} 行，失败 ${failedCount} 行。失败行未写入；未调用税局、银行或发票外部系统。`)
@@ -8564,7 +8568,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 <div><dt className="text-slate-500">文件名称</dt><dd className="mt-1 break-all text-slate-900">{importValidationJob.fileName}</dd></div>
                 <div><dt className="text-slate-500">文件格式 / 大小</dt><dd className="mt-1 text-slate-900">{importValidationJob.fileFormat} / {formatLocalFileSize(importValidationJob.fileSize)}</dd></div>
                 <div><dt className="text-slate-500">候选数据行</dt><dd className="mt-1 text-slate-900">{importValidationJob.rowCount === null || importValidationJob.rowCount === undefined ? '待解析' : `${importValidationJob.rowCount} 行`}</dd></div>
-                <div><dt className="text-slate-500">校验状态</dt><dd className="mt-1 text-slate-900">{importValidationJob.status === '已校验' ? '已人工核验' : '待人工核验'}</dd></div>
+                <div><dt className="text-slate-500">校验状态</dt><dd className="mt-1 text-slate-900">{importValidationJob.status === '已写入' ? '已写入本地台账' : importValidationJob.status === '已校验' ? '已人工核验' : '待人工核验'}</dd></div>
               </dl>
               <div className="border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs font-medium text-slate-700">识别到的表头</p>
@@ -8600,6 +8604,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                   </div>
                 </div>
               )}
+              {importValidationJob.failureRows?.length ? (
+                <div className="border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-xs font-medium text-amber-900">失败行清单</p>
+                  <div className="mt-2 max-h-36 space-y-1 overflow-y-auto text-xs text-amber-900">
+                    {importValidationJob.failureRows.map((failure) => <p key={`${failure.rowNumber}-${failure.message}`}>第 {failure.rowNumber} 行：{failure.message}</p>)}
+                  </div>
+                  {(importValidationJob.failedRowCount || 0) > importValidationJob.failureRows.length && <p className="mt-2 text-xs text-amber-700">仅显示前 {importValidationJob.failureRows.length} 条失败原因。</p>}
+                </div>
+              ) : null}
               <p className="text-xs leading-5 text-slate-500">{importValidationJob.validationNote || '历史批次尚未保存解析摘要，请在对应业务模块人工核验。'}</p>
               <p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 text-xs leading-5 text-slate-700">安全边界：核验只更新本机导入批次的状态，不会写入账套业务数据或调用外部系统。</p>
             </div>

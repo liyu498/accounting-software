@@ -6,6 +6,11 @@ const CHANGE_EVENT = 'accounting-local-file-registry-updated'
 
 export type LocalFileStatus = '待确认' | '已关联' | '已校验' | '已写入' | '异常'
 
+export interface LocalImportFailure {
+  rowNumber: number
+  message: string
+}
+
 export interface LocalImportJob {
   id: string
   companyId: string
@@ -21,6 +26,9 @@ export interface LocalImportJob {
   columnPreview: string[]
   previewRows: string[][]
   validationNote: string
+  writtenRowCount?: number
+  failedRowCount?: number
+  failureRows?: LocalImportFailure[]
   operator: string
   createdAt: string
 }
@@ -227,9 +235,12 @@ export function updateLocalImportJobValidation(id: string) {
   })
 }
 
-export function updateLocalImportJobCommit(id: string, successCount: number, failedCount: number) {
+export function updateLocalImportJobCommit(id: string, successCount: number, failedCount: number, failureRows: LocalImportFailure[] = []) {
   return updateRecord<LocalImportJob>(IMPORT_STORAGE_KEY, id, {
     status: '已写入',
+    writtenRowCount: successCount,
+    failedRowCount: failedCount,
+    failureRows: failureRows.slice(0, 20),
     validationNote: `已人工确认并写入本地账套：成功 ${successCount} 行，失败 ${failedCount} 行；未调用税局、银行或发票外部系统。`,
   })
 }
