@@ -343,7 +343,7 @@ type ExcelTemplateData = {
   merges: SheetMerge[]
 }
 
-type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation'
+type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover'
 type LocalImportCommitDraft = { jobId: string; fileName: string; headers: string[]; rows: string[][]; target: LocalImportWriteTarget }
 
 function localImportWriteTarget(kind: ModuleKind): LocalImportWriteTarget | null {
@@ -360,6 +360,9 @@ function localImportWriteTarget(kind: ModuleKind): LocalImportWriteTarget | null
   if (kind === 'inventorySettings') return 'inventoryItem'
   if (kind === 'receivableSettlement' || kind === 'payableSettlement') return 'settlement'
   if (kind === 'bankReconciliation') return 'bankReconciliation'
+  if (kind === 'unitSettings') return 'measurementUnit'
+  if (kind === 'transfer') return 'accountTransfer'
+  if (kind === 'costCarryover') return 'costCarryover'
   return null
 }
 
@@ -7273,6 +7276,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     const createdInventoryItems: InventoryItem[] = []
     const createdSettlementRecords: SettlementRecord[] = []
     const createdBankReconciliationRecords: BankReconciliationRecord[] = []
+    const createdMeasurementUnits: MeasurementUnit[] = []
+    const createdAccountTransfers: AccountTransfer[] = []
+    const createdCostCarryoverRecords: CostCarryoverRecord[] = []
 
     for (const row of importCommitDraft.rows) {
       try {
@@ -7375,7 +7381,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           const result = await settlementRecordApi.createSettlementRecord({ companyId: selectedCompanyId, period: currentPeriodLabel, settlementType: kind === 'payableSettlement' ? 'payable' : 'receivable', settlementNo, settlementDate, counterparty, invoiceNo: importRowValue(importCommitDraft.headers, row, ['关联发票号', '发票号码']) || undefined, transactionNo: importRowValue(importCommitDraft.headers, row, ['银行流水号', '流水号']) || undefined, totalAmount, settledAmount, settlementMethod: importRowValue(importCommitDraft.headers, row, ['核销方式', '结算方式']) || '银行转账', owner: importRowValue(importCommitDraft.headers, row, ['经办人', '负责人']) || undefined, status: importRowValue(importCommitDraft.headers, row, ['状态']) || '待确认', sourceDocument: importRowValue(importCommitDraft.headers, row, ['来源单据', '合同']) || undefined })
           if (!result.success || !result.data) throw new Error(result.error || '核销写入失败')
           createdSettlementRecords.push(result.data)
-        } else {
+        } else if (importCommitDraft.target === 'bankReconciliation') {
           const reconciliationNo = importRowValue(importCommitDraft.headers, row, ['对账编号'])
           const reconciliationDate = importRowValue(importCommitDraft.headers, row, ['对账日期', '业务日期', '日期'])
           const accountName = importRowValue(importCommitDraft.headers, row, ['银行账户', '账户'])
@@ -7386,6 +7392,35 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           const result = await bankReconciliationApi.createBankReconciliationRecord({ companyId: selectedCompanyId, period: currentPeriodLabel, reconciliationNo, reconciliationDate, accountName, transactionNo, summary: importRowValue(importCommitDraft.headers, row, ['摘要']) || undefined, bankAmount, bookAmount, voucherNo: importRowValue(importCommitDraft.headers, row, ['凭证号', '凭证字号']) || undefined, matchStatus: importRowValue(importCommitDraft.headers, row, ['匹配状态', '对账状态']) || '待人工对账', owner: importRowValue(importCommitDraft.headers, row, ['经办人', '负责人']) || undefined, status: importRowValue(importCommitDraft.headers, row, ['状态']) || '待处理', note: importRowValue(importCommitDraft.headers, row, ['备注', '差异说明']) || undefined })
           if (!result.success || !result.data) throw new Error(result.error || '银行对账写入失败')
           createdBankReconciliationRecords.push(result.data)
+        } else if (importCommitDraft.target === 'measurementUnit') {
+          const unitName = importRowValue(importCommitDraft.headers, row, ['计量单位', '单位名称'])
+          const conversionRate = importAmount(importRowValue(importCommitDraft.headers, row, ['换算率', '换算比例'])) || 1
+          const precisionDigits = importAmount(importRowValue(importCommitDraft.headers, row, ['精度', '小数位']))
+          if (!unitName || conversionRate <= 0 || precisionDigits < 0 || precisionDigits > 8) throw new Error('计量单位字段不完整')
+          const result = await measurementUnitApi.createMeasurementUnit({ companyId: selectedCompanyId, unitName, unitGroup: importRowValue(importCommitDraft.headers, row, ['换算组', '单位组']) || undefined, baseUnit: importRowValue(importCommitDraft.headers, row, ['基准单位', '基础单位']) || undefined, conversionRate, precisionDigits, remark: importRowValue(importCommitDraft.headers, row, ['备注']) || undefined })
+          if (!result.success || !result.data) throw new Error(result.error || '计量单位写入失败')
+          createdMeasurementUnits.push(result.data)
+        } else if (importCommitDraft.target === 'accountTransfer') {
+          const transferDate = importRowValue(importCommitDraft.headers, row, ['转账日期', '交易日期', '业务日期', '日期'])
+          const fromAccount = importRowValue(importCommitDraft.headers, row, ['转出账户', '付款账户'])
+          const toAccount = importRowValue(importCommitDraft.headers, row, ['转入账户', '收款账户'])
+          const amount = importAmount(importRowValue(importCommitDraft.headers, row, ['转账金额', '金额']))
+          if (!transferDate || !fromAccount || !toAccount || amount <= 0) throw new Error('账户转账字段不完整')
+          const result = await accountTransferApi.createAccountTransfer({ companyId: selectedCompanyId, period: currentPeriodLabel, transferDate, fromAccount, toAccount, amount, fee: importAmount(importRowValue(importCommitDraft.headers, row, ['手续费', '费用'])), serialNo: importRowValue(importCommitDraft.headers, row, ['流水号', '交易流水号']) || undefined })
+          if (!result.success || !result.data) throw new Error(result.error || '账户转账写入失败')
+          createdAccountTransfers.push(result.data)
+        } else {
+          const batchNo = importRowValue(importCommitDraft.headers, row, ['结转批次', '批次编号'])
+          const carryoverDate = importRowValue(importCommitDraft.headers, row, ['结转日期', '业务日期', '日期'])
+          const sourceBillNo = importRowValue(importCommitDraft.headers, row, ['来源单据', '出库单号'])
+          const inventoryName = importRowValue(importCommitDraft.headers, row, ['存货名称', '商品名称'])
+          const debitSubject = importRowValue(importCommitDraft.headers, row, ['借方科目'])
+          const creditSubject = importRowValue(importCommitDraft.headers, row, ['贷方科目'])
+          const costAmount = importAmount(importRowValue(importCommitDraft.headers, row, ['结转成本', '成本金额']))
+          if (!batchNo || !carryoverDate || !sourceBillNo || !inventoryName || !debitSubject || !creditSubject || costAmount <= 0) throw new Error('成本结转字段不完整')
+          const result = await costCarryoverApi.createCostCarryoverRecord({ companyId: selectedCompanyId, period: currentPeriodLabel, batchNo, carryoverDate, valuationMethod: importRowValue(importCommitDraft.headers, row, ['计价方法']) || '移动加权', sourceBillNo, inventoryName, debitSubject, creditSubject, costAmount, differenceAmount: importAmount(importRowValue(importCommitDraft.headers, row, ['差异金额'])), voucherNo: importRowValue(importCommitDraft.headers, row, ['凭证号', '凭证字号']) || undefined, status: importRowValue(importCommitDraft.headers, row, ['状态']) || '待确认', sourceDocument: importRowValue(importCommitDraft.headers, row, ['来源凭据', '合同']) || undefined })
+          if (!result.success || !result.data) throw new Error(result.error || '成本结转写入失败')
+          createdCostCarryoverRecords.push(result.data)
         }
         successCount += 1
       } catch {
@@ -7404,6 +7439,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (createdInventoryItems.length) setInventoryItems((items) => [...createdInventoryItems, ...items])
     if (createdSettlementRecords.length) setSettlementRecords((items) => [...createdSettlementRecords, ...items])
     if (createdBankReconciliationRecords.length) setBankReconciliationRecords((items) => [...createdBankReconciliationRecords, ...items])
+    if (createdMeasurementUnits.length) setMeasurementUnits((items) => [...createdMeasurementUnits, ...items])
+    if (createdAccountTransfers.length) setAccountTransfers((items) => [...createdAccountTransfers, ...items])
+    if (createdCostCarryoverRecords.length) setCostCarryoverRecords((items) => [...createdCostCarryoverRecords, ...items])
     updateLocalImportJobCommit(importCommitDraft.jobId, successCount, failedCount)
     writeModuleAudit('确认写入本地台账', `${importCommitDraft.fileName}｜成功 ${successCount} 行`, '中', successCount > 0 ? '成功' : '失败')
     setImportCommitDraft(null)
@@ -8504,7 +8542,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="确认写入本地台账">
           <div className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-start justify-between border-b border-slate-200 px-4 py-3"><div><h2 className="text-sm font-semibold text-slate-900">确认写入本地台账</h2><p className="mt-1 text-xs text-slate-500">{importCommitDraft.fileName}，共 {importCommitDraft.rows.length} 行候选数据。</p></div><button type="button" onClick={() => setImportCommitDraft(null)} className="text-xs text-slate-500">取消</button></div>
-            <div className="space-y-3 p-4 text-xs text-slate-700"><p>目标模块：{importCommitDraft.target === 'invoice' ? '发票台账' : importCommitDraft.target === 'bank' ? '银行流水台账' : importCommitDraft.target === 'document' ? '单据登记台账' : importCommitDraft.target === 'businessOrder' ? '采购/销售订单台账' : importCommitDraft.target === 'employee' ? '人员档案' : importCommitDraft.target === 'payroll' ? '薪酬台账' : importCommitDraft.target === 'socialSecurity' ? '社保公积金台账' : importCommitDraft.target === 'specialDeduction' ? '专项附加扣除台账' : importCommitDraft.target === 'inventoryMovement' ? '出入库台账' : importCommitDraft.target === 'fixedAsset' ? '固定资产台账' : importCommitDraft.target === 'inventoryItem' ? '存货档案' : importCommitDraft.target === 'settlement' ? '核销台账' : '银行对账台账'}。不完整或格式错误的行会被跳过并保留在导入批次中。</p><div className="border border-slate-200 bg-slate-50 p-3"><p className="font-medium">字段映射建议</p>{buildImportFieldMappings(importCommitDraft.headers, config.columns).map(({ header, target }) => <div key={header} className="mt-1 grid grid-cols-[1fr_20px_1fr] gap-2"><span className="truncate">{header}</span><span className="text-center text-slate-400">→</span><span className="truncate">{target}</span></div>)}</div><p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 leading-5">安全边界：本操作只写入当前桌面端账套和账期的本地台账，不会采集发票、登录银行、生成凭证或向税局提交。</p></div>
+            <div className="space-y-3 p-4 text-xs text-slate-700"><p>目标模块：{importCommitDraft.target === 'invoice' ? '发票台账' : importCommitDraft.target === 'bank' ? '银行流水台账' : importCommitDraft.target === 'document' ? '单据登记台账' : importCommitDraft.target === 'businessOrder' ? '采购/销售订单台账' : importCommitDraft.target === 'employee' ? '人员档案' : importCommitDraft.target === 'payroll' ? '薪酬台账' : importCommitDraft.target === 'socialSecurity' ? '社保公积金台账' : importCommitDraft.target === 'specialDeduction' ? '专项附加扣除台账' : importCommitDraft.target === 'inventoryMovement' ? '出入库台账' : importCommitDraft.target === 'fixedAsset' ? '固定资产台账' : importCommitDraft.target === 'inventoryItem' ? '存货档案' : importCommitDraft.target === 'settlement' ? '核销台账' : importCommitDraft.target === 'bankReconciliation' ? '银行对账台账' : importCommitDraft.target === 'measurementUnit' ? '计量单位档案' : importCommitDraft.target === 'accountTransfer' ? '账户转账台账' : '成本结转台账'}。不完整或格式错误的行会被跳过并保留在导入批次中。</p><div className="border border-slate-200 bg-slate-50 p-3"><p className="font-medium">字段映射建议</p>{buildImportFieldMappings(importCommitDraft.headers, config.columns).map(({ header, target }) => <div key={header} className="mt-1 grid grid-cols-[1fr_20px_1fr] gap-2"><span className="truncate">{header}</span><span className="text-center text-slate-400">→</span><span className="truncate">{target}</span></div>)}</div><p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 leading-5">安全边界：本操作只写入当前桌面端账套和账期的本地台账，不会采集发票、登录银行、生成凭证或向税局提交。</p></div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setImportCommitDraft(null)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="button" onClick={handleCommitLocalImport} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">确认写入</button></div>
           </div>
         </div>
