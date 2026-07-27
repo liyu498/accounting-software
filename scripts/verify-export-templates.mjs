@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 
 const businessSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', 'utf8')
+const taxSource = readFileSync('src/pages/tax/TaxWorkspace.tsx', 'utf8')
+const agencySource = readFileSync('src/pages/agency/AgencyModulePage.tsx', 'utf8')
 const xlsxSource = readFileSync('src/lib/xlsxExport.ts', 'utf8')
 const pdfSource = readFileSync('src/lib/pdfExport.ts', 'utf8')
 
@@ -20,6 +22,20 @@ const requiredBusinessSnippets = [
   ['generic export template', 'function buildGenericExcelTemplate'],
   ['template router', 'function buildExcelTemplate'],
   ['print router', 'function buildPrintHtml'],
+  ['print A4 page setup', '@page{size:A4;margin:12mm}'],
+  ['print repeating table headers', 'thead{display:table-header-group}'],
+  ['print row pagination guard', 'tr{break-inside:avoid;page-break-inside:avoid}'],
+  ['print window feedback', '浏览器阻止了打印窗口，请允许本应用打开打印预览后重试。'],
+]
+
+const requiredTaxSnippets = [
+  ['tax print window feedback', '浏览器阻止了打印窗口，请允许本应用打开打印预览后重试。'],
+]
+
+const requiredAgencySnippets = [
+  ['agency print window feedback', '浏览器阻止了打印窗口，请允许本应用打开打印预览后重试。'],
+  ['agency repeating table headers', 'thead { display: table-header-group; }'],
+  ['agency row pagination guard', 'tr { break-inside: avoid; page-break-inside: avoid; }'],
 ]
 
 const requiredXlsxSnippets = [
@@ -46,6 +62,8 @@ function check(source, checks) {
 
 const errors = [
   ...check(businessSource, requiredBusinessSnippets),
+  ...check(taxSource, requiredTaxSnippets),
+  ...check(agencySource, requiredAgencySnippets),
   ...check(xlsxSource, requiredXlsxSnippets),
   ...check(pdfSource, requiredPdfSnippets),
 ]

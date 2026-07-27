@@ -1296,7 +1296,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     const scope = `${agencyPeriodLabel}/${activeTab}/${query.trim() || '全部'}`
     const html = buildAgencyPrintHtml(pageConfig, filteredRows, exportedAt, activeTab, query.trim(), agencyPeriodLabel)
     const printWindow = window.open('', '_blank')
-    if (!printWindow) return
+    if (!printWindow) {
+      setOperationNotice('浏览器阻止了打印窗口，请允许本应用打开打印预览后重试。')
+      writeAgencyAudit('打印预览失败', fileName)
+      return
+    }
     printWindow.document.write(html)
     printWindow.document.close()
     printWindow.focus()
@@ -2448,6 +2452,8 @@ function buildAgencyPrintHtml(config: AgencyConfig, rows: AgencyRow[], exportedA
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     th { background: #e8eef6; color: #1f2937; font-weight: 700; }
     th, td { border: 1px solid #cbd5e1; padding: 6px; word-break: break-word; }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
     .right { text-align: right; }
     .center { text-align: center; }
     .notes { margin-top: 10px; color: #475569; }

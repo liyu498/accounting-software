@@ -261,14 +261,16 @@ function buildTaxDeclarationPackageHtml(
   `).join('')
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>税务申报包-${escapeHtml(metadata.period)}</title><style>
-    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:22px;color:#111827}
+    @page{size:A4 landscape;margin:10mm}
+    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:0;color:#111827}
     h1{text-align:center;font-size:20px;margin:0 0 8px} h2{font-size:15px;margin:18px 0 8px}
     .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 16px;margin:10px 0 14px;font-size:12px;color:#334155}
     .meta span{border-bottom:1px solid #cbd5e1;padding-bottom:5px}
-    table{width:100%;border-collapse:collapse;font-size:11px} th,td{border:1px solid #64748b;padding:6px 7px;vertical-align:top}
+    table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px} thead{display:table-header-group} th,td{border:1px solid #64748b;padding:6px 7px;vertical-align:top;word-break:break-word}
     th{background:#e8eef6;text-align:left}.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.strong{font-weight:700}
     .notice{margin-top:14px;border:1px solid #cbd5e1;background:#f8fafc;padding:9px;font-size:11px;line-height:1.7;color:#475569}
     .sign{display:flex;justify-content:space-between;margin-top:18px;font-size:12px;color:#334155}
+    tr{break-inside:avoid;page-break-inside:avoid}
   </style></head><body>
     <h1>税务申报包</h1>
     <div class="meta">
@@ -946,7 +948,18 @@ export function TaxWorkspace() {
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = `税务申报包-${currentPeriod}-print`
     const printWindow = window.open('', '_blank')
-    if (!printWindow) return
+    if (!printWindow) {
+      setOperationNotice('浏览器阻止了打印窗口，请允许本应用打开打印预览后重试。')
+      writeTaxAudit({
+        action: '打印申报包',
+        object: fileName,
+        level: '中',
+        result: '失败',
+        status: '异常',
+        attachment: '浏览器阻止了打印窗口',
+      })
+      return
+    }
     printWindow.document.write(buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata, visibleRiskRows, visibleRuleLogs))
     printWindow.document.close()
     printWindow.focus()

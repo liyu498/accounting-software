@@ -3200,11 +3200,13 @@ function renderGenericPrintHtml(params: {
 }) {
   const { title, headers, rows, exportedAt, status, keyword, context } = params
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
-    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:24px;color:#111827}
+    @page{size:A4 landscape;margin:12mm}
+    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:0;color:#111827}
     h1{text-align:center;font-size:18px;margin:0 0 10px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 14px;font-size:12px;color:#334155;margin-bottom:14px}
     .meta span{border-bottom:1px solid #cbd5e1;padding-bottom:4px}
-    table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #94a3b8;padding:6px 8px;white-space:nowrap}
+    table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px} thead{display:table-header-group} th,td{border:1px solid #94a3b8;padding:6px 8px;word-break:break-word}
     th{background:#e8eef6;text-align:left}.note{margin-top:12px;font-size:11px;color:#64748b}
+    tr{break-inside:avoid;page-break-inside:avoid}
   </style></head><body><h1>${escapeHtml(title)}</h1><div class="meta"><span>公司: ${escapeHtml(context.companyName)}</span><span>所属期: ${escapeHtml(context.periodLabel)}</span><span>导出时间: ${escapeHtml(exportedAt)}</span><span>筛选状态: ${escapeHtml(status)}</span><span>关键词: ${escapeHtml(keyword || '全部')}</span><span>记录数: ${rows.length} 条</span></div>
   <table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>
   ${rows.map(({ cells }) => `<tr>${cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}
@@ -3225,21 +3227,25 @@ function renderVoucherPrintHtml(title: string, rows: ReturnType<typeof printable
   }).join('')
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
-    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:18px;color:#111827}
+    @page{size:A4;margin:12mm}
+    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:0;color:#111827}
     .voucher{break-inside:avoid;margin:0 0 18px;border:1.5px solid #111827;padding:12px}
     .voucher-head{display:flex;align-items:center;justify-content:center;position:relative;font-size:20px;font-weight:700;letter-spacing:0}
     .voucher-head .no{position:absolute;right:0;font-size:13px;font-weight:500}
     .meta,.sign{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;font-size:12px;color:#334155}
-    table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #111827;padding:9px 8px} th{background:#f1f5f9}.amount{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    table{width:100%;border-collapse:collapse;font-size:12px} thead{display:table-header-group} th,td{border:1px solid #111827;padding:9px 8px} th{background:#f1f5f9}.amount{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    tr{break-inside:avoid;page-break-inside:avoid}
   </style></head><body>${items}</body></html>`
 }
 
 function renderLedgerPrintHtml(title: string, headers: string[], rows: ReturnType<typeof printableRows>, exportedAt: string, context: ExportDocumentContext) {
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
-    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:20px;color:#111827}
+    @page{size:A4 landscape;margin:10mm}
+    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:0;color:#111827}
     h1{text-align:center;font-size:18px;margin:0 0 8px}.sub{display:flex;justify-content:space-between;font-size:12px;margin-bottom:10px;color:#334155}
-    table{width:100%;border-collapse:collapse;font-size:11px} th,td{border:1px solid #64748b;padding:6px 7px;white-space:nowrap} th{background:#e8eef6}.amount{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px} thead{display:table-header-group} tfoot{display:table-footer-group} th,td{border:1px solid #64748b;padding:6px 7px;word-break:break-word} th{background:#e8eef6}.amount{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
     tfoot td{background:#f8fafc;font-weight:700}
+    tr{break-inside:avoid;page-break-inside:avoid}
   </style></head><body><h1>${escapeHtml(title)}</h1><div class="sub"><span>单位: ${escapeHtml(context.companyName)}</span><span>期间: ${escapeHtml(context.periodLabel)}</span><span>打印: ${escapeHtml(exportedAt)}</span></div>
   <table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>${rows.map(({ cells }) => `<tr>${cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
   <tfoot><tr><td colspan="${headers.length}">本页小计: 当前筛选 ${rows.length} 行，借贷平衡状态以系统试算结果为准。</td></tr></tfoot></table></body></html>`
@@ -3248,10 +3254,12 @@ function renderLedgerPrintHtml(title: string, headers: string[], rows: ReturnTyp
 function renderFinancialPrintHtml(title: string, rows: ReturnType<typeof printableRows>, exportedAt: string, context: ExportDocumentContext) {
   const bodyRows = rows.map(({ row }) => `<tr><td>${escapeHtml(row.values.line || '')}</td><td>${escapeHtml(row.values.item || '')}</td><td>${escapeHtml(row.values.opening || '')}</td><td>${escapeHtml(row.values.ending || '')}</td><td>${escapeHtml(row.values.note || row.status)}</td></tr>`).join('')
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
-    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:22px;color:#111827}
+    @page{size:A4;margin:12mm}
+    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:0;color:#111827}
     h1{text-align:center;font-size:19px;margin:0 0 8px}.meta{display:flex;justify-content:space-between;font-size:12px;margin-bottom:10px;color:#334155}
-    table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #475569;padding:7px 8px} th{background:#e8eef6}.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px} thead{display:table-header-group} th,td{border:1px solid #475569;padding:7px 8px;word-break:break-word} th{background:#e8eef6}.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
     .foot{display:flex;justify-content:space-between;margin-top:14px;font-size:12px}
+    tr{break-inside:avoid;page-break-inside:avoid}
   </style></head><body><h1>${escapeHtml(title)}</h1><div class="meta"><span>编制单位: ${escapeHtml(context.companyName)}</span><span>所属期: ${escapeHtml(context.periodLabel)}</span><span>单位: 元</span></div>
   <table><thead><tr><th>行次</th><th>项目</th><th>期初余额/本月数</th><th>期末余额/本年累计</th><th>说明</th></tr></thead><tbody>${bodyRows}</tbody></table>
   <div class="foot"><span>制表: 系统</span><span>复核: 未签章</span><span>打印时间: ${escapeHtml(exportedAt)}</span></div></body></html>`
@@ -3260,10 +3268,12 @@ function renderFinancialPrintHtml(title: string, rows: ReturnType<typeof printab
 function renderTaxPrintHtml(title: string, rows: ReturnType<typeof printableRows>, exportedAt: string, context: ExportDocumentContext) {
   const bodyRows = rows.map(({ row }) => `<tr><td>${escapeHtml(row.values.taxType || '')}</td><td>${escapeHtml(row.values.form || row.values.period || '')}</td><td>${escapeHtml(row.values.source || row.values.method || '')}</td><td class="num">${escapeHtml(row.values.amount || '')}</td><td class="num">${escapeHtml(row.values.tax || '')}</td><td>${escapeHtml(row.values.check || row.status)}</td></tr>`).join('')
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
-    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:22px;color:#111827}
+    @page{size:A4 landscape;margin:12mm}
+    body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:0;color:#111827}
     h1{text-align:center;font-size:18px;margin:0 0 8px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px;margin-bottom:12px;color:#334155}
-    table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #475569;padding:7px 8px} th{background:#e8eef6}.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px} thead{display:table-header-group} th,td{border:1px solid #475569;padding:7px 8px;word-break:break-word} th{background:#e8eef6}.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
     .notice{margin-top:12px;border:1px solid #cbd5e1;background:#f8fafc;padding:8px;font-size:11px;color:#475569}
+    tr{break-inside:avoid;page-break-inside:avoid}
   </style></head><body><h1>${escapeHtml(title)}</h1><div class="meta"><span>纳税人: ${escapeHtml(context.companyName)}</span><span>税号: ${escapeHtml(context.taxpayerId)}</span><span>所属期: ${escapeHtml(context.periodLabel)}</span><span>申报口径: 系统取数</span><span>状态: 待人工确认</span><span>打印: ${escapeHtml(exportedAt)}</span></div>
   <table><thead><tr><th>税种</th><th>申报表/周期</th><th>取数来源/方式</th><th>本期金额</th><th>税额</th><th>校验</th></tr></thead><tbody>${bodyRows}</tbody></table>
   <div class="notice">边界说明: 本打印件为申报预览和留档材料，不代表已向电子税务局提交。真实申报需要 adapter 授权、提交回执和人工确认。</div></body></html>`
@@ -8122,7 +8132,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       context: exportDocumentContext,
     })
     const printWindow = window.open('', '_blank')
-    if (!printWindow) return
+    if (!printWindow) {
+      setOperationNotice('浏览器阻止了打印窗口，请允许本应用打开打印预览后重试。')
+      writeModuleAudit('打印', fileName, '普通', '失败')
+      return
+    }
     printWindow.document.write(html)
     printWindow.document.close()
     printWindow.focus()
