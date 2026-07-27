@@ -52,7 +52,10 @@ const requiredXlsxSnippets = [
 const requiredPdfSnippets = [
   ['pdf chinese font stack', 'Noto Sans SC'],
   ['pdf font readiness', 'waitForChineseFonts'],
-  ['pdf a4 pagination', "new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4'"],
+  ['pdf landscape template detection', 'function isLandscapeDocument'],
+  ['pdf landscape orientation', "orientation: isLandscape ? 'l' : 'p'"],
+  ['pdf landscape render width', "const renderWidth = isLandscape ? 1500 : 1120"],
+  ['pdf a4 pagination', "new jsPDF({ orientation: isLandscape ? 'l' : 'p', unit: 'mm', format: 'a4'"],
   ['pdf page slicing', 'sliceHeightPx'],
   ['pdf page number', 'pdf.text(`${pageIndex + 1}`'],
 ]

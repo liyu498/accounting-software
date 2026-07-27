@@ -23,22 +23,28 @@ function extractPrintableHtml(html: string) {
   return { styles, body }
 }
 
+function isLandscapeDocument(html: string) {
+  return /@page\s*\{[^}]*\blandscape\b/i.test(html)
+}
+
 export async function exportHtmlToPdf({ html, fileName, pageTitle }: ExportHtmlToPdfOptions) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
   const { styles, body } = extractPrintableHtml(html)
+  const isLandscape = isLandscapeDocument(html)
+  const renderWidth = isLandscape ? 1500 : 1120
   const host = document.createElement('div')
   host.setAttribute('aria-hidden', 'true')
   host.style.position = 'fixed'
   host.style.left = '-10000px'
   host.style.top = '0'
-  host.style.width = '1120px'
+  host.style.width = `${renderWidth}px`
   host.style.background = '#ffffff'
   host.style.color = '#111827'
   host.innerHTML = `
     <style>
       * { box-sizing: border-box; }
       body, table, input, button { font-family: ${chineseFontStack}; letter-spacing: 0; }
-      .pdf-render-root { width: 1120px; min-height: 1px; background: #ffffff; padding: 0; font-family: ${chineseFontStack}; }
+      .pdf-render-root { width: ${renderWidth}px; min-height: 1px; background: #ffffff; padding: 0; font-family: ${chineseFontStack}; }
       ${styles}
     </style>
     <div class="pdf-render-root">${body}</div>
@@ -52,11 +58,11 @@ export async function exportHtmlToPdf({ html, fileName, pageTitle }: ExportHtmlT
       backgroundColor: '#ffffff',
       scale: 2,
       useCORS: true,
-      windowWidth: 1120,
+      windowWidth: renderWidth,
       logging: false,
     })
 
-    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true })
+    const pdf = new jsPDF({ orientation: isLandscape ? 'l' : 'p', unit: 'mm', format: 'a4', compress: true })
     pdf.setProperties({ title: pageTitle, subject: pageTitle, creator: 'AI 代理记账' })
 
     const marginX = 8
