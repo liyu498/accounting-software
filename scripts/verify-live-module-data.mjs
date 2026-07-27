@@ -254,6 +254,8 @@ const requiredPageSnippets = [
   ['module import candidate preview', '候选数据预览'],
   ['module import field mapping', 'function buildImportFieldMappings(headers: string[], columns: ModuleColumn[])'],
   ['module import mapping panel', '字段映射建议'],
+  ['module import write confirmation', '确认写入本地台账'],
+  ['module import write handler', 'const handleCommitLocalImport = async () => {'],
   ['module current period export file', 'const exportPeriodLabel = currentPeriodLabel === \'当前账期\' ? \'2026-05\' : currentPeriodLabel'],
   ['module excel export audit', "writeModuleAudit('导出Excel', fileName"],
   ['module pdf export audit', "writeModuleAudit('导出PDF', fileName"],
@@ -339,7 +341,9 @@ const requiredPageSnippets = [
 
 const requiredLocalFileRegistrySnippets = [
   ['local import preview rows type', 'previewRows: string[][]'],
-  ['local import preview capture', 'previewRows: dataRows.slice(0, 5)'],
+  ['local import preview capture', 'previewRows: parsed.rows.slice(0, 5)'],
+  ['local import full parser', 'export async function parseLocalImportFile(file: File)'],
+  ['local import committed status', "status: '已写入'"],
 ]
 
 const requiredTaxWorkspaceSnippets = [

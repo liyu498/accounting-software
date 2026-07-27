@@ -4,7 +4,7 @@ const IMPORT_STORAGE_KEY = 'accounting_local_import_jobs_v1'
 const ATTACHMENT_STORAGE_KEY = 'accounting_local_attachment_records_v1'
 const CHANGE_EVENT = 'accounting-local-file-registry-updated'
 
-export type LocalFileStatus = '待确认' | '已关联' | '已校验' | '异常'
+export type LocalFileStatus = '待确认' | '已关联' | '已校验' | '已写入' | '异常'
 
 export interface LocalImportJob {
   id: string
@@ -116,7 +116,7 @@ function parseCsvRows(text: string) {
     .filter((row) => row.some(Boolean))
 }
 
-async function inspectImportFile(file: File) {
+export async function parseLocalImportFile(file: File) {
   const name = file.name.toLowerCase()
   try {
     const rows = name.endsWith('.xlsx')
@@ -124,9 +124,7 @@ async function inspectImportFile(file: File) {
       : name.endsWith('.csv')
         ? parseCsvRows(await file.text())
         : []
-    if (rows.length === 0) {
-      return { rowCount: null, columnPreview: [], previewRows: [], validationNote: '该格式仅登记文件元数据，需在目标模块完成字段映射。' }
-    }
+    if (rows.length === 0) return { headers: [], rows: [], validationNote: '该格式仅登记文件元数据，需在目标模块完成字段映射。' }
     const headerIndex = rows.findIndex((row) => row.filter(Boolean).length >= 3)
     const safeHeaderIndex = headerIndex >= 0 ? headerIndex : 0
     const header = rows[safeHeaderIndex] || []
@@ -134,14 +132,19 @@ async function inspectImportFile(file: File) {
       const firstCell = row.find(Boolean) || ''
       return row.filter(Boolean).length >= 2 && !/^(制表说明|边界说明|本页小计|合计)/.test(firstCell)
     })
-    return {
-      rowCount: dataRows.length,
-      columnPreview: header.filter(Boolean).slice(0, 12).map((cell) => cell.slice(0, 40)),
-      previewRows: dataRows.slice(0, 5).map((row) => row.slice(0, 12).map((cell) => cell.slice(0, 80))),
-      validationNote: `已识别表头并读取 ${dataRows.length} 条候选数据行，尚未写入账套。`,
-    }
+    return { headers: header.map((cell) => cell.slice(0, 80)), rows: dataRows.map((row) => row.map((cell) => cell.slice(0, 200))), validationNote: `已识别表头并读取 ${dataRows.length} 条候选数据行，尚未写入账套。` }
   } catch {
-    return { rowCount: null, columnPreview: [], previewRows: [], validationNote: '无法读取表格结构，需在目标模块完成格式校验。' }
+    return { headers: [], rows: [], validationNote: '无法读取表格结构，需在目标模块完成格式校验。' }
+  }
+}
+
+async function inspectImportFile(file: File) {
+  const parsed = await parseLocalImportFile(file)
+  return {
+    rowCount: parsed.rows.length || null,
+    columnPreview: parsed.headers.filter(Boolean).slice(0, 12).map((cell) => cell.slice(0, 40)),
+    previewRows: parsed.rows.slice(0, 5).map((row) => row.slice(0, 12).map((cell) => cell.slice(0, 80))),
+    validationNote: parsed.validationNote,
   }
 }
 
@@ -221,6 +224,13 @@ export function updateLocalImportJobValidation(id: string) {
   return updateRecord<LocalImportJob>(IMPORT_STORAGE_KEY, id, {
     status: '已校验',
     validationNote: '已完成人工表头与行数核验；未执行字段映射或写入账套。',
+  })
+}
+
+export function updateLocalImportJobCommit(id: string, successCount: number, failedCount: number) {
+  return updateRecord<LocalImportJob>(IMPORT_STORAGE_KEY, id, {
+    status: '已写入',
+    validationNote: `已人工确认并写入本地账套：成功 ${successCount} 行，失败 ${failedCount} 行；未调用税局、银行或发票外部系统。`,
   })
 }
 

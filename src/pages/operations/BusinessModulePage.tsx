@@ -20,7 +20,7 @@ import { cn } from '../../lib/utils'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
-import { formatLocalFileSize, recordLocalAttachment, recordLocalImportJob, removeLocalAttachment, removeLocalImportJob, updateLocalAttachmentAssociation, updateLocalImportJobValidation, useLocalAttachmentRecords, useLocalImportJobs, type LocalAttachmentRecord, type LocalImportJob } from '../../lib/localFileRegistry'
+import { formatLocalFileSize, parseLocalImportFile, recordLocalAttachment, recordLocalImportJob, removeLocalAttachment, removeLocalImportJob, updateLocalAttachmentAssociation, updateLocalImportJobCommit, updateLocalImportJobValidation, useLocalAttachmentRecords, useLocalImportJobs, type LocalAttachmentRecord, type LocalImportJob } from '../../lib/localFileRegistry'
 import { isTauri } from '../../lib/tauri'
 import { accountTransferApi, automationApi, backupApi, bankReconciliationApi, bankTransactionApi, businessOrderApi, costCarryoverApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, settlementRecordApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankReconciliationRecord, type BankTransaction, type BusinessOrder, type CostCarryoverRecord, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SettlementRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import { measurementUnitApi, type MeasurementUnit } from '../../lib/api'
@@ -341,6 +341,31 @@ type ExcelTemplateData = {
   sheetRows: string[][]
   columnWidths: SheetColumnWidth[]
   merges: SheetMerge[]
+}
+
+type LocalImportWriteTarget = 'invoice' | 'bank' | 'document'
+type LocalImportCommitDraft = { jobId: string; fileName: string; headers: string[]; rows: string[][]; target: LocalImportWriteTarget }
+
+function localImportWriteTarget(kind: ModuleKind): LocalImportWriteTarget | null {
+  if (kind === 'outputInvoice' || kind === 'inputInvoice') return 'invoice'
+  if (kind === 'billList' || kind === 'bankStatement') return 'bank'
+  if (kind === 'documentRegister') return 'document'
+  return null
+}
+
+function importRowValue(headers: string[], row: string[], labels: string[]) {
+  const normalize = (value: string) => value.replace(/[\s（）()\-_/]/g, '').toLowerCase()
+  const index = headers.findIndex((header) => labels.some((label) => {
+    const target = normalize(label)
+    const source = normalize(header)
+    return source === target || source.includes(target) || target.includes(source)
+  }))
+  return index >= 0 ? (row[index] || '').trim() : ''
+}
+
+function importAmount(value: string) {
+  const parsed = Number(value.replace(/[¥,，\s]/g, '').replace('%', ''))
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
@@ -4449,6 +4474,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [attachmentAssociationDraft, setAttachmentAssociationDraft] = useState({ id: '', fileName: '', relatedDocument: '' })
   const [showImportValidationDialog, setShowImportValidationDialog] = useState(false)
   const [importValidationJob, setImportValidationJob] = useState<LocalImportJob | null>(null)
+  const [importCommitDraft, setImportCommitDraft] = useState<LocalImportCommitDraft | null>(null)
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
   const [prefilledAiSuggestionId, setPrefilledAiSuggestionId] = useState<string | null>(null)
   const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)
@@ -5808,6 +5834,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       })))
       const completed = jobs.filter(Boolean).length
       files.forEach((file) => writeModuleAudit(config.importLabel, `${title}-${file.name}`, '中', '待审批'))
+      const target = localImportWriteTarget(kind)
+      const firstJob = jobs.find((job): job is LocalImportJob => Boolean(job))
+      if (target && firstJob && files.length === 1 && isTauri && selectedCompanyId && currentPeriodLabel !== '当前账期') {
+        const parsed = await parseLocalImportFile(files[0])
+        if (parsed.headers.length > 0 && parsed.rows.length > 0) {
+          setImportCommitDraft({ jobId: firstJob.id, fileName: firstJob.fileName, headers: parsed.headers, rows: parsed.rows, target })
+          setOperationNotice(null)
+          return
+        }
+      }
       setOperationNotice(`已登记 ${completed} 个本机导入批次并计算校验值；需完成字段映射、错误校验和人工确认后才会写入账套。`)
     } catch (error) {
       setOperationNotice(`登记文件批次失败：${String(error)}`)
@@ -7211,6 +7247,51 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('附件关联已登记到本机台账；不会移动原始文件、写入外部存储或修改凭证。')
   }
 
+  const handleCommitLocalImport = async () => {
+    if (!importCommitDraft || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    let successCount = 0
+    let failedCount = 0
+    const createdBankTransactions: BankTransaction[] = []
+    const createdDocuments: DocumentRecord[] = []
+
+    for (const row of importCommitDraft.rows) {
+      try {
+        const date = importRowValue(importCommitDraft.headers, row, ['开票日期', '交易日期', '业务日期', '日期'])
+        if (importCommitDraft.target === 'invoice') {
+          const invoiceNo = importRowValue(importCommitDraft.headers, row, ['发票号码', '发票号'])
+          const amount = importAmount(importRowValue(importCommitDraft.headers, row, ['不含税金额', '金额']))
+          if (!invoiceNo || !date || amount <= 0 || !currentPeriodId) throw new Error('发票必填字段不完整')
+          const taxAmount = importAmount(importRowValue(importCommitDraft.headers, row, ['税额']))
+          const taxRate = importAmount(importRowValue(importCommitDraft.headers, row, ['税率']))
+          await createInvoice({ company_id: selectedCompanyId, period_id: currentPeriodId, invoice_type: kind === 'outputInvoice' ? 'output' : 'input', invoice_no: invoiceNo, invoice_date: date, amount, tax_amount: taxAmount, tax_rate: taxRate / 100, seller_name: importRowValue(importCommitDraft.headers, row, ['销方名称', '销售方名称']) || undefined, buyer_name: importRowValue(importCommitDraft.headers, row, ['购方名称', '购买方名称']) || undefined, remarks: importRowValue(importCommitDraft.headers, row, ['备注', '商品/服务名称']) || undefined })
+        } else if (importCommitDraft.target === 'bank') {
+          const serialNo = importRowValue(importCommitDraft.headers, row, ['流水号', '交易流水号'])
+          const accountName = importRowValue(importCommitDraft.headers, row, ['银行账户', '账户'])
+          if (!serialNo || !accountName || !date) throw new Error('流水必填字段不完整')
+          const result = await bankTransactionApi.createBankTransaction({ companyId: selectedCompanyId, period: currentPeriodLabel, accountName, serialNo, transactionDate: date, counterparty: importRowValue(importCommitDraft.headers, row, ['对方户名', '对方单位']) || undefined, summary: importRowValue(importCommitDraft.headers, row, ['摘要']) || undefined, incomeAmount: importAmount(importRowValue(importCommitDraft.headers, row, ['收入', '贷方金额'])), expenseAmount: importAmount(importRowValue(importCommitDraft.headers, row, ['支出', '借方金额'])), balance: importAmount(importRowValue(importCommitDraft.headers, row, ['余额'])) || undefined, receiptStatus: importRowValue(importCommitDraft.headers, row, ['回单状态']) || '待上传' })
+          if (!result.success || !result.data) throw new Error(result.error || '流水写入失败')
+          createdBankTransactions.push(result.data)
+        } else {
+          const documentCode = importRowValue(importCommitDraft.headers, row, ['单据编号', '单据号'])
+          const amount = importAmount(importRowValue(importCommitDraft.headers, row, ['金额', '价税合计']))
+          if (!documentCode || !date || amount <= 0) throw new Error('单据必填字段不完整')
+          const result = await documentRecordApi.createDocumentRecord({ companyId: selectedCompanyId, period: currentPeriodLabel, businessDate: date, documentCode, businessType: importRowValue(importCommitDraft.headers, row, ['业务类型']) || '其他', partner: importRowValue(importCommitDraft.headers, row, ['往来单位', '对方单位']) || undefined, amount, owner: importRowValue(importCommitDraft.headers, row, ['经办人', '负责人']) || undefined, attachmentStatus: importRowValue(importCommitDraft.headers, row, ['附件状态']) || '待补附件' })
+          if (!result.success || !result.data) throw new Error(result.error || '单据写入失败')
+          createdDocuments.push(result.data)
+        }
+        successCount += 1
+      } catch {
+        failedCount += 1
+      }
+    }
+    if (createdBankTransactions.length) setBankTransactions((items) => [...createdBankTransactions, ...items])
+    if (createdDocuments.length) setDocumentRecords((items) => [...createdDocuments, ...items])
+    updateLocalImportJobCommit(importCommitDraft.jobId, successCount, failedCount)
+    writeModuleAudit('确认写入本地台账', `${importCommitDraft.fileName}｜成功 ${successCount} 行`, '中', successCount > 0 ? '成功' : '失败')
+    setImportCommitDraft(null)
+    setOperationNotice(`本地导入已完成：成功 ${successCount} 行，失败 ${failedCount} 行。失败行未写入；未调用税局、银行或发票外部系统。`)
+  }
+
   const handleValidateLocalImportJob = () => {
     if (!importValidationJob) return
     const updated = updateLocalImportJobValidation(importValidationJob.id)
@@ -8298,6 +8379,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存关联</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {importCommitDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="确认写入本地台账">
+          <div className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex items-start justify-between border-b border-slate-200 px-4 py-3"><div><h2 className="text-sm font-semibold text-slate-900">确认写入本地台账</h2><p className="mt-1 text-xs text-slate-500">{importCommitDraft.fileName}，共 {importCommitDraft.rows.length} 行候选数据。</p></div><button type="button" onClick={() => setImportCommitDraft(null)} className="text-xs text-slate-500">取消</button></div>
+            <div className="space-y-3 p-4 text-xs text-slate-700"><p>目标模块：{importCommitDraft.target === 'invoice' ? '发票台账' : importCommitDraft.target === 'bank' ? '银行流水台账' : '单据登记台账'}。不完整或格式错误的行会被跳过并保留在导入批次中。</p><div className="border border-slate-200 bg-slate-50 p-3"><p className="font-medium">字段映射建议</p>{buildImportFieldMappings(importCommitDraft.headers, config.columns).map(({ header, target }) => <div key={header} className="mt-1 grid grid-cols-[1fr_20px_1fr] gap-2"><span className="truncate">{header}</span><span className="text-center text-slate-400">→</span><span className="truncate">{target}</span></div>)}</div><p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 leading-5">安全边界：本操作只写入当前桌面端账套和账期的本地台账，不会采集发票、登录银行、生成凭证或向税局提交。</p></div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setImportCommitDraft(null)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="button" onClick={handleCommitLocalImport} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">确认写入</button></div>
+          </div>
         </div>
       )}
 
