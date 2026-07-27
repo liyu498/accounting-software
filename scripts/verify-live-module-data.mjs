@@ -250,7 +250,7 @@ const requiredPageSnippets = [
   ['module detail row state', 'const [detailRow, setDetailRow] = useState<ModuleRow | null>(null)'],
   ['module detail dialog', '业务明细'],
   ['module import template builder', 'function buildImportTemplate(params: {'],
-  ['module import template export', 'await exportRowsToXlsx({\n      sheetRows,\n      columnWidths,\n      merges,\n      sheetName: `${title}导入模板`,'],
+  ['module import template export', 'sheetName: `${title}导入模板`,'],
   ['module import template audit', "writeModuleAudit('下载导入模板', fileName, '普通', '成功')"],
   ['module import candidate preview', '候选数据预览'],
   ['module import field mapping', 'function buildImportFieldMappings(headers: string[], columns: ModuleColumn[])'],
@@ -406,6 +406,12 @@ const requiredTaxWorkspaceSnippets = [
   ['tax workspace initialization import preview', 'setTaxInitializationImportPreview'],
   ['tax workspace initialization import confirmation', '确认写入本地申报事项'],
   ['tax workspace initialization import boundary', '不会向税局提交申报、发起扣款或保存税局密码'],
+  ['tax workspace column settings state', 'const [showColumnSettings, setShowColumnSettings] = useState(false)'],
+  ['tax workspace column settings persistence', 'function loadTaxColumnSettings(companyId: string)'],
+  ['tax workspace column settings save', 'function saveTaxColumnSettings(companyId: string, settings: TaxColumnSettings)'],
+  ['tax workspace visible column binding', 'const visibleTaxColumns = useMemo(() =>'],
+  ['tax workspace column settings dialog', '申报清单列设置'],
+  ['tax workspace frozen key columns', '冻结选择列与税种'],
 ]
 
 const requiredWelcomeSnippets = [

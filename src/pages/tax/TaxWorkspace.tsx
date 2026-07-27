@@ -11,7 +11,7 @@ import {
   ShieldAlert,
   Upload,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { cn } from '../../lib/utils'
 import { isTauri } from '../../lib/tauri'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
@@ -311,6 +311,74 @@ function riskBadge(value: string) {
   return <span className={cn('text-xs font-medium', cls)}>{value}</span>
 }
 
+type TaxColumnKey = 'category' | 'form' | 'period' | 'collectStatus' | 'checkStatus' | 'declareStatus' | 'source' | 'sales' | 'deduction' | 'payable' | 'risk' | 'owner' | 'updated'
+type TaxDeclarationColumn = {
+  key: TaxColumnKey
+  label: string
+  align?: 'right'
+  total?: boolean
+  cell: (row: DeclarationRow) => ReactNode
+}
+
+const taxDeclarationColumns: readonly TaxDeclarationColumn[] = [
+  { key: 'category', label: '税种', cell: (row: DeclarationRow) => <span className="whitespace-nowrap font-medium text-slate-900">{row.category}</span> },
+  { key: 'form', label: '申报表', cell: (row: DeclarationRow) => <span className="whitespace-nowrap text-slate-700">{row.form}</span> },
+  { key: 'period', label: '所属期', cell: (row: DeclarationRow) => <span className="whitespace-nowrap text-slate-600">{row.period}</span> },
+  { key: 'collectStatus', label: '取数状态', cell: (row: DeclarationRow) => statusBadge(row.collectStatus) },
+  { key: 'checkStatus', label: '校验状态', cell: (row: DeclarationRow) => statusBadge(row.checkStatus) },
+  { key: 'declareStatus', label: '申报状态', cell: (row: DeclarationRow) => statusBadge(row.declareStatus) },
+  { key: 'source', label: '取数来源', cell: (row: DeclarationRow) => <span className="block max-w-[260px] truncate text-slate-600">{row.source}</span> },
+  { key: 'sales', label: '计税依据', align: 'right', total: true, cell: (row: DeclarationRow) => <span className="whitespace-nowrap font-mono text-slate-700">{row.sales}</span> },
+  { key: 'deduction', label: '抵扣/减免', align: 'right', total: true, cell: (row: DeclarationRow) => <span className="whitespace-nowrap font-mono text-slate-700">{row.deduction}</span> },
+  { key: 'payable', label: '应缴金额', align: 'right', total: true, cell: (row: DeclarationRow) => <span className="whitespace-nowrap font-mono font-semibold text-slate-900">{row.payable}</span> },
+  { key: 'risk', label: '风险', cell: (row: DeclarationRow) => riskBadge(row.risk) },
+  { key: 'owner', label: '负责人', cell: (row: DeclarationRow) => <span className="whitespace-nowrap text-slate-600">{row.owner}</span> },
+  { key: 'updated', label: '更新时间', cell: (row: DeclarationRow) => <span className="whitespace-nowrap text-slate-500">{row.updated}</span> },
+] as const
+type TaxColumnSettings = {
+  visibleKeys: TaxColumnKey[]
+  density: 'standard' | 'compact'
+  freezeKeyColumns: boolean
+}
+
+const taxColumnSettingsStoragePrefix = 'accounting_tax_workspace_columns_v1'
+
+function defaultTaxColumnSettings(): TaxColumnSettings {
+  return {
+    visibleKeys: taxDeclarationColumns.map((column) => column.key),
+    density: 'standard',
+    freezeKeyColumns: true,
+  }
+}
+
+function taxColumnSettingsStorageKey(companyId: string) {
+  return `${taxColumnSettingsStoragePrefix}:${companyId}`
+}
+
+function loadTaxColumnSettings(companyId: string): TaxColumnSettings {
+  const fallback = defaultTaxColumnSettings()
+  try {
+    const value = window.localStorage.getItem(taxColumnSettingsStorageKey(companyId))
+    if (!value) return fallback
+    const parsed = JSON.parse(value) as Partial<TaxColumnSettings>
+    const knownKeys = new Set<TaxColumnKey>(taxDeclarationColumns.map((column) => column.key))
+    const visibleKeys = Array.isArray(parsed.visibleKeys)
+      ? parsed.visibleKeys.filter((key): key is TaxColumnKey => typeof key === 'string' && knownKeys.has(key as TaxColumnKey))
+      : fallback.visibleKeys
+    return {
+      visibleKeys: visibleKeys.length > 0 ? visibleKeys : fallback.visibleKeys,
+      density: parsed.density === 'compact' ? 'compact' : 'standard',
+      freezeKeyColumns: parsed.freezeKeyColumns !== false,
+    }
+  } catch {
+    return fallback
+  }
+}
+
+function saveTaxColumnSettings(companyId: string, settings: TaxColumnSettings) {
+  window.localStorage.setItem(taxColumnSettingsStorageKey(companyId), JSON.stringify(settings))
+}
+
 export function TaxWorkspace() {
   const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
   const companies = useCompanyStore((state) => state.companies)
@@ -330,6 +398,9 @@ export function TaxWorkspace() {
   }), [currentPeriod, selectedCompany])
   const usesLiveTaxDeclarationData = Boolean(isTauri && selectedCompanyId && currentPeriodId)
   const [showRulesLog, setShowRulesLog] = useState(false)
+  const [showColumnSettings, setShowColumnSettings] = useState(false)
+  const [taxColumnSettings, setTaxColumnSettings] = useState<TaxColumnSettings>(() => loadTaxColumnSettings(companyId))
+  const [taxColumnSettingsDraft, setTaxColumnSettingsDraft] = useState<TaxColumnSettings>(() => loadTaxColumnSettings(companyId))
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
   const [backendTaskCount, setBackendTaskCount] = useState(0)
@@ -350,6 +421,17 @@ export function TaxWorkspace() {
   const [declarationDraft, setDeclarationDraft] = useState<DeclarationDraft>({
     id: '', category: '', form: '', period: '', source: '', taxableAmount: '', deductionAmount: '', payableAmount: '', collectStatus: '已取数', validationStatus: '待确认', riskCount: '0',
   })
+
+  useEffect(() => {
+    const settings = loadTaxColumnSettings(companyId)
+    setTaxColumnSettings(settings)
+    setTaxColumnSettingsDraft(settings)
+  }, [companyId])
+
+  const visibleTaxColumns = useMemo(() => {
+    const visible = new Set(taxColumnSettings.visibleKeys)
+    return taxDeclarationColumns.filter((column) => visible.has(column.key))
+  }, [taxColumnSettings.visibleKeys])
 
   useEffect(() => {
     let cancelled = false
@@ -798,15 +880,41 @@ export function TaxWorkspace() {
   }
 
   const openColumnSettings = () => {
+    setTaxColumnSettingsDraft(taxColumnSettings)
+    setShowColumnSettings(true)
+  }
+
+  const toggleTaxColumn = (key: TaxColumnKey, checked: boolean) => {
+    setTaxColumnSettingsDraft((settings) => {
+      const visibleKeys = checked
+        ? [...settings.visibleKeys, key]
+        : settings.visibleKeys.filter((item) => item !== key)
+      return { ...settings, visibleKeys }
+    })
+  }
+
+  const saveColumnSettings = () => {
+    if (taxColumnSettingsDraft.visibleKeys.length === 0) {
+      setOperationNotice('申报清单至少需要保留一个业务字段。')
+      return
+    }
+    try {
+      saveTaxColumnSettings(companyId, taxColumnSettingsDraft)
+    } catch (error) {
+      setOperationNotice(`保存列设置失败：${String(error)}`)
+      return
+    }
+    setTaxColumnSettings(taxColumnSettingsDraft)
     writeTaxAudit({
       action: '列设置',
       object: '申报清单显示列',
       level: '普通',
       result: '成功',
       status: '已通过',
-      attachment: '页面配置',
+      attachment: `${taxColumnSettingsDraft.visibleKeys.length} 列 / ${taxColumnSettingsDraft.density === 'compact' ? '紧凑' : '标准'} / ${taxColumnSettingsDraft.freezeKeyColumns ? '冻结关键列' : '不冻结'}`,
     })
-    setOperationNotice('列设置已记录；后续会接入用户级列宽、冻结列和显示字段保存。')
+    setShowColumnSettings(false)
+    setOperationNotice('申报清单列设置已保存到当前用户、当前账套。')
   }
 
   const viewDeclarationRow = (row: DeclarationRow) => {
@@ -1109,6 +1217,51 @@ export function TaxWorkspace() {
 
       <input ref={taxInitializationInputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={handleTaxInitializationFile} />
 
+      {showColumnSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="申报清单列设置">
+          <div className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">申报清单列设置</h2>
+                <p className="mt-0.5 text-xs text-slate-500">仅保存当前用户、当前账套的本机显示偏好，不影响申报取数、导出或其他用户。</p>
+              </div>
+              <button type="button" onClick={() => setShowColumnSettings(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="space-y-4 p-4">
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => setTaxColumnSettingsDraft((settings) => ({ ...settings, visibleKeys: taxDeclarationColumns.map((column) => column.key) }))} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">显示全部</button>
+                <button type="button" onClick={() => setTaxColumnSettingsDraft((settings) => ({ ...settings, visibleKeys: ['category', 'form', 'period', 'declareStatus', 'payable'] }))} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">仅保留关键列</button>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {taxDeclarationColumns.map((column) => (
+                  <label key={column.key} className="flex h-9 items-center gap-2 border border-slate-200 px-3 text-xs text-slate-700">
+                    <input type="checkbox" checked={taxColumnSettingsDraft.visibleKeys.includes(column.key)} onChange={(event) => toggleTaxColumn(column.key, event.target.checked)} />
+                    {column.label}
+                  </label>
+                ))}
+              </div>
+              <div className="grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
+                <label className="grid gap-1 text-xs text-slate-600">列宽密度
+                  <select value={taxColumnSettingsDraft.density} onChange={(event) => setTaxColumnSettingsDraft((settings) => ({ ...settings, density: event.target.value === 'compact' ? 'compact' : 'standard' }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                    <option value="standard">标准列宽</option>
+                    <option value="compact">紧凑列宽</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 self-end pb-2 text-xs text-slate-700">
+                  <input type="checkbox" checked={taxColumnSettingsDraft.freezeKeyColumns} onChange={(event) => setTaxColumnSettingsDraft((settings) => ({ ...settings, freezeKeyColumns: event.target.checked }))} />
+                  冻结选择列与税种
+                </label>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setTaxColumnSettingsDraft(defaultTaxColumnSettings())} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">恢复默认</button>
+              <button type="button" onClick={() => setShowColumnSettings(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="button" onClick={saveColumnSettings} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存设置</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showTaxInitializationImportDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="导入税务申报初始化模板">
           <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col border border-slate-300 bg-white shadow-xl">
@@ -1206,47 +1359,31 @@ export function TaxWorkspace() {
             <div className="text-xs text-slate-500">显示 {filteredDeclarationRows.length} / {visibleDeclarationRows.length} 条，金额单位: 元</div>
           </div>
           <div className="max-w-full overflow-x-auto">
-            <table className="min-w-[1240px] w-full border-collapse text-left text-xs">
+            <table className={cn('w-full border-collapse text-left text-xs', taxColumnSettings.density === 'compact' ? 'min-w-[980px]' : 'min-w-[1240px]')}>
               <thead className="bg-[#eef3f8] text-slate-600">
                 <tr>
-                  <th className="w-9 border-b border-slate-200 px-2 py-2">
+                  <th className={cn('w-9 border-b border-slate-200 px-2 py-2', taxColumnSettings.freezeKeyColumns && 'sticky left-0 z-20 bg-[#eef3f8]')}>
                     <input type="checkbox" aria-label="全选" checked={areAllDeclarationsSelected} onChange={(event) => toggleAllDeclarationSelection(event.target.checked)} />
                   </th>
-                  <th className="border-b border-slate-200 px-2 py-2">税种</th>
-                  <th className="border-b border-slate-200 px-2 py-2">申报表</th>
-                  <th className="border-b border-slate-200 px-2 py-2">所属期</th>
-                  <th className="border-b border-slate-200 px-2 py-2">取数状态</th>
-                  <th className="border-b border-slate-200 px-2 py-2">校验状态</th>
-                  <th className="border-b border-slate-200 px-2 py-2">申报状态</th>
-                  <th className="border-b border-slate-200 px-2 py-2">取数来源</th>
-                  <th className="border-b border-slate-200 px-2 py-2 text-right">计税依据</th>
-                  <th className="border-b border-slate-200 px-2 py-2 text-right">抵扣/减免</th>
-                  <th className="border-b border-slate-200 px-2 py-2 text-right">应缴金额</th>
-                  <th className="border-b border-slate-200 px-2 py-2">风险</th>
-                  <th className="border-b border-slate-200 px-2 py-2">负责人</th>
-                  <th className="border-b border-slate-200 px-2 py-2">更新时间</th>
+                  {visibleTaxColumns.map((column) => (
+                    <th key={column.key} className={cn('whitespace-nowrap border-b border-slate-200 px-2 py-2', column.align === 'right' && 'text-right', column.key === 'category' && taxColumnSettings.freezeKeyColumns && 'sticky left-9 z-20 bg-[#eef3f8]')}>
+                      {column.label}
+                    </th>
+                  ))}
                   <th className="border-b border-slate-200 px-2 py-2 text-right">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredDeclarationRows.map((row) => (
                   <tr key={row.id} className="hover:bg-[#f8fbff]">
-                    <td className="border-b border-slate-100 px-2 py-2">
+                    <td className={cn('border-b border-slate-100 px-2 py-2', taxColumnSettings.freezeKeyColumns && 'sticky left-0 z-10 bg-white')}>
                       <input type="checkbox" aria-label={`选择 ${row.category}`} checked={selectedDeclarationIds.has(row.id)} onChange={(event) => toggleDeclarationSelection(row.id, event.target.checked)} />
                     </td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 font-medium text-slate-900">{row.category}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-700">{row.form}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-600">{row.period}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2">{statusBadge(row.collectStatus)}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2">{statusBadge(row.checkStatus)}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2">{statusBadge(row.declareStatus)}</td>
-                    <td className="max-w-[260px] truncate border-b border-slate-100 px-2 py-2 text-slate-600">{row.source}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right font-mono text-slate-700">{row.sales}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right font-mono text-slate-700">{row.deduction}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right font-mono font-semibold text-slate-900">{row.payable}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2">{riskBadge(row.risk)}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-600">{row.owner}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-500">{row.updated}</td>
+                    {visibleTaxColumns.map((column) => (
+                      <td key={column.key} className={cn('border-b border-slate-100 px-2 py-2', column.align === 'right' && 'text-right', column.key === 'category' && taxColumnSettings.freezeKeyColumns && 'sticky left-9 z-10 bg-white')}>
+                        {column.cell(row)}
+                      </td>
+                    ))}
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       <button type="button" onClick={() => viewDeclarationRow(row)} className="mr-2 text-[#1f65a7] hover:underline">查看</button>
                       <button type="button" onClick={() => fetchDeclarationRow(row)} className="text-[#1f65a7] hover:underline">取数</button>
@@ -1257,10 +1394,12 @@ export function TaxWorkspace() {
               <tfoot className="bg-[#f8fafc] font-semibold">
                 <tr>
                   <td className="px-2 py-2" />
-                  <td className="px-2 py-2" colSpan={8}>合计</td>
-                  <td className="px-2 py-2 text-right font-mono">{formatTaxNumber(filteredDeclarationRows.reduce((sum, row) => sum + parseMoney(row.deduction), 0))}</td>
-                  <td className="px-2 py-2 text-right font-mono">{formatTaxNumber(filteredDeclarationRows.reduce((sum, row) => sum + parseMoney(row.payable), 0))}</td>
-                  <td className="px-2 py-2" colSpan={4} />
+                  {visibleTaxColumns.map((column, index) => (
+                    <td key={column.key} className={cn('px-2 py-2', column.align === 'right' && 'text-right font-mono')}>
+                      {index === 0 ? '合计' : column.total ? formatTaxNumber(filteredDeclarationRows.reduce((sum, row) => sum + parseMoney(row[column.key] as string), 0)) : ''}
+                    </td>
+                  ))}
+                  <td className="px-2 py-2" />
                 </tr>
               </tfoot>
             </table>
