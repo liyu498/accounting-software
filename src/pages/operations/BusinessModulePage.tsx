@@ -343,7 +343,7 @@ type ExcelTemplateData = {
   merges: SheetMerge[]
 }
 
-type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover' | 'companyAccount' | 'auxiliaryArchive' | 'businessTag' | 'currency'
+type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover' | 'companyAccount' | 'auxiliaryArchive' | 'businessTag' | 'currency' | 'matchingRule' | 'settlementRule' | 'commonDigest' | 'voucherTemplate'
 type LocalImportCommitDraft = { jobId: string; fileName: string; headers: string[]; rows: string[][]; target: LocalImportWriteTarget }
 
 function localImportWriteTarget(kind: ModuleKind): LocalImportWriteTarget | null {
@@ -367,6 +367,10 @@ function localImportWriteTarget(kind: ModuleKind): LocalImportWriteTarget | null
   if (isLiveAuxiliaryArchiveKind(kind)) return 'auxiliaryArchive'
   if (kind === 'tagArchive') return 'businessTag'
   if (kind === 'currencySettings') return 'currency'
+  if (kind === 'invoiceMatchingRules' || kind === 'billMatchingRules' || kind === 'cashFlowMapping') return 'matchingRule'
+  if (kind === 'settlementRules') return 'settlementRule'
+  if (kind === 'commonDigests') return 'commonDigest'
+  if (kind === 'voucherTemplateSettings') return 'voucherTemplate'
   return null
 }
 
@@ -4244,6 +4248,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const voucherTemplateTypes = useTemplateStore((state) => state.voucherTemplateTypes)
   const voucherTemplates = useTemplateStore((state) => state.voucherTemplates)
   const fetchTemplateWorkspace = useTemplateStore((state) => state.fetchTemplateWorkspace)
+  const createVoucherTemplateType = useTemplateStore((state) => state.createVoucherTemplateType)
   const createCommonDigest = useTemplateStore((state) => state.createCommonDigest)
   const updateCommonDigest = useTemplateStore((state) => state.updateCommonDigest)
   const deleteCommonDigest = useTemplateStore((state) => state.deleteCommonDigest)
@@ -7460,13 +7465,55 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           const name = importRowValue(importCommitDraft.headers, row, ['标签名称', '名称'])
           if (!name) throw new Error('标签名称不完整')
           await createBusinessTag({ companyId: selectedCompanyId, name, applicableModules: importRowValue(importCommitDraft.headers, row, ['适用模块', '模块']) || '发票/流水/凭证', colorName: importRowValue(importCommitDraft.headers, row, ['颜色标识', '颜色']) || '蓝色', autoRule: importRowValue(importCommitDraft.headers, row, ['自动标记规则', '规则']) || undefined, remarks: importRowValue(importCommitDraft.headers, row, ['备注', '说明']) || undefined, isEnabled: importRowValue(importCommitDraft.headers, row, ['状态']) !== '停用' })
-        } else {
+        } else if (importCommitDraft.target === 'matchingRule') {
+          const ruleScope: MatchingRuleScope = kind === 'invoiceMatchingRules' ? 'invoice' : kind === 'billMatchingRules' ? 'bill' : 'cash_flow'
+          const name = importRowValue(importCommitDraft.headers, row, ['规则名称', '名称', '现金流量项目'])
+          const conditionText = importRowValue(importCommitDraft.headers, row, ['匹配条件', '条件', '摘要/对方户名', '关键词'])
+          const actionText = importRowValue(importCommitDraft.headers, row, ['处理动作', '生成动作', '现金流量项目', '凭证模板'])
+          if (!name || !conditionText || !actionText) throw new Error('匹配规则名称、条件或动作不完整')
+          await createMatchingRule({ companyId: selectedCompanyId, ruleScope, name, conditionText, actionText, targetAccountCode: importRowValue(importCommitDraft.headers, row, ['目标科目', '关联科目', '科目/税率', '项目编码']) || undefined, priority: importAmount(importRowValue(importCommitDraft.headers, row, ['优先级', '顺序'])) || 50, isEnabled: importRowValue(importCommitDraft.headers, row, ['状态']) !== '停用' })
+        } else if (importCommitDraft.target === 'settlementRule') {
+          const name = importRowValue(importCommitDraft.headers, row, ['规则名称', '结转类型', '名称'])
+          const rawRuleType = importRowValue(importCommitDraft.headers, row, ['结转类型', '规则类型'])
+          const ruleType = rawRuleType.includes('损益') ? 'profit_loss' : rawRuleType.includes('所得税') ? 'tax' : rawRuleType.includes('增值税') ? 'vat' : rawRuleType || 'custom'
+          const sourceFormula = importRowValue(importCommitDraft.headers, row, ['取数公式', '取数来源', '来源'])
+          const targetAccountCode = importRowValue(importCommitDraft.headers, row, ['目标科目', '科目'])
+          const summaryTemplate = importRowValue(importCommitDraft.headers, row, ['凭证摘要模板', '凭证模板', '摘要模板'])
+          const priority = importAmount(importRowValue(importCommitDraft.headers, row, ['执行顺序', '顺序', '优先级'])) || 10
+          if (!name) throw new Error('结转规则名称不完整')
+          const voucherWord = voucherWords.find((item) => item.id === importRowValue(importCommitDraft.headers, row, ['凭证字']) || item.word_name === importRowValue(importCommitDraft.headers, row, ['凭证字']))
+          const isEnabled = importRowValue(importCommitDraft.headers, row, ['状态']) !== '停用'
+          const created = await createSettlementRule({ companyId: selectedCompanyId, name, ruleType, sourceFormula: sourceFormula || undefined, targetAccountCode: targetAccountCode || undefined, voucherWordId: voucherWord?.id, summaryTemplate: summaryTemplate || undefined, priority, isEnabled })
+          if (!isEnabled) await updateSettlementRule({ id: created.id, companyId: selectedCompanyId, name, ruleType, sourceFormula: sourceFormula || undefined, targetAccountCode: targetAccountCode || undefined, voucherWordId: voucherWord?.id, summaryTemplate: summaryTemplate || undefined, priority, isEnabled: false })
+        } else if (importCommitDraft.target === 'commonDigest') {
+          const content = importRowValue(importCommitDraft.headers, row, ['摘要内容', '摘要模板', '摘要', '名称'])
+          if (!content) throw new Error('常用摘要内容不完整')
+          await createCommonDigest({ companyId: selectedCompanyId, content })
+        } else if (importCommitDraft.target === 'voucherTemplate') {
+          const name = importRowValue(importCommitDraft.headers, row, ['模板名称', '名称'])
+          const typeName = importRowValue(importCommitDraft.headers, row, ['模板分类', '适用来源', '来源模块']) || '导入模板'
+          const summary = importRowValue(importCommitDraft.headers, row, ['摘要规则', '凭证摘要', '摘要'])
+          const debitAccountCode = importRowValue(importCommitDraft.headers, row, ['借方科目', '借方科目编码'])
+          const creditAccountCode = importRowValue(importCommitDraft.headers, row, ['贷方科目', '贷方科目编码'])
+          const debitAccount = detailedAccounts.find((item) => item.code === debitAccountCode || `${item.code} ${item.name}` === debitAccountCode)
+          const creditAccount = detailedAccounts.find((item) => item.code === creditAccountCode || `${item.code} ${item.name}` === creditAccountCode)
+          if (!name || !debitAccount || !creditAccount) throw new Error('凭证模板名称或借贷科目不完整')
+          let templateType = voucherTemplateTypes.find((item) => item.name === typeName)
+          if (!templateType) templateType = await createVoucherTemplateType({ companyId: selectedCompanyId, name: typeName, sortOrder: voucherTemplateTypes.length + 1 })
+          const entries: TemplateEntry[] = [
+            { account_code: debitAccount.code, account_name: debitAccount.name, direction: 'debit', summary, auxiliary_type: null, auxiliary_id: null },
+            { account_code: creditAccount.code, account_name: creditAccount.name, direction: 'credit', summary, auxiliary_type: null, auxiliary_id: null },
+          ]
+          await createVoucherTemplate({ companyId: selectedCompanyId, typeId: templateType.id, name, entries })
+        } else if (importCommitDraft.target === 'currency') {
           const code = importRowValue(importCommitDraft.headers, row, ['币别编码', '货币编码', '编码'])
           const name = importRowValue(importCommitDraft.headers, row, ['币别名称', '货币名称', '名称'])
           const exchangeRate = importAmount(importRowValue(importCommitDraft.headers, row, ['汇率', '折算汇率']))
           if (!code || !name || exchangeRate <= 0) throw new Error('币别编码、名称或汇率不完整')
           const isBase = ['是', '1', 'true', '本位币'].includes(importRowValue(importCommitDraft.headers, row, ['本位币', '是否本位币']).toLowerCase())
           await createCurrency({ company_id: selectedCompanyId, code, name, exchange_rate: exchangeRate, is_base: isBase ? 1 : 0 })
+        } else {
+          throw new Error('暂不支持该导入目标')
         }
         successCount += 1
       } catch (error) {
@@ -8591,7 +8638,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="确认写入本地台账">
           <div className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-start justify-between border-b border-slate-200 px-4 py-3"><div><h2 className="text-sm font-semibold text-slate-900">确认写入本地台账</h2><p className="mt-1 text-xs text-slate-500">{importCommitDraft.fileName}，共 {importCommitDraft.rows.length} 行候选数据。</p></div><button type="button" onClick={() => setImportCommitDraft(null)} className="text-xs text-slate-500">取消</button></div>
-            <div className="space-y-3 p-4 text-xs text-slate-700"><p>目标模块：{importCommitDraft.target === 'invoice' ? '发票台账' : importCommitDraft.target === 'bank' ? '银行流水台账' : importCommitDraft.target === 'document' ? '单据登记台账' : importCommitDraft.target === 'businessOrder' ? '采购/销售订单台账' : importCommitDraft.target === 'employee' ? '人员档案' : importCommitDraft.target === 'payroll' ? '薪酬台账' : importCommitDraft.target === 'socialSecurity' ? '社保公积金台账' : importCommitDraft.target === 'specialDeduction' ? '专项附加扣除台账' : importCommitDraft.target === 'inventoryMovement' ? '出入库台账' : importCommitDraft.target === 'fixedAsset' ? '固定资产台账' : importCommitDraft.target === 'inventoryItem' ? '存货档案' : importCommitDraft.target === 'settlement' ? '核销台账' : importCommitDraft.target === 'bankReconciliation' ? '银行对账台账' : importCommitDraft.target === 'measurementUnit' ? '计量单位档案' : importCommitDraft.target === 'accountTransfer' ? '账户转账台账' : importCommitDraft.target === 'costCarryover' ? '成本结转台账' : importCommitDraft.target === 'companyAccount' ? '账户登记档案' : importCommitDraft.target === 'auxiliaryArchive' ? '辅助核算档案' : importCommitDraft.target === 'businessTag' ? '业务标签' : '币别汇率'}。不完整或格式错误的行会被跳过并保留在导入批次中。</p><div className="border border-slate-200 bg-slate-50 p-3"><p className="font-medium">字段映射建议</p>{buildImportFieldMappings(importCommitDraft.headers, config.columns).map(({ header, target }) => <div key={header} className="mt-1 grid grid-cols-[1fr_20px_1fr] gap-2"><span className="truncate">{header}</span><span className="text-center text-slate-400">→</span><span className="truncate">{target}</span></div>)}</div><p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 leading-5">安全边界：本操作只写入当前桌面端账套和账期的本地台账，不会采集发票、登录银行、生成凭证或向税局提交。</p></div>
+            <div className="space-y-3 p-4 text-xs text-slate-700"><p>目标模块：{importCommitDraft.target === 'invoice' ? '发票台账' : importCommitDraft.target === 'bank' ? '银行流水台账' : importCommitDraft.target === 'document' ? '单据登记台账' : importCommitDraft.target === 'businessOrder' ? '采购/销售订单台账' : importCommitDraft.target === 'employee' ? '人员档案' : importCommitDraft.target === 'payroll' ? '薪酬台账' : importCommitDraft.target === 'socialSecurity' ? '社保公积金台账' : importCommitDraft.target === 'specialDeduction' ? '专项附加扣除台账' : importCommitDraft.target === 'inventoryMovement' ? '出入库台账' : importCommitDraft.target === 'fixedAsset' ? '固定资产台账' : importCommitDraft.target === 'inventoryItem' ? '存货档案' : importCommitDraft.target === 'settlement' ? '核销台账' : importCommitDraft.target === 'bankReconciliation' ? '银行对账台账' : importCommitDraft.target === 'measurementUnit' ? '计量单位档案' : importCommitDraft.target === 'accountTransfer' ? '账户转账台账' : importCommitDraft.target === 'costCarryover' ? '成本结转台账' : importCommitDraft.target === 'companyAccount' ? '账户登记档案' : importCommitDraft.target === 'auxiliaryArchive' ? '辅助核算档案' : importCommitDraft.target === 'businessTag' ? '业务标签' : importCommitDraft.target === 'matchingRule' ? '自动匹配规则' : importCommitDraft.target === 'settlementRule' ? '期末结转规则' : importCommitDraft.target === 'commonDigest' ? '常用摘要' : importCommitDraft.target === 'voucherTemplate' ? '凭证模板' : '币别汇率'}。不完整或格式错误的行会被跳过并保留在导入批次中。</p><div className="border border-slate-200 bg-slate-50 p-3"><p className="font-medium">字段映射建议</p>{buildImportFieldMappings(importCommitDraft.headers, config.columns).map(({ header, target }) => <div key={header} className="mt-1 grid grid-cols-[1fr_20px_1fr] gap-2"><span className="truncate">{header}</span><span className="text-center text-slate-400">→</span><span className="truncate">{target}</span></div>)}</div><p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 leading-5">安全边界：本操作只写入当前桌面端账套和账期的本地台账，不会采集发票、登录银行、生成凭证或向税局提交。</p></div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setImportCommitDraft(null)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="button" onClick={handleCommitLocalImport} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">确认写入</button></div>
           </div>
         </div>

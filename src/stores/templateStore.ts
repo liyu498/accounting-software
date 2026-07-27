@@ -48,6 +48,7 @@ interface TemplateState {
   isLoading: boolean
   error: string | null
   fetchTemplateWorkspace(companyId: string): Promise<void>
+  createVoucherTemplateType(input: { companyId: string; name: string; sortOrder?: number }): Promise<VoucherTemplateType>
   createCommonDigest(input: { companyId: string; content: string }): Promise<CommonDigest>
   updateCommonDigest(input: { id: string; companyId: string; content: string }): Promise<CommonDigest>
   deleteCommonDigest(id: string, companyId: string): Promise<void>
@@ -85,6 +86,14 @@ export const useTemplateStore = create<TemplateState>((set) => ({
     } catch (error) {
       set({ error: String(error), isLoading: false })
     }
+  },
+
+  createVoucherTemplateType: async (input) => {
+    const templateType = await invoke<VoucherTemplateType>('create_voucher_template_type', {
+      input: { company_id: input.companyId, name: input.name, sort_order: input.sortOrder },
+    })
+    set((state) => ({ voucherTemplateTypes: [...state.voucherTemplateTypes, templateType].sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)) }))
+    return templateType
   },
 
   createCommonDigest: async (input) => {
