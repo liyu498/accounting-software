@@ -256,6 +256,7 @@ const requiredPageSnippets = [
   ['module import mapping panel', '字段映射建议'],
   ['module import write confirmation', '确认写入本地台账'],
   ['module import write handler', 'const handleCommitLocalImport = async () => {'],
+  ['module import business order target', "type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder'"],
   ['module current period export file', 'const exportPeriodLabel = currentPeriodLabel === \'当前账期\' ? \'2026-05\' : currentPeriodLabel'],
   ['module excel export audit', "writeModuleAudit('导出Excel', fileName"],
   ['module pdf export audit', "writeModuleAudit('导出PDF', fileName"],
