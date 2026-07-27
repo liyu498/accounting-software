@@ -5631,6 +5631,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [pageSize, setPageSize] = useState(20)
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set())
   const [showRulesLog, setShowRulesLog] = useState(false)
+  const [detailRow, setDetailRow] = useState<ModuleRow | null>(null)
   const importFileRef = useRef<HTMLInputElement>(null)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
 
@@ -7541,7 +7542,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     const object = rowObjectLabel(row)
     writeModuleAudit('查看明细', `${title}-${object}`)
-    setOperationNotice(`已打开 ${object} 的明细留痕；后续将接入附件、来源单据和操作快照。`)
+    setDetailRow(row)
   }
 
   const handleGenerateVoucher = async (row: ModuleRow) => {
@@ -8186,6 +8187,31 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
         </section>
       </div>
+      {detailRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="业务明细">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto border border-slate-300 bg-white shadow-xl">
+            <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">业务明细</h2>
+                <p className="mt-1 text-xs text-slate-500">{title} / {rowObjectLabel(detailRow)}</p>
+              </div>
+              <button type="button" onClick={() => setDetailRow(null)} className="text-xs text-slate-500 hover:text-slate-900">关闭</button>
+            </div>
+            <div className="grid gap-x-5 gap-y-3 p-4 sm:grid-cols-2">
+              <div className="border-b border-slate-100 pb-2 text-xs"><div className="text-slate-500">状态</div><div className="mt-1">{statusBadge(detailRow.status)}</div></div>
+              <div className="border-b border-slate-100 pb-2 text-xs"><div className="text-slate-500">凭证</div><div className="mt-1 break-words text-slate-800">{detailRow.voucher || '-'}</div></div>
+              <div className="border-b border-slate-100 pb-2 text-xs"><div className="text-slate-500">附件</div><div className="mt-1 break-words text-slate-800">{detailRow.attachment || '-'}</div></div>
+              {config.columns.map((column) => (
+                <div key={column.key} className="min-w-0 border-b border-slate-100 pb-2 text-xs">
+                  <div className="text-slate-500">{column.label}</div>
+                  <div className="mt-1 break-words text-slate-800">{detailRow.values[column.key] || '-'}</div>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">本窗口只读取当前账套和账期下的本地字段。查看不会触发发票采集、银行连接、凭证入账或税局提交。</div>
+          </div>
+        </div>
+      )}
       {showAttachmentAssociationDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="关联本地附件单据">
           <form onSubmit={handleSaveAttachmentAssociation} className="w-full max-w-lg border border-slate-300 bg-white shadow-xl">

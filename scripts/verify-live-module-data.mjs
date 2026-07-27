@@ -245,6 +245,8 @@ const requiredPageSnippets = [
   ['module audit persistence', 'automationApi.writeOperationAuditLog({'],
   ['module period scoped audits', 'const scopedOperationAuditLogs = useMemo(() => operationAuditLogs.filter((log) => log.objectRef?.includes(currentPeriodLabel))'],
   ['module rules log binding', '<RulesLogPanel notes={config.notes} logs={visibleRuleLogs} usesLiveData={usesLiveRuleLogData} />'],
+  ['module detail row state', 'const [detailRow, setDetailRow] = useState<ModuleRow | null>(null)'],
+  ['module detail dialog', '业务明细'],
   ['module current period export file', 'const exportPeriodLabel = currentPeriodLabel === \'当前账期\' ? \'2026-05\' : currentPeriodLabel'],
   ['module excel export audit', "writeModuleAudit('导出Excel', fileName"],
   ['module pdf export audit', "writeModuleAudit('导出PDF', fileName"],
