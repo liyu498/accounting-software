@@ -8314,6 +8314,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                   </div>
                 ) : <p className="mt-2 text-xs text-slate-500">当前格式未解析出表头，需在对应业务模块完成格式校验。</p>}
               </div>
+              {importValidationJob.previewRows?.length > 0 && (
+                <div className="border border-slate-200 bg-white p-3">
+                  <p className="text-xs font-medium text-slate-700">候选数据预览</p>
+                  <div className="mt-2 max-w-full overflow-x-auto">
+                    <table className="min-w-full border-collapse text-xs">
+                      <tbody>
+                        {importValidationJob.previewRows.map((row, index) => (
+                          <tr key={`${importValidationJob.id}-${index}`}>
+                            {row.map((cell, cellIndex) => <td key={cellIndex} className="max-w-44 border border-slate-200 px-2 py-1 align-top break-words text-slate-700">{cell || '-'}</td>)}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
               <p className="text-xs leading-5 text-slate-500">{importValidationJob.validationNote || '历史批次尚未保存解析摘要，请在对应业务模块人工核验。'}</p>
               <p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 text-xs leading-5 text-slate-700">安全边界：核验只更新本机导入批次的状态，不会写入账套业务数据或调用外部系统。</p>
             </div>

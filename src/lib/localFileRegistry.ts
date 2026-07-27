@@ -19,6 +19,7 @@ export interface LocalImportJob {
   status: LocalFileStatus
   rowCount: number | null
   columnPreview: string[]
+  previewRows: string[][]
   validationNote: string
   operator: string
   createdAt: string
@@ -124,7 +125,7 @@ async function inspectImportFile(file: File) {
         ? parseCsvRows(await file.text())
         : []
     if (rows.length === 0) {
-      return { rowCount: null, columnPreview: [], validationNote: '该格式仅登记文件元数据，需在目标模块完成字段映射。' }
+      return { rowCount: null, columnPreview: [], previewRows: [], validationNote: '该格式仅登记文件元数据，需在目标模块完成字段映射。' }
     }
     const headerIndex = rows.findIndex((row) => row.filter(Boolean).length >= 3)
     const safeHeaderIndex = headerIndex >= 0 ? headerIndex : 0
@@ -136,10 +137,11 @@ async function inspectImportFile(file: File) {
     return {
       rowCount: dataRows.length,
       columnPreview: header.filter(Boolean).slice(0, 12).map((cell) => cell.slice(0, 40)),
+      previewRows: dataRows.slice(0, 5).map((row) => row.slice(0, 12).map((cell) => cell.slice(0, 80))),
       validationNote: `已识别表头并读取 ${dataRows.length} 条候选数据行，尚未写入账套。`,
     }
   } catch {
-    return { rowCount: null, columnPreview: [], validationNote: '无法读取表格结构，需在目标模块完成格式校验。' }
+    return { rowCount: null, columnPreview: [], previewRows: [], validationNote: '无法读取表格结构，需在目标模块完成格式校验。' }
   }
 }
 
@@ -170,7 +172,7 @@ export function listLocalAttachmentRecords(scope: LocalFileScope) {
   return scopedRows<LocalAttachmentRecord>(ATTACHMENT_STORAGE_KEY, scope)
 }
 
-export async function recordLocalImportJob(input: Omit<LocalImportJob, 'id' | 'fileName' | 'fileSize' | 'fileFormat' | 'checksum' | 'status' | 'rowCount' | 'columnPreview' | 'validationNote' | 'createdAt'> & { file: File }) {
+export async function recordLocalImportJob(input: Omit<LocalImportJob, 'id' | 'fileName' | 'fileSize' | 'fileFormat' | 'checksum' | 'status' | 'rowCount' | 'columnPreview' | 'previewRows' | 'validationNote' | 'createdAt'> & { file: File }) {
   const inspection = await inspectImportFile(input.file)
   const record: LocalImportJob = {
     id: `import-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -185,6 +187,7 @@ export async function recordLocalImportJob(input: Omit<LocalImportJob, 'id' | 'f
     status: '待确认',
     rowCount: inspection.rowCount,
     columnPreview: inspection.columnPreview,
+    previewRows: inspection.previewRows,
     validationNote: inspection.validationNote,
     operator: input.operator,
     createdAt: new Date().toLocaleString('zh-CN'),

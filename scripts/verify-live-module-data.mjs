@@ -94,6 +94,7 @@ const companyAccountCommandSource = existsSync('src-tauri/src/commands/company_a
   : ''
 const automationCommandSource = readFileSync('src-tauri/src/commands/automation.rs', 'utf8')
 const voucherCommandSource = readFileSync('src-tauri/src/commands/vouchers.rs', 'utf8')
+const localFileRegistrySource = readFileSync('src/lib/localFileRegistry.ts', 'utf8')
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -250,6 +251,7 @@ const requiredPageSnippets = [
   ['module import template builder', 'function buildImportTemplate(params: {'],
   ['module import template export', 'await exportRowsToXlsx({\n      sheetRows,\n      columnWidths,\n      merges,\n      sheetName: `${title}导入模板`,'],
   ['module import template audit', "writeModuleAudit('下载导入模板', fileName, '普通', '成功')"],
+  ['module import candidate preview', '候选数据预览'],
   ['module current period export file', 'const exportPeriodLabel = currentPeriodLabel === \'当前账期\' ? \'2026-05\' : currentPeriodLabel'],
   ['module excel export audit', "writeModuleAudit('导出Excel', fileName"],
   ['module pdf export audit', "writeModuleAudit('导出PDF', fileName"],
@@ -331,6 +333,11 @@ const requiredPageSnippets = [
   ['local import validation registry update', 'updateLocalImportJobValidation'],
   ['local import validation editor', '核验本机导入批次'],
   ['local import validation boundary', '不会写入账套业务数据或调用外部系统'],
+]
+
+const requiredLocalFileRegistrySnippets = [
+  ['local import preview rows type', 'previewRows: string[][]'],
+  ['local import preview capture', 'previewRows: dataRows.slice(0, 5)'],
 ]
 
 const requiredTaxWorkspaceSnippets = [
@@ -1275,6 +1282,7 @@ function verify(source, checks, sourceName) {
 const errors = [
   ...verify(adapterSource, requiredAdapterSnippets, 'live module adapter'),
   ...verify(pageSource, requiredPageSnippets, 'business module page'),
+  ...verify(localFileRegistrySource, requiredLocalFileRegistrySnippets, 'local file registry'),
   ...verify(taxWorkspaceSource, requiredTaxWorkspaceSnippets, 'tax workspace'),
   ...verify(welcomeSource, requiredWelcomeSnippets, 'welcome page'),
   ...verify(companyStoreSource, requiredCompanyPersistenceSnippets.slice(0, 2), 'company store'),
