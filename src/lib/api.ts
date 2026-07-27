@@ -1418,6 +1418,21 @@ export const agencyApi = {
     }
   },
 
+  reviewBatchTask: async (input: { id: string; decision: 'approved' | 'rejected'; operator?: string }): Promise<ApiResponse<AgencyBatchTask>> => {
+    try {
+      const result = await invoke('review_agency_batch_task', {
+        input: {
+          id: input.id,
+          decision: input.decision,
+          operator: input.operator,
+        },
+      }) as RawAgencyBatchTask
+      return { success: true, data: mapAgencyBatchTask(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
   getHealthChecks: async (period = '2026-05'): Promise<ApiResponse<AgencyHealthCheckItem[]>> => {
     try {
       const result = await invoke('get_agency_health_checks', { period }) as RawAgencyHealthCheckItem[]

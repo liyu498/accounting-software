@@ -1,7 +1,7 @@
 use crate::db::{
     AdapterAuthorization, AgencyBatchTask, AgencyCollaborationItem, AgencyDeliveryTicket,
     AgencyFeeCollection, AgencyServiceContract, AutomationJob, CreateAgencyBatchTasksInput,
-    Database,
+    Database, ReviewAgencyBatchTaskInput,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -450,8 +450,8 @@ pub async fn run_agency_batch_task_precheck(
     .map_err(|e| format!("读取批量任务失败: {e}"))?
     .ok_or_else(|| "未找到批量任务".to_string())?;
 
-    if task.status == "completed" {
-        return Err("已完成的批量任务不能再次执行预检".to_string());
+    if task.status != "queued" {
+        return Err("当前任务状态不允许重复执行预检".to_string());
     }
 
     let operator = input.operator.unwrap_or_else(|| task.operator.clone().unwrap_or_else(|| "admin".to_string()));
@@ -491,6 +491,83 @@ pub async fn run_agency_batch_task_precheck(
     .fetch_one(db.pool())
     .await
     .map_err(|e| format!("读取更新后的批量任务失败: {e}"))
+}
+
+#[tauri::command]
+pub async fn review_agency_batch_task(
+    input: ReviewAgencyBatchTaskInput,
+    db: State<'_, Database>,
+) -> Result<AgencyBatchTask, String> {
+    if input.id.trim().is_empty() {
+        return Err("批量任务不能为空".to_string());
+    }
+
+    let task: AgencyBatchTask = sqlx::query_as(
+        r#"
+        SELECT id, task_type, task_name, period, customer_scope, status,
+               progress_current, progress_total, result_summary, risk_level,
+               operator, requires_approval, created_at, updated_at
+        FROM agency_batch_tasks
+        WHERE id = ?
+        "#,
+    )
+    .bind(&input.id)
+    .fetch_optional(db.pool())
+    .await
+    .map_err(|e| format!("读取批量审批任务失败: {e}"))?
+    .ok_or_else(|| "未找到批量任务".to_string())?;
+
+    if task.requires_approval != 1 || task.status != "awaiting_approval" {
+        return Err("当前任务不在待审批状态".to_string());
+    }
+
+    let (next_status, summary) = match input.decision.as_str() {
+        "approved" => (
+            "prechecked",
+            "本地预检已人工通过；未登录或调用税局、银行等外部系统，后续动作仍需人工发起。",
+        ),
+        "rejected" => (
+            "blocked",
+            "本地预检已驳回并阻断后续操作；未登录或调用税局、银行等外部系统。",
+        ),
+        _ => return Err("审批结果仅支持 approved 或 rejected".to_string()),
+    };
+    let operator = input
+        .operator
+        .unwrap_or_else(|| task.operator.clone().unwrap_or_else(|| "admin".to_string()));
+
+    let result = sqlx::query(
+        r#"
+        UPDATE agency_batch_tasks
+        SET status = ?, result_summary = ?, operator = ?, updated_at = datetime('now')
+        WHERE id = ? AND status = 'awaiting_approval' AND requires_approval = 1
+        "#,
+    )
+    .bind(next_status)
+    .bind(summary)
+    .bind(operator)
+    .bind(&input.id)
+    .execute(db.pool())
+    .await
+    .map_err(|e| format!("更新批量审批任务失败: {e}"))?;
+
+    if result.rows_affected() != 1 {
+        return Err("审批状态已变更，请刷新后重试".to_string());
+    }
+
+    sqlx::query_as(
+        r#"
+        SELECT id, task_type, task_name, period, customer_scope, status,
+               progress_current, progress_total, result_summary, risk_level,
+               operator, requires_approval, created_at, updated_at
+        FROM agency_batch_tasks
+        WHERE id = ?
+        "#,
+    )
+    .bind(&input.id)
+    .fetch_one(db.pool())
+    .await
+    .map_err(|e| format!("读取审批结果失败: {e}"))
 }
 
 #[tauri::command]

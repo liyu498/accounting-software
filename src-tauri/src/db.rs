@@ -3701,6 +3701,13 @@ pub struct CreateAgencyBatchTasksInput {
     pub task_types: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct ReviewAgencyBatchTaskInput {
+    pub id: String,
+    pub decision: String,
+    pub operator: Option<String>,
+}
+
 // ==================== Automation and Adapter Structs ====================
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]

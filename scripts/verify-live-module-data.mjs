@@ -512,18 +512,26 @@ const requiredAgencyServiceContractEntryPageSnippets = [
 
 const requiredAgencyBatchTaskApiSnippets = [
   ['agency batch task selection input', 'taskTypes?: string[]'],
+  ['agency batch task review api', 'reviewBatchTask: async'],
 ]
 
 const requiredAgencyBatchTaskCommandSnippets = [
   ['agency batch task type filter', 'task_types'],
   ['agency batch task deduplication', 'WHERE NOT EXISTS'],
   ['agency batch task result summary', 'CreateAgencyBatchTasksResult'],
+  ['agency batch task review command', 'pub async fn review_agency_batch_task'],
+  ['agency batch task approval state', 'awaiting_approval'],
 ]
 
 const requiredAgencyBatchTaskPageSnippets = [
   ['agency batch task selection dialog', '选择批量预检任务'],
   ['agency batch task selection state', 'selectedBatchTaskTypes'],
   ['agency batch task selected API call', 'taskTypes: selectedBatchTaskTypes'],
+  ['agency batch task review handler', 'handleReviewBatchTask'],
+  ['agency batch task approval action', '通过预检'],
+  ['agency batch task rejection action', '驳回预检'],
+  ['agency batch task local tab filter', 'filterAgencyBatchTaskRows(localRows, activeTab)'],
+  ['agency batch task local row lifecycle', 'setLocalRows([])\n    setOperationNotice(null)\n  }, [kind])'],
 ]
 
 const requiredMeasurementUnitEntryPageSnippets = [
