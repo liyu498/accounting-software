@@ -843,6 +843,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [pageSize, setPageSize] = useState(20)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
   const [localRows, setLocalRows] = useState<AgencyRow[]>([])
+  const [detailRow, setDetailRow] = useState<AgencyRow | null>(null)
   const [showBatchTaskDialog, setShowBatchTaskDialog] = useState(false)
   const [selectedBatchTaskTypes, setSelectedBatchTaskTypes] = useState<string[]>(() => agencyBatchTaskOptions.map((option) => option.id))
   const [showContractDialog, setShowContractDialog] = useState(false)
@@ -1009,7 +1010,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const handleViewRow = (row: AgencyRow) => {
     const object = rowObjectLabel(row)
     writeAgencyAudit('查看明细', `${pageConfig.title}-${object}`)
-    setOperationNotice(`已打开 ${object} 的机构级明细留痕；后续会接入附件、来源任务和操作快照。`)
+    setDetailRow(row)
   }
 
   const handleProcessRow = async (row: AgencyRow) => {
@@ -1693,6 +1694,29 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
               <button type="button" onClick={() => setShowBatchTaskDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
               <button type="button" disabled={selectedBatchTaskTypes.length === 0} onClick={() => void handleCreateBatchTasks()} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82] disabled:cursor-not-allowed disabled:bg-slate-400">创建本地预检任务</button>
             </div>
+          </div>
+        </div>
+      )}
+      {detailRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="机构级明细">
+          <div className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">机构级明细</h2>
+                <p className="mt-1 text-xs text-slate-500">{pageConfig.title} / {rowObjectLabel(detailRow)}</p>
+              </div>
+              <button type="button" onClick={() => setDetailRow(null)} className="text-xs text-slate-500 hover:text-slate-900">关闭</button>
+            </div>
+            <div className="grid gap-x-5 gap-y-3 p-4 sm:grid-cols-2">
+              <div className="border-b border-slate-100 pb-2 text-xs"><span className="text-slate-500">处理状态</span><div className="mt-1"><StatusBadge value={detailRow.status} /></div></div>
+              {pageConfig.columns.map((column) => (
+                <div key={column.key} className="min-w-0 border-b border-slate-100 pb-2 text-xs">
+                  <div className="text-slate-500">{column.label}</div>
+                  <div className="mt-1 break-words text-slate-800">{detailRow.values[column.key] || '-'}</div>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">此处仅展示本地保存的机构级字段和处理状态。外部授权、税务申报、银行采集和扣款均不会因查看明细而触发。</div>
           </div>
         </div>
       )}

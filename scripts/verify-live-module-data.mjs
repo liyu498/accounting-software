@@ -535,6 +535,8 @@ const requiredAgencyBatchTaskPageSnippets = [
   ['agency account import handoff', "navigate('/?importCompanies=1')"],
   ['agency overview period binding', 'agencyApi.getOverview(agencyPeriodLabel)'],
   ['agency module period binding', 'fetchAgencyRows(kind, activeTab, agencyPeriodLabel)'],
+  ['agency row detail state', 'const [detailRow, setDetailRow] = useState<AgencyRow | null>(null)'],
+  ['agency row detail dialog', '机构级明细'],
 ]
 
 const requiredWelcomeImportHandoffSnippets = [
