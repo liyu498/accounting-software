@@ -1256,20 +1256,25 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = `${pageConfig.title}-${agencyPeriodLabel}.pdf`
     const scope = `${agencyPeriodLabel}/${activeTab}/${query.trim() || '全部'}`
-    await exportHtmlToPdf({
-      html: buildAgencyPrintHtml(pageConfig, filteredRows, exportedAt, activeTab, query.trim(), agencyPeriodLabel),
-      fileName,
-      pageTitle: `${pageConfig.title} ${agencyPeriodLabel}`,
-    })
-    recordExportJob({
-      fileName,
-      moduleName: `机构-${pageConfig.title}`,
-      format: 'PDF',
-      scope,
-      templateKind: 'agency',
-      rowCount: filteredRows.length,
-    })
-    writeAgencyAudit('导出PDF', fileName)
+    try {
+      await exportHtmlToPdf({
+        html: buildAgencyPrintHtml(pageConfig, filteredRows, exportedAt, activeTab, query.trim(), agencyPeriodLabel),
+        fileName,
+        pageTitle: `${pageConfig.title} ${agencyPeriodLabel}`,
+      })
+      recordExportJob({
+        fileName,
+        moduleName: `机构-${pageConfig.title}`,
+        format: 'PDF',
+        scope,
+        templateKind: 'agency',
+        rowCount: filteredRows.length,
+      })
+      writeAgencyAudit('导出PDF', fileName)
+    } catch (error) {
+      setOperationNotice(`PDF 导出失败：${String(error)}`)
+      writeAgencyAudit('导出PDF', fileName, '普通', '失败')
+    }
   }
 
   const handleCreateContract = async (event: React.FormEvent<HTMLFormElement>) => {

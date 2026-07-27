@@ -8203,20 +8203,25 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       keyword: keyword.trim(),
       context: exportDocumentContext,
     })
-    await exportHtmlToPdf({
-      html,
-      fileName,
-      pageTitle: `${title} ${exportPeriodLabel}`,
-    })
-    recordExportJob({
-      fileName,
-      moduleName: title,
-      format: 'PDF',
-      scope: exportScope,
-      templateKind,
-      rowCount: filteredRows.length,
-    })
-    writeModuleAudit('导出PDF', fileName, '普通', '成功')
+    try {
+      await exportHtmlToPdf({
+        html,
+        fileName,
+        pageTitle: `${title} ${exportPeriodLabel}`,
+      })
+      recordExportJob({
+        fileName,
+        moduleName: title,
+        format: 'PDF',
+        scope: exportScope,
+        templateKind,
+        rowCount: filteredRows.length,
+      })
+      writeModuleAudit('导出PDF', fileName, '普通', '成功')
+    } catch (error) {
+      setOperationNotice(`PDF 导出失败：${String(error)}`)
+      writeModuleAudit('导出PDF', fileName, '普通', '失败')
+    }
   }
 
   const voucherDebitTotal = voucherDraft.entries

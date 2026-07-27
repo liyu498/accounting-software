@@ -29,16 +29,24 @@ const requiredBusinessSnippets = [
   ['print repeating table headers', 'thead{display:table-header-group}'],
   ['print row pagination guard', 'tr{break-inside:avoid;page-break-inside:avoid}'],
   ['print window feedback', '浏览器阻止了打印窗口，请允许本应用打开打印预览后重试。'],
+  ['business PDF failure feedback', 'PDF 导出失败：'],
+  ['business PDF failure audit', "writeModuleAudit('导出PDF', fileName, '普通', '失败')"],
 ]
 
 const requiredTaxSnippets = [
   ['tax print window feedback', '浏览器阻止了打印窗口，请允许本应用打开打印预览后重试。'],
+  ['tax PDF failure feedback', 'PDF 导出失败：'],
+  ['tax PDF failure audit', "action: '导出申报包 PDF'"],
+  ['tax PDF failure result', "result: '失败'"],
+  ['tax PDF failure attachment', 'attachment: String(error)'],
 ]
 
 const requiredAgencySnippets = [
   ['agency print window feedback', '浏览器阻止了打印窗口，请允许本应用打开打印预览后重试。'],
   ['agency repeating table headers', 'thead { display: table-header-group; }'],
   ['agency row pagination guard', 'tr { break-inside: avoid; page-break-inside: avoid; }'],
+  ['agency PDF failure feedback', 'PDF 导出失败：'],
+  ['agency PDF failure audit', "writeAgencyAudit('导出PDF', fileName, '普通', '失败')"],
 ]
 
 const requiredXlsxSnippets = [

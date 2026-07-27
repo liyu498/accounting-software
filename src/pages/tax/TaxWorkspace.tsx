@@ -985,27 +985,39 @@ export function TaxWorkspace() {
   const exportTaxPackagePdf = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = `税务申报包-${currentPeriod}.pdf`
-    await exportHtmlToPdf({
-      html: buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata, visibleRiskRows, visibleRuleLogs),
-      fileName,
-      pageTitle: `税务申报包 ${currentPeriod}`,
-    })
-    recordExportJob({
-      fileName,
-      moduleName: '税务申报工作台',
-      format: 'PDF',
-      scope: `${currentPeriod}/全部税种`,
-      templateKind: 'tax',
-      rowCount: visibleDeclarationRows.length,
-    })
-    writeTaxAudit({
-      action: '导出申报包 PDF',
-      object: fileName,
-      level: visibleRiskRows.length > 0 ? '中' : '普通',
-      result: '成功',
-      status: '已通过',
-      attachment: `${visibleDeclarationRows.length} 个税种 / ${visibleRiskRows.length} 项风险`,
-    })
+    try {
+      await exportHtmlToPdf({
+        html: buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata, visibleRiskRows, visibleRuleLogs),
+        fileName,
+        pageTitle: `税务申报包 ${currentPeriod}`,
+      })
+      recordExportJob({
+        fileName,
+        moduleName: '税务申报工作台',
+        format: 'PDF',
+        scope: `${currentPeriod}/全部税种`,
+        templateKind: 'tax',
+        rowCount: visibleDeclarationRows.length,
+      })
+      writeTaxAudit({
+        action: '导出申报包 PDF',
+        object: fileName,
+        level: visibleRiskRows.length > 0 ? '中' : '普通',
+        result: '成功',
+        status: '已通过',
+        attachment: `${visibleDeclarationRows.length} 个税种 / ${visibleRiskRows.length} 项风险`,
+      })
+    } catch (error) {
+      setOperationNotice(`PDF 导出失败：${String(error)}`)
+      writeTaxAudit({
+        action: '导出申报包 PDF',
+        object: fileName,
+        level: visibleRiskRows.length > 0 ? '中' : '普通',
+        result: '失败',
+        status: '异常',
+        attachment: String(error),
+      })
+    }
   }
 
   return (
