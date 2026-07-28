@@ -142,6 +142,7 @@ const errors = [
   ...(!businessSource.includes('打印模板版本与输出校验') ? ['print templates must render a dedicated workflow'] : []),
   ...(!businessSource.includes('账期锁定与反结账审批') ? ['period management must render a dedicated workflow'] : []),
   ...(!businessSource.includes('reviewFoundationConfiguration') ? ['foundation workflow must register a review'] : []),
+  ...(!businessSource.includes('账套设置导航与生效范围') ? ['settings overview must render a dedicated workflow'] : []),
 ]
 
 if (errors.length > 0) {

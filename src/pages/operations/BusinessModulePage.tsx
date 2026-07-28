@@ -9094,6 +9094,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'periodManagement' && <PeriodManagementWorkflowPanel onReview={() => reviewFoundationConfiguration('period')} />}
 
+        {kind === 'settingsData' && <SettingsOverviewWorkflowPanel onReview={() => reviewFoundationConfiguration('account')} />}
+
         {kind === 'inputInvoice' && (
           <InputInvoiceWorkflowPanel
             onSync={syncInputInvoicePool}
@@ -11609,6 +11611,10 @@ function PrintTemplateWorkflowPanel({ onReview }: { onReview: () => void }) {
 
 function PeriodManagementWorkflowPanel({ onReview }: { onReview: () => void }) {
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账期锁定与反结账审批"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账期锁定与反结账审批</h2><p className="mt-1 text-xs text-slate-500">账期状态、结账锁定、反结账申请和归档标记需有审批记录。已结账期间的凭证与报表变更必须经过受控流程。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核账期控制" onClick={onReview} /></div><WorkflowMetrics items={['当前账期|2026-05|结账状态可追溯', '已锁定账期|4 个|禁止直接修改凭证', '反结账申请|1 项|待高风险审批', '归档快照|5 份|关联报表与导出包']}/></section>
+}
+
+function SettingsOverviewWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账套设置导航与生效范围"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账套设置导航与生效范围</h2><p className="mt-1 text-xs text-slate-500">按企业资料、期初、基础档案、会计科目、规则模板、账期与审计归类管理。每项配置只作用于当前账套，并保留启用状态和变更记录。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核配置生效范围" onClick={onReview} /></div><WorkflowMetrics items={['企业与账期|2 类|主体、制度和启用期间', '基础档案|8 类|客户、供应商、项目和维度', '规则模板|6 类|匹配、凭证、报表和打印', '控制记录|4 类|授权、审计、备份和回收']}/></section>
 }
 
 function WorkflowMetrics({ items }: { items: string[] }) {
