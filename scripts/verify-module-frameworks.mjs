@@ -137,6 +137,11 @@ const errors = [
   ...(!businessSource.includes('票据到期与背书用途核验') ? ['receipt ledger must render a dedicated workflow'] : []),
   ...(!businessSource.includes('账户资金调拨与手续费核验') ? ['account transfer must render a dedicated workflow'] : []),
   ...(!businessSource.includes('专项附加扣除确认与个税取数') ? ['special deductions must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('账户币别与计量口径维护') ? ['account unit currency settings must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('资产类别与辅助核算维度控制') ? ['asset and auxiliary settings must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('打印模板版本与输出校验') ? ['print templates must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('账期锁定与反结账审批') ? ['period management must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('reviewFoundationConfiguration') ? ['foundation workflow must register a review'] : []),
 ]
 
 if (errors.length > 0) {

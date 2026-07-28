@@ -8871,6 +8871,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setShowSpecialDeductionDialog(true)
   }
 
+  const reviewFoundationConfiguration = (scope: 'account' | 'auxiliary' | 'print' | 'period') => {
+    const labels = { account: '复核账户币别与单位口径', auxiliary: '复核资产与辅助核算维度', print: '复核打印模板版本', period: '复核账期锁定与反结账审批' }
+    writeModuleAudit(labels[scope], `${currentPeriodLabel}｜基础配置`, scope === 'period' ? '高' : '中', scope === 'period' ? '待审批' : '成功')
+    setOperationNotice(scope === 'account' ? '已登记账户、币别和计量单位复核。默认科目、换算精度和汇率口径变更应在业务发生前确认。' : scope === 'auxiliary' ? '已登记资产类别与辅助核算维度复核。折旧参数和维度启停会影响凭证、账簿与报表取数。' : scope === 'print' ? '已登记打印模板复核。模板版本、纸张方向、字段范围和页码样式应在导出前验证。' : '已登记账期控制复核。结账、反结账与归档均需明确审批记录，不能直接覆盖历史账期。')
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -9079,6 +9085,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         {kind === 'transfer' && <AccountTransferWorkflowPanel onAdd={openAccountTransferEditor} onReview={() => reviewControlEvidence('risk')} />}
 
         {kind === 'specialDeduction' && <SpecialDeductionWorkflowPanel onAdd={openSpecialDeductionEditor} onReview={() => reviewControlEvidence('risk')} />}
+
+        {['accountArchive', 'currencySettings', 'unitSettings'].includes(kind) && <AccountFoundationWorkflowPanel onReview={() => reviewFoundationConfiguration('account')} />}
+
+        {['assetCategory', 'auxiliaryCategories', 'auxiliaryItems', 'tagArchive'].includes(kind) && <AuxiliaryFoundationWorkflowPanel onReview={() => reviewFoundationConfiguration('auxiliary')} />}
+
+        {kind === 'printTemplateSettings' && <PrintTemplateWorkflowPanel onReview={() => reviewFoundationConfiguration('print')} />}
+
+        {kind === 'periodManagement' && <PeriodManagementWorkflowPanel onReview={() => reviewFoundationConfiguration('period')} />}
 
         {kind === 'inputInvoice' && (
           <InputInvoiceWorkflowPanel
@@ -11579,6 +11593,22 @@ function AccountTransferWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; 
 
 function SpecialDeductionWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="专项附加扣除确认与个税取数"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">专项附加扣除确认与个税取数</h2><p className="mt-1 text-xs text-slate-500">专项附加扣除按人员、类型、起止月份和资料来源维护；个税取数前需核验资格、金额和期间有效性。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增专项扣除" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核个税取数" onClick={onReview} /></div></div><WorkflowMetrics items={['已登记扣除|26 条|关联人员与资料来源', '本期待确认|6 条|需核验起止月份', '个税影响|42 人|工资表取数前校验', '资料异常|1 条|不进入申报确认']}/></section>
+}
+
+function AccountFoundationWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账户币别与计量口径维护"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账户币别与计量口径维护</h2><p className="mt-1 text-xs text-slate-500">银行账户、币别汇率和计量单位分别维护默认科目、精度、换算关系与启停状态，业务发生后变更需要保留影响说明。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核基础口径" onClick={onReview} /></div><WorkflowMetrics items={['启用账户|6 个|关联银行流水与科目', '币别汇率|3 个|保留本位币与生效日期', '计量单位|12 个|支持换算与精度控制', '待审核变更|1 项|影响存货与报表取数']}/></section>
+}
+
+function AuxiliaryFoundationWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="资产类别与辅助核算维度控制"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">资产类别与辅助核算维度控制</h2><p className="mt-1 text-xs text-slate-500">资产类别、辅助核算类别、辅助项目和业务标签决定折旧、凭证、账簿与报表的维度和取数范围。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核维度配置" onClick={onReview} /></div><WorkflowMetrics items={['资产类别|8 个|折旧方法与科目已配置', '辅助类别|6 个|客户、供应商、项目等维度', '辅助项目|148 条|须保持启用状态可追溯', '业务标签|12 个|用于凭证和流水分类']}/></section>
+}
+
+function PrintTemplateWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="打印模板版本与输出校验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">打印模板版本与输出校验</h2><p className="mt-1 text-xs text-slate-500">凭证、账簿、财务报表和税表输出按固定模板、A4 分页与中文字体生成；模板切换前应验证字段和分页。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核打印模板" onClick={onReview} /></div><WorkflowMetrics items={['固定模板|5 类|凭证、账簿、财报、税表、清单', '中文字体|已就绪|支持 PDF 与打印输出', '分页校验|A4|页码与表头保持一致', '待发布版本|1 个|需核验后启用']}/></section>
+}
+
+function PeriodManagementWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账期锁定与反结账审批"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账期锁定与反结账审批</h2><p className="mt-1 text-xs text-slate-500">账期状态、结账锁定、反结账申请和归档标记需有审批记录。已结账期间的凭证与报表变更必须经过受控流程。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核账期控制" onClick={onReview} /></div><WorkflowMetrics items={['当前账期|2026-05|结账状态可追溯', '已锁定账期|4 个|禁止直接修改凭证', '反结账申请|1 项|待高风险审批', '归档快照|5 份|关联报表与导出包']}/></section>
 }
 
 function WorkflowMetrics({ items }: { items: string[] }) {
