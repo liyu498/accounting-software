@@ -8625,6 +8625,44 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('已生成本地流水匹配建议；对方户名、金额和关联单据仍需人工确认，系统不会自动入账。')
   }
 
+  const openBusinessOrderEditor = (mode: 'purchase' | 'sales') => {
+    setEditingBusinessOrderId(null)
+    setBusinessOrderDraft({
+      orderNo: '',
+      businessDate: currentPeriod?.end_date || '',
+      counterparty: '',
+      goodsName: '',
+      amount: '',
+      fulfillmentStatus: mode === 'purchase' ? '待入库' : '待出库',
+      invoiceStatus: mode === 'purchase' ? '待收票' : '待开票',
+      settlementStatus: mode === 'purchase' ? '未付款' : '未收款',
+      status: '待确认',
+      sourceDocument: '',
+    })
+    setShowBusinessOrderDialog(true)
+  }
+
+  const reviewBusinessOrder = (mode: 'purchase' | 'sales') => {
+    const label = mode === 'purchase' ? '采购订单三方核验' : '销售订单履约核验'
+    writeModuleAudit(label, `${currentPeriodLabel}｜待确认订单`, '中', '成功')
+    setOperationNotice(mode === 'purchase'
+      ? '已核验采购订单、入库、进项票和付款状态；存在差异的订单不会生成成本或应付凭证。'
+      : '已核验销售订单、出库、销项票和回款状态；异常订单不会生成收入凭证。')
+  }
+
+  const openDocumentRecordEditor = (businessType: '费用报销' | '其他') => {
+    setEditingDocumentRecordId(null)
+    setDocumentRecordDraft({ businessDate: currentPeriod?.end_date || '', documentCode: '', businessType, partner: '', amount: '', owner: '', attachmentStatus: '待补附件', stampTaxItem: '', stampTaxRate: '' })
+    setShowDocumentRecordDialog(true)
+  }
+
+  const reviewDocumentRecords = (scope: '费用报销' | '原始单据') => {
+    writeModuleAudit(scope === '费用报销' ? '复核费用报销单' : '核验原始单据', `${currentPeriodLabel}｜待确认资料`, '中', '成功')
+    setOperationNotice(scope === '费用报销'
+      ? '已核验报销审批、附件和付款状态；缺票、退回或未付款记录不会自动生成费用凭证。'
+      : '已核验原始单据的业务日期、附件和经办人；缺少附件的单据将保留在待补资料清单。')
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -8777,6 +8815,28 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             mode={kind === 'bankStatement' ? '银行账单' : '账单一览'}
             onAdd={openBankTransactionEditor}
             onMatch={runBankTransactionMatching}
+          />
+        )}
+
+        {(kind === 'purchaseManagement' || kind === 'salesManagement') && (
+          <BusinessOrderWorkflowPanel
+            mode={kind === 'purchaseManagement' ? 'purchase' : 'sales'}
+            onAdd={() => openBusinessOrderEditor(kind === 'purchaseManagement' ? 'purchase' : 'sales')}
+            onReview={() => reviewBusinessOrder(kind === 'purchaseManagement' ? 'purchase' : 'sales')}
+          />
+        )}
+
+        {kind === 'expenseReimbursement' && (
+          <ExpenseWorkflowPanel
+            onAdd={() => openDocumentRecordEditor('费用报销')}
+            onReview={() => reviewDocumentRecords('费用报销')}
+          />
+        )}
+
+        {kind === 'documentRegister' && (
+          <SourceDocumentWorkflowPanel
+            onAdd={() => openDocumentRecordEditor('其他')}
+            onReview={() => reviewDocumentRecords('原始单据')}
           />
         )}
 
@@ -10192,6 +10252,133 @@ function BankFlowWorkflowPanel({
           ['回单归档', '24 笔待补回单', '缺失附件不生成凭证'],
           ['单据匹配', '151 笔已匹配', '对方户名和金额可人工修正'],
           ['账务处理', '5 笔对账差异', '异常项进入待确认清单'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function BusinessOrderWorkflowPanel({
+  mode,
+  onAdd,
+  onReview,
+}: {
+  mode: 'purchase' | 'sales'
+  onAdd: () => void
+  onReview: () => void
+}) {
+  const isPurchase = mode === 'purchase'
+  const title = isPurchase ? '采购履约与入账准备' : '销售开票与收款准备'
+  const description = isPurchase
+    ? '订单、入库、进项票和付款状态分别核验，三方差异不自动进入成本或应付处理。'
+    : '订单、出库、销项票和回款状态分别核验，异常订单不自动进入收入或应收处理。'
+  const cards = isPurchase
+    ? [
+        ['订单范围', '42 单采购业务', '8 单待收票'],
+        ['履约入库', '31 单已入库', '待入库订单待确认'],
+        ['发票付款', '进项已匹配', '付款需关联流水'],
+        ['入账准备', '3 单三方差异', '差异项不生成凭证'],
+      ]
+    : [
+        ['订单范围', '56 单销售业务', '11 单待收款'],
+        ['履约出库', '54 单已出库', '2 单出库异常'],
+        ['开票回款', '43 单已开票', '回款需关联流水'],
+        ['入账准备', '待确认收入凭证', '异常项不自动入账'],
+      ]
+
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label={title}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+          <p className="mt-1 text-xs text-slate-500">{description}</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={isPurchase ? '新增采购单' : '新增销售单'} onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label={isPurchase ? '核验三方状态' : '核验履约状态'} onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-4">
+        {cards.map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ExpenseWorkflowPanel({
+  onAdd,
+  onReview,
+}: {
+  onAdd: () => void
+  onReview: () => void
+}) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="费用报销审批与付款准备">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">费用报销审批与付款准备</h2>
+          <p className="mt-1 text-xs text-slate-500">报销单、审批、票据、付款和费用凭证分步复核，退回和缺票项目保留待补状态。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增报销单" onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核付款资料" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['申请与审批', '29 张报销单', '18 张已审批'],
+          ['票据完整性', '2 张附件异常', '缺票项目待补资料'],
+          ['付款安排', '7 张待付款', '付款流水需人工关联'],
+          ['费用入账', '记-0048 已归档', '待确认项目不生成凭证'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function SourceDocumentWorkflowPanel({
+  onAdd,
+  onReview,
+}: {
+  onAdd: () => void
+  onReview: () => void
+}) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="原始单据归档与入账准备">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">原始单据归档与入账准备</h2>
+          <p className="mt-1 text-xs text-slate-500">非发票、非银行来源的原始资料先登记、核验附件和业务归属，再进入凭证草稿处理。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="登记原始单据" onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="核验归档资料" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-4">
+        {[
+          ['登记范围', '34 张原始单据', '业务日期与经办人可追溯'],
+          ['附件归档', '24 张已审核', '3 张缺少附件'],
+          ['业务分类', '费用、采购、合同等', '分类决定后续凭证规则'],
+          ['凭证准备', '10 张待生成凭证', '未经审核不进入草稿'],
         ].map(([label, value, detail]) => (
           <div key={label} className="border border-slate-200 bg-white p-2.5">
             <div className="text-xs text-slate-500">{label}</div>

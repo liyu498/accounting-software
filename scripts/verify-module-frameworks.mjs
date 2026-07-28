@@ -81,6 +81,12 @@ const errors = [
   ...(!businessSource.includes('资金流水匹配处理') ? ['banking modules must render a dedicated matching workflow'] : []),
   ...(!businessSource.includes('openPayrollEditor') ? ['payroll workflow must open the dedicated payroll editor'] : []),
   ...(!businessSource.includes('openBankTransactionEditor') ? ['bank workflow must open the dedicated transaction editor'] : []),
+  ...(!businessSource.includes('采购履约与入账准备') ? ['purchase management must render a dedicated fulfillment workflow'] : []),
+  ...(!businessSource.includes('销售开票与收款准备') ? ['sales management must render a dedicated fulfillment workflow'] : []),
+  ...(!businessSource.includes('费用报销审批与付款准备') ? ['expense reimbursement must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('原始单据归档与入账准备') ? ['document registration must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('openBusinessOrderEditor') ? ['order workflow must open the dedicated order editor'] : []),
+  ...(!businessSource.includes('openDocumentRecordEditor') ? ['document workflow must open the dedicated document editor'] : []),
 ]
 
 if (errors.length > 0) {
