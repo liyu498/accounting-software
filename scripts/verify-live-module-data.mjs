@@ -873,7 +873,7 @@ const requiredAssetCategoryStoreSnippets = [
 const requiredAssetCategoryPageSnippets = [
   ['asset category store binding', "from '../../stores/assetCategoryStore'"],
   ['asset category live scope', "kind === 'assetCategory'"],
-  ['asset category row mapping', 'mapLiveAssetCategoryRows(assetCategories)'],
+  ['asset category row mapping', 'mapLiveAssetCategoryRows(isTauri ? assetCategories : previewAssetCategories)'],
   ['asset category editor state', 'const [showAssetCategoryDialog, setShowAssetCategoryDialog] = useState(false)'],
   ['asset category save binding', 'createAssetCategory({'],
 ]
@@ -1263,7 +1263,7 @@ const requiredFixedAssetPageSnippets = [
   ['fixed asset edit row binding', "if (kind === 'depreciation' && isTauri && selectedCompanyId)"],
   ['fixed asset row mapper', 'mapLiveFixedAssetRows(fixedAssets)'],
   ['fixed asset category suggestion', "list={field === 'category' ? 'asset-category-options'"],
-  ['fixed asset category default', 'assetCategories.find((category) => category.is_enabled === 1)'],
+  ['fixed asset category default', 'effectiveAssetCategories.find((category) => category.is_enabled === 1)'],
 ]
 
 const requiredInventoryMovementCommandSnippets = [
