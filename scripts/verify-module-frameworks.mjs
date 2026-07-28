@@ -104,6 +104,10 @@ const errors = [
   ...(!businessSource.includes('凭证建议核验与草稿流转') ? ['ai voucher suggestions must render a dedicated confirmation workflow'] : []),
   ...(!businessSource.includes('AI规则训练与版本审核') ? ['ai rule training must render a dedicated governance workflow'] : []),
   ...(!businessSource.includes('openAiVoucherSuggestionEditor') ? ['ai voucher workflow must open the dedicated suggestion editor'] : []),
+  ...(!businessSource.includes('账簿取数与凭证穿透') ? ['ledger family must render a dedicated retrieval workflow'] : []),
+  ...(!businessSource.includes('财务报表取数与勾稽复核') ? ['financial statement family must render a dedicated reconciliation workflow'] : []),
+  ...(!businessSource.includes('reviewLedgerReports') ? ['ledger workflow must register a reconciliation review'] : []),
+  ...(!businessSource.includes('reviewFinancialStatements') ? ['financial workflow must register a statement review'] : []),
 ]
 
 if (errors.length > 0) {

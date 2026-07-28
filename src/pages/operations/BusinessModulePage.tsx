@@ -8758,6 +8758,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('已建立训练规则复核记录。规则只能生成候选建议，启用前须确认样本来源、命中率、版本和影响范围。')
   }
 
+  const reviewLedgerReports = () => {
+    writeModuleAudit('复核账簿取数与凭证穿透', `${currentPeriodLabel}｜科目与辅助余额`, '中', '成功')
+    setOperationNotice('已登记账簿取数复核。科目余额、辅助余额、总账和明细账差异必须追溯到凭证后再进行结账或报表取数。')
+  }
+
+  const reviewFinancialStatements = () => {
+    writeModuleAudit('复核财务报表勾稽关系', `${currentPeriodLabel}｜报表取数与重分类`, '高', '待审批')
+    setOperationNotice('已登记财务报表勾稽复核。资产负债、利润、现金流和权益项目需在公式、重分类和取数快照一致后才可形成报送包。')
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -8893,6 +8903,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         )}
 
         {kind === 'aiRuleTraining' && <AiRuleTrainingWorkflowPanel onReview={reviewAiRuleTraining} />}
+
+        {['ledgerReport', 'trialBalanceReport', 'accountSummaryReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'multiColumnLedgerReport'].includes(kind) && (
+          <LedgerWorkflowPanel onReview={reviewLedgerReports} onRefresh={() => void handlePrimaryAction()} />
+        )}
+
+        {['balanceSheetReport', 'incomeStatementReport', 'incomeQuarterReport', 'cashFlowReport', 'cashFlowQuarterReport', 'equityChangeReport', 'financialReport'].includes(kind) && (
+          <FinancialStatementWorkflowPanel onReview={reviewFinancialStatements} onRefresh={() => void handlePrimaryAction()} />
+        )}
 
         {kind === 'inputInvoice' && (
           <InputInvoiceWorkflowPanel
@@ -10924,6 +10942,68 @@ function AiRuleTrainingWorkflowPanel({ onReview }: { onReview: () => void }) {
           ['待审核版本', '7 条', '需核验样本和命中率'],
           ['冲突规则', '2 条', '需要合并或禁用处理'],
           ['训练样本', '256 条', '保留来源与人工修订记录'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function LedgerWorkflowPanel({ onReview, onRefresh }: { onReview: () => void; onRefresh: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账簿取数与凭证穿透">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">账簿取数与凭证穿透</h2>
+          <p className="mt-1 text-xs text-slate-500">账簿以已审核凭证为基础，按科目、辅助项和期间取数；余额差异必须穿透至凭证和业务来源后处理。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新账簿取数" onClick={onRefresh} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核余额一致性" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['凭证基础', '82 张', '仅取已保存的本期凭证'],
+          ['科目差异', '1 项', '需核验借贷方向与余额'],
+          ['辅助差异', '2 项', '客户、供应商或项目待匹配'],
+          ['可穿透记录', '73 条', '支持回查凭证与来源单据'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function FinancialStatementWorkflowPanel({ onReview, onRefresh }: { onReview: () => void; onRefresh: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="财务报表取数与勾稽复核">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">财务报表取数与勾稽复核</h2>
+          <p className="mt-1 text-xs text-slate-500">报表按公式版本和当前账簿取数生成，重分类、现金流映射和勾稽差异均需保留快照与人工确认记录。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="重算当前报表" onClick={onRefresh} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核勾稽关系" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['公式版本', '2026.05', '按当前会计准则与模板取数'],
+          ['重分类项目', '3 项', '应收应付和预收预付待确认'],
+          ['现金流未映射', '2 项', '必须补齐映射后再形成报送包'],
+          ['勾稽差异', '0 项', '当前快照可供导出和打印'],
         ].map(([label, value, detail]) => (
           <div key={label} className="border border-slate-200 bg-white p-2.5">
             <div className="text-xs text-slate-500">{label}</div>
