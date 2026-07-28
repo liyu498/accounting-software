@@ -5679,7 +5679,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'employee' && usesLiveEmployeeData) {
+    if (kind === 'employee' && (usesLiveEmployeeData || employees.length > 0)) {
       return {
         ...baseConfig,
         rows: mapLiveEmployeeRows(employees),
@@ -5696,7 +5696,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'socialSecurityTaxReport' && usesLiveSocialSecurityTaxData) return { ...baseConfig, rows: mapLiveSocialSecurityTaxRows(socialSecurityRecords), summary: summarizeLiveSocialSecurityTax(socialSecurityRecords) }
     if (kind === 'incomeTaxReport' && usesLiveReportData && liveReports.incomeStatement) return { ...baseConfig, rows: mapLiveIncomeTaxRows(liveReports.incomeStatement), summary: summarizeLiveIncomeTax(liveReports.incomeStatement) }
     if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
-    if ((kind === 'billList' || kind === 'bankStatement') && usesLiveBankTransactionData) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, businessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
+    if ((kind === 'billList' || kind === 'bankStatement') && (usesLiveBankTransactionData || bankTransactions.length > 0)) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, businessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
     if (kind === 'bankReconciliation' && (usesLiveBankReconciliationRecordData || bankReconciliationRecords.length > 0)) return { ...baseConfig, rows: mapLiveBankReconciliationRows(bankReconciliationRecords) }
     if (kind === 'receivableSettlement' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'receivable') }
     if (kind === 'payableSettlement' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'payable') }
@@ -6688,9 +6688,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       openBankReconciliationEditor()
       return
     }
-    if (kind === 'employee' && isTauri && selectedCompanyId) {
-      setEditingEmployeeId(null)
-      setShowEmployeeDialog(true)
+    if (kind === 'employee') {
+      openEmployeeEditor()
       return
     }
     if (usesLiveMatchingRuleData && selectedCompanyId) {
@@ -6732,10 +6731,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'depreciation') { openFixedAssetEditor(); return }
-    if ((kind === 'billList' || kind === 'bankStatement') && isTauri && selectedCompanyId) {
-      setEditingBankTransactionId(null)
-      setBankTransactionDraft({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' })
-      setShowBankTransactionDialog(true)
+    if (kind === 'billList' || kind === 'bankStatement') {
+      openBankTransactionEditor()
       return
     }
     if (kind === 'inventoryMovement') { openInventoryMovementEditor(); return }
@@ -6839,6 +6836,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleCreateEmployee = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const employee: Employee = { id: editingEmployeeId || `preview-employee-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', employeeCode: employeeDraft.employeeCode, name: employeeDraft.name, idNo: employeeDraft.idNo || null, department: employeeDraft.department || null, position: employeeDraft.position || null, mobile: employeeDraft.mobile || null, entryDate: employeeDraft.entryDate || null, employmentStatus: employeeDraft.employmentStatus, createdAt: timestamp, updatedAt: timestamp }
+      setEmployees((items) => editingEmployeeId ? items.map((item) => item.id === employee.id ? { ...employee, createdAt: item.createdAt } : item) : [employee, ...items])
+      writeModuleAudit(editingEmployeeId ? '编辑人员' : '新增人员', `${employee.employeeCode}｜${employee.name}`, '中', '成功')
+      setOperationNotice(`人员档案已保存到当前预览：${employee.name}。桌面端会写入当前账套，后续可用于薪酬、社保和个税资料维护。`)
+      setEmployeeDraft({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: '', employmentStatus: '在职' })
+      setEditingEmployeeId(null)
+      setShowEmployeeDialog(false)
+      return
+    }
     if (!selectedCompanyId) return
     try {
       const input = {
@@ -7517,6 +7525,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveBankTransaction = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const incomeAmount = Number(bankTransactionDraft.incomeAmount || 0)
+      const expenseAmount = Number(bankTransactionDraft.expenseAmount || 0)
+      if (incomeAmount > 0 && expenseAmount > 0) { setOperationNotice('银行流水的收入与支出金额只能填写一项。'); return }
+      const transaction: BankTransaction = { id: editingBankTransactionId || `preview-bank-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, accountName: bankTransactionDraft.accountName, serialNo: bankTransactionDraft.serialNo, transactionDate: bankTransactionDraft.transactionDate, counterparty: bankTransactionDraft.counterparty || null, summary: bankTransactionDraft.summary || null, incomeAmount, expenseAmount, balance: bankTransactionDraft.balance ? Number(bankTransactionDraft.balance) : null, receiptStatus: bankTransactionDraft.receiptStatus, matchResult: null, status: '待处理', createdAt: timestamp, updatedAt: timestamp }
+      setBankTransactions((records) => editingBankTransactionId ? records.map((item) => item.id === transaction.id ? { ...transaction, createdAt: item.createdAt } : item) : [transaction, ...records])
+      writeModuleAudit(editingBankTransactionId ? '编辑银行流水' : '新增银行流水', `${transaction.accountName}｜${transaction.serialNo}`, '中', '成功')
+      setOperationNotice(`银行流水已保存到当前预览：${transaction.serialNo}。桌面端会写入当前账套，回单、自动匹配和凭证仍需人工确认。`)
+      setEditingBankTransactionId(null)
+      setBankTransactionDraft({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' })
+      setSelectedBankTransactionTagIds([])
+      setShowBankTransactionDialog(false)
+      return
+    }
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
       const transactionInput = { companyId: selectedCompanyId, accountName: bankTransactionDraft.accountName, serialNo: bankTransactionDraft.serialNo, transactionDate: bankTransactionDraft.transactionDate, counterparty: bankTransactionDraft.counterparty || undefined, summary: bankTransactionDraft.summary || undefined, incomeAmount: Number(bankTransactionDraft.incomeAmount || 0), expenseAmount: Number(bankTransactionDraft.expenseAmount || 0), balance: bankTransactionDraft.balance ? Number(bankTransactionDraft.balance) : undefined, receiptStatus: bankTransactionDraft.receiptStatus }
@@ -8450,7 +8473,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowBankReconciliationDialog(true)
       return
     }
-    if (kind === 'employee' && isTauri) {
+    if (kind === 'employee') {
       const employee = employees.find((item) => item.id === row.id)
       if (!employee) return
       setEditingEmployeeId(employee.id)
@@ -8653,7 +8676,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (kind === 'inventorySettings' && isTauri && selectedCompanyId) { const item=inventoryItems.find((value)=>value.id===row.id); if(!item)return; setEditingInventoryItemId(item.id); setInventoryItemDraft({itemCode:item.itemCode,itemName:item.itemName,specification:item.specification||'',unit:item.unit,taxRate:String((item.taxRate||0)*100),defaultSubject:item.defaultSubject||''}); setShowInventoryItemDialog(true); return }
     if (kind === 'unitSettings' && isTauri && selectedCompanyId) { const unit=measurementUnits.find((value)=>value.id===row.id); if(!unit)return; setEditingMeasurementUnitId(unit.id); setMeasurementUnitDraft({unitName:unit.unitName,unitGroup:unit.unitGroup||'',baseUnit:unit.baseUnit||'',conversionRate:String(unit.conversionRate),precisionDigits:String(unit.precisionDigits),remark:unit.remark||''}); setShowMeasurementUnitDialog(true); return }
-    if ((kind === 'billList' || kind === 'bankStatement') && isTauri && selectedCompanyId) {
+    if (kind === 'billList' || kind === 'bankStatement') {
       const transaction = bankTransactions.find((item) => item.id === row.id)
       if (!transaction) {
         setOperationNotice('未找到当前账期的银行流水。')
@@ -9396,6 +9419,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
             {kind === 'aiVoucherSuggestions' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增建议" onClick={openAiVoucherSuggestionEditor} />}
+            {kind === 'employee' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增人员" onClick={openEmployeeEditor} />}
             {kind === 'payroll' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={openPayrollEditor} />}
             {kind === 'settlementRules' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
             {kind === 'currencySettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
@@ -9406,7 +9430,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {(kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'} onClick={() => { resetAdapterAuthorizationDraft(); setShowAdapterAuthorizationDialog(true) }} />}
             {kind === 'socialSecurity' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={openSocialSecurityEditor} />}
             {kind === 'specialDeduction' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={openSpecialDeductionEditor} />}
-            {(kind === 'billList' || kind === 'bankStatement') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={() => { setEditingBankTransactionId(null); setSelectedBankTransactionTagIds([]); setBankTransactionDraft({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' }); setShowBankTransactionDialog(true) }} />}
+            {(kind === 'billList' || kind === 'bankStatement') && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={openBankTransactionEditor} />}
             {kind === 'documentRegister' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增单据" onClick={() => setShowDocumentRecordDialog(true)} />}
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" onClick={handleRefreshAction} />
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="模板" onClick={handleTemplateAction} />

@@ -1181,7 +1181,7 @@ const requiredBankTransactionPageSnippets = [
   ['bank transaction api create binding', 'bankTransactionApi.createBankTransaction({'],
   ['bank transaction api update binding', 'bankTransactionApi.updateBankTransaction({'],
   ['bank transaction edit state', 'const [editingBankTransactionId, setEditingBankTransactionId] = useState<string | null>(null)'],
-  ['bank transaction edit row binding', "if ((kind === 'billList' || kind === 'bankStatement') && isTauri && selectedCompanyId)"],
+  ['bank transaction edit row binding', "if (kind === 'billList' || kind === 'bankStatement')"],
   ['bank transaction row mapper', 'mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, businessTags)'],
 ]
 
