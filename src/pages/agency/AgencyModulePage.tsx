@@ -86,6 +86,14 @@ interface AgencyDetailMeta {
   processLabel: string
 }
 
+interface AgencyToolbarMeta {
+  refreshLabel: string
+  importLabel?: string
+  excelLabel: string
+  pdfLabel: string
+  printLabel: string
+}
+
 const agencyBatchTaskOptions: AgencyBatchTaskOption[] = [
   { id: 'invoice_collection', label: '批量采集发票', scope: '全部已授权税务客户', detail: '核验税务授权范围和发票采集条件。', requiresApproval: false },
   { id: 'bank_collection', label: '批量采集银行流水', scope: '已授权银行客户', detail: '核验银行授权状态和可用导入范围。', requiresApproval: false },
@@ -767,6 +775,18 @@ function getAgencyDetailMeta(kind: AgencyModuleKind): AgencyDetailMeta {
   return { title: '自动化任务明细', boundary: '自动化仅维护本地任务、建议和人工确认状态；不会越过授权边界调用外部系统或自动入账、申报。', processLabel: '复核任务' }
 }
 
+function getAgencyToolbarMeta(kind: AgencyModuleKind): AgencyToolbarMeta {
+  if (kind === 'clients') return { refreshLabel: '刷新客户', importLabel: '导入账套', excelLabel: '导出客户Excel', pdfLabel: '导出客户PDF', printLabel: '打印客户清单' }
+  if (kind === 'authorizationCenter') return { refreshLabel: '检查授权', importLabel: '导入授权', excelLabel: '导出授权Excel', pdfLabel: '导出授权PDF', printLabel: '打印授权清单' }
+  if (kind === 'serviceContracts') return { refreshLabel: '刷新合同', importLabel: '导入合同', excelLabel: '导出履约Excel', pdfLabel: '导出履约PDF', printLabel: '打印合同清单' }
+  if (kind === 'downloadCenter') return { refreshLabel: '刷新文件', excelLabel: '导出文件清单', pdfLabel: '导出下载清单', printLabel: '打印文件清单' }
+  if (kind === 'dataStats') return { refreshLabel: '刷新统计', excelLabel: '导出统计Excel', pdfLabel: '导出统计PDF', printLabel: '打印统计口径' }
+  if (kind === 'batchOps') return { refreshLabel: '刷新任务', importLabel: '导入任务模板', excelLabel: '导出任务Excel', pdfLabel: '导出任务PDF', printLabel: '打印任务清单' }
+  if (kind === 'invoiceManagement') return { refreshLabel: '刷新开票', importLabel: '导入收费记录', excelLabel: '导出开票Excel', pdfLabel: '导出开票PDF', printLabel: '打印开票清单' }
+  if (kind === 'healthCheck') return { refreshLabel: '重新体检', excelLabel: '导出风险Excel', pdfLabel: '导出风险PDF', printLabel: '打印风险清单' }
+  return { refreshLabel: '刷新队列', importLabel: '导入自动化规则', excelLabel: '导出任务Excel', pdfLabel: '导出任务PDF', printLabel: '打印任务清单' }
+}
+
 export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const navigate = useNavigate()
   const { companies, fetchCompanies, selectCompany } = useCompanyStore()
@@ -779,6 +799,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     : new Date().toISOString().slice(0, 7)
   const baseConfig = configs[kind]
   const detailMeta = getAgencyDetailMeta(kind)
+  const toolbarMeta = getAgencyToolbarMeta(kind)
   const exportJobs = useExportJobs()
   const config = useMemo(() => {
     if (kind !== 'downloadCenter') return baseConfig
@@ -1696,11 +1717,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
             <p className="text-xs text-slate-500">{pageConfig.description}</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
-            <ToolButton icon={<RefreshCw className={cn('h-3.5 w-3.5', isLoadingRows && 'animate-spin')} />} label="刷新" onClick={handleRefresh} />
-            <ToolButton icon={<Upload className="h-3.5 w-3.5" />} label="导入" onClick={handleImport} />
-            <ToolButton icon={<Download className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
-            <ToolButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={handleExportPdf} />
-            <ToolButton icon={<Printer className="h-3.5 w-3.5" />} label="打印" onClick={handlePrint} />
+            <ToolButton icon={<RefreshCw className={cn('h-3.5 w-3.5', isLoadingRows && 'animate-spin')} />} label={toolbarMeta.refreshLabel} onClick={handleRefresh} />
+            {toolbarMeta.importLabel && <ToolButton icon={<Upload className="h-3.5 w-3.5" />} label={toolbarMeta.importLabel} onClick={handleImport} />}
+            <ToolButton icon={<Download className="h-3.5 w-3.5" />} label={toolbarMeta.excelLabel} onClick={handleExportExcel} />
+            <ToolButton icon={<FileText className="h-3.5 w-3.5" />} label={toolbarMeta.pdfLabel} onClick={handleExportPdf} />
+            <ToolButton icon={<Printer className="h-3.5 w-3.5" />} label={toolbarMeta.printLabel} onClick={handlePrint} />
             <button
               type="button"
               onClick={handlePrimaryAction}
