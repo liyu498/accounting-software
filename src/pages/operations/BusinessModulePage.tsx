@@ -3403,6 +3403,29 @@ function getModuleTabs(kind: ModuleKind) {
   return ['业务清单', '处理明细', '关联凭证', '处理规则', '相关附件', '操作日志']
 }
 
+function hasWorkspaceReference(value?: string) {
+  return Boolean(value && !['-', '无', '未生成', '待生成', '缺失'].includes(value.trim()))
+}
+
+function filterRowsByWorkspaceTab(kind: ModuleKind, tab: string, rows: ModuleRow[]) {
+  if (/(日志|变更记录|审计证据)/.test(tab)) return rows
+
+  // 附件、影像或回单工作区只展示已经有关联文件的业务记录。
+  if (/(附件|影像|回单|证照|证明)/.test(tab)) {
+    return rows.filter((row) => hasWorkspaceReference(row.attachment))
+  }
+
+  // 凭证、申报包或草稿工作区只展示已经建立关联对象的业务记录。
+  if (/(凭证|申报包|草稿)/.test(tab)) {
+    return rows.filter((row) => hasWorkspaceReference(row.voucher))
+  }
+
+  if (/(风险|异常)/.test(tab)) return rows.filter((row) => row.status === '异常')
+  if (/(校验|认证|勾选|核对)/.test(tab)) return rows.filter((row) => ['待处理', '待确认', '异常', '已匹配'].includes(row.status))
+  if (kind === 'declarationReceipt' && tab === '回执缴款') return rows.filter((row) => hasWorkspaceReference(row.attachment) || row.values.paymentStatus === '待缴款')
+  return rows
+}
+
 const toneClasses = {
   blue: 'text-[#1f65a7]',
   green: 'text-green-700',
@@ -6084,14 +6107,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const filteredRows = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
-    return config.rows.filter((row) => {
+    return filterRowsByWorkspaceTab(kind, activeTab, config.rows).filter((row) => {
       const matchesStatus = status === '全部' || row.status === status || (status === '未匹配' && row.status === '待处理')
       const matchesBusinessTag = businessTagFilter === '全部' || row.values.tags?.split(' / ').includes(businessTagFilter)
       if (!matchesStatus || !matchesBusinessTag) return false
       if (!normalized) return true
       return Object.values(row.values).some((value) => value.toLowerCase().includes(normalized)) || row.id.toLowerCase().includes(normalized)
     })
-  }, [businessTagFilter, config.rows, keyword, status])
+  }, [activeTab, businessTagFilter, config.rows, keyword, kind, status])
 
   const supportsBusinessTagFilter = ['outputInvoice', 'inputInvoice', 'voucher', 'billList', 'bankStatement'].includes(kind)
 
