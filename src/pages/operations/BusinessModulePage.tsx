@@ -4924,6 +4924,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [previewAuxiliaryItems, setPreviewAuxiliaryItems] = useState<typeof auxiliaryItems>([])
   const [previewVoucherTemplateTypes] = useState<typeof voucherTemplateTypes>([{ id: 'preview-template-type', company_id: 'preview-company', name: '通用凭证', sort_order: 1 }])
   const [previewVoucherTemplates, setPreviewVoucherTemplates] = useState<typeof voucherTemplates>([])
+  const [previewSettlementRules, setPreviewSettlementRules] = useState<typeof settlementRules>([])
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -5957,11 +5958,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'settlementRules' && usesLiveSettlementRuleData) {
+    if (kind === 'settlementRules' && (usesLiveSettlementRuleData || previewSettlementRules.length > 0)) {
       return {
         ...baseConfig,
-        rows: mapLiveSettlementRuleRows(settlementRules),
-        summary: summarizeLiveSettlementRules(settlementRules),
+        rows: mapLiveSettlementRuleRows(isTauri ? settlementRules : previewSettlementRules),
+        summary: summarizeLiveSettlementRules(isTauri ? settlementRules : previewSettlementRules),
       }
     }
 
@@ -6184,7 +6185,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -7005,6 +7006,35 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveSettlementRule = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const rule = {
+        id: editingSettlementRuleId || `preview-settlement-rule-${Date.now()}`,
+        company_id: selectedCompanyId || 'preview-company',
+        name: settlementRuleDraft.name.trim(),
+        rule_type: settlementRuleDraft.ruleType,
+        source_formula: settlementRuleDraft.sourceFormula.trim() || null,
+        target_account_code: settlementRuleDraft.targetAccountCode.trim() || null,
+        voucher_word_id: settlementRuleDraft.voucherWordId.trim() || null,
+        summary_template: settlementRuleDraft.summaryTemplate.trim() || null,
+        priority: Number(settlementRuleDraft.priority || 0),
+        is_enabled: settlementRuleDraft.isEnabled ? 1 : 0,
+      }
+      if (!rule.name) {
+        setOperationNotice('请填写结转规则名称。')
+        return
+      }
+      setPreviewSettlementRules((items) => {
+        const next = editingSettlementRuleId
+          ? items.map((item) => item.id === rule.id ? rule : item)
+          : [...items, rule]
+        return [...next].sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name, 'zh-CN'))
+      })
+      writeModuleAudit(editingSettlementRuleId ? '编辑结转规则' : '新增结转规则', `${rule.name}｜优先级 ${rule.priority}`, '中', '成功')
+      setOperationNotice(`结转规则已保存到当前预览：${rule.name}。桌面端会写入当前账套，执行结转和生成凭证仍需人工确认。`)
+      resetSettlementRuleDraft()
+      setShowSettlementRuleDialog(false)
+      return
+    }
     if (!selectedCompanyId) return
     try {
       const input = {
@@ -7031,6 +7061,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleDeleteSettlementRule = async () => {
+    if (!isTauri && editingSettlementRuleId) {
+      const rule = previewSettlementRules.find((item) => item.id === editingSettlementRuleId)
+      if (!window.confirm(`确认删除结转规则“${rule?.name || ''}”吗？`)) return
+      setPreviewSettlementRules((items) => items.filter((item) => item.id !== editingSettlementRuleId))
+      writeModuleAudit('删除结转规则', rule?.name || editingSettlementRuleId, '高', '成功')
+      setOperationNotice(`已从当前预览删除结转规则“${rule?.name || ''}”。`)
+      resetSettlementRuleDraft()
+      setShowSettlementRuleDialog(false)
+      return
+    }
     if (!selectedCompanyId || !editingSettlementRuleId) return
     const rule = settlementRules.find((item) => item.id === editingSettlementRuleId)
     if (!window.confirm(`确认删除结转规则“${rule?.name || ''}”吗？`)) return
@@ -8622,8 +8662,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowAuxiliaryItemDialog(true)
       return
     }
-    if (kind === 'settlementRules' && isTauri && selectedCompanyId) {
-      const rule = settlementRules.find((item) => `settlement-rule-${item.id}` === row.id)
+    if (kind === 'settlementRules') {
+      const rule = (isTauri ? settlementRules : previewSettlementRules).find((item) => `settlement-rule-${item.id}` === row.id)
       if (!rule) {
         setOperationNotice('未找到当前账套的结转规则。')
         return
@@ -9489,7 +9529,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'aiVoucherSuggestions' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增建议" onClick={openAiVoucherSuggestionEditor} />}
             {kind === 'employee' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增人员" onClick={openEmployeeEditor} />}
             {kind === 'payroll' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={openPayrollEditor} />}
-            {kind === 'settlementRules' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
+            {kind === 'settlementRules' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
             {kind === 'accountArchive' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增账户" onClick={() => { resetCompanyAccountDraft(); setShowCompanyAccountDialog(true) }} />}
             {kind === 'currencySettings' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
             {kind === 'auxiliaryCategories' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增类别" onClick={() => { resetAuxiliaryCategoryDraft(); setShowAuxiliaryCategoryDialog(true) }} />}
@@ -10357,7 +10397,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600">目标科目
                 <select value={settlementRuleDraft.targetAccountCode} onChange={(event) => setSettlementRuleDraft((draft) => ({ ...draft, targetAccountCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]">
                   <option value="">请选择目标科目</option>
-                  {detailedAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}
+                  {templateAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}
                 </select>
               </label>
               <label className="grid gap-1 text-xs text-slate-600">凭证字
