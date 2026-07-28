@@ -76,6 +76,11 @@ const errors = [
   ...(!businessSource.includes('人员档案资料核验') ? ['employee registry must render a dedicated document verification workflow'] : []),
   ...(!businessSource.includes('openInputInvoiceEditor') ? ['input invoice workflow must open the dedicated invoice editor'] : []),
   ...(!businessSource.includes('openEmployeeEditor') ? ['employee workflow must open the dedicated employee editor'] : []),
+  ...(!businessSource.includes('工资核算与凭证准备') ? ['payroll must render a dedicated payroll workflow'] : []),
+  ...(!businessSource.includes('社保公积金核对流程') ? ['social security must render a dedicated reconciliation workflow'] : []),
+  ...(!businessSource.includes('资金流水匹配处理') ? ['banking modules must render a dedicated matching workflow'] : []),
+  ...(!businessSource.includes('openPayrollEditor') ? ['payroll workflow must open the dedicated payroll editor'] : []),
+  ...(!businessSource.includes('openBankTransactionEditor') ? ['bank workflow must open the dedicated transaction editor'] : []),
 ]
 
 if (errors.length > 0) {

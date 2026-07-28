@@ -8591,6 +8591,40 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('已完成本地档案完整性核验；证件、合同、社保和专项附加扣除缺项已保留在待补资料清单中。')
   }
 
+  const openPayrollEditor = () => {
+    setEditingPayrollId(null)
+    setPayrollDraft({ employeeId: employees.find((employee) => employee.employmentStatus === '在职')?.id || '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
+    setShowPayrollDialog(true)
+  }
+
+  const validatePayroll = () => {
+    writeModuleAudit('复核工资核算', `${currentPeriodLabel}｜工资、个税与社保扣款`, '中', '成功')
+    setOperationNotice('已完成本地工资行核验；异常工资项、个税扣缴和社保个人部分将继续保留在待确认清单。')
+  }
+
+  const openSocialSecurityEditor = () => {
+    setEditingSocialSecurityId(null)
+    setSocialSecurityDraft({ employeeId: employees.find((employee) => employee.employmentStatus === '在职')?.id || '', city: '', base: '', company: '', personal: '', fund: '' })
+    setShowSocialSecurityDialog(true)
+  }
+
+  const reconcileSocialSecurity = () => {
+    writeModuleAudit('核对社保公积金', `${currentPeriodLabel}｜工资基数与缴费明细`, '中', '成功')
+    setOperationNotice('已完成本地社保、公积金与工资基数核对；差异人员不会进入凭证生成或申报取数。')
+  }
+
+  const openBankTransactionEditor = () => {
+    setEditingBankTransactionId(null)
+    setSelectedBankTransactionTagIds([])
+    setBankTransactionDraft({ accountName: '', serialNo: '', transactionDate: currentPeriod?.end_date || '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' })
+    setShowBankTransactionDialog(true)
+  }
+
+  const runBankTransactionMatching = () => {
+    writeModuleAudit('执行资金流水匹配', `${currentPeriodLabel}｜待匹配流水`, '中', '待审批')
+    setOperationNotice('已生成本地流水匹配建议；对方户名、金额和关联单据仍需人工确认，系统不会自动入账。')
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -8721,6 +8755,28 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <EmployeeVerificationPanel
             onAdd={openEmployeeEditor}
             onReview={reviewEmployeeDocuments}
+          />
+        )}
+
+        {kind === 'payroll' && (
+          <PayrollWorkflowPanel
+            onAdd={openPayrollEditor}
+            onReview={validatePayroll}
+          />
+        )}
+
+        {kind === 'socialSecurity' && (
+          <SocialSecurityWorkflowPanel
+            onAdd={openSocialSecurityEditor}
+            onReview={reconcileSocialSecurity}
+          />
+        )}
+
+        {(kind === 'billList' || kind === 'bankStatement') && (
+          <BankFlowWorkflowPanel
+            mode={kind === 'bankStatement' ? '银行账单' : '账单一览'}
+            onAdd={openBankTransactionEditor}
+            onMatch={runBankTransactionMatching}
           />
         )}
 
@@ -10023,6 +10079,119 @@ function EmployeeVerificationPanel({
           ['入离职状态', '41 人状态正常', '1 人离职未完成停缴'],
           ['社保公积金', '36 人已关联', '6 人待补参保资料'],
           ['个税与扣除', '32 人资料已确认', '10 人待复核专项扣除'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function PayrollWorkflowPanel({
+  onAdd,
+  onReview,
+}: {
+  onAdd: () => void
+  onReview: () => void
+}) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="工资核算与凭证准备">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">工资核算与凭证准备</h2>
+          <p className="mt-1 text-xs text-slate-500">工资项、个税、个人社保扣款和发放凭证分别核验，避免未确认数据直接入账。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬行" onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核工资项" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-4">
+        {[
+          ['人员范围', '42 名在职人员', '3 名本月入职待确认'],
+          ['工资计算', '40 行已核验', '2 行缺少工资项'],
+          ['扣缴核对', '个税 ¥18,420.00', '社保个人扣款待复核'],
+          ['凭证准备', '记-0072 已生成', '待确认行不自动入账'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function SocialSecurityWorkflowPanel({
+  onAdd,
+  onReview,
+}: {
+  onAdd: () => void
+  onReview: () => void
+}) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="社保公积金核对流程">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">社保公积金核对流程</h2>
+          <p className="mt-1 text-xs text-slate-500">缴费基数、单位个人金额和工资扣款交叉核验；本页不直接向社保或税务机关提交数据。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增缴费明细" onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="核对工资基数" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['缴费人员', '38 人已匹配', '4 人存在资料或基数差异'],
+          ['单位部分', '¥72,650.00', '进入费用计提复核'],
+          ['个人部分', '¥31,220.00', '与工资扣款交叉核对'],
+          ['凭证与申报', '记-0075 已关联', '差异项不进入取数'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function BankFlowWorkflowPanel({
+  mode,
+  onAdd,
+  onMatch,
+}: {
+  mode: '账单一览' | '银行账单'
+  onAdd: () => void
+  onMatch: () => void
+}) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="资金流水匹配处理">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">资金流水匹配处理</h2>
+          <p className="mt-1 text-xs text-slate-500">{mode}按账户、回单、对方户名和关联单据完成匹配，凭证生成必须经人工确认。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="登记流水" onClick={onAdd} />
+          <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="执行匹配" onClick={onMatch} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-4">
+        {[
+          ['采集与导入', mode === '银行账单' ? '188 笔银行流水' : '96 笔本期流水', '来源与导入批次可追溯'],
+          ['回单归档', '24 笔待补回单', '缺失附件不生成凭证'],
+          ['单据匹配', '151 笔已匹配', '对方户名和金额可人工修正'],
+          ['账务处理', '5 笔对账差异', '异常项进入待确认清单'],
         ].map(([label, value, detail]) => (
           <div key={label} className="border border-slate-200 bg-white p-2.5">
             <div className="text-xs text-slate-500">{label}</div>
