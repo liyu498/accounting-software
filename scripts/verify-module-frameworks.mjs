@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 const appSource = readFileSync('src/App.tsx', 'utf8')
 const shellSource = readFileSync('src/components/layout/AppShell.tsx', 'utf8')
 const businessSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', 'utf8')
+const roleManagerSource = readFileSync('src/pages/settings/RoleManager.tsx', 'utf8')
 const agencyNavSource = readFileSync('src/pages/agency/agencyNav.tsx', 'utf8')
 const agencySource = readFileSync('src/pages/agency/AgencyModulePage.tsx', 'utf8')
 
@@ -173,6 +174,9 @@ const errors = [
   ...(!businessSource.includes('账期锁定与反结账审批') ? ['period management must render a dedicated workflow'] : []),
   ...(!businessSource.includes('reviewFoundationConfiguration') ? ['foundation workflow must register a review'] : []),
   ...(!businessSource.includes('账套设置导航与生效范围') ? ['settings overview must render a dedicated workflow'] : []),
+  ...(!roleManagerSource.includes('机构角色与成员授权') ? ['role manager must expose an agency authorization workspace'] : []),
+  ...(!roleManagerSource.includes('PREVIEW_ROLES') ? ['role manager must provide browser preview role data'] : []),
+  ...(!roleManagerSource.includes('权限矩阵') ? ['role manager must render a permission matrix view'] : []),
 ]
 
 if (errors.length > 0) {
