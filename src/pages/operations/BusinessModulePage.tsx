@@ -8663,6 +8663,46 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       : '已核验原始单据的业务日期、附件和经办人；缺少附件的单据将保留在待补资料清单。')
   }
 
+  const openFixedAssetEditor = () => {
+    const category = assetCategories.find((item) => item.is_enabled === 1)
+    setEditingFixedAssetId(null)
+    setFixedAssetDraft({ assetCode: '', assetName: '', category: category?.name || '', startDate: currentPeriod?.end_date || '', originalValue: '', usefulLifeMonths: category ? String(category.useful_life_months) : '', residualRate: category ? String(category.residual_rate * 100) : '5', sourceDocument: '' })
+    setShowFixedAssetDialog(true)
+  }
+
+  const reviewDepreciation = () => {
+    writeModuleAudit('复核固定资产折旧', `${currentPeriodLabel}｜待确认资产`, '中', '成功')
+    setOperationNotice('已复核资产原值、开始使用日期、折旧年限和来源凭据；异常资产不会进入本月折旧凭证。')
+  }
+
+  const openInventoryItemEditor = () => {
+    setEditingInventoryItemId(null)
+    setInventoryItemDraft({ itemCode: '', itemName: '', specification: '', unit: '', taxRate: '13', defaultSubject: '' })
+    setShowInventoryItemDialog(true)
+  }
+
+  const openInventoryMovementEditor = () => {
+    setEditingInventoryMovementId(null)
+    setInventoryMovementDraft({ movementDate: currentPeriod?.end_date || '', billNo: '', movementType: '采购入库', inventoryName: '', warehouse: '', counterparty: '', unit: '', quantity: '', amount: '', sourceDocument: '' })
+    setShowInventoryMovementDialog(true)
+  }
+
+  const reviewInventoryMovement = () => {
+    writeModuleAudit('核验出入库与发票匹配', `${currentPeriodLabel}｜待确认出入库`, '中', '成功')
+    setOperationNotice('已核验出入库单、存货档案和发票关联；未核价或缺票的库存业务不会进入成本结转。')
+  }
+
+  const openCostCarryoverEditor = () => {
+    setEditingCostCarryoverId(null)
+    setCostCarryoverDraft({ batchNo: '', carryoverDate: currentPeriod?.end_date || '', valuationMethod: '移动加权', sourceBillNo: '', inventoryName: '', debitSubject: '主营业务成本', creditSubject: '库存商品', costAmount: '', differenceAmount: '0', voucherNo: '', status: '待确认', sourceDocument: '' })
+    setShowCostCarryoverDialog(true)
+  }
+
+  const reviewCostCarryover = () => {
+    writeModuleAudit('复核月末成本结转', `${currentPeriodLabel}｜成本差异`, '高', '待审批')
+    setOperationNotice('已建立月末成本结转复核记录；未核价出库、数量差异和金额差异不会自动写入账簿。')
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -8837,6 +8877,28 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <SourceDocumentWorkflowPanel
             onAdd={() => openDocumentRecordEditor('其他')}
             onReview={() => reviewDocumentRecords('原始单据')}
+          />
+        )}
+
+        {kind === 'depreciation' && (
+          <FixedAssetWorkflowPanel
+            onAdd={openFixedAssetEditor}
+            onReview={reviewDepreciation}
+          />
+        )}
+
+        {(kind === 'inventorySettings' || kind === 'inventoryMovement') && (
+          <InventoryWorkflowPanel
+            mode={kind === 'inventorySettings' ? 'archive' : 'movement'}
+            onAdd={kind === 'inventorySettings' ? openInventoryItemEditor : openInventoryMovementEditor}
+            onReview={reviewInventoryMovement}
+          />
+        )}
+
+        {kind === 'costCarryover' && (
+          <CostCarryoverWorkflowPanel
+            onAdd={openCostCarryoverEditor}
+            onReview={reviewCostCarryover}
           />
         )}
 
@@ -10379,6 +10441,133 @@ function SourceDocumentWorkflowPanel({
           ['附件归档', '24 张已审核', '3 张缺少附件'],
           ['业务分类', '费用、采购、合同等', '分类决定后续凭证规则'],
           ['凭证准备', '10 张待生成凭证', '未经审核不进入草稿'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function FixedAssetWorkflowPanel({
+  onAdd,
+  onReview,
+}: {
+  onAdd: () => void
+  onReview: () => void
+}) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="资产折旧与凭证准备">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">资产折旧与凭证准备</h2>
+          <p className="mt-1 text-xs text-slate-500">资产类别、原值、使用日期、折旧期限和来源附件共同决定本期折旧；异常项目不得自动入账。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增资产" onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核折旧资料" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['资产原值', '¥1,286,000.00', '2 项来源资料待补'],
+          ['本月折旧', '¥28,650.00', '按资产类别和期限测算'],
+          ['凭证状态', '记-0080 已生成', '待确认项目仍留在清单'],
+          ['异常处置', '2 项待复核', '不进入期末结转'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function InventoryWorkflowPanel({
+  mode,
+  onAdd,
+  onReview,
+}: {
+  mode: 'archive' | 'movement'
+  onAdd: () => void
+  onReview: () => void
+}) {
+  const isArchive = mode === 'archive'
+  const title = isArchive ? '存货档案与核算口径' : '存货收发与成本结转'
+  const description = isArchive
+    ? '维护编码、单位、税率和默认科目，为发票商品行、出入库和成本结转提供统一口径。'
+    : '出入库、发票、数量金额和来源单据先匹配，再进入月末成本结转和凭证草稿。'
+  const cards = isArchive
+    ? [
+        ['存货档案', '128 项', '116 项处于启用状态'],
+        ['单位与税率', '9 项待补税率', '用于发票与成本核验'],
+        ['默认科目', '按存货维护', '决定凭证草稿建议'],
+        ['异常档案', '12 项停用', '不参与本期业务处理'],
+      ]
+    : [
+        ['入库业务', '¥386,420.00', '38 单已匹配发票'],
+        ['出库业务', '¥294,880.00', '待核数量和金额可追溯'],
+        ['单据附件', '4 单异常', '缺票和未核价不结转'],
+        ['成本准备', '待进入结转', '须人工确认凭证'],
+      ]
+
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label={title}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+          <p className="mt-1 text-xs text-slate-500">{description}</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={isArchive ? '新增存货档案' : '新增出入库单'} onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label={isArchive ? '核验档案口径' : '核验收发匹配'} onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-4">
+        {cards.map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function CostCarryoverWorkflowPanel({
+  onAdd,
+  onReview,
+}: {
+  onAdd: () => void
+  onReview: () => void
+}) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="月末成本结转复核">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">月末成本结转复核</h2>
+          <p className="mt-1 text-xs text-slate-500">结转批次须明确计价方法、出库来源、借贷科目和差异；本页只生成待确认记录，不直接改写账簿。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新建结转批次" onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核成本差异" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-4">
+        {[
+          ['结转范围', '5 个结转批次', '来源为已核验出库单'],
+          ['结转成本', '¥294,880.00', '按选择的计价方法取数'],
+          ['凭证准备', '3 张已生成', '其余进入待确认队列'],
+          ['阻断项', '2 项成本差异', '未核价出库不得结转'],
         ].map(([label, value, detail]) => (
           <div key={label} className="border border-slate-200 bg-white p-2.5">
             <div className="text-xs text-slate-500">{label}</div>

@@ -87,6 +87,11 @@ const errors = [
   ...(!businessSource.includes('原始单据归档与入账准备') ? ['document registration must render a dedicated workflow'] : []),
   ...(!businessSource.includes('openBusinessOrderEditor') ? ['order workflow must open the dedicated order editor'] : []),
   ...(!businessSource.includes('openDocumentRecordEditor') ? ['document workflow must open the dedicated document editor'] : []),
+  ...(!businessSource.includes('资产折旧与凭证准备') ? ['fixed assets must render a dedicated depreciation workflow'] : []),
+  ...(!businessSource.includes('存货收发与成本结转') ? ['inventory modules must render a dedicated inventory workflow'] : []),
+  ...(!businessSource.includes('月末成本结转复核') ? ['cost carryover must render a dedicated closing workflow'] : []),
+  ...(!businessSource.includes('openFixedAssetEditor') ? ['asset workflow must open the dedicated fixed asset editor'] : []),
+  ...(!businessSource.includes('openInventoryMovementEditor') ? ['inventory workflow must open the dedicated inventory movement editor'] : []),
 ]
 
 if (errors.length > 0) {
