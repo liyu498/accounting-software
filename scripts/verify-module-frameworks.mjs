@@ -142,6 +142,8 @@ const errors = [
   ...(!businessSource.includes('专项附加扣除已保存到当前预览') ? ['special deduction preview saves must update the specialized workspace'] : []),
   ...(!businessSource.includes('人员档案已保存到当前预览') ? ['employee preview saves must update the specialized workspace'] : []),
   ...(!businessSource.includes('银行流水已保存到当前预览') ? ['bank transaction preview saves must update the specialized workspace'] : []),
+  ...(!businessSource.includes('账户档案已保存到当前预览') ? ['company account preview saves must update the specialized workspace'] : []),
+  ...(!businessSource.includes('币别已保存到当前预览') ? ['currency preview saves must update the specialized workspace'] : []),
   ...(!businessSource.includes('资产折旧与凭证准备') ? ['fixed assets must render a dedicated depreciation workflow'] : []),
   ...(!businessSource.includes('存货收发与成本结转') ? ['inventory modules must render a dedicated inventory workflow'] : []),
   ...(!businessSource.includes('月末成本结转复核') ? ['cost carryover must render a dedicated closing workflow'] : []),

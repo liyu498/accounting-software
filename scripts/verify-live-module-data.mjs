@@ -188,7 +188,7 @@ const requiredPageSnippets = [
   ['income statement mapping', 'mapLiveIncomeStatementRows(liveReports.incomeStatement)'],
   ['cash flow mapping', 'mapLiveCashFlowRows(liveReports.cashFlow)'],
   ['company info mapping', 'mapLiveCompanyInfoRows(selectedCompany)'],
-  ['company account mapping', 'mapLiveCompanyAccountRows(companyAccounts)'],
+  ['company account mapping', 'mapLiveCompanyAccountRows(isTauri ? companyAccounts : previewCompanyAccounts)'],
   ['company bank account live scope', 'usesLiveCompanyBankAccountData'],
   ['initial balance mapping', 'mapLiveInitialBalanceRows(liveReports.initialBalance)'],
   ['initial balance validation', 'validateInitialBalances(currentPeriodId)'],
@@ -226,7 +226,7 @@ const requiredPageSnippets = [
   ['settlement rule mapping', 'mapLiveSettlementRuleRows(settlementRules)'],
   ['settlement rule live scope', 'usesLiveSettlementRuleData'],
   ['currency refresh', 'fetchCurrencies(selectedCompanyId)'],
-  ['currency mapping', 'mapLiveCurrencyRows(currencies)'],
+  ['currency mapping', 'mapLiveCurrencyRows(isTauri ? currencies : previewCurrencies)'],
   ['currency live scope', 'usesLiveCurrencyData'],
   ['template workspace refresh', 'fetchTemplateWorkspace(selectedCompanyId)'],
   ['common digest mapping', 'mapLiveCommonDigestRows(commonDigests)'],
@@ -1111,7 +1111,7 @@ const requiredCompanyAccountStoreSnippets = [
 const requiredCompanyAccountPageSnippets = [
   ['company account store binding', "from '../../stores/companyAccountStore'"],
   ['company account live scope', "kind === 'accountArchive'"],
-  ['company account row mapping', 'mapLiveCompanyAccountRows(companyAccounts)'],
+  ['company account row mapping', 'mapLiveCompanyAccountRows(isTauri ? companyAccounts : previewCompanyAccounts)'],
   ['company account editor state', 'const [showCompanyAccountDialog, setShowCompanyAccountDialog] = useState(false)'],
   ['company account save binding', 'createCompanyAccount({'],
 ]

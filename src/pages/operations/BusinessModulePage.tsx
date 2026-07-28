@@ -4917,6 +4917,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showCompanyAccountDialog, setShowCompanyAccountDialog] = useState(false)
   const [editingCompanyAccountId, setEditingCompanyAccountId] = useState<string | null>(null)
   const [companyAccountDraft, setCompanyAccountDraft] = useState({ accountName: '', accountType: '银行账户', bankName: '', accountNumber: '', subjectCode: '1002 银行存款', openingBalance: '0', attachmentNote: '', status: '启用' as '启用' | '停用' })
+  const [previewCompanyAccounts, setPreviewCompanyAccounts] = useState<typeof companyAccounts>([])
+  const [previewCurrencies, setPreviewCurrencies] = useState<typeof currencies>([])
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -5925,11 +5927,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'accountArchive' && usesLiveCompanyBankAccountData) {
+    if (kind === 'accountArchive' && (usesLiveCompanyBankAccountData || previewCompanyAccounts.length > 0)) {
       return {
         ...baseConfig,
-        rows: mapLiveCompanyAccountRows(companyAccounts),
-        summary: summarizeLiveCompanyAccounts(companyAccounts),
+        rows: mapLiveCompanyAccountRows(isTauri ? companyAccounts : previewCompanyAccounts),
+        summary: summarizeLiveCompanyAccounts(isTauri ? companyAccounts : previewCompanyAccounts),
       }
     }
 
@@ -5957,11 +5959,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'currencySettings' && usesLiveCurrencyData) {
+    if (kind === 'currencySettings' && (usesLiveCurrencyData || previewCurrencies.length > 0)) {
       return {
         ...baseConfig,
-        rows: mapLiveCurrencyRows(currencies),
-        summary: summarizeLiveCurrencies(currencies),
+        rows: mapLiveCurrencyRows(isTauri ? currencies : previewCurrencies),
+        summary: summarizeLiveCurrencies(isTauri ? currencies : previewCurrencies),
       }
     }
 
@@ -6176,7 +6178,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewCompanyAccounts, previewCurrencies, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -6707,7 +6709,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowBusinessTagDialog(true)
       return
     }
-    if (usesLiveCompanyBankAccountData && selectedCompanyId) {
+    if (kind === 'accountArchive') {
       resetCompanyAccountDraft()
       setShowCompanyAccountDialog(true)
       return
@@ -7044,6 +7046,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveCurrency = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const currency = { id: editingCurrencyId || `preview-currency-${Date.now()}`, company_id: selectedCompanyId || 'preview-company', code: currencyDraft.code.trim().toUpperCase(), name: currencyDraft.name.trim(), exchange_rate: Number(currencyDraft.exchangeRate || 0), is_base: currencyDraft.isBase ? 1 : 0 }
+      setPreviewCurrencies((items) => editingCurrencyId ? items.map((item) => item.id === currency.id ? currency : item) : [currency, ...items])
+      writeModuleAudit(editingCurrencyId ? '编辑币别' : '新增币别', `${currency.code}｜${currency.exchange_rate}`, '中', '成功')
+      setOperationNotice(`币别已保存到当前预览：${currency.code}。桌面端会写入当前账套，期末调汇与凭证生成仍需人工复核。`)
+      resetCurrencyDraft()
+      setShowCurrencyDialog(false)
+      return
+    }
     if (!selectedCompanyId) return
     try {
       const input = {
@@ -7322,6 +7333,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveCompanyAccount = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const account = { id: editingCompanyAccountId || `preview-account-${Date.now()}`, company_id: selectedCompanyId || 'preview-company', account_name: companyAccountDraft.accountName.trim(), account_type: companyAccountDraft.accountType, bank_name: companyAccountDraft.bankName.trim() || null, account_number: companyAccountDraft.accountNumber.trim(), subject_code: companyAccountDraft.subjectCode.trim(), opening_balance: Number(companyAccountDraft.openingBalance || 0), attachment_note: companyAccountDraft.attachmentNote.trim() || null, status: companyAccountDraft.status, created_at: timestamp, updated_at: timestamp }
+      setPreviewCompanyAccounts((items) => editingCompanyAccountId ? items.map((item) => item.id === account.id ? { ...account, created_at: item.created_at } : item) : [account, ...items])
+      writeModuleAudit(editingCompanyAccountId ? '编辑账户档案' : '新增账户档案', `${account.account_name}｜${account.account_number}`, '中', '成功')
+      setOperationNotice(`账户档案已保存到当前预览：${account.account_name}。桌面端会写入当前账套，可继续用于流水、转账和资金余额表。`)
+      resetCompanyAccountDraft()
+      setShowCompanyAccountDialog(false)
+      return
+    }
     if (!selectedCompanyId) return
     try {
       const input = {
@@ -8520,8 +8541,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowBusinessTagDialog(true)
       return
     }
-    if (usesLiveCompanyBankAccountData && selectedCompanyId) {
-      const account = companyAccounts.find((item) => `company-account-${item.id}` === row.id)
+    if (kind === 'accountArchive') {
+      const account = (isTauri ? companyAccounts : previewCompanyAccounts).find((item) => `company-account-${item.id}` === row.id)
       if (!account) { setOperationNotice('未找到当前账套的账户档案。'); return }
       setEditingCompanyAccountId(account.id)
       setCompanyAccountDraft({ accountName: account.account_name, accountType: account.account_type, bankName: account.bank_name || '', accountNumber: account.account_number, subjectCode: account.subject_code, openingBalance: String(account.opening_balance), attachmentNote: account.attachment_note || '', status: account.status })
@@ -8565,8 +8586,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowSettlementRuleDialog(true)
       return
     }
-    if (kind === 'currencySettings' && isTauri && selectedCompanyId) {
-      const currency = currencies.find((item) => `currency-${item.id}` === row.id)
+    if (kind === 'currencySettings') {
+      const currency = (isTauri ? currencies : previewCurrencies).find((item) => `currency-${item.id}` === row.id)
       if (!currency) {
         setOperationNotice('未找到当前账套的币别。')
         return
@@ -9422,7 +9443,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'employee' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增人员" onClick={openEmployeeEditor} />}
             {kind === 'payroll' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={openPayrollEditor} />}
             {kind === 'settlementRules' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
-            {kind === 'currencySettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
+            {kind === 'accountArchive' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增账户" onClick={() => { resetCompanyAccountDraft(); setShowCompanyAccountDialog(true) }} />}
+            {kind === 'currencySettings' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
             {kind === 'auxiliaryCategories' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增类别" onClick={() => { resetAuxiliaryCategoryDraft(); setShowAuxiliaryCategoryDialog(true) }} />}
             {kind === 'auxiliaryItems' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增项目" onClick={() => { if (auxiliaryCategories.length === 0) { setOperationNotice('请先新增辅助核算类别，再维护辅助核算项目。'); return }; resetAuxiliaryItemDraft(); setShowAuxiliaryItemDialog(true) }} />}
             {kind === 'commonDigests' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增摘要" onClick={() => { resetCommonDigestDraft(); setShowCommonDigestDialog(true) }} />}
