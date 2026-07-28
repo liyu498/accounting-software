@@ -292,6 +292,14 @@ interface ModuleDetailMeta {
   boundary: string
 }
 
+interface ModuleTableMeta {
+  statusLabel: string
+  voucherLabel: string
+  attachmentLabel: string
+  showVoucher: boolean
+  showAttachment: boolean
+}
+
 type LiveReportData = {
   trialBalance: TrialBalanceResult | null
   generalLedger: GeneralLedgerItem[] | null
@@ -3354,6 +3362,32 @@ function getModuleDetailMeta(kind: ModuleKind, title: string): ModuleDetailMeta 
   return { title: `${title}明细`, boundary: '查看只读取当前账套和账期下的本地字段。查看不会触发外部采集、凭证入账或税局提交。' }
 }
 
+function getModuleTableMeta(kind: ModuleKind): ModuleTableMeta {
+  const defaultMeta: ModuleTableMeta = { statusLabel: '处理状态', voucherLabel: '关联凭证', attachmentLabel: '附件', showVoucher: true, showAttachment: true }
+  if (['outputInvoice', 'inputInvoice', 'invoiceSelection', 'invoiceVoucherMatching'].includes(kind)) {
+    return { statusLabel: '业务状态', voucherLabel: '会计凭证', attachmentLabel: '发票影像', showVoucher: true, showAttachment: true }
+  }
+  if (['employee', 'payroll', 'socialSecurity', 'specialDeduction'].includes(kind)) {
+    return { statusLabel: '资料状态', voucherLabel: '工资凭证', attachmentLabel: '资料附件', showVoucher: kind !== 'employee', showAttachment: true }
+  }
+  if (['billList', 'bankStatement', 'bankReconciliation', 'transfer', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind)) {
+    return { statusLabel: '核对状态', voucherLabel: '关联凭证', attachmentLabel: '回单/附件', showVoucher: true, showAttachment: true }
+  }
+  if (kind === 'taxInit' || kind === 'taxReport' || kind === 'declarationCalendar' || kind === 'declarationReceipt' || kind.endsWith('TaxReport') || kind === 'nonTaxRevenueReport') {
+    return { statusLabel: '申报状态', voucherLabel: '申报包', attachmentLabel: '回执/附件', showVoucher: true, showAttachment: true }
+  }
+  if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) {
+    return { statusLabel: '人工确认', voucherLabel: '凭证草稿', attachmentLabel: '来源附件', showVoucher: true, showAttachment: true }
+  }
+  if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') {
+    return { statusLabel: '取数状态', voucherLabel: '凭证穿透', attachmentLabel: '报表附件', showVoucher: false, showAttachment: false }
+  }
+  if (kind.includes('Archive') || kind.includes('Settings') || kind.includes('Rules') || ['settingsData', 'companyInfo', 'initialBalance', 'subjectSettings', 'taxInit', 'unitSettings', 'periodManagement', 'auditLog', 'backupRestore', 'voucherRecycle'].includes(kind)) {
+    return { statusLabel: '配置状态', voucherLabel: '关联凭证', attachmentLabel: '支持材料', showVoucher: false, showAttachment: false }
+  }
+  return defaultMeta
+}
+
 const toneClasses = {
   blue: 'text-[#1f65a7]',
   green: 'text-green-700',
@@ -6015,6 +6049,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactionTagIds, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
+  const tableMeta = getModuleTableMeta(kind)
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [businessTagFilter, setBusinessTagFilter] = useState('全部')
@@ -9396,9 +9431,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                       {column.label}
                     </th>
                   ))}
-                  <th className="whitespace-nowrap border-b border-slate-200 px-2 py-2">状态</th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-2 py-2">凭证</th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-2 py-2">附件</th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-2 py-2">{tableMeta.statusLabel}</th>
+                  {tableMeta.showVoucher && <th className="whitespace-nowrap border-b border-slate-200 px-2 py-2">{tableMeta.voucherLabel}</th>}
+                  {tableMeta.showAttachment && <th className="whitespace-nowrap border-b border-slate-200 px-2 py-2">{tableMeta.attachmentLabel}</th>}
                   <th className="whitespace-nowrap border-b border-slate-200 px-2 py-2 text-right">操作</th>
                 </tr>
               </thead>
@@ -9429,13 +9464,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                       </td>
                     ))}
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2">{statusBadge(row.status)}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-600">{row.voucher}</td>
-                    <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-600">
+                    {tableMeta.showVoucher && <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-600">{row.voucher}</td>}
+                    {tableMeta.showAttachment && <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-600">
                       <span className="inline-flex items-center gap-1">
                         <Paperclip className="h-3.5 w-3.5" />
                         {row.attachment}
                       </span>
-                    </td>
+                    </td>}
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
                         <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
@@ -9453,8 +9488,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <tfoot className="bg-[#f8fafc]">
                 <tr>
                   <td className="px-2 py-2" />
-                  <td className="px-2 py-2 font-semibold" colSpan={Math.max(config.columns.length - 1, 1)}>合计/小计</td>
-                  <td className="px-2 py-2 text-right text-xs text-slate-500" colSpan={4}>当前页 {pagedRows.length} 条，筛选结果 {filteredRows.length} 条</td>
+                  <td className="px-2 py-2 font-semibold" colSpan={Math.max(config.columns.length, 1)}>合计/小计</td>
+                  <td className="px-2 py-2 text-right text-xs text-slate-500" colSpan={2 + Number(tableMeta.showVoucher) + Number(tableMeta.showAttachment)}>当前页 {pagedRows.length} 条，筛选结果 {filteredRows.length} 条</td>
                 </tr>
               </tfoot>
             </table>
