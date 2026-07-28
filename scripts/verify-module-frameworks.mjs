@@ -122,6 +122,10 @@ const errors = [
   ...(!businessSource.includes('导出文件留痕与下载控制') ? ['export center must render a dedicated download workflow'] : []),
   ...(!businessSource.includes('账套备份与恢复前校验') ? ['backup restore must render a dedicated recovery workflow'] : []),
   ...(!businessSource.includes('reviewImportArchiveData') ? ['archive workflow must register a review'] : []),
+  ...(!businessSource.includes('自动匹配规则与优先级控制') ? ['matching rules must render a dedicated governance workflow'] : []),
+  ...(!businessSource.includes('凭证与报表模板版本控制') ? ['templates must render a dedicated version workflow'] : []),
+  ...(!businessSource.includes('外部适配授权与脱敏边界') ? ['adapter settings must render a dedicated authorization workflow'] : []),
+  ...(!businessSource.includes('reviewRuleTemplateGovernance') ? ['rule and template workflow must register a review'] : []),
 ]
 
 if (errors.length > 0) {

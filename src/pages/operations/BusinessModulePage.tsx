@@ -8819,6 +8819,26 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           : '已登记备份恢复前校验。恢复操作必须由人工确认，且不能静默覆盖当前账套。')
   }
 
+  const reviewRuleTemplateGovernance = (scope: 'matching' | 'template' | 'adapter') => {
+    const labels = { matching: '复核自动匹配规则', template: '复核凭证报表模板', adapter: '复核外部适配授权' }
+    writeModuleAudit(labels[scope], `${currentPeriodLabel}｜版本与生效范围`, scope === 'adapter' ? '高' : '中', scope === 'adapter' ? '待审批' : '成功')
+    setOperationNotice(scope === 'matching'
+      ? '已登记匹配规则复核。规则按优先级生成待确认建议，不能直接生成已审核凭证或提交外部系统。'
+      : scope === 'template'
+        ? '已登记模板版本复核。凭证模板、结转规则和报表公式变更应重算并人工核验影响范围。'
+        : '已登记适配授权复核。仅保存渠道元数据和脱敏状态，不保存密码、令牌、Cookie 或证书。')
+  }
+
+  const openMatchingRuleEditor = () => {
+    resetMatchingRuleDraft()
+    setShowMatchingRuleDialog(true)
+  }
+
+  const openAdapterAuthorizationEditor = () => {
+    resetAdapterAuthorizationDraft()
+    setShowAdapterAuthorizationDialog(true)
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -8993,6 +9013,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         {kind === 'exportCenter' && <ExportWorkflowPanel onReview={() => reviewImportArchiveData('export')} />}
 
         {kind === 'backupRestore' && <BackupWorkflowPanel onBackup={() => void handlePrimaryAction()} onReview={() => reviewImportArchiveData('backup')} />}
+
+        {['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping'].includes(kind) && (
+          <MatchingRuleWorkflowPanel onAdd={openMatchingRuleEditor} onReview={() => reviewRuleTemplateGovernance('matching')} />
+        )}
+
+        {['settlementRules', 'commonDigests', 'voucherTemplateSettings', 'reportFormulaSettings'].includes(kind) && (
+          <TemplateGovernanceWorkflowPanel onReview={() => reviewRuleTemplateGovernance('template')} />
+        )}
+
+        {['taxAdapterSettings', 'bankAdapterSettings'].includes(kind) && (
+          <AdapterAuthorizationWorkflowPanel onAdd={openAdapterAuthorizationEditor} onReview={() => reviewRuleTemplateGovernance('adapter')} />
+        )}
 
         {kind === 'inputInvoice' && (
           <InputInvoiceWorkflowPanel
@@ -11422,6 +11454,37 @@ function BackupWorkflowPanel({ onBackup, onReview }: { onBackup: () => void; onR
       </div>
     </section>
   )
+}
+
+function MatchingRuleWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="自动匹配规则与优先级控制">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">自动匹配规则与优先级控制</h2><p className="mt-1 text-xs text-slate-500">发票、流水和现金流规则按条件、优先级、目标科目和凭证模板维护；命中结果仅生成待确认建议。</p></div><div className="flex flex-wrap gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增匹配规则" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核规则冲突" onClick={onReview} /></div></div>
+      <WorkflowMetrics items={['已启用规则|26 条|按范围和优先级执行', '待审核规则|5 条|须确认样本与目标动作', '冲突规则|2 条|需调整优先级或停用', '命中建议|84 条|仍需人工确认']}/>
+    </section>
+  )
+}
+
+function TemplateGovernanceWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="凭证与报表模板版本控制">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">凭证与报表模板版本控制</h2><p className="mt-1 text-xs text-slate-500">常用摘要、凭证模板、期末结转规则和报表公式需带版本、适用范围和变更记录；修改后须重算相关结果。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核模板影响" onClick={onReview} /></div>
+      <WorkflowMetrics items={['生效模板|18 个|当前账套与会计制度适用', '待发布版本|3 个|需要审批后启用', '取数公式|42 项|保留公式和重分类说明', '影响报表|4 张|需重算并复核快照']}/>
+    </section>
+  )
+}
+
+function AdapterAuthorizationWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="外部适配授权与脱敏边界">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">外部适配授权与脱敏边界</h2><p className="mt-1 text-xs text-slate-500">税局与银行适配器仅登记渠道、地区、能力范围、脱敏身份和授权状态；密码、令牌、Cookie 与证书不写入账套。</p></div><div className="flex flex-wrap gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增授权渠道" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核授权边界" onClick={onReview} /></div></div>
+      <WorkflowMetrics items={['已授权渠道|2 个|能力范围已登记', '待确认授权|1 个|等待人工核验身份', '到期提醒|1 项|需更新授权状态', '敏感凭据|0 项|系统不保存明文凭据']}/>
+    </section>
+  )
+}
+
+function WorkflowMetrics({ items }: { items: string[] }) {
+  return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{items.map((item) => { const [label, value, detail] = item.split('|'); return <div key={label} className="border border-slate-200 bg-white p-2.5"><div className="text-xs text-slate-500">{label}</div><div className="mt-1 text-sm font-semibold text-slate-900">{value}</div><div className="mt-1 text-xs text-slate-500">{detail}</div></div> })}</div>
 }
 
 function RulesLogDialog({
