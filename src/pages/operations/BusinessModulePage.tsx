@@ -3426,6 +3426,79 @@ function filterRowsByWorkspaceTab(kind: ModuleKind, tab: string, rows: ModuleRow
   return rows
 }
 
+interface WorkspaceTabContext {
+  title: string
+  description: string
+  metrics: Array<{ label: string; value: string; tone: 'blue' | 'green' | 'amber' | 'red' }>
+}
+
+function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]): WorkspaceTabContext | null {
+  if (/(日志|变更记录|审计证据)/.test(tab)) return null
+
+  const attachmentRows = rows.filter((row) => hasWorkspaceReference(row.attachment)).length
+  const voucherRows = rows.filter((row) => hasWorkspaceReference(row.voucher)).length
+  const pendingRows = rows.filter((row) => ['待处理', '待确认', '异常'].includes(row.status)).length
+  const commonMetrics: WorkspaceTabContext['metrics'] = [
+    { label: '当前记录', value: `${rows.length} 条`, tone: 'blue' },
+    { label: '待人工处理', value: `${pendingRows} 条`, tone: pendingRows > 0 ? 'amber' : 'green' },
+  ]
+
+  if (kind === 'outputInvoice' && tab === '开票汇总') {
+    return {
+      title: '开票汇总取数',
+      description: '按当前账期已登记销项发票归集开票金额、税额和凭证生成状态；汇总仅用于复核，不替代开票系统原始数据。',
+      metrics: [...commonMetrics, { label: '已关联凭证', value: `${voucherRows} 条`, tone: 'green' }],
+    }
+  }
+  if (kind === 'inputInvoice' && (tab === '认证勾选' || tab === '抵扣用途')) {
+    return {
+      title: '进项抵扣处理范围',
+      description: '当前清单用于复核认证、勾选和抵扣用途；实际税局票池同步与抵扣确认仍需在已授权桌面适配器中人工发起。',
+      metrics: [...commonMetrics, { label: '已附发票影像', value: `${attachmentRows} 条`, tone: 'green' }],
+    }
+  }
+  if (['employee', 'payroll', 'socialSecurity', 'specialDeduction'].includes(kind)) {
+    return {
+      title: '人员与薪税资料范围',
+      description: '人员档案、工资、社保和专项扣除按当前账期关联复核；缺少证照、工资项或缴费依据的记录不会进入凭证和申报取数。',
+      metrics: [...commonMetrics, { label: '资料附件齐备', value: `${attachmentRows} 条`, tone: 'green' }],
+    }
+  }
+  if (['billList', 'bankStatement', 'bankReconciliation', 'transfer', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind)) {
+    return {
+      title: '资金与往来核对范围',
+      description: '流水、回单、往来余额和核销结果仅生成待确认建议；金额差异和未达项需由经办人复核后才能影响凭证或结账。',
+      metrics: [...commonMetrics, { label: '已关联凭证', value: `${voucherRows} 条`, tone: 'green' }],
+    }
+  }
+  if (kind === 'taxInit' || kind === 'taxReport' || kind === 'declarationCalendar' || kind === 'declarationReceipt' || kind.endsWith('TaxReport') || kind === 'nonTaxRevenueReport') {
+    return {
+      title: '申报包与回执边界',
+      description: '取数快照、校验结果、申报包和缴款回执分别留痕。系统只生成本地待确认材料，不会自动向税务机关提交或发起扣款。',
+      metrics: [...commonMetrics, { label: '已归档回执', value: `${attachmentRows} 条`, tone: 'green' }],
+    }
+  }
+  if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) {
+    return {
+      title: 'AI人工确认范围',
+      description: '识别结果、凭证建议和训练规则只作为候选数据；低置信度、异常和规则变更均需要人工确认并写入审计记录。',
+      metrics: [...commonMetrics, { label: '已转凭证草稿', value: `${voucherRows} 条`, tone: 'green' }],
+    }
+  }
+  if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') {
+    return {
+      title: '账表取数与勾稽范围',
+      description: '本工作区展示账簿穿透、报表取数和勾稽校验范围；报表导出前仍需复核公式版本、重分类和凭证追溯结果。',
+      metrics: [...commonMetrics, { label: '可穿透记录', value: `${voucherRows} 条`, tone: 'green' }],
+    }
+  }
+  return {
+    title: `${tab}处理范围`,
+    description: '当前页签按筛选条件展示已关联业务记录；涉及数据写入、外部同步或高风险操作时仍须经过规则校验和人工确认。',
+    metrics: [...commonMetrics, { label: '关联附件', value: `${attachmentRows} 条`, tone: 'green' }],
+  }
+}
+
 const toneClasses = {
   blue: 'text-[#1f65a7]',
   green: 'text-green-700',
@@ -9062,6 +9135,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const listWorkspaceHint = activeTab === workspaceTabs[0]
     ? listMeta.hint
     : `当前工作区聚焦${activeTab}，可按筛选条件查看当前账期已关联的业务记录。`
+  const workspaceContext = activeTab === workspaceTabs[0]
+    ? null
+    : getWorkspaceTabContext(kind, activeTab, filteredRows)
 
   return (
     <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
@@ -9138,6 +9214,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             </div>
           ))}
         </div>
+
+        {workspaceContext && (
+          <div className="flex flex-wrap items-stretch gap-px border-b border-slate-200 bg-slate-200 dark:border-neutral-700 dark:bg-neutral-700">
+            <div className="min-w-[300px] flex-1 bg-[#fbfcfe] px-3 py-2 dark:bg-neutral-900">
+              <div className="text-xs font-semibold text-slate-800 dark:text-neutral-100">{workspaceContext.title}</div>
+              <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-neutral-400">{workspaceContext.description}</p>
+            </div>
+            {workspaceContext.metrics.map((metric) => (
+              <div key={metric.label} className="min-w-32 flex-1 bg-white px-3 py-2 dark:bg-neutral-900">
+                <div className="text-xs text-slate-500 dark:text-neutral-400">{metric.label}</div>
+                <div className={cn('mt-1 text-sm font-semibold tabular-nums', toneClasses[metric.tone])}>{metric.value}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {kind === 'aiJobQueue' && (
           <AiJobWorkflowPanel
