@@ -287,6 +287,11 @@ interface ModuleListMeta {
   exportHint: string
 }
 
+interface ModuleDetailMeta {
+  title: string
+  boundary: string
+}
+
 type LiveReportData = {
   trialBalance: TrialBalanceResult | null
   generalLedger: GeneralLedgerItem[] | null
@@ -3327,6 +3332,28 @@ function getModuleListMeta(kind: ModuleKind, title: string): ModuleListMeta {
   return defaultMeta
 }
 
+function getModuleDetailMeta(kind: ModuleKind, title: string): ModuleDetailMeta {
+  if (['outputInvoice', 'inputInvoice', 'invoiceSelection', 'invoiceVoucherMatching'].includes(kind)) {
+    return { title: '发票业务明细', boundary: '查看只读取当前账套的发票字段、认证或匹配状态和凭证关联；不会采集票池、修改认证勾选或触发开票。' }
+  }
+  if (['employee', 'payroll', 'socialSecurity', 'specialDeduction'].includes(kind)) {
+    return { title: '人员档案明细', boundary: '查看只读取当前账套人员、薪酬和申报资料；证件与联系方式按脱敏规则展示，不会发放工资或提交社保、个税数据。' }
+  }
+  if (['billList', 'bankStatement', 'bankReconciliation', 'transfer', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind)) {
+    return { title: '资金与往来明细', boundary: '查看只读取当前账套的流水、核销、对账和账龄记录；不会连接银行、发起付款或变更核销结果。' }
+  }
+  if (kind === 'taxInit' || kind === 'taxReport' || kind === 'declarationCalendar' || kind === 'declarationReceipt' || kind.endsWith('TaxReport') || kind === 'nonTaxRevenueReport') {
+    return { title: '税务申报事项明细', boundary: '查看只读取当前账套税种认定、取数快照、校验状态和回执附件；不会登录税局、提交申报或发起扣款。' }
+  }
+  if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) {
+    return { title: 'AI 处理建议明细', boundary: '查看只读取 AI 任务来源、识别结果、置信度、规则版本和人工确认记录；不会自动写入凭证或执行外部操作。' }
+  }
+  if (kind.includes('Archive') || kind.includes('Settings') || ['companyInfo', 'initialBalance', 'subjectSettings', 'unitSettings', 'periodManagement'].includes(kind)) {
+    return { title: '账套基础资料明细', boundary: '查看只读取当前账套的基础档案、会计口径与启用控制；不会改变配置生效范围或历史账期数据。' }
+  }
+  return { title: `${title}明细`, boundary: '查看只读取当前账套和账期下的本地字段。查看不会触发外部采集、凭证入账或税局提交。' }
+}
+
 const toneClasses = {
   blue: 'text-[#1f65a7]',
   green: 'text-green-700',
@@ -5987,6 +6014,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactionTagIds, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
+  const detailMeta = getModuleDetailMeta(kind, title)
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [businessTagFilter, setBusinessTagFilter] = useState('全部')
@@ -9466,11 +9494,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </section>
       </div>
       {detailRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="业务明细">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={detailMeta.title}>
           <div className="max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto border border-slate-300 bg-white shadow-xl">
             <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">业务明细</h2>
+                <h2 className="text-sm font-semibold text-slate-900">{detailMeta.title}</h2>
                 <p className="mt-1 text-xs text-slate-500">{title} / {rowObjectLabel(detailRow)}</p>
               </div>
               <button type="button" onClick={() => setDetailRow(null)} className="text-xs text-slate-500 hover:text-slate-900">关闭</button>
@@ -9486,7 +9514,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 </div>
               ))}
             </div>
-            <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">本窗口只读取当前账套和账期下的本地字段。查看不会触发发票采集、银行连接、凭证入账或税局提交。</div>
+            <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">{detailMeta.boundary}</div>
           </div>
         </div>
       )}
