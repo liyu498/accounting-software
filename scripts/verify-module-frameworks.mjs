@@ -63,6 +63,19 @@ const errors = [
   ...(agencyNavSource.includes("path: '/agency/accounts'") ? ['duplicate account-management item is still in agency navigation'] : []),
   ...(appSource.includes(duplicateAccountRoute) ? ['agency accounts route still renders the duplicate page'] : []),
   ...(!appSource.includes(accountRedirectRoute) ? ['agency accounts route must redirect to the home account-management workspace'] : []),
+  ...(shellSource.includes('>\n              短信\n') ? ['SMS shortcut must not be rendered in the account shell'] : []),
+  ...(shellSource.includes('handleSmsAction') ? ['SMS shell action must be removed'] : []),
+  ...(!shellSource.includes("label: 'AI做账工作台'") ? ['AI accounting navigation must be named as a workbench'] : []),
+  ...(!shellSource.includes("label: '自动化与规则'") ? ['AI automation navigation must clarify its rule and queue scope'] : []),
+  ...(!shellSource.includes('z-[80]') ? ['theme menu must render above the account header overlay'] : []),
+  ...(businessSource.includes('支持导出和打印') ? ['business list headers must not use one generic export/print hint'] : []),
+  ...(!businessSource.includes('getModuleListMeta') ? ['business list metadata must be derived per module domain'] : []),
+  ...(!businessSource.includes('进项抵扣与认证清单') ? ['input invoice list must have its own operating title'] : []),
+  ...(!businessSource.includes('人员档案与参保资料清单') ? ['employee list must have its own operating title'] : []),
+  ...(!businessSource.includes('进项抵扣处理流程') ? ['input invoices must render a dedicated deduction workflow'] : []),
+  ...(!businessSource.includes('人员档案资料核验') ? ['employee registry must render a dedicated document verification workflow'] : []),
+  ...(!businessSource.includes('openInputInvoiceEditor') ? ['input invoice workflow must open the dedicated invoice editor'] : []),
+  ...(!businessSource.includes('openEmployeeEditor') ? ['employee workflow must open the dedicated employee editor'] : []),
 ]
 
 if (errors.length > 0) {

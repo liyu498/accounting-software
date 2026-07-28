@@ -281,6 +281,12 @@ interface ModuleConfig {
   notes: string[]
 }
 
+interface ModuleListMeta {
+  title: string
+  hint: string
+  exportHint: string
+}
+
 type LiveReportData = {
   trialBalance: TrialBalanceResult | null
   generalLedger: GeneralLedgerItem[] | null
@@ -3102,6 +3108,197 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   },
 }
 
+function getModuleListMeta(kind: ModuleKind, title: string): ModuleListMeta {
+  const defaultMeta: ModuleListMeta = {
+    title: `${title}清单`,
+    hint: '按当前账期、筛选条件和处理状态查看业务记录。',
+    exportHint: '导出按当前筛选、列顺序和金额格式生成；打印沿用当前清单口径。',
+  }
+
+  const metadata: Partial<Record<ModuleKind, ModuleListMeta>> = {
+    outputInvoice: {
+      title: '销项开票与收款清单',
+      hint: '核验开票来源、购方、税率、金额税额、异常票和凭证生成状态。',
+      exportHint: '导出包含开票来源、商品行、税额、价税合计、凭证号和附件状态。',
+    },
+    inputInvoice: {
+      title: '进项抵扣与认证清单',
+      hint: '围绕票池同步、认证勾选、抵扣用途、供应商匹配和凭证草稿进行复核。',
+      exportHint: '导出保留认证状态、抵扣用途、税额、异常原因和凭证关联。',
+    },
+    billList: {
+      title: '资金流水与匹配清单',
+      hint: '按账户、对方户名、资金方向、回单和凭证匹配结果处理本期流水。',
+      exportHint: '导出包含流水来源、收支金额、匹配结果、回单状态和凭证关联。',
+    },
+    bankStatement: {
+      title: '银行流水与对账清单',
+      hint: '核对账户余额、流水号、回单归档、对账差异和凭证生成结果。',
+      exportHint: '导出以银行账户、流水号、余额、对账结果和回单状态为主。',
+    },
+    receipt: {
+      title: '票据台账与到期清单',
+      hint: '跟踪票据类型、出票方、到期日、背书用途和影像附件。',
+      exportHint: '导出保留票据号码、到期日、票面金额、用途和附件状态。',
+    },
+    documentRegister: {
+      title: '业务单据登记清单',
+      hint: '按业务日期、单据类型、归属部门、附件和审核状态管理原始单据。',
+      exportHint: '导出包含单据编号、业务类型、金额、审核状态和凭证去向。',
+    },
+    expenseReimbursement: {
+      title: '费用报销审批清单',
+      hint: '核验报销人、费用类别、审批节点、票据附件、付款与凭证状态。',
+      exportHint: '导出保留报销单号、费用分类、审批结果、付款状态和凭证。',
+    },
+    purchaseManagement: {
+      title: '采购业务与入账清单',
+      hint: '关联采购单、供应商、进项票、入库和成本入账处理结果。',
+      exportHint: '导出按采购单、供应商、数量金额、发票和入账状态生成。',
+    },
+    salesManagement: {
+      title: '销售业务与开票清单',
+      hint: '关联客户、销售单、出库、销项发票、收款和收入凭证状态。',
+      exportHint: '导出按客户、业务单、金额、开票、收款和凭证状态生成。',
+    },
+    employee: {
+      title: '人员档案与参保资料清单',
+      hint: '核验员工身份、部门岗位、入职状态、社保资料和档案附件完整性。',
+      exportHint: '导出保留脱敏证件号、部门岗位、入职日期、状态和档案附件。',
+    },
+    payroll: {
+      title: '薪酬计算与发放清单',
+      hint: '复核工资项、个税、社保扣缴、实发金额和工资凭证生成状态。',
+      exportHint: '导出按员工、工资项、个税、实发、异常说明和凭证状态生成。',
+    },
+    socialSecurity: {
+      title: '社保公积金核对清单',
+      hint: '按员工和缴费地核验基数、单位与个人缴纳额、工资匹配和差异。',
+      exportHint: '导出包含缴费基数、单位个人金额、来源、差异和凭证状态。',
+    },
+    specialDeduction: {
+      title: '专项附加扣除核验清单',
+      hint: '核验扣除项目、人员资料、有效期、个税取数和异常补充项。',
+      exportHint: '导出保留扣除项目、人员、有效期、取数状态和资料完整性。',
+    },
+    voucher: {
+      title: '会计凭证审核清单',
+      hint: '按凭证字、日期、摘要、借贷金额、附件和审核状态处理凭证。',
+      exportHint: '导出遵循会计凭证编号、分录金额、附件张数和审核口径。',
+    },
+    transfer: {
+      title: '账户内部转账清单',
+      hint: '核验转出转入账户、手续费、流水号、回单和内部转账凭证。',
+      exportHint: '导出包含账户流向、金额、手续费、流水号、回单和凭证。',
+    },
+    depreciation: {
+      title: '折旧摊销计提清单',
+      hint: '核验资产或待摊项目、计提期间、摊销金额、凭证模板和执行状态。',
+      exportHint: '导出以资产项目、计提口径、金额、执行状态和凭证为主。',
+    },
+    inventorySettings: {
+      title: '存货档案与成本口径清单',
+      hint: '维护存货编码、规格、单位、税率、默认科目和成本结转基础资料。',
+      exportHint: '导出包含存货档案、单位税率、默认科目和成本核算口径。',
+    },
+    inventoryMovement: {
+      title: '出入库业务清单',
+      hint: '按入出库日期、仓库、存货、数量金额和单据附件核验库存业务。',
+      exportHint: '导出包含出入库方向、仓库、存货、数量金额和单据来源。',
+    },
+    costCarryover: {
+      title: '成本结转执行清单',
+      hint: '核验成本来源、结转方法、入账金额、凭证模板和结转异常。',
+      exportHint: '导出保留成本来源、结转口径、金额、凭证和异常说明。',
+    },
+    bankReconciliation: {
+      title: '银行对账差异清单',
+      hint: '逐笔核对账单、账簿余额、未达项、调节结果和差异处理状态。',
+      exportHint: '导出包含银行账单、账簿记录、差异原因和调节结果。',
+    },
+    receivableSettlement: {
+      title: '应收核销与回款清单',
+      hint: '跟踪客户应收、回款流水、核销金额、差额和收入凭证关联。',
+      exportHint: '导出保留客户、应收单据、回款、核销金额和差异状态。',
+    },
+    payableSettlement: {
+      title: '应付核销与付款清单',
+      hint: '跟踪供应商应付、付款流水、核销金额、差额和成本费用凭证。',
+      exportHint: '导出保留供应商、应付单据、付款、核销金额和差异状态。',
+    },
+    receivablePayableAging: {
+      title: '往来账龄与风险清单',
+      hint: '按往来单位、科目、余额、账龄区间和最近凭证识别逾期风险。',
+      exportHint: '导出包含往来余额、账龄区间、逾期金额、责任人和风险状态。',
+    },
+    invoiceVoucherMatching: {
+      title: '票据凭证匹配核验清单',
+      hint: '核验发票、单据、银行流水与凭证之间的金额、日期和科目匹配。',
+      exportHint: '导出包含源单据、匹配规则、匹配结果、差异和凭证关联。',
+    },
+    riskCheck: {
+      title: '账套风险检查清单',
+      hint: '汇总发票、凭证、报表和税务规则命中的风险项及处置结果。',
+      exportHint: '导出包含风险规则、触发数据、风险等级、负责人和处理状态。',
+    },
+    closingTasks: {
+      title: '期末结转任务清单',
+      hint: '按结账步骤、前置校验、执行顺序、生成凭证和审批要求完成关账。',
+      exportHint: '导出保留结转步骤、前置条件、执行状态、凭证和审批记录。',
+    },
+    taxReport: {
+      title: '申报取数与校验清单',
+      hint: '核验税种、申报表、取数来源、计税依据、减免抵扣和申报状态。',
+      exportHint: '导出包含税种、申报表、取数、校验、应缴金额和风险。',
+    },
+    declarationCalendar: {
+      title: '本期申报日历清单',
+      hint: '按申报截止日、税种、负责人、取数状态和确认节点安排本期工作。',
+      exportHint: '导出保留税种、所属期、截止日期、负责人和办理状态。',
+    },
+    declarationReceipt: {
+      title: '申报回执与缴款归档清单',
+      hint: '核验申报状态、回执号、缴款书、收取时间和归档附件。',
+      exportHint: '导出包含申报表、回执号、缴款书、缴款状态和归档附件。',
+    },
+    auditLog: {
+      title: '账套操作审计清单',
+      hint: '按操作人、模块、对象、风险等级、结果和时间追溯账套操作。',
+      exportHint: '导出保留操作主体、对象、结果、附件、账期和审计时间。',
+    },
+    backupRestore: {
+      title: '备份恢复与校验清单',
+      hint: '跟踪账套快照、文件哈希、恢复验证、操作人和异常原因。',
+      exportHint: '导出包含备份名称、账套、哈希、恢复状态和操作时间。',
+    },
+  }
+
+  if (metadata[kind]) return metadata[kind]
+
+  if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') {
+    return {
+      title: `${title}取数清单`,
+      hint: '按科目、期间、期初期末、取数公式和数据来源复核报表口径。',
+      exportHint: '导出以当前报表口径、账期、取数列和金额格式生成。',
+    }
+  }
+  if (kind.includes('Settings') || kind.includes('Archive') || kind === 'companyInfo' || kind === 'taxInit' || kind === 'unitSettings') {
+    return {
+      title: `${title}维护清单`,
+      hint: '维护当前账套的基础资料、启用状态、关联规则和生效范围。',
+      exportHint: '导出保留档案编码、名称、启用状态、关联说明和维护时间。',
+    }
+  }
+  if (kind.includes('Rules') || kind === 'cashFlowMapping' || kind === 'printTemplateSettings') {
+    return {
+      title: `${title}规则清单`,
+      hint: '按适用范围、优先级、取数或匹配条件、模板和启用状态维护规则。',
+      exportHint: '导出包含规则条件、适用范围、模板、优先级和启用状态。',
+    }
+  }
+  return defaultMeta
+}
+
 const toneClasses = {
   blue: 'text-[#1f65a7]',
   green: 'text-green-700',
@@ -5761,6 +5958,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }),
     }
   }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactionTagIds, bankTransactions, baseConfig, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  const listMeta = getModuleListMeta(kind, title)
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [businessTagFilter, setBusinessTagFilter] = useState('全部')
@@ -8355,6 +8553,44 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const openInputInvoiceEditor = () => {
+    setEditingInvoiceId(null)
+    setInvoiceDraft({ invoiceNo: '', invoiceCode: '', invoiceDate: currentPeriod?.end_date || '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
+    setSelectedInvoiceTagIds([])
+    setShowInvoiceDialog(true)
+  }
+
+  const openInputInvoiceMatcher = () => {
+    const candidate = invoices.find((invoice) => invoice.invoice_type === 'input' && !invoice.voucher_id)
+    if (!candidate) {
+      setOperationNotice('当前没有可关联凭证的进项发票；请先登记发票或解除现有凭证关联。')
+      return
+    }
+    if (vouchers.length === 0) {
+      setOperationNotice('当前账期尚无可关联凭证；请先新增并人工复核会计凭证。')
+      return
+    }
+    setSelectedMatchInvoiceId(candidate.id)
+    setSelectedMatchVoucherId(vouchers[0].id)
+    setShowInvoiceVoucherMatchDialog(true)
+  }
+
+  const syncInputInvoicePool = () => {
+    writeModuleAudit('同步进项票池', `${currentPeriodLabel}｜待人工复核`, '中', '待审批')
+    setOperationNotice('已建立进项票池同步任务并记录审计日志；税局票池读取需在桌面端配置授权后由操作人确认执行。')
+  }
+
+  const openEmployeeEditor = () => {
+    setEditingEmployeeId(null)
+    setEmployeeDraft({ employeeCode: '', name: '', idNo: '', department: '', position: '', mobile: '', entryDate: currentPeriod?.end_date || '', employmentStatus: '在职' })
+    setShowEmployeeDialog(true)
+  }
+
+  const reviewEmployeeDocuments = () => {
+    writeModuleAudit('核验人员档案资料', `${currentPeriodLabel}｜待补资料`, '中', '成功')
+    setOperationNotice('已完成本地档案完整性核验；证件、合同、社保和专项附加扣除缺项已保留在待补资料清单中。')
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -8472,6 +8708,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             </div>
           ))}
         </div>
+
+        {kind === 'inputInvoice' && (
+          <InputInvoiceWorkflowPanel
+            onSync={syncInputInvoicePool}
+            onAdd={openInputInvoiceEditor}
+            onMatch={openInputInvoiceMatcher}
+          />
+        )}
+
+        {kind === 'employee' && (
+          <EmployeeVerificationPanel
+            onAdd={openEmployeeEditor}
+            onReview={reviewEmployeeDocuments}
+          />
+        )}
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-[#fbfcfe] px-3 py-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -8593,8 +8844,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       <div className="min-w-0 pt-3">
         <section className="min-w-0 border border-slate-200 bg-white">
           <div className="flex h-9 items-center justify-between border-b border-slate-200 bg-[#f8fafc] px-3">
-            <div className="text-sm font-semibold text-slate-900">{title}列表</div>
-            <div className="text-xs text-slate-500">显示 {pageStart}-{pageEnd} / {filteredRows.length} 条，支持导出和打印</div>
+            <div className="text-sm font-semibold text-slate-900">{listMeta.title}</div>
+            <div className="max-w-[58%] truncate text-xs text-slate-500">显示 {pageStart}-{pageEnd} / {filteredRows.length} 条，{listMeta.hint}</div>
           </div>
           <div className="max-w-full overflow-x-auto">
             <table className="min-w-[1120px] w-full border-collapse text-left text-xs">
@@ -8681,7 +8932,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             </table>
           </div>
           <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 text-xs text-slate-500">
-            <div>导出文件按当前筛选、列顺序和金额格式生成；PDF 打印使用同一表格模板。</div>
+            <div>{listMeta.exportHint}</div>
             <div className="flex items-center gap-2">
               <span>第 {page} / {totalPages} 页</span>
               <select
@@ -9702,6 +9953,85 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </div>
       )}
     </div>
+  )
+}
+
+function InputInvoiceWorkflowPanel({
+  onSync,
+  onAdd,
+  onMatch,
+}: {
+  onSync: () => void
+  onAdd: () => void
+  onMatch: () => void
+}) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="进项抵扣处理流程">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">进项抵扣处理流程</h2>
+          <p className="mt-1 text-xs text-slate-500">票池、认证用途与凭证关联分开留痕；外部税务动作必须由授权人员确认。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="同步票池" onClick={onSync} />
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="登记进项票" onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="关联凭证" onClick={onMatch} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-4">
+        {[
+          ['1', '票池与采集', '72 张已入池，3 张待复核'],
+          ['2', '抵扣用途确认', '18 张待勾选用途'],
+          ['3', '认证与异常复核', '3 张异常不进入申报取数'],
+          ['4', '凭证草稿关联', '12 张已关联，人工确认入账'],
+        ].map(([step, label, detail]) => (
+          <div key={step} className="flex min-w-0 gap-2 border border-slate-200 bg-white p-2.5">
+            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-blue-50 text-xs font-semibold text-[#1f65a7]">{step}</span>
+            <div className="min-w-0">
+              <div className="text-xs font-medium text-slate-800">{label}</div>
+              <div className="mt-0.5 text-xs leading-4 text-slate-500">{detail}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function EmployeeVerificationPanel({
+  onAdd,
+  onReview,
+}: {
+  onAdd: () => void
+  onReview: () => void
+}) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="人员档案资料核验">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">人员档案资料核验</h2>
+          <p className="mt-1 text-xs text-slate-500">人员档案只维护本地资料状态，工资、社保和个税模块各自依据已确认资料取数。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增人员" onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="核验资料" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['身份与合同', '39 / 42 已齐全', '3 人待补合同或证件'],
+          ['入离职状态', '41 人状态正常', '1 人离职未完成停缴'],
+          ['社保公积金', '36 人已关联', '6 人待补参保资料'],
+          ['个税与扣除', '32 人资料已确认', '10 人待复核专项扣除'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 

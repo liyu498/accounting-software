@@ -40,7 +40,6 @@ import {
   User,
   Users,
   Wallet,
-  Mail,
 } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '../../lib/utils'
@@ -67,14 +66,14 @@ interface SidebarSection {
 
 const topLevelItems: SidebarItem[] = [
   { id: 'dashboard', label: '工作台', icon: <LayoutDashboard className="h-4 w-4" />, path: '/dashboard' },
-  { id: 'ai', label: 'AI做账', icon: <Bot className="h-4 w-4" />, path: '/ai' },
+  { id: 'ai', label: 'AI做账工作台', icon: <Bot className="h-4 w-4" />, path: '/ai' },
   { id: 'notifications', label: '通知待办', icon: <FileCheck2 className="h-4 w-4" />, path: '/notifications' },
 ]
 
 const allSections: SidebarSection[] = [
   {
     id: 'ai-modules',
-    label: 'AI自动化',
+    label: '自动化与规则',
     icon: <Bot className="h-4 w-4" />,
     items: [
       { id: 'ai-jobs', label: 'AI任务队列', icon: <Bot className="h-4 w-4" />, path: '/ai/jobs' },
@@ -265,11 +264,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     navigate(path)
   }
 
-  const handleSmsAction = () => {
-    writeShellAudit('创建短信催办', '客户资料/申报确认催办短信', '中', '待审批')
-    setOperationNotice('短信催办已写入待确认记录；未配置短信服务前不会直接发送外部短信。')
-  }
-
   const handleLogout = () => {
     writeShellAudit('退出登录', user?.username || 'admin')
     setShowUserMenu(false)
@@ -278,7 +272,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen bg-[#eef3f8] text-slate-900">
+    <div className="flex h-screen bg-[#eef3f8] text-slate-900 dark:bg-[#0d0d0d]">
       <button
         type="button"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -292,7 +286,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <aside
         className={cn(
-          'fixed z-40 flex h-full w-[248px] flex-col border-r border-[#102942] bg-[#173653] text-white lg:relative',
+          'fixed z-40 flex h-full w-[248px] flex-col border-r border-[#102942] bg-[#173653] text-white dark:border-[#303030] dark:bg-[#171717] lg:relative',
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
@@ -342,7 +336,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-12 items-center justify-between gap-2 overflow-hidden border-b border-[#1f66c7] bg-[#2d79e6] px-2 py-1 text-white sm:px-4">
+        <header className="relative z-[60] flex min-h-12 items-center justify-between gap-2 overflow-visible border-b border-[#1f66c7] bg-[#2d79e6] px-2 py-1 text-white dark:border-[#303030] dark:bg-[#171717] sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             <div className="min-w-0 flex-1 sm:flex-none">
               <CompanySelector />
@@ -370,8 +364,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </button>
               {showQuickMenu && (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowQuickMenu(false)} />
-                  <div className="absolute right-0 top-full z-50 mt-2 w-52 rounded border border-slate-200 bg-white py-1 text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                  <div className="fixed inset-0 z-[70]" onClick={() => setShowQuickMenu(false)} />
+                  <div className="absolute right-0 top-full z-[80] mt-2 w-52 rounded border border-slate-200 bg-white py-1 text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
                     <button
                       type="button"
                       onClick={() => runQuickAction('/tax/workspace', '打开常办事项', '税务申报工作台', '已打开申报工作台；真实税局提交仍需人工确认。')}
@@ -415,10 +409,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Download className="h-4 w-4" />
               下载中心
             </Link>
-            <button type="button" onClick={handleSmsAction} className="hidden h-8 items-center gap-1 rounded px-2 font-medium text-white hover:bg-white/10 md:inline-flex">
-              <Mail className="h-4 w-4" />
-              短信
-            </button>
             <div className="relative hidden sm:block">
               <button
                 type="button"
@@ -434,8 +424,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </button>
               {showUserMenu && (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded border border-slate-200 bg-white py-1 text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                  <div className="fixed inset-0 z-[70]" onClick={() => setShowUserMenu(false)} />
+                  <div className="absolute right-0 top-full z-[80] mt-2 w-48 rounded border border-slate-200 bg-white py-1 text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
                     <div className="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
                       <div className="text-sm font-semibold">{user?.realName || user?.username || 'admin'}</div>
                       <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">当前账套操作员</div>
@@ -532,8 +522,8 @@ function ThemeToggle() {
       </button>
       {showMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-          <div className="absolute right-0 top-full z-50 mt-1 min-w-[120px] rounded border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+          <div className="fixed inset-0 z-[70]" onClick={() => setShowMenu(false)} />
+          <div className="absolute right-0 top-full z-[80] mt-1 min-w-[120px] rounded border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
             {themeOptions.map((option) => (
               <button
                 key={option.value}
