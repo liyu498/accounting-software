@@ -126,6 +126,11 @@ const errors = [
   ...(!businessSource.includes('凭证与报表模板版本控制') ? ['templates must render a dedicated version workflow'] : []),
   ...(!businessSource.includes('外部适配授权与脱敏边界') ? ['adapter settings must render a dedicated authorization workflow'] : []),
   ...(!businessSource.includes('reviewRuleTemplateGovernance') ? ['rule and template workflow must register a review'] : []),
+  ...(!businessSource.includes('历史账迁移与差异追溯') ? ['history migration must render a dedicated reconciliation workflow'] : []),
+  ...(!businessSource.includes('风险检查与处置闭环') ? ['risk check must render a dedicated remediation workflow'] : []),
+  ...(!businessSource.includes('操作审计追溯与高风险留痕') ? ['audit log must render a dedicated evidence workflow'] : []),
+  ...(!businessSource.includes('删除凭证恢复与销毁控制') ? ['voucher recycle must render a dedicated retention workflow'] : []),
+  ...(!businessSource.includes('reviewControlEvidence') ? ['control workflow must register a review'] : []),
 ]
 
 if (errors.length > 0) {

@@ -8839,6 +8839,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setShowAdapterAuthorizationDialog(true)
   }
 
+  const reviewControlEvidence = (scope: 'history' | 'risk' | 'audit' | 'recycle' | 'notification') => {
+    const labels = { history: '复核历史账迁移差异', risk: '复核风险处置闭环', audit: '复核高风险审计证据', recycle: '复核凭证回收记录', notification: '复核待办分派进度' }
+    writeModuleAudit(labels[scope], `${currentPeriodLabel}｜控制与追溯`, ['risk', 'audit', 'recycle'].includes(scope) ? '高' : '中', ['risk', 'audit', 'recycle'].includes(scope) ? '待审批' : '成功')
+    setOperationNotice(scope === 'history'
+      ? '已登记历史账迁移复核。历史凭证、余额、总账和明细账需与期初余额及当前账套科目映射保持可追溯。'
+      : scope === 'risk'
+        ? '已登记风险处置复核。阻断项完成前不能结账或确认申报，处理结果须关联来源单据和责任人。'
+        : scope === 'audit'
+          ? '已登记审计证据复核。导入、导出、凭证、结账和申报相关高风险操作应保留操作人、对象、时间和结果。'
+          : scope === 'recycle'
+            ? '已登记凭证回收复核。恢复和彻底删除均需人工确认，并保留审计日志。'
+            : '已登记待办分派复核。临期事项需明确负责人、来源模块、处理入口和完成记录。')
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -9025,6 +9039,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         {['taxAdapterSettings', 'bankAdapterSettings'].includes(kind) && (
           <AdapterAuthorizationWorkflowPanel onAdd={openAdapterAuthorizationEditor} onReview={() => reviewRuleTemplateGovernance('adapter')} />
         )}
+
+        {['historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger'].includes(kind) && <HistoryMigrationWorkflowPanel onReview={() => reviewControlEvidence('history')} />}
+
+        {kind === 'riskCheck' && <RiskWorkflowPanel onReview={() => reviewControlEvidence('risk')} />}
+
+        {kind === 'auditLog' && <AuditWorkflowPanel onReview={() => reviewControlEvidence('audit')} />}
+
+        {kind === 'voucherRecycle' && <VoucherRecycleWorkflowPanel onRestore={() => void handlePrimaryAction()} onReview={() => reviewControlEvidence('recycle')} />}
+
+        {kind === 'notificationCenter' && <NotificationWorkflowPanel onReview={() => reviewControlEvidence('notification')} />}
 
         {kind === 'inputInvoice' && (
           <InputInvoiceWorkflowPanel
@@ -11481,6 +11505,26 @@ function AdapterAuthorizationWorkflowPanel({ onAdd, onReview }: { onAdd: () => v
       <WorkflowMetrics items={['已授权渠道|2 个|能力范围已登记', '待确认授权|1 个|等待人工核验身份', '到期提醒|1 项|需更新授权状态', '敏感凭据|0 项|系统不保存明文凭据']}/>
     </section>
   )
+}
+
+function HistoryMigrationWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="历史账迁移与差异追溯"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">历史账迁移与差异追溯</h2><p className="mt-1 text-xs text-slate-500">历史凭证、余额、总账和明细账按迁移期间、科目映射和辅助维度保留来源，差异必须回查到旧账记录。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核迁移一致性" onClick={onReview} /></div><WorkflowMetrics items={['迁移批次|4 批|保留来源文件和导入时间', '科目映射|126 条|需与当前科目口径一致', '余额差异|1 项|不可直接形成正式期初', '凭证断号|2 项|需补齐或标记说明']}/></section>
+}
+
+function RiskWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="风险检查与处置闭环"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">风险检查与处置闭环</h2><p className="mt-1 text-xs text-slate-500">凭证、发票、工资、报表、税表与结账前检查的风险项必须关联来源、责任人、处置动作和复核结果。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核风险处置" onClick={onReview} /></div><WorkflowMetrics items={['阻断风险|1 项|处理前不可结账', '高风险|4 项|需要负责人确认', '待补资料|8 项|关联发票、单据或人员', '已闭环|23 项|保留处置与复核记录']}/></section>
+}
+
+function AuditWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="操作审计追溯与高风险留痕"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">操作审计追溯与高风险留痕</h2><p className="mt-1 text-xs text-slate-500">审计日志覆盖导入导出、凭证、结账、申报和恢复操作，记录操作人、对象、账期、结果与风险级别。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核审计证据" onClick={onReview} /></div><WorkflowMetrics items={['本期日志|186 条|按模块和操作人追溯', '高风险操作|9 条|需保留审批或确认记录', '导出留痕|36 条|关联文件哈希和范围', '异常操作|2 条|保留失败原因和重试记录']}/></section>
+}
+
+function VoucherRecycleWorkflowPanel({ onRestore, onReview }: { onRestore: () => void; onReview: () => void }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="删除凭证恢复与销毁控制"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">删除凭证恢复与销毁控制</h2><p className="mt-1 text-xs text-slate-500">删除凭证在回收期内可恢复；彻底删除须人工确认并记录原凭证、操作人、时间和关联附件处理情况。</p></div><div className="flex flex-wrap gap-1.5"><ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="恢复已勾选凭证" onClick={onRestore} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核回收记录" onClick={onReview} /></div></div><WorkflowMetrics items={['待恢复凭证|6 张|可回到草稿继续复核', '到期清理|2 张|需确认保留期限', '关联附件|8 份|恢复时保持引用关系', '审计记录|14 条|删除与恢复均可追溯']}/></section>
+}
+
+function NotificationWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="待办分派与截止跟踪"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">待办分派与截止跟踪</h2><p className="mt-1 text-xs text-slate-500">资料补传、AI确认、凭证异常、报表重算和申报截止事项按账套、责任人、优先级和处理入口集中追踪。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核待办分派" onClick={onReview} /></div><WorkflowMetrics items={['待办事项|64 条|按模块和客户账套汇总', '今日到期|18 条|优先跟进责任人', '逾期风险|7 条|需记录催办和处置', '已完成|39 条|保留完成时间与结果']}/></section>
 }
 
 function WorkflowMetrics({ items }: { items: string[] }) {
