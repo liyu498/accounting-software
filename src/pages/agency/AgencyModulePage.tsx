@@ -80,6 +80,12 @@ interface AgencyBatchTaskOption {
   requiresApproval: boolean
 }
 
+interface AgencyDetailMeta {
+  title: string
+  boundary: string
+  processLabel: string
+}
+
 const agencyBatchTaskOptions: AgencyBatchTaskOption[] = [
   { id: 'invoice_collection', label: '批量采集发票', scope: '全部已授权税务客户', detail: '核验税务授权范围和发票采集条件。', requiresApproval: false },
   { id: 'bank_collection', label: '批量采集银行流水', scope: '已授权银行客户', detail: '核验银行授权状态和可用导入范围。', requiresApproval: false },
@@ -749,6 +755,18 @@ function parseAgencyMoney(value = '') {
   return Number.isFinite(Number(normalized)) ? Number(normalized) : 0
 }
 
+function getAgencyDetailMeta(kind: AgencyModuleKind): AgencyDetailMeta {
+  if (kind === 'clients') return { title: '客户账套明细', boundary: '仅展示机构已维护的客户账套、当前账期和处理进度；进入账套后才处理该客户的发票、凭证、报表和申报事项。', processLabel: '核对账套' }
+  if (kind === 'authorizationCenter') return { title: '授权记录明细', boundary: '仅展示授权类型、掩码账号、适用范围和到期状态；不会展示或保存明文密码、令牌、Cookie 或证书。', processLabel: '核验授权' }
+  if (kind === 'serviceContracts') return { title: '合同履约明细', boundary: '仅展示机构服务合同、收费、协同、套餐和归档状态；客户账套内的业务单据和会计处理不在此修改。', processLabel: '更新履约' }
+  if (kind === 'downloadCenter') return { title: '下载文件明细', boundary: '仅展示本机已生成文件的范围、状态和哈希摘要；查看不会重新生成文件或访问外部存储。', processLabel: '核验文件' }
+  if (kind === 'dataStats') return { title: '机构统计口径明细', boundary: '统计仅基于本机已保存的机构级合同、收费、协同和交付数据；不使用样例数据代替真实统计。', processLabel: '复核口径' }
+  if (kind === 'batchOps') return { title: '批量任务明细', boundary: '任务仅在本机执行预检、生成风险清单和审批记录；不会登录税局、银行或自动提交、扣款、结账和入账。', processLabel: '执行预检' }
+  if (kind === 'invoiceManagement') return { title: '服务费开票明细', boundary: '这里只处理机构服务费开票状态；客户经营发票仍在各自账套的销项发票模块维护。', processLabel: '核验开票' }
+  if (kind === 'healthCheck') return { title: '跨客户风险明细', boundary: '体检只汇总已保存的风险规则结果和处理状态；不会自动修复凭证、报表或税务问题。', processLabel: '复核风险' }
+  return { title: '自动化任务明细', boundary: '自动化仅维护本地任务、建议和人工确认状态；不会越过授权边界调用外部系统或自动入账、申报。', processLabel: '复核任务' }
+}
+
 export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const navigate = useNavigate()
   const { companies, fetchCompanies, selectCompany } = useCompanyStore()
@@ -760,6 +778,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}`
     : new Date().toISOString().slice(0, 7)
   const baseConfig = configs[kind]
+  const detailMeta = getAgencyDetailMeta(kind)
   const exportJobs = useExportJobs()
   const config = useMemo(() => {
     if (kind !== 'downloadCenter') return baseConfig
@@ -1648,11 +1667,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         </div>
       )}
       {detailRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="机构级明细">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={detailMeta.title}>
           <div className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">机构级明细</h2>
+                <h2 className="text-sm font-semibold text-slate-900">{detailMeta.title}</h2>
                 <p className="mt-1 text-xs text-slate-500">{pageConfig.title} / {rowObjectLabel(detailRow)}</p>
               </div>
               <button type="button" onClick={() => setDetailRow(null)} className="text-xs text-slate-500 hover:text-slate-900">关闭</button>
@@ -1666,7 +1685,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                 </div>
               ))}
             </div>
-            <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">此处仅展示本地保存的机构级字段和处理状态。外部授权、税务申报、银行采集和扣款均不会因查看明细而触发。</div>
+            <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">{detailMeta.boundary}</div>
           </div>
         </div>
       )}
@@ -1782,7 +1801,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                         )}
                         {kind !== 'batchOps' && (
                           <button type="button" onClick={() => void handleProcessRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                            处理
+                            {detailMeta.processLabel}
                           </button>
                         )}
                         {kind === 'clients' && (
