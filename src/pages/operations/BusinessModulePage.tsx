@@ -8738,6 +8738,26 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('已建立期末结账前检查记录；所有阻断项和待确认任务完成前不会锁定账期。')
   }
 
+  const startAiTaskDraft = () => {
+    writeModuleAudit('新建AI处理任务草稿', `${currentPeriodLabel}｜待选择来源资料`, '中', '成功')
+    setOperationNotice('已建立 AI 处理任务草稿。请从发票、流水、单据或附件选择来源资料；识别、分类和凭证建议均需保留人工确认环节。')
+  }
+
+  const reviewAiRecognition = () => {
+    writeModuleAudit('复核AI识别字段', `${currentPeriodLabel}｜待复核字段`, '中', '成功')
+    setOperationNotice('已登记识别字段复核。低置信度、档案未匹配和影像模糊项目仍需人工修正后回写对应业务台账。')
+  }
+
+  const openAiVoucherSuggestionEditor = () => {
+    setAiVoucherSuggestionDraft({ suggestionNo: '', sourceModule: '', sourceId: '', sourceFile: '', summary: '', debitSubject: '', creditSubject: '', amount: '', confidence: '90', riskLevel: 'normal' })
+    setShowAiVoucherSuggestionDialog(true)
+  }
+
+  const reviewAiRuleTraining = () => {
+    writeModuleAudit('复核AI训练规则', `${currentPeriodLabel}｜规则版本与样本`, '中', '成功')
+    setOperationNotice('已建立训练规则复核记录。规则只能生成候选建议，启用前须确认样本来源、命中率、版本和影响范围。')
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -8797,7 +8817,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
-            {kind === 'aiVoucherSuggestions' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增建议" onClick={() => { setAiVoucherSuggestionDraft({ suggestionNo: '', sourceModule: '', sourceId: '', sourceFile: '', summary: '', debitSubject: '', creditSubject: '', amount: '', confidence: '90', riskLevel: 'normal' }); setShowAiVoucherSuggestionDialog(true) }} />}
+            {kind === 'aiVoucherSuggestions' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增建议" onClick={openAiVoucherSuggestionEditor} />}
             {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => { setEditingPayrollId(null); setPayrollDraft({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' }); setShowPayrollDialog(true) }} />}
             {kind === 'settlementRules' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
             {kind === 'currencySettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
@@ -8855,6 +8875,24 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             </div>
           ))}
         </div>
+
+        {kind === 'aiJobQueue' && (
+          <AiJobWorkflowPanel
+            onStart={startAiTaskDraft}
+            onReview={handleRefreshAction}
+          />
+        )}
+
+        {kind === 'aiRecognitionResults' && <AiRecognitionWorkflowPanel onReview={reviewAiRecognition} />}
+
+        {kind === 'aiVoucherSuggestions' && (
+          <AiVoucherSuggestionWorkflowPanel
+            onAdd={openAiVoucherSuggestionEditor}
+            onConfirm={() => void handlePrimaryAction()}
+          />
+        )}
+
+        {kind === 'aiRuleTraining' && <AiRuleTrainingWorkflowPanel onReview={reviewAiRuleTraining} />}
 
         {kind === 'inputInvoice' && (
           <InputInvoiceWorkflowPanel
@@ -10768,6 +10806,124 @@ function ClosingWorkflowPanel({ onReview, onRun }: { onReview: () => void; onRun
           ['已完成', '5 项', '已保留凭证与审计记录'],
           ['待确认', '3 项', '须人工确认来源与金额'],
           ['阻断项', '1 项', '解决前不可结账'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function AiJobWorkflowPanel({ onStart, onReview }: { onStart: () => void; onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="AI任务编排与人工确认">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">AI任务编排与人工确认</h2>
+          <p className="mt-1 text-xs text-slate-500">任务按来源资料、处理阶段、置信度和人工确认状态流转；AI 只生成候选结果，不直接写入凭证或账簿。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新建任务草稿" onClick={onStart} />
+          <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新任务状态" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['来源待处理', '18 批', '发票、流水、单据与附件'],
+          ['识别处理中', '6 批', '仅记录处理状态和日志'],
+          ['人工待确认', '18 条', '不得自动生成正式凭证'],
+          ['异常任务', '6 条', '需要补充资料或修正规则'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function AiRecognitionWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="识别字段复核与回链处理">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">识别字段复核与回链处理</h2>
+          <p className="mt-1 text-xs text-slate-500">逐项复核影像、结构化字段、档案匹配和置信度，再回链至发票、流水、单据或异常队列。</p>
+        </div>
+        <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="登记人工复核" onClick={onReview} />
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['自动通过', '196 条', '高置信度且档案已匹配'],
+          ['待复核字段', '39 条', '税率、金额或主体待确认'],
+          ['低置信度', '13 条', '影像或字段需人工修正'],
+          ['回链目标', '4 类', '发票、流水、单据、建议'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function AiVoucherSuggestionWorkflowPanel({ onAdd, onConfirm }: { onAdd: () => void; onConfirm: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="凭证建议核验与草稿流转">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">凭证建议核验与草稿流转</h2>
+          <p className="mt-1 text-xs text-slate-500">建议必须核验来源、借贷科目、金额、附件和风险；确认后仅进入凭证草稿复核队列，不会自动入账。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增建议" onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="确认已勾选建议" onClick={onConfirm} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['可确认建议', '38 条', '来源和金额已完成校验'],
+          ['待修改', '12 条', '需补齐科目或摘要'],
+          ['高风险', '4 条', '金额不平或来源不完整'],
+          ['草稿流转', '16 条', '已进入凭证草稿人工复核'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function AiRuleTrainingWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="AI规则训练与版本审核">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">AI规则训练与版本审核</h2>
+          <p className="mt-1 text-xs text-slate-500">训练规则保留样本来源、命中率、版本、审核人和生效范围；未经审核的规则不能参与自动建议。</p>
+        </div>
+        <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核规则版本" onClick={onReview} />
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['已启用规则', '19 条', '仅用于生成候选建议'],
+          ['待审核版本', '7 条', '需核验样本和命中率'],
+          ['冲突规则', '2 条', '需要合并或禁用处理'],
+          ['训练样本', '256 条', '保留来源与人工修订记录'],
         ].map(([label, value, detail]) => (
           <div key={label} className="border border-slate-200 bg-white p-2.5">
             <div className="text-xs text-slate-500">{label}</div>

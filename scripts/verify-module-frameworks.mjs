@@ -99,6 +99,11 @@ const errors = [
   ...(!businessSource.includes('期末结账与结转控制') ? ['closing tasks must render a dedicated workflow'] : []),
   ...(!businessSource.includes('openBankReconciliationEditor') ? ['bank reconciliation workflow must open the dedicated editor'] : []),
   ...(!businessSource.includes('openSettlementRecordEditor') ? ['settlement workflow must open the dedicated editor'] : []),
+  ...(!businessSource.includes('AI任务编排与人工确认') ? ['ai job queue must render a dedicated orchestration workflow'] : []),
+  ...(!businessSource.includes('识别字段复核与回链处理') ? ['ai recognition must render a dedicated review workflow'] : []),
+  ...(!businessSource.includes('凭证建议核验与草稿流转') ? ['ai voucher suggestions must render a dedicated confirmation workflow'] : []),
+  ...(!businessSource.includes('AI规则训练与版本审核') ? ['ai rule training must render a dedicated governance workflow'] : []),
+  ...(!businessSource.includes('openAiVoucherSuggestionEditor') ? ['ai voucher workflow must open the dedicated suggestion editor'] : []),
 ]
 
 if (errors.length > 0) {
