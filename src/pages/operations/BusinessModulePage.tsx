@@ -5687,11 +5687,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'payroll' && usesLivePayrollData) {
+    if (kind === 'payroll' && (usesLivePayrollData || payrollRecords.length > 0)) {
       return { ...baseConfig, rows: mapLivePayrollRows(payrollRecords), summary: summarizeLivePayroll(payrollRecords) }
     }
-    if (kind === 'socialSecurity' && usesLiveSocialSecurityData) return { ...baseConfig, rows: mapLiveSocialSecurityRows(socialSecurityRecords), summary: baseConfig.summary.map((item) => item.label === '参保人数' ? { ...item, value: `${socialSecurityRecords.length} 人` } : item) }
-    if (kind === 'specialDeduction' && usesLiveSpecialDeductionData) return { ...baseConfig, rows: mapLiveSpecialDeductionRows(specialDeductionRecords), summary: summarizeLiveSpecialDeductions(specialDeductionRecords) }
+    if (kind === 'socialSecurity' && (usesLiveSocialSecurityData || socialSecurityRecords.length > 0)) return { ...baseConfig, rows: mapLiveSocialSecurityRows(socialSecurityRecords), summary: baseConfig.summary.map((item) => item.label === '参保人数' ? { ...item, value: `${socialSecurityRecords.length} 人` } : item) }
+    if (kind === 'specialDeduction' && (usesLiveSpecialDeductionData || specialDeductionRecords.length > 0)) return { ...baseConfig, rows: mapLiveSpecialDeductionRows(specialDeductionRecords), summary: summarizeLiveSpecialDeductions(specialDeductionRecords) }
     if (kind === 'withholdingTaxReport' && usesLiveWithholdingTaxData) return { ...baseConfig, rows: mapLiveWithholdingTaxRows(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords), summary: summarizeLiveWithholdingTax(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords) }
     if (kind === 'socialSecurityTaxReport' && usesLiveSocialSecurityTaxData) return { ...baseConfig, rows: mapLiveSocialSecurityTaxRows(socialSecurityRecords), summary: summarizeLiveSocialSecurityTax(socialSecurityRecords) }
     if (kind === 'incomeTaxReport' && usesLiveReportData && liveReports.incomeStatement) return { ...baseConfig, rows: mapLiveIncomeTaxRows(liveReports.incomeStatement), summary: summarizeLiveIncomeTax(liveReports.incomeStatement) }
@@ -6742,7 +6742,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'inventorySettings') { openInventoryItemEditor(); return }
     if (kind === 'unitSettings') { setEditingMeasurementUnitId(null); setShowMeasurementUnitDialog(true); return }
     if (kind === 'costCarryover') { openCostCarryoverEditor(); return }
-    if (kind === 'payroll' && isTauri && selectedCompanyId) {
+    if (kind === 'payroll') {
       if (payrollRecords.length === 0) {
         setOperationNotice('当前账期没有薪酬行，请先新增或导入薪酬表。')
         return
@@ -6932,6 +6932,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSavePayrollRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const employee = employees.find((item) => item.id === payrollDraft.employeeId) || { id: payrollDraft.employeeId || 'preview-employee', name: '预览员工' }
+      const baseSalary = Number(payrollDraft.baseSalary || 0)
+      const bonus = Number(payrollDraft.bonus || 0)
+      const taxAmount = Number(payrollDraft.taxAmount || 0)
+      const socialPersonal = Number(payrollDraft.socialPersonal || 0)
+      const record: PayrollRecord = { id: editingPayrollId || `preview-payroll-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', employeeId: employee.id, employeeName: employee.name, period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, baseSalary, bonus, taxAmount, socialPersonal, netSalary: baseSalary + bonus - taxAmount - socialPersonal, status: '待确认', createdAt: timestamp, updatedAt: timestamp }
+      setPayrollRecords((records) => editingPayrollId ? records.map((item) => item.id === record.id ? { ...record, createdAt: item.createdAt } : item) : [record, ...records])
+      writeModuleAudit(editingPayrollId ? '编辑薪酬行' : '新增薪酬行', `${record.employeeName}｜${record.period}`, '中', '成功')
+      setOperationNotice(`薪酬行已保存到当前预览：${record.employeeName}，实发 ${payrollCurrency(record.netSalary)}。桌面端会写入当前账套，个税、社保和工资凭证仍需人工确认。`)
+      setPayrollDraft({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
+      setEditingPayrollId(null)
+      setShowPayrollDialog(false)
+      return
+    }
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
       const result = editingPayrollId
@@ -7433,6 +7449,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveSocialSecurityRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const employee = employees.find((item) => item.id === socialSecurityDraft.employeeId) || { id: socialSecurityDraft.employeeId || 'preview-employee', name: '预览员工' }
+      const record: SocialSecurityRecord = { id: editingSocialSecurityId || `preview-social-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', employeeId: employee.id, employeeName: employee.name, period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, city: socialSecurityDraft.city || null, contributionBase: Number(socialSecurityDraft.base || 0), companyAmount: Number(socialSecurityDraft.company || 0), personalAmount: Number(socialSecurityDraft.personal || 0), fundAmount: Number(socialSecurityDraft.fund || 0), status: '待确认', createdAt: timestamp, updatedAt: timestamp }
+      setSocialSecurityRecords((records) => editingSocialSecurityId ? records.map((item) => item.id === record.id ? { ...record, createdAt: item.createdAt } : item) : [record, ...records])
+      writeModuleAudit(editingSocialSecurityId ? '编辑社保公积金明细' : '新增社保公积金明细', `${record.employeeName}｜${record.period}`, '中', '成功')
+      setOperationNotice(`社保公积金明细已保存到当前预览：${record.employeeName}。桌面端会写入当前账套，基数、缴费金额和凭证仍需人工确认。`)
+      setSocialSecurityDraft({ employeeId: '', city: '', base: '', company: '', personal: '', fund: '' })
+      setEditingSocialSecurityId(null)
+      setShowSocialSecurityDialog(false)
+      return
+    }
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
       const securityInput = {
@@ -7452,6 +7480,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveSpecialDeductionRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const employee = employees.find((item) => item.id === specialDeductionDraft.employeeId) || { id: specialDeductionDraft.employeeId || 'preview-employee', name: '预览员工' }
+      const record: SpecialDeductionRecord = { id: editingSpecialDeductionId || `preview-deduction-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', employeeId: employee.id, employeeName: employee.name, deductionType: specialDeductionDraft.deductionType, startMonth: specialDeductionDraft.startMonth, endMonth: specialDeductionDraft.endMonth || null, monthlyAmount: Number(specialDeductionDraft.monthlyAmount || 0), source: specialDeductionDraft.source, status: '待确认', createdAt: timestamp, updatedAt: timestamp }
+      setSpecialDeductionRecords((records) => editingSpecialDeductionId ? records.map((item) => item.id === record.id ? { ...record, createdAt: item.createdAt } : item) : [record, ...records])
+      writeModuleAudit(editingSpecialDeductionId ? '编辑专项附加扣除' : '新增专项附加扣除', `${record.employeeName}｜${record.deductionType}`, '中', '成功')
+      setOperationNotice(`专项附加扣除已保存到当前预览：${record.employeeName}｜${record.deductionType}。桌面端会写入当前账套，个税取数前仍需人工确认有效期间和证明资料。`)
+      setSpecialDeductionDraft({ employeeId: '', deductionType: '子女教育', startMonth: '', endMonth: '', monthlyAmount: '', source: '手工' })
+      setEditingSpecialDeductionId(null)
+      setShowSpecialDeductionDialog(false)
+      return
+    }
     if (!selectedCompanyId) return
     try {
       const deductionInput = {
@@ -8564,8 +8604,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowReportFormulaDialog(true)
       return
     }
-    if (kind === 'socialSecurity' && isTauri && selectedCompanyId) { const record=socialSecurityRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSocialSecurityId(record.id);setSocialSecurityDraft({employeeId:record.employeeId,city:record.city||'',base:String(record.contributionBase),company:String(record.companyAmount),personal:String(record.personalAmount),fund:String(record.fundAmount)});setShowSocialSecurityDialog(true);return }
-    if (kind === 'specialDeduction' && isTauri && selectedCompanyId) { const record=specialDeductionRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSpecialDeductionId(record.id);setSpecialDeductionDraft({employeeId:record.employeeId,deductionType:record.deductionType,startMonth:record.startMonth,endMonth:record.endMonth||'',monthlyAmount:String(record.monthlyAmount),source:record.source});setShowSpecialDeductionDialog(true);return }
+    if (kind === 'socialSecurity') { const record=socialSecurityRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSocialSecurityId(record.id);setSocialSecurityDraft({employeeId:record.employeeId,city:record.city||'',base:String(record.contributionBase),company:String(record.companyAmount),personal:String(record.personalAmount),fund:String(record.fundAmount)});setShowSocialSecurityDialog(true);return }
+    if (kind === 'specialDeduction') { const record=specialDeductionRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSpecialDeductionId(record.id);setSpecialDeductionDraft({employeeId:record.employeeId,deductionType:record.deductionType,startMonth:record.startMonth,endMonth:record.endMonth||'',monthlyAmount:String(record.monthlyAmount),source:record.source});setShowSpecialDeductionDialog(true);return }
     if (kind === 'transfer' && isTauri && selectedCompanyId) {
       const transfer = accountTransfers.find((item) => item.id === row.id)
       if (!transfer) {
@@ -9006,7 +9046,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const openPayrollEditor = () => {
     setEditingPayrollId(null)
-    setPayrollDraft({ employeeId: employees.find((employee) => employee.employmentStatus === '在职')?.id || '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
+    setPayrollDraft({ employeeId: employees.find((employee) => employee.employmentStatus === '在职')?.id || (isTauri ? '' : 'preview-employee'), baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
     setShowPayrollDialog(true)
   }
 
@@ -9017,7 +9057,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const openSocialSecurityEditor = () => {
     setEditingSocialSecurityId(null)
-    setSocialSecurityDraft({ employeeId: employees.find((employee) => employee.employmentStatus === '在职')?.id || '', city: '', base: '', company: '', personal: '', fund: '' })
+    setSocialSecurityDraft({ employeeId: employees.find((employee) => employee.employmentStatus === '在职')?.id || (isTauri ? '' : 'preview-employee'), city: '', base: '', company: '', personal: '', fund: '' })
     setShowSocialSecurityDialog(true)
   }
 
@@ -9280,7 +9320,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const openSpecialDeductionEditor = () => {
     setEditingSpecialDeductionId(null)
-    setSpecialDeductionDraft({ employeeId: '', deductionType: '子女教育', startMonth: '', endMonth: '', monthlyAmount: '', source: '手工' })
+    setSpecialDeductionDraft({ employeeId: isTauri ? '' : 'preview-employee', deductionType: '子女教育', startMonth: '', endMonth: '', monthlyAmount: '', source: '手工' })
     setShowSpecialDeductionDialog(true)
   }
 
@@ -9356,7 +9396,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
             {kind === 'aiVoucherSuggestions' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增建议" onClick={openAiVoucherSuggestionEditor} />}
-            {kind === 'payroll' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={() => { setEditingPayrollId(null); setPayrollDraft({ employeeId: '', baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' }); setShowPayrollDialog(true) }} />}
+            {kind === 'payroll' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={openPayrollEditor} />}
             {kind === 'settlementRules' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
             {kind === 'currencySettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
             {kind === 'auxiliaryCategories' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增类别" onClick={() => { resetAuxiliaryCategoryDraft(); setShowAuxiliaryCategoryDialog(true) }} />}
@@ -9364,8 +9404,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'commonDigests' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增摘要" onClick={() => { resetCommonDigestDraft(); setShowCommonDigestDialog(true) }} />}
             {kind === 'voucherTemplateSettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增凭证模板" onClick={() => { resetVoucherTemplateDraft(); setShowVoucherTemplateDialog(true) }} />}
             {(kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'} onClick={() => { resetAdapterAuthorizationDraft(); setShowAdapterAuthorizationDialog(true) }} />}
-            {kind === 'socialSecurity' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={() => { setEditingSocialSecurityId(null); setShowSocialSecurityDialog(true) }} />}
-            {kind === 'specialDeduction' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={() => { setEditingSpecialDeductionId(null); setShowSpecialDeductionDialog(true) }} />}
+            {kind === 'socialSecurity' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={openSocialSecurityEditor} />}
+            {kind === 'specialDeduction' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={openSpecialDeductionEditor} />}
             {(kind === 'billList' || kind === 'bankStatement') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={() => { setEditingBankTransactionId(null); setSelectedBankTransactionTagIds([]); setBankTransactionDraft({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' }); setShowBankTransactionDialog(true) }} />}
             {kind === 'documentRegister' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增单据" onClick={() => setShowDocumentRecordDialog(true)} />}
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" onClick={handleRefreshAction} />
@@ -10179,6 +10219,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">人员 *
                 <select required value={payrollDraft.employeeId} onChange={(event) => setPayrollDraft((draft) => ({ ...draft, employeeId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]">
                   <option value="">选择在职人员</option>
+                  {!isTauri && <option value="preview-employee">PREVIEW 预览员工</option>}
                   {employees.filter((employee) => employee.employmentStatus === '在职').map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} {employee.name}</option>)}
                 </select>
               </label>
@@ -10435,6 +10476,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 <span>人员</span>
                 <select required value={socialSecurityDraft.employeeId} onChange={(event) => setSocialSecurityDraft((draft) => ({ ...draft, employeeId: event.target.value }))} className="h-8 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
                   <option value="">选择在职人员</option>
+                  {!isTauri && <option value="preview-employee">PREVIEW 预览员工</option>}
                   {employees.filter((employee) => employee.employmentStatus === '在职').map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} {employee.name}</option>)}
                 </select>
               </label>
@@ -10473,7 +10515,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <div className="grid gap-3 p-4 sm:grid-cols-2">
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">人员 *
                 <select required value={specialDeductionDraft.employeeId} onChange={(event) => setSpecialDeductionDraft((draft) => ({ ...draft, employeeId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
-                  <option value="">选择在职人员</option>{employees.filter((employee) => employee.employmentStatus === '在职').map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} {employee.name}</option>)}
+                  <option value="">选择在职人员</option>{!isTauri && <option value="preview-employee">PREVIEW 预览员工</option>}{employees.filter((employee) => employee.employmentStatus === '在职').map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} {employee.name}</option>)}
                 </select>
               </label>
               <label className="grid gap-1 text-xs text-slate-600">扣除类型 *
