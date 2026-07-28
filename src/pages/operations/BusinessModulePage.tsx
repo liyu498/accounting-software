@@ -3388,6 +3388,21 @@ function getModuleTableMeta(kind: ModuleKind): ModuleTableMeta {
   return defaultMeta
 }
 
+function getModuleTabs(kind: ModuleKind) {
+  if (kind === 'outputInvoice') return ['销项台账', '开票明细', '开票汇总', '会计凭证', '发票影像', '开票日志']
+  if (kind === 'inputInvoice') return ['进项台账', '发票明细', '认证勾选', '抵扣用途', '发票影像', '处理日志']
+  if (['billList', 'bankStatement', 'bankReconciliation', 'transfer'].includes(kind)) return ['流水台账', '交易明细', '匹配结果', '回单附件', '关联凭证', '处理日志']
+  if (kind === 'employee') return ['人员档案', '证照资料', '岗位参保', '工资关联', '资料附件', '变更记录']
+  if (kind === 'payroll') return ['薪酬表', '工资项明细', '个税社保', '工资凭证', '工资附件', '发放日志']
+  if (kind === 'socialSecurity') return ['缴费明细', '人员基数', '申报核对', '凭证关联', '资料附件', '处理日志']
+  if (kind === 'specialDeduction') return ['扣除清单', '人员资料', '有效期间', '个税取数', '证明附件', '处理日志']
+  if (kind === 'taxInit' || kind === 'taxReport' || kind === 'declarationCalendar' || kind === 'declarationReceipt' || kind.endsWith('TaxReport') || kind === 'nonTaxRevenueReport') return ['申报清单', '取数快照', '校验结果', '申报包', '回执缴款', '处理日志']
+  if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) return ['任务队列', '输入来源', '识别结果', '人工确认', '规则版本', '运行日志']
+  if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') return ['账表清单', '取数明细', '凭证穿透', '勾稽校验', '输出模板', '计算日志']
+  if (kind.includes('Archive') || kind.includes('Settings') || kind.includes('Rules') || ['settingsData', 'companyInfo', 'initialBalance', 'subjectSettings', 'unitSettings', 'periodManagement', 'auditLog', 'backupRestore', 'voucherRecycle'].includes(kind)) return ['配置清单', '生效范围', '关联规则', '变更记录', '审计证据', '操作日志']
+  return ['业务清单', '处理明细', '关联凭证', '处理规则', '相关附件', '操作日志']
+}
+
 const toneClasses = {
   blue: 'text-[#1f65a7]',
   green: 'text-green-700',
@@ -6050,16 +6065,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
+  const workspaceTabs = getModuleTabs(kind)
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('全部')
   const [businessTagFilter, setBusinessTagFilter] = useState('全部')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const [activeTab, setActiveTab] = useState(() => getModuleTabs(kind)[0])
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set())
   const [showRulesLogDialog, setShowRulesLogDialog] = useState(false)
   const [detailRow, setDetailRow] = useState<ModuleRow | null>(null)
   const importFileRef = useRef<HTMLInputElement>(null)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    setActiveTab(getModuleTabs(kind)[0])
+  }, [kind])
 
   const filteredRows = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
@@ -9014,7 +9035,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     )
   }
 
-  const tabs = ['列表', '明细', '凭证草稿', '匹配规则', '附件', '操作日志']
+  const listWorkspaceTitle = activeTab === workspaceTabs[0] ? listMeta.title : `${activeTab} · ${title}`
+  const listWorkspaceHint = activeTab === workspaceTabs[0]
+    ? listMeta.hint
+    : `当前工作区聚焦${activeTab}，可按筛选条件查看当前账期已关联的业务记录。`
 
   return (
     <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
@@ -9064,12 +9088,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         )}
 
         <div className="flex overflow-x-auto border-b border-slate-200 bg-[#f8fafc] px-2">
-          {tabs.map((tab, index) => (
+          {workspaceTabs.map((tab) => (
             <button
               key={tab}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab)
+                if (tab.includes('日志') || tab === '变更记录' || tab === '审计证据') setShowRulesLogDialog(true)
+              }}
+              aria-pressed={activeTab === tab}
               className={cn(
                 'h-9 border-b-2 px-3 text-xs font-medium',
-                index === 0 ? 'border-[#1f65a7] bg-white text-[#1f65a7]' : 'border-transparent text-slate-600 hover:bg-white hover:text-slate-900'
+                activeTab === tab ? 'border-[#1f65a7] bg-white text-[#1f65a7]' : 'border-transparent text-slate-600 hover:bg-white hover:text-slate-900'
               )}
             >
               {tab}
@@ -9407,8 +9437,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       <div className="min-w-0 pt-3">
         <section className="min-w-0 border border-slate-200 bg-white">
           <div className="flex h-9 items-center justify-between border-b border-slate-200 bg-[#f8fafc] px-3">
-            <div className="text-sm font-semibold text-slate-900">{listMeta.title}</div>
-            <div className="max-w-[58%] truncate text-xs text-slate-500">显示 {pageStart}-{pageEnd} / {filteredRows.length} 条，{listMeta.hint}</div>
+            <div className="text-sm font-semibold text-slate-900">{listWorkspaceTitle}</div>
+            <div className="max-w-[58%] truncate text-xs text-slate-500">显示 {pageStart}-{pageEnd} / {filteredRows.length} 条，{listWorkspaceHint}</div>
           </div>
           <div className="max-w-full overflow-x-auto">
             <table className="min-w-[1120px] w-full border-collapse text-left text-xs">
