@@ -769,7 +769,7 @@ function getAgencyDetailMeta(kind: AgencyModuleKind): AgencyDetailMeta {
   if (kind === 'serviceContracts') return { title: '合同履约明细', boundary: '仅展示机构服务合同、收费、协同、套餐和归档状态；客户账套内的业务单据和会计处理不在此修改。', processLabel: '更新履约' }
   if (kind === 'downloadCenter') return { title: '下载文件明细', boundary: '仅展示本机已生成文件的范围、状态和哈希摘要；查看不会重新生成文件或访问外部存储。', processLabel: '核验文件' }
   if (kind === 'dataStats') return { title: '机构统计口径明细', boundary: '统计仅基于本机已保存的机构级合同、收费、协同和交付数据；不使用样例数据代替真实统计。', processLabel: '复核口径' }
-  if (kind === 'batchOps') return { title: '批量任务明细', boundary: '任务仅在本机执行预检、生成风险清单和审批记录；不会登录税局、银行或自动提交、扣款、结账和入账。', processLabel: '执行预检' }
+  if (kind === 'batchOps') return { title: '批量任务明细', boundary: '机构级明细仅覆盖跨客户的本地预检、风险清单和审批记录；不会进入单客户账套处理业务，也不会登录税局、银行或自动提交、扣款、结账和入账。', processLabel: '执行预检' }
   if (kind === 'invoiceManagement') return { title: '服务费开票明细', boundary: '这里只处理机构服务费开票状态；客户经营发票仍在各自账套的销项发票模块维护。', processLabel: '核验开票' }
   if (kind === 'healthCheck') return { title: '跨客户风险明细', boundary: '体检只汇总已保存的风险规则结果和处理状态；不会自动修复凭证、报表或税务问题。', processLabel: '复核风险' }
   return { title: '自动化任务明细', boundary: '自动化仅维护本地任务、建议和人工确认状态；不会越过授权边界调用外部系统或自动入账、申报。', processLabel: '复核任务' }
@@ -1721,7 +1721,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
             {toolbarMeta.importLabel && <ToolButton icon={<Upload className="h-3.5 w-3.5" />} label={toolbarMeta.importLabel} onClick={handleImport} />}
             <ToolButton icon={<Download className="h-3.5 w-3.5" />} label={toolbarMeta.excelLabel} onClick={handleExportExcel} />
             <ToolButton icon={<FileText className="h-3.5 w-3.5" />} label={toolbarMeta.pdfLabel} onClick={handleExportPdf} />
-            <ToolButton icon={<Printer className="h-3.5 w-3.5" />} label={toolbarMeta.printLabel} onClick={handlePrint} />
+            <ToolButton icon={<Printer className="h-3.5 w-3.5" />} label="打印" title={toolbarMeta.printLabel} onClick={handlePrint} />
             <button
               type="button"
               onClick={handlePrimaryAction}
@@ -2367,9 +2367,9 @@ function formatMoney(value: number) {
   return `¥${value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function ToolButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
+function ToolButton({ icon, label, title, onClick }: { icon: React.ReactNode; label: string; title?: string; onClick?: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">
+    <button type="button" title={title} onClick={onClick} className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">
       {icon}
       {label}
     </button>
