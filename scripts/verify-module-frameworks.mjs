@@ -117,6 +117,11 @@ const errors = [
   ...(!businessSource.includes('申报回执与缴款归档') ? ['declaration receipts must render a dedicated archive workflow'] : []),
   ...(!businessSource.includes('reviewTaxTaskData') ? ['tax workflow must register a source review'] : []),
   ...(!businessSource.includes('openTaxReceiptWorkflow') ? ['receipt workflow must open the dedicated receipt editor'] : []),
+  ...(!businessSource.includes('附件来源与归档完整性') ? ['attachment center must render a dedicated archive workflow'] : []),
+  ...(!businessSource.includes('导入批次解析与字段映射') ? ['import center must render a dedicated mapping workflow'] : []),
+  ...(!businessSource.includes('导出文件留痕与下载控制') ? ['export center must render a dedicated download workflow'] : []),
+  ...(!businessSource.includes('账套备份与恢复前校验') ? ['backup restore must render a dedicated recovery workflow'] : []),
+  ...(!businessSource.includes('reviewImportArchiveData') ? ['archive workflow must register a review'] : []),
 ]
 
 if (errors.length > 0) {

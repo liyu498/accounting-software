@@ -8802,6 +8802,23 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     openDeclarationReceiptEditor(task)
   }
 
+  const reviewImportArchiveData = (scope: 'attachment' | 'import' | 'export' | 'backup') => {
+    const labels = {
+      attachment: '复核附件归档完整性',
+      import: '复核导入批次映射',
+      export: '复核导出文件留痕',
+      backup: '复核备份恢复校验',
+    }
+    writeModuleAudit(labels[scope], `${currentPeriodLabel}｜本机归档记录`, scope === 'backup' ? '高' : '中', scope === 'backup' ? '待审批' : '成功')
+    setOperationNotice(scope === 'attachment'
+      ? '已登记附件归档复核。来源模块、关联单据、文件哈希和上传日志缺失时不能作为正式审计附件。'
+      : scope === 'import'
+        ? '已登记导入批次复核。字段映射、错误行、模板版本和人工确认完成前不会写入账套业务数据。'
+        : scope === 'export'
+          ? '已登记导出文件复核。Excel、PDF 和 ZIP 应保留筛选范围、模板版本、文件哈希、操作人和下载状态。'
+          : '已登记备份恢复前校验。恢复操作必须由人工确认，且不能静默覆盖当前账套。')
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -8968,6 +8985,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         )}
 
         {kind === 'declarationReceipt' && <TaxReceiptWorkflowPanel onOpen={openTaxReceiptWorkflow} onReview={reviewTaxTaskData} />}
+
+        {kind === 'attachmentCenter' && <AttachmentWorkflowPanel onUpload={handleImportAction} onReview={() => reviewImportArchiveData('attachment')} />}
+
+        {kind === 'importCenter' && <ImportWorkflowPanel onImport={handleImportAction} onReview={() => reviewImportArchiveData('import')} />}
+
+        {kind === 'exportCenter' && <ExportWorkflowPanel onReview={() => reviewImportArchiveData('export')} />}
+
+        {kind === 'backupRestore' && <BackupWorkflowPanel onBackup={() => void handlePrimaryAction()} onReview={() => reviewImportArchiveData('backup')} />}
 
         {kind === 'inputInvoice' && (
           <InputInvoiceWorkflowPanel
@@ -11266,6 +11291,127 @@ function TaxReceiptWorkflowPanel({ onOpen, onReview }: { onOpen: () => void; onR
           ['待缴款', '2 项', '保留缴款书与扣款状态'],
           ['待归档附件', '1 项', '申报包与回执需成组留存'],
           ['异常记录', '1 项', '提交失败需保留原因与重试记录'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function AttachmentWorkflowPanel({ onUpload, onReview }: { onUpload: () => void; onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="附件来源与归档完整性">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">附件来源与归档完整性</h2>
+          <p className="mt-1 text-xs text-slate-500">发票、回单、合同、申报回执与导出包须关联业务单据，保留来源、哈希、上传人和处理日志，避免无来源附件进入审计归档。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label="登记附件来源" onClick={onUpload} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核归档完整性" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['已归档附件', '186 份', '来源与关联单据可追溯'],
+          ['待关联单据', '8 份', '需要绑定业务记录'],
+          ['哈希校验', '174 份通过', '文件变更可被识别'],
+          ['缺失资料', '4 份', '阻断凭证或申报归档'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ImportWorkflowPanel({ onImport, onReview }: { onImport: () => void; onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="导入批次解析与字段映射">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">导入批次解析与字段映射</h2>
+          <p className="mt-1 text-xs text-slate-500">Excel、CSV、OFD、PDF 和 ZIP 文件先登记批次、校验表头与错误行，再由人工确认字段映射和写入目标。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label="新增导入批次" onClick={onImport} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核字段映射" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['本期批次', '24 批', '模板与来源文件已登记'],
+          ['待映射字段', '6 列', '必须确认目标字段'],
+          ['错误行', '7 行', '保留原始行供修复'],
+          ['可提交批次', '16 批', '仍需人工确认写入'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ExportWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="导出文件留痕与下载控制">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">导出文件留痕与下载控制</h2>
+          <p className="mt-1 text-xs text-slate-500">所有 Excel、PDF 和 ZIP 导出文件统一保留模块、筛选范围、模板版本、文件哈希、生成时间和下载状态，并按期限归档。</p>
+        </div>
+        <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核导出留痕" onClick={onReview} />
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['已生成文件', '36 份', 'Excel、PDF 与 ZIP'],
+          ['可下载', '28 份', '保留文件哈希与操作人'],
+          ['待生成', '5 份', '等待取数或确认'],
+          ['下载异常', '3 份', '需要重新生成或检查模板'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function BackupWorkflowPanel({ onBackup, onReview }: { onBackup: () => void; onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账套备份与恢复前校验">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">账套备份与恢复前校验</h2>
+          <p className="mt-1 text-xs text-slate-500">备份保留数据库、附件目录和迁移包校验信息；恢复前必须人工核验范围和文件完整性，不会静默覆盖当前账套。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="生成本机备份" onClick={onBackup} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核恢复条件" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['本机快照', '6 份', '按账套和账期保留'],
+          ['校验通过', '5 份', '文件完整性已验证'],
+          ['恢复申请', '1 项', '需审批后执行'],
+          ['风险提示', '0 项', '未发现覆盖冲突'],
         ].map(([label, value, detail]) => (
           <div key={label} className="border border-slate-200 bg-white p-2.5">
             <div className="text-xs text-slate-500">{label}</div>
