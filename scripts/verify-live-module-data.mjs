@@ -261,6 +261,7 @@ const requiredPageSnippets = [
   ['module import committed status', "status === '已关联' || status === '已校验' || status === '已写入'"],
   ['module receipt and expense import scope', "if (kind === 'documentRegister' || kind === 'receipt' || kind === 'expenseReimbursement') return 'document'"],
   ['module matching rule import scope', "if (kind === 'invoiceMatchingRules' || kind === 'billMatchingRules' || kind === 'cashFlowMapping') return 'matchingRule'"],
+  ['matching rule preview mapping', 'mapLiveMatchingRuleRows(isTauri ? matchingRules : previewMatchingRules, matchingRuleScope)'],
   ['module settlement rule import scope', "if (kind === 'settlementRules') return 'settlementRule'"],
   ['settlement rule preview mapping', 'mapLiveSettlementRuleRows(isTauri ? settlementRules : previewSettlementRules)'],
   ['module common digest import scope', "if (kind === 'commonDigests') return 'commonDigest'"],
@@ -850,7 +851,7 @@ const requiredMatchingRuleStoreSnippets = [
 const requiredMatchingRulePageSnippets = [
   ['matching rule store binding', "from '../../stores/matchingRuleStore'"],
   ['matching rule live scope', "['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping']"],
-  ['matching rule row mapping', 'mapLiveMatchingRuleRows(matchingRules, matchingRuleScope)'],
+  ['matching rule row mapping', 'mapLiveMatchingRuleRows(isTauri ? matchingRules : previewMatchingRules, matchingRuleScope)'],
   ['matching rule editor state', 'const [showMatchingRuleDialog, setShowMatchingRuleDialog] = useState(false)'],
   ['matching rule save binding', 'createMatchingRule({'],
 ]

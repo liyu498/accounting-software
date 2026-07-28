@@ -4925,6 +4925,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [previewVoucherTemplateTypes] = useState<typeof voucherTemplateTypes>([{ id: 'preview-template-type', company_id: 'preview-company', name: '通用凭证', sort_order: 1 }])
   const [previewVoucherTemplates, setPreviewVoucherTemplates] = useState<typeof voucherTemplates>([])
   const [previewSettlementRules, setPreviewSettlementRules] = useState<typeof settlementRules>([])
+  const [previewMatchingRules, setPreviewMatchingRules] = useState<typeof matchingRules>([])
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -6084,11 +6085,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (usesLiveMatchingRuleData) {
+    if (usesLiveMatchingRuleData || previewMatchingRules.some((rule) => rule.rule_scope === matchingRuleScope)) {
       return {
         ...baseConfig,
-        rows: mapLiveMatchingRuleRows(matchingRules, matchingRuleScope),
-        summary: summarizeLiveMatchingRules(matchingRules),
+        rows: mapLiveMatchingRuleRows(isTauri ? matchingRules : previewMatchingRules, matchingRuleScope),
+        summary: summarizeLiveMatchingRules(isTauri ? matchingRules : previewMatchingRules),
       }
     }
 
@@ -6185,7 +6186,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -6701,7 +6702,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       openEmployeeEditor()
       return
     }
-    if (usesLiveMatchingRuleData && selectedCompanyId) {
+    if (kind === 'invoiceMatchingRules' || kind === 'billMatchingRules' || kind === 'cashFlowMapping') {
       resetMatchingRuleDraft()
       setShowMatchingRuleDialog(true)
       return
@@ -7311,6 +7312,39 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveMatchingRule = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const rule = {
+        id: editingMatchingRuleId || `preview-matching-rule-${Date.now()}`,
+        company_id: selectedCompanyId || 'preview-company',
+        rule_scope: matchingRuleScope,
+        name: matchingRuleDraft.name.trim(),
+        condition_text: matchingRuleDraft.conditionText.trim(),
+        action_text: matchingRuleDraft.actionText.trim(),
+        target_account_code: matchingRuleDraft.targetAccountCode.trim() || null,
+        voucher_template_id: matchingRuleDraft.voucherTemplateId.trim() || null,
+        priority: Number(matchingRuleDraft.priority || 0),
+        is_enabled: matchingRuleDraft.isEnabled ? 1 : 0,
+        hit_count: 0,
+        created_at: timestamp,
+        updated_at: timestamp,
+      }
+      if (!rule.name || !rule.condition_text || !rule.action_text) {
+        setOperationNotice('请填写规则名称、匹配条件和处理动作。')
+        return
+      }
+      setPreviewMatchingRules((items) => {
+        const next = editingMatchingRuleId
+          ? items.map((item) => item.id === rule.id ? { ...rule, created_at: item.created_at } : item)
+          : [...items, rule]
+        return [...next].sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name, 'zh-CN'))
+      })
+      writeModuleAudit(editingMatchingRuleId ? '编辑自动匹配规则' : '新增自动匹配规则', `${rule.rule_scope}｜${rule.name}`, '高', '成功')
+      setOperationNotice(`自动匹配规则已保存到当前预览：${rule.name}。该规则仅生成建议或待确认动作，不会自动生成已审核凭证或提交税务。`)
+      resetMatchingRuleDraft()
+      setShowMatchingRuleDialog(false)
+      return
+    }
     if (!selectedCompanyId) return
     try {
       const input = {
@@ -7328,6 +7362,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleDeleteMatchingRule = async () => {
+    if (!isTauri && editingMatchingRuleId) {
+      const rule = previewMatchingRules.find((item) => item.id === editingMatchingRuleId)
+      if (!window.confirm(`确认删除规则“${rule?.name || ''}”吗？`)) return
+      setPreviewMatchingRules((items) => items.filter((item) => item.id !== editingMatchingRuleId))
+      writeModuleAudit('删除自动匹配规则', rule?.name || editingMatchingRuleId, '高', '成功')
+      setOperationNotice(`已从当前预览删除自动匹配规则“${rule?.name || ''}”。`)
+      resetMatchingRuleDraft()
+      setShowMatchingRuleDialog(false)
+      return
+    }
     if (!selectedCompanyId || !editingMatchingRuleId) return
     const rule = matchingRules.find((item) => item.id === editingMatchingRuleId)
     if (!rule || !window.confirm(`确认删除规则“${rule.name}”吗？`)) return
@@ -8604,8 +8648,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowPayrollDialog(true)
       return
     }
-    if (usesLiveMatchingRuleData && selectedCompanyId) {
-      const rule = matchingRules.find((item) => `matching-rule-${item.id}` === row.id)
+    if (kind === 'invoiceMatchingRules' || kind === 'billMatchingRules' || kind === 'cashFlowMapping') {
+      const rule = (isTauri ? matchingRules : previewMatchingRules).find((item) => `matching-rule-${item.id}` === row.id)
       if (!rule) { setOperationNotice('未找到当前账套的自动匹配规则。'); return }
       setEditingMatchingRuleId(rule.id)
       setMatchingRuleDraft({ name: rule.name, conditionText: rule.condition_text, actionText: rule.action_text, targetAccountCode: rule.target_account_code || '', voucherTemplateId: rule.voucher_template_id || '', priority: String(rule.priority), isEnabled: rule.is_enabled === 1 })
