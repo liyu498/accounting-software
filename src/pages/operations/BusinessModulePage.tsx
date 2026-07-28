@@ -5697,17 +5697,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'incomeTaxReport' && usesLiveReportData && liveReports.incomeStatement) return { ...baseConfig, rows: mapLiveIncomeTaxRows(liveReports.incomeStatement), summary: summarizeLiveIncomeTax(liveReports.incomeStatement) }
     if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
     if ((kind === 'billList' || kind === 'bankStatement') && usesLiveBankTransactionData) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, businessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
-    if (kind === 'bankReconciliation' && usesLiveBankReconciliationRecordData) return { ...baseConfig, rows: mapLiveBankReconciliationRows(bankReconciliationRecords) }
-    if (kind === 'receivableSettlement' && usesLiveSettlementRecordData) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'receivable') }
-    if (kind === 'payableSettlement' && usesLiveSettlementRecordData) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'payable') }
-    if (kind === 'receivablePayableAging' && usesLiveSettlementRecordData) return { ...baseConfig, rows: mapLiveSettlementAgingRows(settlementRecords) }
+    if (kind === 'bankReconciliation' && (usesLiveBankReconciliationRecordData || bankReconciliationRecords.length > 0)) return { ...baseConfig, rows: mapLiveBankReconciliationRows(bankReconciliationRecords) }
+    if (kind === 'receivableSettlement' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'receivable') }
+    if (kind === 'payableSettlement' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'payable') }
+    if (kind === 'receivablePayableAging' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementAgingRows(settlementRecords) }
     if (kind === 'documentRegister' && (usesLiveDocumentRecordData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveDocumentRecordRows(documentRecords), summary: summarizeLiveDocumentRecords(documentRecords) }
     if (kind === 'stampTaxReport' && (usesLiveStampTaxData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveStampTaxRows(documentRecords), summary: summarizeLiveStampTax(documentRecords) }
     if (kind === 'expenseReimbursement' && (usesLiveExpenseReimbursementData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveExpenseReimbursementRows(documentRecords), summary: summarizeLiveExpenseReimbursements(documentRecords) }
     if (kind === 'receipt' && (usesLiveReceiptData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveReceiptRows(documentRecords), summary: summarizeLiveReceipts(documentRecords) }
     if (kind === 'purchaseManagement' && (usesLiveBusinessOrderData || businessOrders.length > 0)) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'purchase'), summary: summarizeLiveBusinessOrders(businessOrders, 'purchase', ['采购单', '已完成', '待处理', '异常单']) }
     if (kind === 'salesManagement' && (usesLiveBusinessOrderData || businessOrders.length > 0)) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'sales'), summary: summarizeLiveBusinessOrders(businessOrders, 'sales', ['销售单', '已完成', '待处理', '异常单']) }
-    if (kind === 'transfer' && usesLiveAccountTransferData) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
+    if (kind === 'transfer' && (usesLiveAccountTransferData || accountTransfers.length > 0)) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
     if (kind === 'depreciation' && usesLiveFixedAssetData) return { ...baseConfig, rows: mapLiveFixedAssetRows(fixedAssets), summary: summarizeLiveFixedAssets(fixedAssets) }
     if (kind === 'inventoryMovement' && usesLiveInventoryMovementData) return { ...baseConfig, rows: mapLiveInventoryMovementRows(inventoryMovements), summary: summarizeLiveInventoryMovements(inventoryMovements) }
     if (kind === 'costCarryover' && usesLiveCostCarryoverData) return { ...baseConfig, rows: mapLiveCostCarryoverRows(costCarryoverRecords), summary: summarizeLiveCostCarryover(costCarryoverRecords) }
@@ -6176,7 +6176,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -6680,16 +6680,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       openDocumentRecordEditor(documentBusinessType(kind))
       return
     }
-    if (usesLiveSettlementRecordData && selectedCompanyId && kind !== 'receivablePayableAging') {
-      setEditingSettlementRecordId(null)
-      setSettlementRecordDraft({ settlementNo: '', settlementDate: currentPeriod?.end_date || '', counterparty: '', invoiceNo: '', transactionNo: '', totalAmount: '', settledAmount: '0', settlementMethod: '银行转账', owner: '', status: '待确认', sourceDocument: '' })
-      setShowSettlementRecordDialog(true)
+    if (kind === 'receivableSettlement' || kind === 'payableSettlement') {
+      openSettlementRecordEditor(kind === 'payableSettlement' ? 'payable' : 'receivable')
       return
     }
-    if (usesLiveBankReconciliationRecordData && selectedCompanyId) {
-      setEditingBankReconciliationId(null)
-      setBankReconciliationDraft({ reconciliationNo: '', reconciliationDate: currentPeriod?.end_date || '', accountName: '', transactionNo: '', summary: '', bankAmount: '', bookAmount: '', voucherNo: '', matchStatus: '待人工对账', owner: '', status: '待处理', note: '' })
-      setShowBankReconciliationDialog(true)
+    if (kind === 'bankReconciliation') {
+      openBankReconciliationEditor()
       return
     }
     if (kind === 'employee' && isTauri && selectedCompanyId) {
@@ -6731,10 +6727,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowAuxiliaryItemDialog(true)
       return
     }
-    if (kind === 'transfer' && isTauri && selectedCompanyId) {
-      setEditingAccountTransferId(null)
-      setAccountTransferDraft({ transferDate: '', fromAccount: '', toAccount: '', amount: '', fee: '', serialNo: '' })
-      setShowAccountTransferDialog(true)
+    if (kind === 'transfer') {
+      openAccountTransferEditor()
       return
     }
     if (kind === 'depreciation' && isTauri && selectedCompanyId) {
@@ -7616,6 +7610,37 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveSettlementRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const totalAmount = Number(settlementRecordDraft.totalAmount || 0)
+      const settledAmount = Number(settlementRecordDraft.settledAmount || 0)
+      const record: SettlementRecord = {
+        id: `preview-settlement-${Date.now()}`,
+        companyId: selectedCompanyId || 'preview-company',
+        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+        settlementType: kind === 'payableSettlement' ? 'payable' : 'receivable',
+        settlementNo: settlementRecordDraft.settlementNo,
+        settlementDate: settlementRecordDraft.settlementDate,
+        counterparty: settlementRecordDraft.counterparty,
+        invoiceNo: settlementRecordDraft.invoiceNo || null,
+        transactionNo: settlementRecordDraft.transactionNo || null,
+        totalAmount,
+        settledAmount,
+        balanceAmount: totalAmount - settledAmount,
+        settlementMethod: settlementRecordDraft.settlementMethod,
+        owner: settlementRecordDraft.owner || null,
+        status: settlementRecordDraft.status,
+        sourceDocument: settlementRecordDraft.sourceDocument || null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }
+      setSettlementRecords((records) => [record, ...records])
+      writeModuleAudit('新增核销台账', record.settlementNo, '中', '成功')
+      setOperationNotice(`核销记录已保存到当前预览：${record.settlementNo}。桌面端会写入当前账套，发票和流水关联仍需人工核验。`)
+      setSettlementRecordDraft({ settlementNo: '', settlementDate: '', counterparty: '', invoiceNo: '', transactionNo: '', totalAmount: '', settledAmount: '0', settlementMethod: '银行转账', owner: '', status: '待确认', sourceDocument: '' })
+      setShowSettlementRecordDialog(false)
+      return
+    }
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
       const recordInput = { companyId: selectedCompanyId, settlementNo: settlementRecordDraft.settlementNo, settlementDate: settlementRecordDraft.settlementDate, counterparty: settlementRecordDraft.counterparty, invoiceNo: settlementRecordDraft.invoiceNo || undefined, transactionNo: settlementRecordDraft.transactionNo || undefined, totalAmount: Number(settlementRecordDraft.totalAmount || 0), settledAmount: Number(settlementRecordDraft.settledAmount || 0), settlementMethod: settlementRecordDraft.settlementMethod, owner: settlementRecordDraft.owner || undefined, status: settlementRecordDraft.status, sourceDocument: settlementRecordDraft.sourceDocument || undefined }
@@ -7631,6 +7656,38 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveBankReconciliation = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const bankAmount = Number(bankReconciliationDraft.bankAmount || 0)
+      const bookAmount = Number(bankReconciliationDraft.bookAmount || 0)
+      const record: BankReconciliationRecord = {
+        id: `preview-reconciliation-${Date.now()}`,
+        companyId: selectedCompanyId || 'preview-company',
+        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+        reconciliationNo: bankReconciliationDraft.reconciliationNo,
+        reconciliationDate: bankReconciliationDraft.reconciliationDate,
+        bankTransactionId: null,
+        accountName: bankReconciliationDraft.accountName,
+        transactionNo: bankReconciliationDraft.transactionNo,
+        summary: bankReconciliationDraft.summary || null,
+        bankAmount,
+        bookAmount,
+        differenceAmount: bankAmount - bookAmount,
+        voucherNo: bankReconciliationDraft.voucherNo || null,
+        matchStatus: bankReconciliationDraft.matchStatus,
+        owner: bankReconciliationDraft.owner || null,
+        status: bankReconciliationDraft.status,
+        note: bankReconciliationDraft.note || null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }
+      setBankReconciliationRecords((records) => [record, ...records])
+      writeModuleAudit('新增银行对账', record.reconciliationNo, '中', '成功')
+      setOperationNotice(`银行对账已保存到当前预览：${record.reconciliationNo}。桌面端会写入当前账套，不会自动修改银行流水或会计凭证。`)
+      setBankReconciliationDraft({ reconciliationNo: '', reconciliationDate: '', accountName: '', transactionNo: '', summary: '', bankAmount: '', bookAmount: '', voucherNo: '', matchStatus: '待人工对账', owner: '', status: '待处理', note: '' })
+      setShowBankReconciliationDialog(false)
+      return
+    }
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
       const input = { companyId: selectedCompanyId, reconciliationNo: bankReconciliationDraft.reconciliationNo, reconciliationDate: bankReconciliationDraft.reconciliationDate, accountName: bankReconciliationDraft.accountName, transactionNo: bankReconciliationDraft.transactionNo, summary: bankReconciliationDraft.summary || undefined, bankAmount: Number(bankReconciliationDraft.bankAmount || 0), bookAmount: Number(bankReconciliationDraft.bookAmount || 0), voucherNo: bankReconciliationDraft.voucherNo || undefined, matchStatus: bankReconciliationDraft.matchStatus, owner: bankReconciliationDraft.owner || undefined, status: bankReconciliationDraft.status, note: bankReconciliationDraft.note || undefined }
@@ -7660,6 +7717,29 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveAccountTransfer = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const transfer: AccountTransfer = {
+        id: `preview-transfer-${Date.now()}`,
+        companyId: selectedCompanyId || 'preview-company',
+        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+        transferDate: accountTransferDraft.transferDate,
+        fromAccount: accountTransferDraft.fromAccount,
+        toAccount: accountTransferDraft.toAccount,
+        amount: Number(accountTransferDraft.amount || 0),
+        fee: Number(accountTransferDraft.fee || 0),
+        serialNo: accountTransferDraft.serialNo || null,
+        status: '待确认',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }
+      setAccountTransfers((records) => [transfer, ...records])
+      writeModuleAudit('新增账户转账', `${transfer.fromAccount}→${transfer.toAccount}`, '中', '成功')
+      setOperationNotice(`账户转账已保存到当前预览：${transfer.fromAccount}→${transfer.toAccount}。桌面端会写入当前账套，仍需人工核验回单和凭证。`)
+      setAccountTransferDraft({ transferDate: '', fromAccount: '', toAccount: '', amount: '', fee: '', serialNo: '' })
+      setShowAccountTransferDialog(false)
+      return
+    }
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
       const transferInput = { companyId: selectedCompanyId, transferDate: accountTransferDraft.transferDate, fromAccount: accountTransferDraft.fromAccount, toAccount: accountTransferDraft.toAccount, amount: Number(accountTransferDraft.amount || 0), fee: Number(accountTransferDraft.fee || 0), serialNo: accountTransferDraft.serialNo || undefined }
