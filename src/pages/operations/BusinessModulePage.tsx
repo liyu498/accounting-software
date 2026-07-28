@@ -8788,6 +8788,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('已登记基础档案完整性复核。税号、默认科目、状态和业务引用缺失的客户、供应商、项目或部门不能自动进入后续凭证建议。')
   }
 
+  const reviewTaxTaskData = () => {
+    writeModuleAudit('复核申报取数与校验', `${currentPeriodLabel}｜税种与申报包`, '高', '待审批')
+    setOperationNotice('已登记税务取数复核。税务认定、发票勾选、工资社保、纳税调整和地区政策需完成校验后才能生成待确认申报包。')
+  }
+
+  const openTaxReceiptWorkflow = () => {
+    const task = taxDeclarationTasks[0]
+    if (!task) {
+      setOperationNotice('当前账套没有可归档的申报事项，请先在申报认定或申报工作台建立待确认任务。')
+      return
+    }
+    openDeclarationReceiptEditor(task)
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -8941,6 +8955,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         {['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'].includes(kind) && (
           <AuxiliaryArchiveWorkflowPanel onReview={reviewAuxiliaryArchives} />
         )}
+
+        {(kind === 'taxInit' || kind === 'declarationCalendar') && (
+          <TaxPlanningWorkflowPanel
+            onAdd={kind === 'taxInit' ? () => openTaxInitEditor() : () => void handlePrimaryAction()}
+            onReview={reviewTaxTaskData}
+          />
+        )}
+
+        {['taxReport', 'vatTaxReport', 'withholdingTaxReport', 'stampTaxReport', 'incomeTaxReport', 'socialSecurityTaxReport', 'financeTaxReport', 'nonTaxRevenueReport'].includes(kind) && (
+          <TaxReportWorkflowPanel onRun={() => void handlePrimaryAction()} onReview={reviewTaxTaskData} />
+        )}
+
+        {kind === 'declarationReceipt' && <TaxReceiptWorkflowPanel onOpen={openTaxReceiptWorkflow} onReview={reviewTaxTaskData} />}
 
         {kind === 'inputInvoice' && (
           <InputInvoiceWorkflowPanel
@@ -11146,6 +11173,99 @@ function AuxiliaryArchiveWorkflowPanel({ onReview }: { onReview: () => void }) {
           ['待补资料', '8 条', '税号、账户或默认科目缺失'],
           ['业务引用', '96 次', '关联发票、流水或凭证'],
           ['停用记录', '4 条', '保留历史引用但禁止新增'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function TaxPlanningWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="申报认定与日历控制">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">申报认定与日历控制</h2>
+          <p className="mt-1 text-xs text-slate-500">按地区、税种、所属期和责任人维护申报认定与截止计划；税局授权仅作为适配器状态记录，不在本地页面直接发起登录或提交。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增申报认定" onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核申报计划" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['本期申报事项', '12 项', '按税种和所属期建立'],
+          ['临近截止', '4 项', '需分派负责人并跟进'],
+          ['取数待确认', '3 项', '等待发票或报表校验'],
+          ['阻断风险', '1 项', '处理后才可进入申报包'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function TaxReportWorkflowPanel({ onRun, onReview }: { onRun: () => void; onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="税务取数与申报包控制">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">税务取数与申报包控制</h2>
+          <p className="mt-1 text-xs text-slate-500">申报表从已核验的发票、工资、社保、合同、账簿和财报快照取数；这里只生成本地待确认申报包，不直接向电子税务局提交。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="重新取数" onClick={onRun} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核取数差异" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['已校验税表', '8 张', '来源与公式快照可追溯'],
+          ['待确认申报包', '3 份', '须人工确认后归档'],
+          ['资料阻断', '2 项', '发票勾选或合同资料缺失'],
+          ['金额差异', '1 项', '需要回查账簿和业务台账'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function TaxReceiptWorkflowPanel({ onOpen, onReview }: { onOpen: () => void; onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="申报回执与缴款归档">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">申报回执与缴款归档</h2>
+          <p className="mt-1 text-xs text-slate-500">回执号、缴款书号、扣款状态和附件必须来源于合法税局适配器或人工导入；本地登记不代表已完成外部申报。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="登记回执缴款" onClick={onOpen} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核归档完整性" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['已收回执', '5 项', '需关联回执 PDF 或截图'],
+          ['待缴款', '2 项', '保留缴款书与扣款状态'],
+          ['待归档附件', '1 项', '申报包与回执需成组留存'],
+          ['异常记录', '1 项', '提交失败需保留原因与重试记录'],
         ].map(([label, value, detail]) => (
           <div key={label} className="border border-slate-200 bg-white p-2.5">
             <div className="text-xs text-slate-500">{label}</div>

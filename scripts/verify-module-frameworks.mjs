@@ -112,6 +112,11 @@ const errors = [
   ...(!businessSource.includes('期初余额试算与启用控制') ? ['initial balance must render a dedicated balance workflow'] : []),
   ...(!businessSource.includes('科目核算口径与报表映射') ? ['subject settings must render a dedicated accounting policy workflow'] : []),
   ...(!businessSource.includes('辅助档案完整性与业务引用') ? ['auxiliary archives must render a dedicated validation workflow'] : []),
+  ...(!businessSource.includes('申报认定与日历控制') ? ['tax initialization and calendar must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('税务取数与申报包控制') ? ['tax report family must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('申报回执与缴款归档') ? ['declaration receipts must render a dedicated archive workflow'] : []),
+  ...(!businessSource.includes('reviewTaxTaskData') ? ['tax workflow must register a source review'] : []),
+  ...(!businessSource.includes('openTaxReceiptWorkflow') ? ['receipt workflow must open the dedicated receipt editor'] : []),
 ]
 
 if (errors.length > 0) {
