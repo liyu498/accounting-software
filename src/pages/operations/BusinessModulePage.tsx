@@ -3275,6 +3275,34 @@ function getModuleListMeta(kind: ModuleKind, title: string): ModuleListMeta {
 
   if (metadata[kind]) return metadata[kind]
 
+  if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) {
+    return {
+      title: 'AI 队列与建议处理清单',
+      hint: '按任务来源、识别置信度、人工复核、规则版本和凭证草稿状态处理自动化建议。',
+      exportHint: '导出保留来源附件、模型或规则版本、置信度、人工确认人和草稿去向。',
+    }
+  }
+  if (['attachmentCenter', 'importCenter', 'exportCenter'].includes(kind)) {
+    return {
+      title: '资料采集与批次核验清单',
+      hint: '按文件来源、解析批次、字段映射、关联单据、归档状态和异常原因处理资料。',
+      exportHint: '导出保留文件哈希、批次编号、解析结果、关联对象、操作人和归档时间。',
+    }
+  }
+  if (['settingsData', 'periodManagement', 'auditLog', 'backupRestore', 'voucherRecycle', 'notificationCenter'].includes(kind)) {
+    return {
+      title: '账套配置与控制清单',
+      hint: '按账期、权限、审计记录、备份快照、回收凭证和待办事项复核账套控制状态。',
+      exportHint: '导出保留配置范围、审批或审计记录、操作人、时间和恢复或归档状态。',
+    }
+  }
+  if (['taxInit', 'vatTaxReport', 'withholdingTaxReport', 'stampTaxReport', 'incomeTaxReport', 'socialSecurityTaxReport', 'financeTaxReport', 'nonTaxRevenueReport'].includes(kind)) {
+    return {
+      title: '税务申报与缴款处理清单',
+      hint: '按税种、所属期、取数来源、校验结果、申报节点、缴款状态和回执附件处理本期事项。',
+      exportHint: '导出包含税种、申报表、计税依据、校验记录、缴款信息、回执号和责任人。',
+    }
+  }
   if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') {
     return {
       title: `${title}取数清单`,
