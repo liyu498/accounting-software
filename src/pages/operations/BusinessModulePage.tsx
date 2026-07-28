@@ -8768,6 +8768,26 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('已登记财务报表勾稽复核。资产负债、利润、现金流和权益项目需在公式、重分类和取数快照一致后才可形成报送包。')
   }
 
+  const reviewCompanyRegistration = () => {
+    writeModuleAudit('复核企业税务资料', `${currentPeriodLabel}｜企业基础信息`, '高', '成功')
+    setOperationNotice('已登记企业基础资料复核。税号、地区、纳税人资格、会计制度、启用期间和外部授权信息须分别维护并保留人工确认。')
+  }
+
+  const reviewInitialBalance = () => {
+    void handlePrimaryAction()
+    writeModuleAudit('复核期初余额来源', `${currentPeriodLabel}｜科目与辅助余额`, '高', '待审批')
+  }
+
+  const reviewSubjectSettings = () => {
+    writeModuleAudit('复核会计科目核算口径', `${currentPeriodLabel}｜科目与辅助核算`, '中', '成功')
+    setOperationNotice('已登记会计科目复核。余额方向、辅助核算、默认凭证规则和报表映射变更应在启用前完成审核。')
+  }
+
+  const reviewAuxiliaryArchives = () => {
+    writeModuleAudit('复核辅助档案完整性', `${currentPeriodLabel}｜基础档案引用`, '中', '成功')
+    setOperationNotice('已登记基础档案完整性复核。税号、默认科目、状态和业务引用缺失的客户、供应商、项目或部门不能自动进入后续凭证建议。')
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -8910,6 +8930,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {['balanceSheetReport', 'incomeStatementReport', 'incomeQuarterReport', 'cashFlowReport', 'cashFlowQuarterReport', 'equityChangeReport', 'financialReport'].includes(kind) && (
           <FinancialStatementWorkflowPanel onReview={reviewFinancialStatements} onRefresh={() => void handlePrimaryAction()} />
+        )}
+
+        {kind === 'companyInfo' && <CompanyInfoWorkflowPanel onReview={reviewCompanyRegistration} />}
+
+        {kind === 'initialBalance' && <InitialBalanceWorkflowPanel onValidate={reviewInitialBalance} />}
+
+        {kind === 'subjectSettings' && <SubjectSettingsWorkflowPanel onReview={reviewSubjectSettings} />}
+
+        {['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'].includes(kind) && (
+          <AuxiliaryArchiveWorkflowPanel onReview={reviewAuxiliaryArchives} />
         )}
 
         {kind === 'inputInvoice' && (
@@ -11004,6 +11034,118 @@ function FinancialStatementWorkflowPanel({ onReview, onRefresh }: { onReview: ()
           ['重分类项目', '3 项', '应收应付和预收预付待确认'],
           ['现金流未映射', '2 项', '必须补齐映射后再形成报送包'],
           ['勾稽差异', '0 项', '当前快照可供导出和打印'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function CompanyInfoWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="企业税务资料与授权维护">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">企业税务资料与授权维护</h2>
+          <p className="mt-1 text-xs text-slate-500">企业资料、会计制度、启用账期和税务授权分项维护。外部税局或工商资料采集需要独立授权，不会通过页面自动登录。</p>
+        </div>
+        <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核企业资料" onClick={onReview} />
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['企业主体', '已登记', '名称、税号和地区'],
+          ['会计制度', '小企业会计准则', '启用后需受变更控制'],
+          ['纳税人资格', '一般纳税人', '税种认定待复核'],
+          ['授权状态', '待确认', '税务与工商授权分开管理'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function InitialBalanceWorkflowPanel({ onValidate }: { onValidate: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="期初余额试算与启用控制">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">期初余额试算与启用控制</h2>
+          <p className="mt-1 text-xs text-slate-500">期初余额按会计科目和辅助核算双层登记，借贷试算、历史迁移差异和启用条件须在锁定前逐项确认。</p>
+        </div>
+        <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="执行试算平衡" onClick={onValidate} />
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['科目余额', '126 行', '总账期初基础数据'],
+          ['辅助余额', '24 行', '客户、供应商和项目明细'],
+          ['试算状态', '待确认', '借贷两端必须平衡'],
+          ['迁移差异', '1 项', '需回查历史账簿来源'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function SubjectSettingsWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="科目核算口径与报表映射">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">科目核算口径与报表映射</h2>
+          <p className="mt-1 text-xs text-slate-500">会计科目维护余额方向、明细级次、辅助核算、凭证规则和财务报表映射，变更后需评估对历史凭证与报表的影响。</p>
+        </div>
+        <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核科目口径" onClick={onReview} />
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['启用科目', '182 个', '含明细与末级科目'],
+          ['辅助核算', '36 个', '需关联基础档案类别'],
+          ['报表映射', '14 项', '公式版本可追溯'],
+          ['待审核变更', '2 项', '影响默认凭证与取数'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function AuxiliaryArchiveWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="辅助档案完整性与业务引用">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">辅助档案完整性与业务引用</h2>
+          <p className="mt-1 text-xs text-slate-500">客户、供应商、人员、项目和部门档案为发票、流水、凭证与辅助账提供引用基础，缺失资料须在业务流转前补齐。</p>
+        </div>
+        <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核档案引用" onClick={onReview} />
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['可用档案', '148 条', '当前账套已启用记录'],
+          ['待补资料', '8 条', '税号、账户或默认科目缺失'],
+          ['业务引用', '96 次', '关联发票、流水或凭证'],
+          ['停用记录', '4 条', '保留历史引用但禁止新增'],
         ].map(([label, value, detail]) => (
           <div key={label} className="border border-slate-200 bg-white p-2.5">
             <div className="text-xs text-slate-500">{label}</div>

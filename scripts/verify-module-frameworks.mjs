@@ -108,6 +108,10 @@ const errors = [
   ...(!businessSource.includes('财务报表取数与勾稽复核') ? ['financial statement family must render a dedicated reconciliation workflow'] : []),
   ...(!businessSource.includes('reviewLedgerReports') ? ['ledger workflow must register a reconciliation review'] : []),
   ...(!businessSource.includes('reviewFinancialStatements') ? ['financial workflow must register a statement review'] : []),
+  ...(!businessSource.includes('企业税务资料与授权维护') ? ['company information must render a dedicated registration workflow'] : []),
+  ...(!businessSource.includes('期初余额试算与启用控制') ? ['initial balance must render a dedicated balance workflow'] : []),
+  ...(!businessSource.includes('科目核算口径与报表映射') ? ['subject settings must render a dedicated accounting policy workflow'] : []),
+  ...(!businessSource.includes('辅助档案完整性与业务引用') ? ['auxiliary archives must render a dedicated validation workflow'] : []),
 ]
 
 if (errors.length > 0) {
