@@ -4943,6 +4943,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [importValidationJob, setImportValidationJob] = useState<LocalImportJob | null>(null)
   const [importCommitDraft, setImportCommitDraft] = useState<LocalImportCommitDraft | null>(null)
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
+  const [showAiJobDialog, setShowAiJobDialog] = useState(false)
+  const [aiJobDraft, setAiJobDraft] = useState({ jobType: 'invoice_recognition', sourceModule: '发票', sourceId: '', sourceFile: '', summary: '', riskLevel: 'normal' })
   const [prefilledAiSuggestionId, setPrefilledAiSuggestionId] = useState<string | null>(null)
   const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)
   const [aiVoucherSuggestionDraft, setAiVoucherSuggestionDraft] = useState({ suggestionNo: '', sourceModule: '', sourceId: '', sourceFile: '', summary: '', debitSubject: '', creditSubject: '', amount: '', confidence: '90', riskLevel: 'normal' })
@@ -5751,7 +5753,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'aiJobQueue' && usesLiveAutomationJobData) {
+    if (kind === 'aiJobQueue' && (usesLiveAutomationJobData || automationJobs.length > 0)) {
       return {
         ...baseConfig,
         rows: mapLiveAutomationJobRows(automationJobs, 'queue'),
@@ -5759,7 +5761,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'aiRecognitionResults' && usesLiveAutomationJobData) {
+    if (kind === 'aiRecognitionResults' && (usesLiveAutomationJobData || automationJobs.length > 0)) {
       return {
         ...baseConfig,
         rows: mapLiveAutomationJobRows(automationJobs, 'recognition'),
@@ -5767,7 +5769,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData) {
+    if (kind === 'aiVoucherSuggestions' && (usesLiveAutomationJobData || automationJobs.length > 0)) {
       return {
         ...baseConfig,
         rows: mapLiveAutomationJobRows(automationJobs, 'suggestion'),
@@ -6397,6 +6399,34 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('AI 凭证建议已登记为待确认记录；请人工核验来源、借贷科目和金额，系统不会自动生成或入账凭证。')
   }
 
+  const handleSaveAiJob = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (isTauri && (!selectedCompanyId || currentPeriodLabel === '当前账期')) {
+      setOperationNotice('请先选择账套和账期，再创建 AI 处理任务。')
+      return
+    }
+    const result = await automationApi.createAutomationJob({
+      companyId: selectedCompanyId || 'browser-preview',
+      period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+      jobType: aiJobDraft.jobType,
+      sourceModule: aiJobDraft.sourceModule.trim(),
+      sourceId: aiJobDraft.sourceId.trim() || undefined,
+      sourceFile: aiJobDraft.sourceFile.trim() || undefined,
+      status: 'queued',
+      resultSummary: aiJobDraft.summary.trim() || '等待读取来源资料并生成待确认结果。',
+      riskLevel: aiJobDraft.riskLevel,
+      createdBy: 'admin',
+    })
+    if (!result.success || !result.data) {
+      setOperationNotice(`创建 AI 处理任务失败：${result.error || '未知错误'}`)
+      return
+    }
+    setAutomationJobs((jobs) => [result.data!, ...jobs.filter((job) => job.id !== result.data!.id)])
+    setShowAiJobDialog(false)
+    writeModuleAudit('新建AI处理任务', `${result.data.jobType}｜${result.data.sourceModule}`, '中', '成功')
+    setOperationNotice('AI 处理任务已进入待执行队列。识别结果、分类和凭证建议均须人工确认，不会自动生成或入账凭证。')
+  }
+
   const confirmAiVoucherSuggestions = async (rowIds: string[]) => {
     if (!selectedCompanyId) return
     const jobs = rowIds
@@ -6560,6 +6590,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handlePrimaryAction = async () => {
+    if (kind === 'aiJobQueue') {
+      startAiTaskDraft()
+      return
+    }
     if (kind === 'attachmentCenter' || kind === 'importCenter') {
       importFileRef.current?.click()
       return
@@ -8947,8 +8981,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const startAiTaskDraft = () => {
-    writeModuleAudit('新建AI处理任务草稿', `${currentPeriodLabel}｜待选择来源资料`, '中', '成功')
-    setOperationNotice('已建立 AI 处理任务草稿。请从发票、流水、单据或附件选择来源资料；识别、分类和凭证建议均需保留人工确认环节。')
+    setAiJobDraft({ jobType: 'invoice_recognition', sourceModule: '发票', sourceId: '', sourceFile: '', summary: '', riskLevel: 'normal' })
+    setShowAiJobDialog(true)
   }
 
   const reviewAiRecognition = () => {
@@ -10469,6 +10503,49 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600">订单状态<select value={businessOrderDraft.status} onChange={(event) => setBusinessOrderDraft((draft) => ({ ...draft, status: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['待确认', '已完成', '异常'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowBusinessOrderDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingBusinessOrderId ? '保存修改' : '保存订单'}</button></div>
+          </form>
+        </div>
+      )}
+      {showAiJobDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增 AI 处理任务">
+          <form onSubmit={handleSaveAiJob} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">新增 AI 处理任务</h2>
+                <p className="mt-0.5 text-xs text-slate-500">任务仅进入本地待执行队列，识别、分类和凭证建议均须人工确认，不会自动生成或入账凭证。</p>
+              </div>
+              <button type="button" onClick={() => setShowAiJobDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">任务类型 *
+                <select value={aiJobDraft.jobType} onChange={(event) => setAiJobDraft((draft) => ({ ...draft, jobType: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="invoice_recognition">发票识别与字段提取</option>
+                  <option value="bank_classification">银行流水分类</option>
+                  <option value="document_review">原始单据完整性核验</option>
+                  <option value="voucher_suggestion">凭证建议生成</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">来源模块 *
+                <select value={aiJobDraft.sourceModule} onChange={(event) => setAiJobDraft((draft) => ({ ...draft, sourceModule: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  {['发票', '银行流水', '原始单据', '工资社保', '附件中心'].map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">来源记录编号
+                <input value={aiJobDraft.sourceId} onChange={(event) => setAiJobDraft((draft) => ({ ...draft, sourceId: event.target.value }))} placeholder="例如：发票号码、流水号或单据编号" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">来源文件/影像
+                <input value={aiJobDraft.sourceFile} onChange={(event) => setAiJobDraft((draft) => ({ ...draft, sourceFile: event.target.value }))} placeholder="例如：2026-05-销项票据.zip" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">风险等级
+                <select value={aiJobDraft.riskLevel} onChange={(event) => setAiJobDraft((draft) => ({ ...draft, riskLevel: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="normal">常规</option><option value="warning">需复核</option><option value="high">高风险</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">处理说明
+                <input value={aiJobDraft.summary} onChange={(event) => setAiJobDraft((draft) => ({ ...draft, summary: event.target.value }))} placeholder="说明本次需要识别、分类或生成建议的范围" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowAiJobDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">创建待执行任务</button></div>
           </form>
         </div>
       )}
