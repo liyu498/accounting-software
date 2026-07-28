@@ -230,7 +230,7 @@ const requiredPageSnippets = [
   ['currency live scope', 'usesLiveCurrencyData'],
   ['template workspace refresh', 'fetchTemplateWorkspace(selectedCompanyId)'],
   ['common digest mapping', 'mapLiveCommonDigestRows(isTauri ? commonDigests : previewCommonDigests)'],
-  ['voucher template mapping', 'mapLiveVoucherTemplateRows(voucherTemplates, voucherTemplateTypes)'],
+  ['voucher template mapping', 'mapLiveVoucherTemplateRows(isTauri ? voucherTemplates : previewVoucherTemplates, isTauri ? voucherTemplateTypes : previewVoucherTemplateTypes)'],
   ['template settings live scope', 'usesLiveTemplateSettingsData'],
   ['report template refresh', 'fetchReportTemplateWorkspace(selectedCompanyId)'],
   ['report formula mapping', 'mapLiveReportFormulaRows(reportTemplates, reportItems)'],

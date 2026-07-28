@@ -4922,6 +4922,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [previewCommonDigests, setPreviewCommonDigests] = useState<typeof commonDigests>([])
   const [previewAuxiliaryCategories, setPreviewAuxiliaryCategories] = useState<typeof auxiliaryCategories>([])
   const [previewAuxiliaryItems, setPreviewAuxiliaryItems] = useState<typeof auxiliaryItems>([])
+  const [previewVoucherTemplateTypes] = useState<typeof voucherTemplateTypes>([{ id: 'preview-template-type', company_id: 'preview-company', name: '通用凭证', sort_order: 1 }])
+  const [previewVoucherTemplates, setPreviewVoucherTemplates] = useState<typeof voucherTemplates>([])
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -4983,6 +4985,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     () => accounts.filter((account) => account.is_enabled === 1 && account.is_detail === 1),
     [accounts],
   )
+  const templateAccounts = detailedAccounts.length > 0 ? detailedAccounts : [{ code: '1002', name: '银行存款' }, { code: '6001', name: '主营业务收入' }]
   const selectedAuxiliaryCategory = useMemo(
     () => auxiliaryCategories.find((category) => category.id === selectedAuxiliaryCategoryId),
     [auxiliaryCategories, selectedAuxiliaryCategoryId],
@@ -5978,11 +5981,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'voucherTemplateSettings' && usesLiveTemplateSettingsData) {
+    if (kind === 'voucherTemplateSettings' && (usesLiveTemplateSettingsData || previewVoucherTemplates.length > 0)) {
       return {
         ...baseConfig,
-        rows: mapLiveVoucherTemplateRows(voucherTemplates, voucherTemplateTypes),
-        summary: summarizeLiveVoucherTemplates(voucherTemplates, voucherTemplateTypes),
+        rows: mapLiveVoucherTemplateRows(isTauri ? voucherTemplates : previewVoucherTemplates, isTauri ? voucherTemplateTypes : previewVoucherTemplateTypes),
+        summary: summarizeLiveVoucherTemplates(isTauri ? voucherTemplates : previewVoucherTemplates, isTauri ? voucherTemplateTypes : previewVoucherTemplateTypes),
       }
     }
 
@@ -6181,7 +6184,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -7142,11 +7145,25 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const resetVoucherTemplateDraft = () => {
     setEditingVoucherTemplateId(null)
-    setVoucherTemplateDraft({ typeId: voucherTemplateTypes[0]?.id || '', name: '', summary: '', debitAccountCode: '', creditAccountCode: '' })
+    setVoucherTemplateDraft({ typeId: (isTauri ? voucherTemplateTypes : previewVoucherTemplateTypes)[0]?.id || '', name: '', summary: '', debitAccountCode: '', creditAccountCode: '' })
   }
 
   const handleSaveVoucherTemplate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const debitAccount = templateAccounts.find((account) => account.code === voucherTemplateDraft.debitAccountCode)
+      const creditAccount = templateAccounts.find((account) => account.code === voucherTemplateDraft.creditAccountCode)
+      if (!debitAccount || !creditAccount) { setOperationNotice('请选择完整的借方和贷方科目。'); return }
+      const summary = voucherTemplateDraft.summary.trim() || voucherTemplateDraft.name.trim()
+      const entries: TemplateEntry[] = [{ account_code: debitAccount.code, account_name: debitAccount.name, direction: 'debit', summary, auxiliary_type: null, auxiliary_id: null }, { account_code: creditAccount.code, account_name: creditAccount.name, direction: 'credit', summary, auxiliary_type: null, auxiliary_id: null }]
+      const template = { template: { id: editingVoucherTemplateId || `preview-voucher-template-${Date.now()}`, type_id: voucherTemplateDraft.typeId || previewVoucherTemplateTypes[0].id, company_id: selectedCompanyId || 'preview-company', name: voucherTemplateDraft.name.trim(), entries_json: JSON.stringify(entries) }, entries }
+      setPreviewVoucherTemplates((items) => editingVoucherTemplateId ? items.map((item) => item.template.id === template.template.id ? template : item) : [template, ...items])
+      writeModuleAudit(editingVoucherTemplateId ? '编辑凭证模板' : '新增凭证模板', template.template.name, '中', '成功')
+      setOperationNotice(`凭证模板已保存到当前预览：${template.template.name}。桌面端会写入当前账套，自动套用前仍需人工核验借贷科目和金额。`)
+      resetVoucherTemplateDraft()
+      setShowVoucherTemplateDialog(false)
+      return
+    }
     if (!selectedCompanyId) return
     try {
       const debitAccount = detailedAccounts.find((account) => account.code === voucherTemplateDraft.debitAccountCode)
@@ -8638,8 +8655,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowCommonDigestDialog(true)
       return
     }
-    if (kind === 'voucherTemplateSettings' && isTauri && selectedCompanyId) {
-      const template = voucherTemplates.find((item) => `voucher-template-${item.template.id}` === row.id)
+    if (kind === 'voucherTemplateSettings') {
+      const template = (isTauri ? voucherTemplates : previewVoucherTemplates).find((item) => `voucher-template-${item.template.id}` === row.id)
       if (!template) {
         setOperationNotice('未找到当前账套的凭证模板。')
         return
@@ -9478,7 +9495,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'auxiliaryCategories' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增类别" onClick={() => { resetAuxiliaryCategoryDraft(); setShowAuxiliaryCategoryDialog(true) }} />}
             {kind === 'auxiliaryItems' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增项目" onClick={() => { if ((isTauri ? auxiliaryCategories : previewAuxiliaryCategories).length === 0) { setOperationNotice('请先新增辅助核算类别，再维护辅助核算项目。'); return }; resetAuxiliaryItemDraft(); setShowAuxiliaryItemDialog(true) }} />}
             {kind === 'commonDigests' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增摘要" onClick={() => { resetCommonDigestDraft(); setShowCommonDigestDialog(true) }} />}
-            {kind === 'voucherTemplateSettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增凭证模板" onClick={() => { resetVoucherTemplateDraft(); setShowVoucherTemplateDialog(true) }} />}
+            {kind === 'voucherTemplateSettings' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增凭证模板" onClick={() => { resetVoucherTemplateDraft(); setShowVoucherTemplateDialog(true) }} />}
             {(kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'} onClick={() => { resetAdapterAuthorizationDraft(); setShowAdapterAuthorizationDialog(true) }} />}
             {kind === 'socialSecurity' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={openSocialSecurityEditor} />}
             {kind === 'specialDeduction' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={openSpecialDeductionEditor} />}
@@ -10399,10 +10416,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingVoucherTemplateId ? '编辑凭证模板' : '新增凭证模板'}</h2><p className="mt-0.5 text-xs text-slate-500">模板会生成借贷平衡的凭证草稿，正式保存和审核仍由凭证流程控制。</p></div><button type="button" onClick={() => setShowVoucherTemplateDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
               <label className="grid gap-1 text-xs text-slate-600">模板名称 *<input required value={voucherTemplateDraft.name} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="如：销售商品收入" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
-              <label className="grid gap-1 text-xs text-slate-600">模板分类 *<select required value={voucherTemplateDraft.typeId} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, typeId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择模板分类</option>{voucherTemplateTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600">模板分类 *<select required value={voucherTemplateDraft.typeId} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, typeId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择模板分类</option>{(isTauri ? voucherTemplateTypes : previewVoucherTemplateTypes).map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">摘要规则<input value={voucherTemplateDraft.summary} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, summary: event.target.value }))} placeholder="如：销售{商品}" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
-              <label className="grid gap-1 text-xs text-slate-600">借方科目 *<select required value={voucherTemplateDraft.debitAccountCode} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, debitAccountCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择借方科目</option>{detailedAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}</select></label>
-              <label className="grid gap-1 text-xs text-slate-600">贷方科目 *<select required value={voucherTemplateDraft.creditAccountCode} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, creditAccountCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择贷方科目</option>{detailedAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600">借方科目 *<select required value={voucherTemplateDraft.debitAccountCode} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, debitAccountCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择借方科目</option>{templateAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600">贷方科目 *<select required value={voucherTemplateDraft.creditAccountCode} onChange={(event) => setVoucherTemplateDraft((draft) => ({ ...draft, creditAccountCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择贷方科目</option>{templateAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}</select></label>
             </div>
             <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div>{editingVoucherTemplateId && <button type="button" onClick={() => void handleDeleteVoucherTemplate()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除模板</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowVoucherTemplateDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingVoucherTemplateId ? '保存修改' : '保存模板'}</button></div></div>
           </form>
