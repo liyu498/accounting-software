@@ -131,6 +131,12 @@ const errors = [
   ...(!businessSource.includes('操作审计追溯与高风险留痕') ? ['audit log must render a dedicated evidence workflow'] : []),
   ...(!businessSource.includes('删除凭证恢复与销毁控制') ? ['voucher recycle must render a dedicated retention workflow'] : []),
   ...(!businessSource.includes('reviewControlEvidence') ? ['control workflow must register a review'] : []),
+  ...(!businessSource.includes('销项开票与凭证确认流程') ? ['output invoices must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('合同履约与印花税核验') ? ['contract ledgers must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('发票凭证关联与差异复核') ? ['invoice voucher matching must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('票据到期与背书用途核验') ? ['receipt ledger must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('账户资金调拨与手续费核验') ? ['account transfer must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('专项附加扣除确认与个税取数') ? ['special deductions must render a dedicated workflow'] : []),
 ]
 
 if (errors.length > 0) {
