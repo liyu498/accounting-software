@@ -5708,11 +5708,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'purchaseManagement' && (usesLiveBusinessOrderData || businessOrders.length > 0)) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'purchase'), summary: summarizeLiveBusinessOrders(businessOrders, 'purchase', ['采购单', '已完成', '待处理', '异常单']) }
     if (kind === 'salesManagement' && (usesLiveBusinessOrderData || businessOrders.length > 0)) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'sales'), summary: summarizeLiveBusinessOrders(businessOrders, 'sales', ['销售单', '已完成', '待处理', '异常单']) }
     if (kind === 'transfer' && (usesLiveAccountTransferData || accountTransfers.length > 0)) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
-    if (kind === 'depreciation' && usesLiveFixedAssetData) return { ...baseConfig, rows: mapLiveFixedAssetRows(fixedAssets), summary: summarizeLiveFixedAssets(fixedAssets) }
-    if (kind === 'inventoryMovement' && usesLiveInventoryMovementData) return { ...baseConfig, rows: mapLiveInventoryMovementRows(inventoryMovements), summary: summarizeLiveInventoryMovements(inventoryMovements) }
-    if (kind === 'costCarryover' && usesLiveCostCarryoverData) return { ...baseConfig, rows: mapLiveCostCarryoverRows(costCarryoverRecords), summary: summarizeLiveCostCarryover(costCarryoverRecords) }
-    if (kind === 'inventorySettings' && usesLiveInventoryItemData) return { ...baseConfig, rows: mapLiveInventoryItemRows(inventoryItems), summary: [{ label: '存货档案', value: `${inventoryItems.length} 项`, tone: 'blue' }, { label: '启用', value: `${inventoryItems.filter((item) => item.status !== '停用').length} 项`, tone: 'green' }, { label: '待补税率', value: `${inventoryItems.filter((item) => item.taxRate === null).length} 项`, tone: 'amber' }, { label: '停用', value: `${inventoryItems.filter((item) => item.status === '停用').length} 项`, tone: 'gray' }] as ModuleConfig['summary'] }
-    if (kind === 'unitSettings' && usesLiveMeasurementUnitData) return { ...baseConfig, rows: mapLiveMeasurementUnitRows(measurementUnits) }
+    if (kind === 'depreciation' && (usesLiveFixedAssetData || fixedAssets.length > 0)) return { ...baseConfig, rows: mapLiveFixedAssetRows(fixedAssets), summary: summarizeLiveFixedAssets(fixedAssets) }
+    if (kind === 'inventoryMovement' && (usesLiveInventoryMovementData || inventoryMovements.length > 0)) return { ...baseConfig, rows: mapLiveInventoryMovementRows(inventoryMovements), summary: summarizeLiveInventoryMovements(inventoryMovements) }
+    if (kind === 'costCarryover' && (usesLiveCostCarryoverData || costCarryoverRecords.length > 0)) return { ...baseConfig, rows: mapLiveCostCarryoverRows(costCarryoverRecords), summary: summarizeLiveCostCarryover(costCarryoverRecords) }
+    if (kind === 'inventorySettings' && (usesLiveInventoryItemData || inventoryItems.length > 0)) return { ...baseConfig, rows: mapLiveInventoryItemRows(inventoryItems), summary: [{ label: '存货档案', value: `${inventoryItems.length} 项`, tone: 'blue' }, { label: '启用', value: `${inventoryItems.filter((item) => item.status !== '停用').length} 项`, tone: 'green' }, { label: '待补税率', value: `${inventoryItems.filter((item) => item.taxRate === null).length} 项`, tone: 'amber' }, { label: '停用', value: `${inventoryItems.filter((item) => item.status === '停用').length} 项`, tone: 'gray' }] as ModuleConfig['summary'] }
+    if (kind === 'unitSettings' && (usesLiveMeasurementUnitData || measurementUnits.length > 0)) return { ...baseConfig, rows: mapLiveMeasurementUnitRows(measurementUnits) }
 
     if (kind === 'declarationReceipt' && usesLiveDeclarationReceiptData) {
       return {
@@ -6176,7 +6176,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -6731,37 +6731,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       openAccountTransferEditor()
       return
     }
-    if (kind === 'depreciation' && isTauri && selectedCompanyId) {
-      setEditingFixedAssetId(null)
-      const category = assetCategories.find((category) => category.is_enabled === 1)
-      setFixedAssetDraft({ assetCode: '', assetName: '', category: category?.name || '', startDate: '', originalValue: '', usefulLifeMonths: category ? String(category.useful_life_months) : '', residualRate: category ? String(category.residual_rate * 100) : '5', sourceDocument: '' })
-      setShowFixedAssetDialog(true)
-      return
-    }
+    if (kind === 'depreciation') { openFixedAssetEditor(); return }
     if ((kind === 'billList' || kind === 'bankStatement') && isTauri && selectedCompanyId) {
       setEditingBankTransactionId(null)
       setBankTransactionDraft({ accountName: '', serialNo: '', transactionDate: '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' })
       setShowBankTransactionDialog(true)
       return
     }
-    if (kind === 'inventoryMovement' && isTauri && selectedCompanyId) {
-      setEditingInventoryMovementId(null)
-      setInventoryMovementDraft({ movementDate: '', billNo: '', movementType: '采购入库', inventoryName: '', warehouse: '', counterparty: '', unit: '', quantity: '', amount: '', sourceDocument: '' })
-      setShowInventoryMovementDialog(true)
-      return
-    }
-    if (kind === 'inventorySettings' && isTauri && selectedCompanyId) {
-      setEditingInventoryItemId(null)
-      setShowInventoryItemDialog(true)
-      return
-    }
-    if (kind === 'unitSettings' && isTauri && selectedCompanyId) { setEditingMeasurementUnitId(null); setShowMeasurementUnitDialog(true); return }
-    if (kind === 'costCarryover' && isTauri && selectedCompanyId) {
-      setEditingCostCarryoverId(null)
-      setCostCarryoverDraft({ batchNo: '', carryoverDate: currentPeriod?.end_date || '', valuationMethod: '移动加权', sourceBillNo: '', inventoryName: '', debitSubject: '主营业务成本', creditSubject: '库存商品', costAmount: '', differenceAmount: '0', voucherNo: '', status: '待确认', sourceDocument: '' })
-      setShowCostCarryoverDialog(true)
-      return
-    }
+    if (kind === 'inventoryMovement') { openInventoryMovementEditor(); return }
+    if (kind === 'inventorySettings') { openInventoryItemEditor(); return }
+    if (kind === 'unitSettings') { setEditingMeasurementUnitId(null); setShowMeasurementUnitDialog(true); return }
+    if (kind === 'costCarryover') { openCostCarryoverEditor(); return }
     if (kind === 'payroll' && isTauri && selectedCompanyId) {
       if (payrollRecords.length === 0) {
         setOperationNotice('当前账期没有薪酬行，请先新增或导入薪酬表。')
@@ -7703,6 +7683,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveCostCarryover = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const record: CostCarryoverRecord = { id: `preview-cost-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, batchNo: costCarryoverDraft.batchNo, carryoverDate: costCarryoverDraft.carryoverDate, valuationMethod: costCarryoverDraft.valuationMethod, sourceBillNo: costCarryoverDraft.sourceBillNo, inventoryName: costCarryoverDraft.inventoryName, debitSubject: costCarryoverDraft.debitSubject, creditSubject: costCarryoverDraft.creditSubject, costAmount: Number(costCarryoverDraft.costAmount || 0), differenceAmount: Number(costCarryoverDraft.differenceAmount || 0), voucherNo: costCarryoverDraft.voucherNo || null, status: costCarryoverDraft.status, sourceDocument: costCarryoverDraft.sourceDocument || null, createdAt: timestamp, updatedAt: timestamp }
+      setCostCarryoverRecords((records) => [record, ...records])
+      writeModuleAudit('新增成本结转', record.batchNo, '高', '成功')
+      setOperationNotice(`成本结转已保存到当前预览：${record.batchNo}。桌面端会写入当前账套，成本差异仍需人工复核后关联凭证。`)
+      setShowCostCarryoverDialog(false)
+      return
+    }
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
       const input = { companyId:selectedCompanyId, batchNo:costCarryoverDraft.batchNo, carryoverDate:costCarryoverDraft.carryoverDate, valuationMethod:costCarryoverDraft.valuationMethod, sourceBillNo:costCarryoverDraft.sourceBillNo, inventoryName:costCarryoverDraft.inventoryName, debitSubject:costCarryoverDraft.debitSubject, creditSubject:costCarryoverDraft.creditSubject, costAmount:Number(costCarryoverDraft.costAmount||0), differenceAmount:Number(costCarryoverDraft.differenceAmount||0), voucherNo:costCarryoverDraft.voucherNo||undefined, status:costCarryoverDraft.status, sourceDocument:costCarryoverDraft.sourceDocument||undefined }
@@ -7758,6 +7747,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveFixedAsset = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const asset: FixedAsset = { id: `preview-asset-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, assetCode: fixedAssetDraft.assetCode, assetName: fixedAssetDraft.assetName, category: fixedAssetDraft.category, startDate: fixedAssetDraft.startDate, originalValue: Number(fixedAssetDraft.originalValue || 0), usefulLifeMonths: Number(fixedAssetDraft.usefulLifeMonths || 0), residualRate: Number(fixedAssetDraft.residualRate || 0) / 100, sourceDocument: fixedAssetDraft.sourceDocument || null, status: '待确认', createdAt: timestamp, updatedAt: timestamp }
+      setFixedAssets((records) => [asset, ...records])
+      writeModuleAudit('新增固定资产', asset.assetName, '中', '成功')
+      setOperationNotice(`固定资产已保存到当前预览：${asset.assetName}。桌面端会写入当前账套，折旧与凭证仍需人工确认。`)
+      setShowFixedAssetDialog(false)
+      return
+    }
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
       const assetInput = { companyId: selectedCompanyId, assetCode: fixedAssetDraft.assetCode, assetName: fixedAssetDraft.assetName, category: fixedAssetDraft.category, startDate: fixedAssetDraft.startDate, originalValue: Number(fixedAssetDraft.originalValue || 0), usefulLifeMonths: Number(fixedAssetDraft.usefulLifeMonths || 0), residualRate: Number(fixedAssetDraft.residualRate || 0) / 100, sourceDocument: fixedAssetDraft.sourceDocument || undefined }
@@ -7776,6 +7774,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveInventoryMovement = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const movement: InventoryMovement = { id: `preview-movement-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, movementDate: inventoryMovementDraft.movementDate, billNo: inventoryMovementDraft.billNo, movementType: inventoryMovementDraft.movementType, inventoryName: inventoryMovementDraft.inventoryName, warehouse: inventoryMovementDraft.warehouse, counterparty: inventoryMovementDraft.counterparty || null, unit: inventoryMovementDraft.unit, quantity: Number(inventoryMovementDraft.quantity || 0), amount: Number(inventoryMovementDraft.amount || 0), sourceDocument: inventoryMovementDraft.sourceDocument || null, status: '待确认', createdAt: timestamp, updatedAt: timestamp }
+      setInventoryMovements((records) => [movement, ...records])
+      writeModuleAudit('新增出入库单', movement.billNo, '中', '成功')
+      setOperationNotice(`出入库单已保存到当前预览：${movement.billNo}。桌面端会写入当前账套，发票匹配、计价和凭证仍需人工确认。`)
+      setShowInventoryMovementDialog(false)
+      return
+    }
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
     try {
       const movementInput = { companyId: selectedCompanyId, movementDate: inventoryMovementDraft.movementDate, billNo: inventoryMovementDraft.billNo, movementType: inventoryMovementDraft.movementType, inventoryName: inventoryMovementDraft.inventoryName, warehouse: inventoryMovementDraft.warehouse, counterparty: inventoryMovementDraft.counterparty || undefined, unit: inventoryMovementDraft.unit, quantity: Number(inventoryMovementDraft.quantity || 0), amount: Number(inventoryMovementDraft.amount || 0), sourceDocument: inventoryMovementDraft.sourceDocument || undefined }
@@ -7794,6 +7801,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveInventoryItem = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const item: InventoryItem = { id: `preview-item-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', itemCode: inventoryItemDraft.itemCode, itemName: inventoryItemDraft.itemName, specification: inventoryItemDraft.specification || null, unit: inventoryItemDraft.unit, taxRate: Number(inventoryItemDraft.taxRate || 0) / 100, defaultSubject: inventoryItemDraft.defaultSubject || null, status: '启用', createdAt: timestamp, updatedAt: timestamp }
+      setInventoryItems((items) => [item, ...items])
+      writeModuleAudit('新增存货', item.itemName, '中', '成功')
+      setOperationNotice(`存货档案已保存到当前预览：${item.itemName}。桌面端会写入当前账套，可继续用于出入库和成本结转。`)
+      setShowInventoryItemDialog(false)
+      return
+    }
     if (!selectedCompanyId) return
     try {
       const itemInput = {
@@ -7817,6 +7833,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
   const handleSaveMeasurementUnit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const unit: MeasurementUnit = { id: `preview-unit-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', unitName: measurementUnitDraft.unitName, unitGroup: measurementUnitDraft.unitGroup || null, baseUnit: measurementUnitDraft.baseUnit || null, conversionRate: Number(measurementUnitDraft.conversionRate || 1), precisionDigits: Number(measurementUnitDraft.precisionDigits || 0), remark: measurementUnitDraft.remark || null, status: '启用', createdAt: timestamp, updatedAt: timestamp }
+      setMeasurementUnits((items) => [unit, ...items])
+      writeModuleAudit('新增计量单位', unit.unitName, '中', '成功')
+      setOperationNotice(`计量单位已保存到当前预览：${unit.unitName}。桌面端会写入当前账套，可在存货档案和出入库单中选择。`)
+      setShowMeasurementUnitDialog(false)
+      return
+    }
     if (!selectedCompanyId) return
     const unitInput = {
       companyId: selectedCompanyId,
@@ -9052,7 +9077,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openFixedAssetEditor = () => {
-    const category = assetCategories.find((item) => item.is_enabled === 1)
+    const category = assetCategories.find((category) => category.is_enabled === 1)
     setEditingFixedAssetId(null)
     setFixedAssetDraft({ assetCode: '', assetName: '', category: category?.name || '', startDate: currentPeriod?.end_date || '', originalValue: '', usefulLifeMonths: category ? String(category.useful_life_months) : '', residualRate: category ? String(category.residual_rate * 100) : '5', sourceDocument: '' })
     setShowFixedAssetDialog(true)
