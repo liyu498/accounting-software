@@ -4920,6 +4920,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [previewCompanyAccounts, setPreviewCompanyAccounts] = useState<typeof companyAccounts>([])
   const [previewCurrencies, setPreviewCurrencies] = useState<typeof currencies>([])
   const [previewCommonDigests, setPreviewCommonDigests] = useState<typeof commonDigests>([])
+  const [previewAuxiliaryCategories, setPreviewAuxiliaryCategories] = useState<typeof auxiliaryCategories>([])
+  const [previewAuxiliaryItems, setPreviewAuxiliaryItems] = useState<typeof auxiliaryItems>([])
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -6070,11 +6072,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'auxiliaryCategories' && usesLiveArchiveData) {
+    if (kind === 'auxiliaryCategories' && (usesLiveArchiveData || previewAuxiliaryCategories.length > 0)) {
       return {
         ...baseConfig,
-        rows: mapLiveAuxiliaryCategoryRows(auxiliaryCategories),
-        summary: summarizeLiveAuxiliaryCategories(auxiliaryCategories),
+        rows: mapLiveAuxiliaryCategoryRows(isTauri ? auxiliaryCategories : previewAuxiliaryCategories),
+        summary: summarizeLiveAuxiliaryCategories(isTauri ? auxiliaryCategories : previewAuxiliaryCategories),
       }
     }
 
@@ -6102,11 +6104,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'auxiliaryItems' && usesLiveArchiveData) {
+    if (kind === 'auxiliaryItems' && (usesLiveArchiveData || previewAuxiliaryItems.length > 0)) {
       return {
         ...baseConfig,
-        rows: mapLiveAuxiliaryItemRows(auxiliaryCategories, auxiliaryItems),
-        summary: summarizeLiveAuxiliaryItems(auxiliaryItems),
+        rows: mapLiveAuxiliaryItemRows(isTauri ? auxiliaryCategories : previewAuxiliaryCategories, isTauri ? auxiliaryItems : previewAuxiliaryItems),
+        summary: summarizeLiveAuxiliaryItems(isTauri ? auxiliaryItems : previewAuxiliaryItems),
       }
     }
 
@@ -6179,7 +6181,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewCommonDigests, previewCompanyAccounts, previewCurrencies, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -6715,13 +6717,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowCompanyAccountDialog(true)
       return
     }
-    if (kind === 'auxiliaryCategories' && isTauri && selectedCompanyId) {
+    if (kind === 'auxiliaryCategories') {
       resetAuxiliaryCategoryDraft()
       setShowAuxiliaryCategoryDialog(true)
       return
     }
-    if (kind === 'auxiliaryItems' && isTauri && selectedCompanyId) {
-      if (auxiliaryCategories.length === 0) {
+    if (kind === 'auxiliaryItems') {
+      if ((isTauri ? auxiliaryCategories : previewAuxiliaryCategories).length === 0) {
         setOperationNotice('请先新增辅助核算类别，再维护辅助核算项目。')
         return
       }
@@ -7383,6 +7385,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveAuxiliaryCategory = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const category = { id: editingAuxiliaryCategoryId || `preview-aux-category-${Date.now()}`, company_id: selectedCompanyId || 'preview-company', code: auxiliaryCategoryDraft.code.trim().toUpperCase(), name: auxiliaryCategoryDraft.name.trim(), is_system: 0, sort_order: Number(auxiliaryCategoryDraft.sortOrder || 0) }
+      setPreviewAuxiliaryCategories((items) => editingAuxiliaryCategoryId ? items.map((item) => item.id === category.id ? category : item) : [category, ...items])
+      writeModuleAudit(editingAuxiliaryCategoryId ? '编辑辅助核算类别' : '新增辅助核算类别', `${category.code}｜${category.name}`, '中', '成功')
+      setOperationNotice(`辅助核算类别已保存到当前预览：${category.name}。桌面端会写入当前账套，可继续维护项目和科目关联。`)
+      resetAuxiliaryCategoryDraft()
+      setShowAuxiliaryCategoryDialog(false)
+      return
+    }
     if (!selectedCompanyId) return
     try {
       const input = {
@@ -7426,11 +7437,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const resetAuxiliaryItemDraft = () => {
     setEditingAuxiliaryItemId(null)
-    setAuxiliaryItemDraft({ categoryId: auxiliaryCategories[0]?.id || '', code: '', name: '', remarks: '' })
+    setAuxiliaryItemDraft({ categoryId: (isTauri ? auxiliaryCategories : previewAuxiliaryCategories)[0]?.id || '', code: '', name: '', remarks: '' })
   }
 
   const handleSaveAuxiliaryItem = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const item = { id: editingAuxiliaryItemId || `preview-aux-item-${Date.now()}`, category_id: auxiliaryItemDraft.categoryId, company_id: selectedCompanyId || 'preview-company', code: auxiliaryItemDraft.code.trim().toUpperCase(), name: auxiliaryItemDraft.name.trim(), is_enabled: 1, remarks: auxiliaryItemDraft.remarks.trim() || null }
+      setPreviewAuxiliaryItems((items) => editingAuxiliaryItemId ? items.map((current) => current.id === item.id ? item : current) : [item, ...items])
+      writeModuleAudit(editingAuxiliaryItemId ? '编辑辅助核算项目' : '新增辅助核算项目', `${item.code}｜${item.name}`, '中', '成功')
+      setOperationNotice(`辅助核算项目已保存到当前预览：${item.name}。桌面端会写入当前账套，可在档案、凭证和账簿中引用。`)
+      resetAuxiliaryItemDraft()
+      setShowAuxiliaryItemDialog(false)
+      return
+    }
     if (!selectedCompanyId) return
     try {
       const input = {
@@ -8559,8 +8579,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowCompanyAccountDialog(true)
       return
     }
-    if (kind === 'auxiliaryCategories' && isTauri && selectedCompanyId) {
-      const category = auxiliaryCategories.find((item) => `auxiliary-category-${item.id}` === row.id)
+    if (kind === 'auxiliaryCategories') {
+      const category = (isTauri ? auxiliaryCategories : previewAuxiliaryCategories).find((item) => `auxiliary-category-${item.id}` === row.id)
       if (!category) {
         setOperationNotice('未找到当前账套的辅助核算类别。')
         return
@@ -8574,8 +8594,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowAuxiliaryCategoryDialog(true)
       return
     }
-    if (kind === 'auxiliaryItems' && isTauri && selectedCompanyId) {
-      const item = auxiliaryItems.find((current) => `auxiliary-item-${current.id}` === row.id)
+    if (kind === 'auxiliaryItems') {
+      const item = (isTauri ? auxiliaryItems : previewAuxiliaryItems).find((current) => `auxiliary-item-${current.id}` === row.id)
       if (!item) {
         setOperationNotice('未找到当前账套的辅助核算项目。')
         return
@@ -9455,8 +9475,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'settlementRules' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
             {kind === 'accountArchive' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增账户" onClick={() => { resetCompanyAccountDraft(); setShowCompanyAccountDialog(true) }} />}
             {kind === 'currencySettings' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
-            {kind === 'auxiliaryCategories' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增类别" onClick={() => { resetAuxiliaryCategoryDraft(); setShowAuxiliaryCategoryDialog(true) }} />}
-            {kind === 'auxiliaryItems' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增项目" onClick={() => { if (auxiliaryCategories.length === 0) { setOperationNotice('请先新增辅助核算类别，再维护辅助核算项目。'); return }; resetAuxiliaryItemDraft(); setShowAuxiliaryItemDialog(true) }} />}
+            {kind === 'auxiliaryCategories' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增类别" onClick={() => { resetAuxiliaryCategoryDraft(); setShowAuxiliaryCategoryDialog(true) }} />}
+            {kind === 'auxiliaryItems' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增项目" onClick={() => { if ((isTauri ? auxiliaryCategories : previewAuxiliaryCategories).length === 0) { setOperationNotice('请先新增辅助核算类别，再维护辅助核算项目。'); return }; resetAuxiliaryItemDraft(); setShowAuxiliaryItemDialog(true) }} />}
             {kind === 'commonDigests' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增摘要" onClick={() => { resetCommonDigestDraft(); setShowCommonDigestDialog(true) }} />}
             {kind === 'voucherTemplateSettings' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增凭证模板" onClick={() => { resetVoucherTemplateDraft(); setShowVoucherTemplateDialog(true) }} />}
             {(kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'} onClick={() => { resetAdapterAuthorizationDraft(); setShowAdapterAuthorizationDialog(true) }} />}
@@ -10494,7 +10514,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <form onSubmit={handleSaveAuxiliaryItem} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
             <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingAuxiliaryItemId ? '编辑辅助核算项目' : '新增辅助核算项目'}</h2><p className="mt-0.5 text-xs text-slate-500">项目是客户、供应商、项目、部门等基础档案的统一明细，可在凭证辅助核算中引用。</p></div><button type="button" onClick={() => setShowAuxiliaryItemDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
-              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">所属类别 *<select required value={auxiliaryItemDraft.categoryId} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, categoryId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择辅助核算类别</option>{auxiliaryCategories.map((category) => <option key={category.id} value={category.id}>{category.code}｜{category.name}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">所属类别 *<select required value={auxiliaryItemDraft.categoryId} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, categoryId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择辅助核算类别</option>{(isTauri ? auxiliaryCategories : previewAuxiliaryCategories).map((category) => <option key={category.id} value={category.id}>{category.code}｜{category.name}</option>)}</select></label>
               <label className="grid gap-1 text-xs text-slate-600">项目编码 *<input required value={auxiliaryItemDraft.code} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, code: event.target.value }))} placeholder="如：C001" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
               <label className="grid gap-1 text-xs text-slate-600">项目名称 *<input required value={auxiliaryItemDraft.name} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="如：上海示例客户" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">别名/备注<input value={auxiliaryItemDraft.remarks} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, remarks: event.target.value }))} placeholder="助记码、合同号或补充说明" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
