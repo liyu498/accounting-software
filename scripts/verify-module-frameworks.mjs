@@ -92,6 +92,13 @@ const errors = [
   ...(!businessSource.includes('月末成本结转复核') ? ['cost carryover must render a dedicated closing workflow'] : []),
   ...(!businessSource.includes('openFixedAssetEditor') ? ['asset workflow must open the dedicated fixed asset editor'] : []),
   ...(!businessSource.includes('openInventoryMovementEditor') ? ['inventory workflow must open the dedicated inventory movement editor'] : []),
+  ...(!businessSource.includes('银行对账与未达项处理') ? ['bank reconciliation must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('应收核销与回款复核') ? ['receivable settlement must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('应付核销与付款复核') ? ['payable settlement must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('往来账龄与风险处置') ? ['aging must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('期末结账与结转控制') ? ['closing tasks must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('openBankReconciliationEditor') ? ['bank reconciliation workflow must open the dedicated editor'] : []),
+  ...(!businessSource.includes('openSettlementRecordEditor') ? ['settlement workflow must open the dedicated editor'] : []),
 ]
 
 if (errors.length > 0) {

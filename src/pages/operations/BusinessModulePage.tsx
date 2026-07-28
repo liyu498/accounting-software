@@ -8703,6 +8703,41 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('已建立月末成本结转复核记录；未核价出库、数量差异和金额差异不会自动写入账簿。')
   }
 
+  const openBankReconciliationEditor = () => {
+    setEditingBankReconciliationId(null)
+    setBankReconciliationDraft({ reconciliationNo: '', reconciliationDate: currentPeriod?.end_date || '', accountName: '', transactionNo: '', summary: '', bankAmount: '', bookAmount: '', voucherNo: '', matchStatus: '待人工对账', owner: '', status: '待处理', note: '' })
+    setShowBankReconciliationDialog(true)
+  }
+
+  const reviewBankReconciliation = () => {
+    writeModuleAudit('复核银行对账差异', `${currentPeriodLabel}｜未达账项`, '中', '成功')
+    setOperationNotice('已复核银行余额、账面余额和未达账项；差异记录不会自动修改流水或会计凭证。')
+  }
+
+  const openSettlementRecordEditor = (mode: 'receivable' | 'payable') => {
+    setEditingSettlementRecordId(null)
+    setSettlementRecordDraft({ settlementNo: '', settlementDate: currentPeriod?.end_date || '', counterparty: '', invoiceNo: '', transactionNo: '', totalAmount: '', settledAmount: '0', settlementMethod: '银行转账', owner: '', status: '待确认', sourceDocument: '' })
+    setShowSettlementRecordDialog(true)
+    writeModuleAudit(mode === 'receivable' ? '新建应收核销草稿' : '新建应付核销草稿', `${currentPeriodLabel}｜待确认`, '中', '成功')
+  }
+
+  const reviewSettlementRecords = (mode: 'receivable' | 'payable') => {
+    writeModuleAudit(mode === 'receivable' ? '复核应收核销' : '复核应付核销', `${currentPeriodLabel}｜票据与流水`, '中', '成功')
+    setOperationNotice(mode === 'receivable'
+      ? '已复核销项发票、回款流水和应收余额；金额差异将保留待客户确认。'
+      : '已复核进项发票、付款流水和应付余额；金额差异将保留待供应商确认。')
+  }
+
+  const reviewAging = () => {
+    writeModuleAudit('复核往来账龄风险', `${currentPeriodLabel}｜逾期往来`, '中', '成功')
+    setOperationNotice('已重算往来账龄并记录风险处置；高风险逾期项目仍需人工跟进与凭证复核。')
+  }
+
+  const reviewClosingTasks = () => {
+    writeModuleAudit('复核期末结账任务', `${currentPeriodLabel}｜结账前检查`, '高', '待审批')
+    setOperationNotice('已建立期末结账前检查记录；所有阻断项和待确认任务完成前不会锁定账期。')
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -8901,6 +8936,25 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             onReview={reviewCostCarryover}
           />
         )}
+
+        {kind === 'bankReconciliation' && (
+          <BankReconciliationWorkflowPanel
+            onAdd={openBankReconciliationEditor}
+            onReview={reviewBankReconciliation}
+          />
+        )}
+
+        {(kind === 'receivableSettlement' || kind === 'payableSettlement') && (
+          <SettlementWorkflowPanel
+            mode={kind === 'receivableSettlement' ? 'receivable' : 'payable'}
+            onAdd={() => openSettlementRecordEditor(kind === 'receivableSettlement' ? 'receivable' : 'payable')}
+            onReview={() => reviewSettlementRecords(kind === 'receivableSettlement' ? 'receivable' : 'payable')}
+          />
+        )}
+
+        {kind === 'receivablePayableAging' && <AgingWorkflowPanel onReview={reviewAging} />}
+
+        {kind === 'closingTasks' && <ClosingWorkflowPanel onReview={reviewClosingTasks} onRun={() => void handlePrimaryAction()} />}
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-[#fbfcfe] px-3 py-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -10568,6 +10622,152 @@ function CostCarryoverWorkflowPanel({
           ['结转成本', '¥294,880.00', '按选择的计价方法取数'],
           ['凭证准备', '3 张已生成', '其余进入待确认队列'],
           ['阻断项', '2 项成本差异', '未核价出库不得结转'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function BankReconciliationWorkflowPanel({
+  onAdd,
+  onReview,
+}: {
+  onAdd: () => void
+  onReview: () => void
+}) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="银行对账与未达项处理">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">银行对账与未达项处理</h2>
+          <p className="mt-1 text-xs text-slate-500">银行余额、账面余额、未达账项和凭证差异逐笔核对；对账记录不直接覆盖原流水。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增对账记录" onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核未达项" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-4">
+        {[
+          ['银行余额', '¥1,428,650.72', '来源为已导入账单'],
+          ['账面余额', '¥1,426,930.72', '来源为当前账期凭证'],
+          ['未达账项', '6 笔', '保留调节和复核状态'],
+          ['差异金额', '¥1,720.00', '差异不自动改账'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function SettlementWorkflowPanel({
+  mode,
+  onAdd,
+  onReview,
+}: {
+  mode: 'receivable' | 'payable'
+  onAdd: () => void
+  onReview: () => void
+}) {
+  const isReceivable = mode === 'receivable'
+  const title = isReceivable ? '应收核销与回款复核' : '应付核销与付款复核'
+  const cards = isReceivable
+    ? [
+        ['应收余额', '¥386,200.00', '来源为销项发票和应收科目'],
+        ['回款匹配', '¥294,800.00 已核销', '关联银行流水'],
+        ['待核销', '¥71,400.00', '支持部分核销'],
+        ['金额差异', '¥20,000.00', '保留客户确认记录'],
+      ]
+    : [
+        ['应付余额', '¥428,600.00', '来源为进项发票和应付科目'],
+        ['付款匹配', '¥216,800.00 已核销', '关联银行流水'],
+        ['待核销', '¥181,800.00', '支持预付款挂账'],
+        ['金额差异', '¥30,000.00', '保留供应商确认记录'],
+      ]
+
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label={title}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+          <p className="mt-1 text-xs text-slate-500">发票、资金流水、往来余额和核销金额逐笔关联；核销记录需人工确认后才可影响后续凭证。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={isReceivable ? '新增应收核销' : '新增应付核销'} onClick={onAdd} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核票据流水" onClick={onReview} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-4">
+        {cards.map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function AgingWorkflowPanel({ onReview }: { onReview: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="往来账龄与风险处置">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">往来账龄与风险处置</h2>
+          <p className="mt-1 text-xs text-slate-500">应收、应付和其他往来按凭证日期重算账龄，逾期项目保留责任人和风险处置记录。</p>
+        </div>
+        <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="重算账龄风险" onClick={onReview} />
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['应收余额', '¥642,300.00', '按客户及科目汇总'],
+          ['应付余额', '¥388,920.00', '按供应商及科目汇总'],
+          ['逾期金额', '¥96,800.00', '账龄超过约定区间'],
+          ['高风险往来', '5 户', '需进入人工处置队列'],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ClosingWorkflowPanel({ onReview, onRun }: { onReview: () => void; onRun: () => void }) {
+  return (
+    <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="期末结账与结转控制">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">期末结账与结转控制</h2>
+          <p className="mt-1 text-xs text-slate-500">结转任务按前置校验、执行顺序和凭证模板控制；存在阻断或待确认项时账期不得锁定。</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核结账前检查" onClick={onReview} />
+          <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="执行结转检查" onClick={onRun} />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-4">
+        {[
+          ['结转任务', '9 项', '含折旧、成本、损益等'],
+          ['已完成', '5 项', '已保留凭证与审计记录'],
+          ['待确认', '3 项', '须人工确认来源与金额'],
+          ['阻断项', '1 项', '解决前不可结账'],
         ].map(([label, value, detail]) => (
           <div key={label} className="border border-slate-200 bg-white p-2.5">
             <div className="text-xs text-slate-500">{label}</div>
