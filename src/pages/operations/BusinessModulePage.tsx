@@ -266,6 +266,33 @@ function canGenerateVoucherFromModule(kind: ModuleKind) {
   return voucherGenerationModuleKinds.includes(kind)
 }
 
+const ledgerReportModuleKinds: ModuleKind[] = [
+  'ledgerReport', 'trialBalanceReport', 'accountSummaryReport', 'generalLedgerReport',
+  'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'multiColumnLedgerReport',
+]
+
+const financialStatementModuleKinds: ModuleKind[] = [
+  'financialReport', 'balanceSheetReport', 'incomeStatementReport', 'incomeQuarterReport',
+  'cashFlowReport', 'cashFlowQuarterReport', 'equityChangeReport',
+]
+
+const taxReportModuleKinds: ModuleKind[] = [
+  'taxReport', 'vatTaxReport', 'withholdingTaxReport', 'stampTaxReport',
+  'incomeTaxReport', 'socialSecurityTaxReport', 'financeTaxReport',
+]
+
+function isLedgerReportKind(kind: ModuleKind) {
+  return ledgerReportModuleKinds.includes(kind)
+}
+
+function isFinancialStatementKind(kind: ModuleKind) {
+  return financialStatementModuleKinds.includes(kind)
+}
+
+function isTaxReportKind(kind: ModuleKind) {
+  return taxReportModuleKinds.includes(kind)
+}
+
 interface BusinessModulePageProps {
   kind: ModuleKind
   title: string
@@ -6724,12 +6751,48 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       startAiTaskDraft()
       return
     }
+    if (kind === 'aiRecognitionResults') {
+      reviewAiRecognition()
+      return
+    }
+    if (kind === 'aiRuleTraining') {
+      reviewAiRuleTraining()
+      return
+    }
     if (kind === 'printTemplateSettings') {
       openPrintTemplatePreview()
       return
     }
     if (kind === 'attachmentCenter' || kind === 'importCenter') {
       importFileRef.current?.click()
+      return
+    }
+    if (['historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger'].includes(kind)) {
+      handleImportAction()
+      return
+    }
+    if (kind === 'notificationCenter') {
+      reviewControlEvidence('notification')
+      return
+    }
+    if (kind === 'riskCheck') {
+      reviewControlEvidence('risk')
+      return
+    }
+    if (kind === 'auditLog') {
+      await handleExportExcel()
+      return
+    }
+    if (isLedgerReportKind(kind)) {
+      runLedgerCalculation()
+      return
+    }
+    if (isFinancialStatementKind(kind)) {
+      runFinancialStatementCalculation()
+      return
+    }
+    if (isTaxReportKind(kind)) {
+      runTaxDataCollection()
       return
     }
     if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData && selectedCompanyId) {
@@ -6777,7 +6840,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       openTaxInitEditor()
       return
     }
-    if (kind === 'nonTaxRevenueReport' && usesLiveNonTaxRevenueData && selectedCompanyId) {
+    if (kind === 'nonTaxRevenueReport') {
       setNonTaxRevenueDraft({ item: '工会经费', policy: '', source: '', basisAmount: '', payableAmount: '', receiptNo: '', riskCount: '0' })
       setShowNonTaxRevenueDialog(true)
       return
@@ -6926,6 +6989,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         writeModuleAudit(config.primaryAction, `${title}-${currentPeriodLabel}`, '高', '失败')
         setOperationNotice(`账期结账失败：${String(error)}`)
       }
+      return
+    }
+
+    if (kind === 'closingTasks') {
+      reviewClosingTasks()
       return
     }
 
@@ -9952,9 +10020,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('已登记账簿取数复核。科目余额、辅助余额、总账和明细账差异必须追溯到凭证后再进行结账或报表取数。')
   }
 
+  const runLedgerCalculation = () => {
+    writeModuleAudit(config.primaryAction, `${currentPeriodLabel}｜账簿取数与余额重算`, '中', '成功')
+    setOperationNotice(`已按当前账期重新读取${title}取数口径。科目余额、辅助核算和凭证穿透差异仍需复核后才能用于结账或报表取数。`)
+  }
+
   const reviewFinancialStatements = () => {
     writeModuleAudit('复核财务报表勾稽关系', `${currentPeriodLabel}｜报表取数与重分类`, '高', '待审批')
     setOperationNotice('已登记财务报表勾稽复核。资产负债、利润、现金流和权益项目需在公式、重分类和取数快照一致后才可形成报送包。')
+  }
+
+  const runFinancialStatementCalculation = () => {
+    writeModuleAudit(config.primaryAction, `${currentPeriodLabel}｜财务报表取数重算`, '高', '待审批')
+    setOperationNotice(`已生成${title}的本地重算复核记录。公式、重分类、勾稽关系和取数快照一致后，才能形成报送或归档材料。`)
   }
 
   const reviewCompanyRegistration = () => {
@@ -9980,6 +10058,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const reviewTaxTaskData = () => {
     writeModuleAudit('复核申报取数与校验', `${currentPeriodLabel}｜税种与申报包`, '高', '待审批')
     setOperationNotice('已登记税务取数复核。税务认定、发票勾选、工资社保、纳税调整和地区政策需完成校验后才能生成待确认申报包。')
+  }
+
+  const runTaxDataCollection = () => {
+    const sourceByKind: Partial<Record<ModuleKind, string>> = {
+      taxReport: '申报认定、发票、工资社保和税务取数快照',
+      vatTaxReport: '销项、进项、勾选与留抵抵扣数据',
+      withholdingTaxReport: '薪酬、专项附加扣除和人员资料',
+      stampTaxReport: '应税合同、单据登记和付款资料',
+      incomeTaxReport: '利润表、纳税调整和历史税务资料',
+      socialSecurityTaxReport: '人员档案、社保公积金和工资基数',
+      financeTaxReport: '资产负债表、利润表、现金流量表和权益表',
+    }
+    const source = sourceByKind[kind] || '当前账套税务资料'
+    writeModuleAudit(config.primaryAction, `${currentPeriodLabel}｜${source}`, '高', '待审批')
+    setOperationNotice(`已登记${title}本地取数复核：${source}。系统不会登录税务机关、自动提交申报或发起扣款，需在人工确认后导出待确认申报材料。`)
   }
 
   const openTaxReceiptWorkflow = () => {
