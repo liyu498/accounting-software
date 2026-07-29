@@ -3456,6 +3456,18 @@ function getModuleTabs(kind: ModuleKind) {
   if (kind === 'payroll') return ['薪酬表', '工资项明细', '个税社保', '工资凭证', '工资附件', '发放日志']
   if (kind === 'socialSecurity') return ['缴费明细', '人员基数', '申报核对', '凭证关联', '资料附件', '处理日志']
   if (kind === 'specialDeduction') return ['扣除清单', '人员资料', '有效期间', '个税取数', '证明附件', '处理日志']
+  if (kind === 'companyInfo') return ['企业资料', '工商登记', '税务信息', '办税授权', '服务账期', '变更记录']
+  if (kind === 'initialBalance') return ['期初清单', '辅助期初', '试算平衡', '迁移差异', '启用控制', '操作日志']
+  if (kind === 'subjectSettings') return ['科目清单', '科目属性', '辅助核算', '报表映射', '启停记录', '变更日志']
+  if (kind === 'accountArchive') return ['账户清单', '开户资料', '默认科目', '期初余额', '附件资料', '变更记录']
+  if (['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'].includes(kind)) return ['档案清单', '基本资料', '默认科目', '业务关联', '支持材料', '变更记录']
+  if (kind === 'assetCategory') return ['资产类别', '折旧参数', '默认科目', '适用资产', '支持材料', '变更记录']
+  if (kind === 'auxiliaryCategories') return ['类别清单', '适用科目', '项目数量', '启停控制', '支持材料', '变更记录']
+  if (kind === 'auxiliaryItems') return ['项目清单', '所属类别', '默认科目', '业务引用', '支持材料', '变更记录']
+  if (['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping', 'settlementRules', 'voucherTemplateSettings', 'reportFormulaSettings'].includes(kind)) return ['规则清单', '适用范围', '取数条件', '执行结果', '版本记录', '操作日志']
+  if (kind === 'currencySettings') return ['币别清单', '汇率口径', '本位币控制', '科目换算', '启停记录', '操作日志']
+  if (kind === 'commonDigests') return ['摘要清单', '适用业务', '凭证引用', '维护记录', '停用记录', '操作日志']
+  if (kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') return ['授权渠道', '授权范围', '连接状态', '操作日志', '安全策略', '变更记录']
   if (kind === 'taxInit' || kind === 'taxReport' || kind === 'declarationCalendar' || kind === 'declarationReceipt' || kind.endsWith('TaxReport') || kind === 'nonTaxRevenueReport') return ['申报清单', '取数快照', '校验结果', '申报包', '回执缴款', '处理日志']
   if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) return ['任务队列', '输入来源', '识别结果', '人工确认', '规则版本', '运行日志']
   if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') return ['账表清单', '取数明细', '凭证穿透', '勾稽校验', '输出模板', '计算日志']
@@ -3515,6 +3527,55 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
       title: '进项抵扣处理范围',
       description: '当前清单用于复核认证、勾选和抵扣用途；实际税局票池同步与抵扣确认仍需在已授权桌面适配器中人工发起。',
       metrics: [...commonMetrics, { label: '已附发票影像', value: `${attachmentRows} 条`, tone: 'green' }],
+    }
+  }
+  if (isHistoryMigrationKind(kind)) {
+    return {
+      title: '历史迁移校验范围',
+      description: '历史账只允许在明确选择的目标历史账期内导入。凭证按原凭证号和借贷平衡写入；余额与总账仅转换为期初基础，需保留来源批次并人工试算。',
+      metrics: [...commonMetrics, { label: '来源文件', value: `${attachmentRows} 条`, tone: 'green' }],
+    }
+  }
+  if (kind === 'companyInfo') {
+    return {
+      title: '企业与办税资料范围',
+      description: '企业名称、地区、税号、会计准则、启用期间和办税授权分别维护。凭据和登录信息不得在展示页明文显示，修改后保留变更记录。',
+      metrics: [...commonMetrics, { label: '待补资料', value: `${pendingRows} 项`, tone: pendingRows > 0 ? 'amber' : 'green' }],
+    }
+  }
+  if (kind === 'initialBalance') {
+    return {
+      title: '期初登记与启用范围',
+      description: '期初余额按科目和辅助核算分层维护。每一科目只能登记单边借贷，试算平衡前不得启用账套，也不会自动生成凭证。',
+      metrics: [...commonMetrics, { label: '迁移依据', value: `${attachmentRows} 条`, tone: 'green' }],
+    }
+  }
+  if (kind === 'subjectSettings') {
+    return {
+      title: '会计科目维护范围',
+      description: '科目编码、余额方向、明细级次、辅助核算和报表映射需要一致维护；停用只影响后续录入，不改写历史凭证。',
+      metrics: [...commonMetrics, { label: '已关联凭证', value: `${voucherRows} 条`, tone: 'green' }],
+    }
+  }
+  if (['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'accountArchive', 'assetCategory', 'auxiliaryCategories', 'auxiliaryItems'].includes(kind)) {
+    return {
+      title: '基础档案使用范围',
+      description: '档案编码、启停、默认科目和业务引用分别留痕。删除或停用前需要检查凭证、单据和辅助核算的历史引用。',
+      metrics: [...commonMetrics, { label: '支持材料', value: `${attachmentRows} 条`, tone: 'green' }],
+    }
+  }
+  if (['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping', 'settlementRules', 'voucherTemplateSettings', 'reportFormulaSettings', 'currencySettings', 'commonDigests'].includes(kind)) {
+    return {
+      title: '规则与口径生效范围',
+      description: '规则、模板、摘要和汇率只影响后续匹配、凭证建议或取数口径。发布前应人工复核版本和适用范围，历史数据不会被自动重算或覆盖。',
+      metrics: [...commonMetrics, { label: '待复核规则', value: `${pendingRows} 条`, tone: pendingRows > 0 ? 'amber' : 'green' }],
+    }
+  }
+  if (kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') {
+    return {
+      title: '外部授权边界',
+      description: '此处仅维护授权渠道、范围、状态和审计证据。不会保存明文密码、模拟税局提交或发起银行付款，外部动作必须经授权适配器和人工确认。',
+      metrics: [...commonMetrics, { label: '授权证据', value: `${attachmentRows} 条`, tone: 'green' }],
     }
   }
   if (['employee', 'payroll', 'socialSecurity', 'specialDeduction'].includes(kind)) {
