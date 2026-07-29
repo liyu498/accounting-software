@@ -73,7 +73,7 @@ const topLevelItems: SidebarItem[] = [
 const allSections: SidebarSection[] = [
   {
     id: 'ai-modules',
-    label: '自动化与规则',
+    label: '规则与自动化',
     icon: <Bot className="h-4 w-4" />,
     items: [
       { id: 'ai-jobs', label: 'AI任务队列', icon: <Bot className="h-4 w-4" />, path: '/ai/jobs' },

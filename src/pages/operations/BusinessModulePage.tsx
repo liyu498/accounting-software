@@ -3304,6 +3304,26 @@ function getModuleListMeta(kind: ModuleKind, title: string): ModuleListMeta {
       hint: '核验申报状态、回执号、缴款书、收取时间和归档附件。',
       exportHint: '导出包含申报表、回执号、缴款书、缴款状态和归档附件。',
     },
+    historyVoucher: {
+      title: '历史凭证迁移清单',
+      hint: '按目标历史账期、原凭证号、分录科目、借贷平衡、附件和来源批次完成凭证迁移。',
+      exportHint: '导出保留目标账期、原凭证号、分录映射、借贷金额、来源文件和迁移校验结果。',
+    },
+    historyBalance: {
+      title: '历史余额与期初转换清单',
+      hint: '核验来源余额、余额方向、科目映射和试算结果，再转换为目标历史账期的期初基础。',
+      exportHint: '导出保留来源期间、科目、借贷期初、余额方向、试算差异和转换状态。',
+    },
+    historyGeneralLedger: {
+      title: '历史总账勾稽清单',
+      hint: '按来源期间、科目、期初期末和本期发生额复核总账与余额表的迁移口径。',
+      exportHint: '导出包含来源期间、总账发生额、期初期末、科目映射和勾稽结果。',
+    },
+    historySubsidiaryLedger: {
+      title: '历史明细账穿透清单',
+      hint: '按凭证日期、原凭证号、科目、对方科目和余额追溯历史明细，并核验可重建凭证分录。',
+      exportHint: '导出保留明细日期、原凭证号、科目、对方科目、借贷余额和来源文件。',
+    },
     auditLog: {
       title: '账套操作审计清单',
       hint: '按操作人、模块、对象、风险等级、结果和时间追溯账套操作。',
@@ -3371,6 +3391,9 @@ function getModuleListMeta(kind: ModuleKind, title: string): ModuleListMeta {
 }
 
 function getModuleDetailMeta(kind: ModuleKind, title: string): ModuleDetailMeta {
+  if (isHistoryMigrationKind(kind)) {
+    return { title: '历史账迁移明细', boundary: '查看只读取所选历史账期、原始导入批次、科目映射和校验结果；迁移写入必须由人工选择目标账期，并不会覆盖当前账期。' }
+  }
   if (['outputInvoice', 'inputInvoice', 'invoiceSelection', 'invoiceVoucherMatching'].includes(kind)) {
     return { title: '发票业务明细', boundary: '查看只读取当前账套的发票字段、认证或匹配状态和凭证关联；不会采集票池、修改认证勾选或触发开票。' }
   }
@@ -3394,6 +3417,9 @@ function getModuleDetailMeta(kind: ModuleKind, title: string): ModuleDetailMeta 
 
 function getModuleTableMeta(kind: ModuleKind): ModuleTableMeta {
   const defaultMeta: ModuleTableMeta = { statusLabel: '处理状态', voucherLabel: '关联凭证', attachmentLabel: '附件', showVoucher: true, showAttachment: true }
+  if (isHistoryMigrationKind(kind)) {
+    return { statusLabel: '迁移校验', voucherLabel: '历史凭证', attachmentLabel: '来源文件', showVoucher: kind !== 'historyBalance' && kind !== 'historyGeneralLedger', showAttachment: true }
+  }
   if (['outputInvoice', 'inputInvoice', 'invoiceSelection', 'invoiceVoucherMatching'].includes(kind)) {
     return { statusLabel: '业务状态', voucherLabel: '会计凭证', attachmentLabel: '发票影像', showVoucher: true, showAttachment: true }
   }
@@ -3419,6 +3445,10 @@ function getModuleTableMeta(kind: ModuleKind): ModuleTableMeta {
 }
 
 function getModuleTabs(kind: ModuleKind) {
+  if (kind === 'historyVoucher') return ['迁移凭证', '分录映射', '科目校验', '借贷平衡', '来源文件', '迁移日志']
+  if (kind === 'historyBalance') return ['余额清单', '期初转换', '科目映射', '试算平衡', '来源文件', '迁移日志']
+  if (kind === 'historyGeneralLedger') return ['总账清单', '余额取数', '科目映射', '勾稽核验', '来源文件', '迁移日志']
+  if (kind === 'historySubsidiaryLedger') return ['明细清单', '凭证穿透', '对方科目', '余额核验', '来源文件', '迁移日志']
   if (kind === 'outputInvoice') return ['销项台账', '开票明细', '开票汇总', '会计凭证', '发票影像', '开票日志']
   if (kind === 'inputInvoice') return ['进项台账', '发票明细', '认证勾选', '抵扣用途', '发票影像', '处理日志']
   if (['billList', 'bankStatement', 'bankReconciliation', 'transfer'].includes(kind)) return ['流水台账', '交易明细', '匹配结果', '回单附件', '关联凭证', '处理日志']
