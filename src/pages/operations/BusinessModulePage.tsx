@@ -3269,6 +3269,26 @@ function getModuleListMeta(kind: ModuleKind, title: string): ModuleListMeta {
       hint: '按输出模板、文件格式、生成状态、下载范围、校验值和有效期管理本地导出文件。',
       exportHint: '导出保留生成文件、格式、范围、校验值、操作人、时间和保留期限。',
     },
+    aiJobQueue: {
+      title: 'AI任务执行与确认清单',
+      hint: '按资料来源、处理节点、置信度、负责人、异常重试与人工确认状态跟踪 AI 任务。',
+      exportHint: '导出保留任务编号、来源资料、执行节点、置信度、确认人和运行日志索引。',
+    },
+    aiRecognitionResults: {
+      title: 'OCR识别字段复核清单',
+      hint: '逐项核验来源影像、识别字段、置信度、档案匹配、风险提示和人工修正结果。',
+      exportHint: '导出保留来源文件、识别字段、置信度、匹配结果、异常原因和复核人。',
+    },
+    aiVoucherSuggestions: {
+      title: 'AI凭证建议确认清单',
+      hint: '核验建议摘要、借贷科目、金额、辅助核算、借贷平衡、来源附件和人工确认记录。',
+      exportHint: '导出保留建议编号、来源业务、建议分录、置信度、风险和确认去向。',
+    },
+    aiRuleTraining: {
+      title: 'AI规则训练与发布清单',
+      hint: '按训练样本、触发条件、命中率、版本、适用范围和发布审批状态管理规则。',
+      exportHint: '导出保留样本来源、训练版本、命中统计、发布状态和审核人。',
+    },
     transfer: {
       title: '账户内部转账清单',
       hint: '核验转出转入账户、手续费、流水号、回单和内部转账凭证。',
