@@ -3479,8 +3479,23 @@ function getModuleTabs(kind: ModuleKind) {
   if (kind === 'financeTaxReport') return ['财报清单', '报表取数', '勾稽校验', '报送材料', '回执附件', '报送日志']
   if (kind === 'nonTaxRevenueReport') return ['征收项目', '计费依据', '减免事项', '缴款信息', '校验风险', '申报日志']
   if (kind === 'declarationReceipt') return ['回执清单', '申报状态', '缴款书', '支付记录', '归档附件', '处理日志']
+  if (kind === 'ledgerReport') return ['账簿总览', '余额校验', '凭证穿透', '辅助核算', '输出模板', '计算日志']
+  if (kind === 'trialBalanceReport') return ['科目余额', '期初发生', '辅助余额', '试算平衡', '凭证穿透', '计算日志']
+  if (kind === 'accountSummaryReport') return ['科目汇总', '借方发生', '贷方发生', '凭证汇总', '输出模板', '计算日志']
+  if (kind === 'generalLedgerReport') return ['总账清单', '月度发生', '余额方向', '凭证穿透', '输出模板', '计算日志']
+  if (kind === 'subsidiaryLedgerReport') return ['明细账', '逐笔发生', '对方科目', '余额明细', '凭证穿透', '计算日志']
+  if (kind === 'auxiliaryLedgerReport') return ['辅助明细', '客户供应商', '项目部门', '辅助余额', '凭证穿透', '计算日志']
+  if (kind === 'auxiliaryBalanceReport') return ['辅助余额', '维度明细', '期初发生', '科目勾稽', '凭证穿透', '计算日志']
+  if (kind === 'multiColumnLedgerReport') return ['多栏账', '费用栏目', '收入栏目', '成本栏目', '凭证穿透', '计算日志']
+  if (kind === 'financialReport') return ['报表总览', '取数状态', '勾稽校验', '报送材料', '输出模板', '计算日志']
+  if (kind === 'balanceSheetReport') return ['资产负债表', '资产项目', '负债权益', '重分类', '勾稽校验', '计算日志']
+  if (kind === 'incomeStatementReport') return ['利润表', '收入成本', '期间费用', '本年累计', '公式校验', '计算日志']
+  if (kind === 'incomeQuarterReport') return ['季度利润表', '季度收入成本', '纳税调整', '申报快照', '公式校验', '计算日志']
+  if (kind === 'cashFlowReport') return ['现金流主表', '经营活动', '投资活动', '筹资活动', '凭证穿透', '计算日志']
+  if (kind === 'cashFlowQuarterReport') return ['季度现金流', '经营活动', '投资活动', '筹资活动', '报送快照', '计算日志']
+  if (kind === 'equityChangeReport') return ['权益变动表', '实收资本', '留存收益', '本期变动', '勾稽校验', '计算日志']
   if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) return ['任务队列', '输入来源', '识别结果', '人工确认', '规则版本', '运行日志']
-  if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') return ['账表清单', '取数明细', '凭证穿透', '勾稽校验', '输出模板', '计算日志']
+  if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report')) return ['账表清单', '取数明细', '凭证穿透', '勾稽校验', '输出模板', '计算日志']
   if (kind.includes('Archive') || kind.includes('Settings') || kind.includes('Rules') || ['settingsData', 'companyInfo', 'initialBalance', 'subjectSettings', 'unitSettings', 'periodManagement', 'auditLog', 'backupRestore', 'voucherRecycle'].includes(kind)) return ['配置清单', '生效范围', '关联规则', '变更记录', '审计证据', '操作日志']
   return ['业务清单', '处理明细', '关联凭证', '处理规则', '相关附件', '操作日志']
 }
@@ -3635,6 +3650,31 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
       title: 'AI人工确认范围',
       description: '识别结果、凭证建议和训练规则只作为候选数据；低置信度、异常和规则变更均需要人工确认并写入审计记录。',
       metrics: [...commonMetrics, { label: '已转凭证草稿', value: `${voucherRows} 条`, tone: 'green' }],
+    }
+  }
+  const reportWorkspaceContext: Partial<Record<ModuleKind, { title: string; description: string; traceLabel: string }>> = {
+    ledgerReport: { title: '账簿总览与勾稽范围', description: '总览只聚合余额表、总账、明细账与辅助账的取数状态；各账表仍需回查到科目、账期和凭证来源后才能结账或导出。', traceLabel: '可穿透记录' },
+    trialBalanceReport: { title: '科目余额与试算范围', description: '期初、本期发生、累计发生与期末余额按科目及辅助维度核对。借贷试算不平时必须回查分录或期初来源。', traceLabel: '平衡依据' },
+    accountSummaryReport: { title: '科目汇总取数范围', description: '按凭证分录汇总借贷发生额，不把汇总表作为独立记账来源。调整后需重新取数并保留凭证穿透依据。', traceLabel: '汇总凭证' },
+    generalLedgerReport: { title: '总账月度汇总范围', description: '总账以科目和月份汇总发生额及余额方向，余额异常必须与余额表和明细账交叉核验。', traceLabel: '凭证来源' },
+    subsidiaryLedgerReport: { title: '明细账逐笔穿透范围', description: '明细账展示逐笔摘要、借贷和余额，任何余额调整都应回查原凭证，而不是直接编辑账簿结果。', traceLabel: '原始凭证' },
+    auxiliaryLedgerReport: { title: '辅助核算穿透范围', description: '客户、供应商、项目、部门和人员维度需要与所属会计科目一致。辅助余额差异会进入结账前风险项。', traceLabel: '辅助凭证' },
+    auxiliaryBalanceReport: { title: '辅助余额勾稽范围', description: '辅助余额与总账科目余额同步核验；维度缺失、方向错误或余额不一致不能直接作为报表取数依据。', traceLabel: '勾稽凭证' },
+    multiColumnLedgerReport: { title: '多栏账栏目范围', description: '费用、收入和成本栏目由科目口径映射生成。栏目变化需要复核映射规则，不直接修改已结账期间的账簿。', traceLabel: '栏目凭证' },
+    financialReport: { title: '财务报表编制范围', description: '资产负债表、利润表、现金流量表和权益变动表分别按模板取数，需先完成勾稽校验再形成报送材料。', traceLabel: '取数证据' },
+    balanceSheetReport: { title: '资产负债表勾稽范围', description: '资产、负债和权益项目按照会计准则和科目映射生成。重分类和期初期末平衡关系必须在导出前复核。', traceLabel: '项目凭证' },
+    incomeStatementReport: { title: '利润表取数范围', description: '收入、成本、税金及附加、期间费用和利润总额按本月与累计口径取数。公式变更后需要留存版本和复核记录。', traceLabel: '损益凭证' },
+    incomeQuarterReport: { title: '季度利润表申报范围', description: '季度累计利润口径用于企业所得税取数参考。报表快照不等同于申报确认，申报前需由人员复核纳税调整。', traceLabel: '季度依据' },
+    cashFlowReport: { title: '现金流量表映射范围', description: '经营、投资和筹资活动由凭证及现金流量映射规则取数。未映射分录必须人工补齐后再报送。', traceLabel: '映射凭证' },
+    cashFlowQuarterReport: { title: '季度现金流报送范围', description: '季度现金流按报送口径汇总经营、投资和筹资活动。对外报送前需核验与主表及凭证金额的一致性。', traceLabel: '报送依据' },
+    equityChangeReport: { title: '权益变动表取数范围', description: '实收资本、资本公积、盈余公积和未分配利润按权益变动口径归集。与资产负债表权益合计不一致时必须阻断导出。', traceLabel: '权益凭证' },
+  }
+  if (reportWorkspaceContext[kind]) {
+    const context = reportWorkspaceContext[kind]!
+    return {
+      title: context.title,
+      description: context.description,
+      metrics: [...commonMetrics, { label: context.traceLabel, value: `${voucherRows} 条`, tone: 'green' }],
     }
   }
   if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') {
