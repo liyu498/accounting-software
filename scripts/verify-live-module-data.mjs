@@ -233,7 +233,7 @@ const requiredPageSnippets = [
   ['voucher template mapping', 'mapLiveVoucherTemplateRows(isTauri ? voucherTemplates : previewVoucherTemplates, isTauri ? voucherTemplateTypes : previewVoucherTemplateTypes)'],
   ['template settings live scope', 'usesLiveTemplateSettingsData'],
   ['report template refresh', 'fetchReportTemplateWorkspace(selectedCompanyId)'],
-  ['report formula mapping', 'mapLiveReportFormulaRows(reportTemplates, reportItems)'],
+  ['report formula mapping', 'mapLiveReportFormulaRows(effectiveReportTemplates, effectiveReportItems)'],
   ['report formula live scope', 'usesLiveReportFormulaData'],
   ['adapter authorization refresh', 'automationApi.getAdapterAuthorizations'],
   ['tax adapter mapping', "mapLiveAdapterAuthorizationRows(effectiveAdapterAuthorizations, 'tax')"],

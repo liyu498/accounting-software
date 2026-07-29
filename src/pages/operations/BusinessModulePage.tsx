@@ -4929,9 +4929,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [previewAssetCategories, setPreviewAssetCategories] = useState<typeof assetCategories>([])
   const [previewBusinessTags, setPreviewBusinessTags] = useState<typeof businessTags>([])
   const [previewAdapterAuthorizations, setPreviewAdapterAuthorizations] = useState<AdapterAuthorization[]>([])
+  const [previewReportTemplates] = useState<typeof reportTemplates>([
+    { id: 'preview-balance-sheet', template_code: 'BALANCE_SHEET', template_name: '资产负债表', report_type: 'balance_sheet', is_system: 1, created_at: null },
+    { id: 'preview-income-statement', template_code: 'INCOME_STATEMENT', template_name: '利润表', report_type: 'income_statement', is_system: 1, created_at: null },
+    { id: 'preview-cash-flow', template_code: 'CASH_FLOW', template_name: '现金流量表', report_type: 'cash_flow', is_system: 1, created_at: null },
+  ])
+  const [previewReportItems, setPreviewReportItems] = useState<typeof reportItems>([
+    { id: 'preview-report-item-assets', template_id: 'preview-balance-sheet', item_code: '100', item_name: '货币资金', parent_id: null, item_level: 1, sort_order: 100, is_total: 0, formula: '1001+1002+1012', is_enabled: 1 },
+    { id: 'preview-report-item-liability', template_id: 'preview-balance-sheet', item_code: '200', item_name: '负债合计', parent_id: null, item_level: 1, sort_order: 200, is_total: 1, formula: '负债类科目期末余额', is_enabled: 1 },
+    { id: 'preview-report-item-revenue', template_id: 'preview-income-statement', item_code: '010', item_name: '营业收入', parent_id: null, item_level: 1, sort_order: 10, is_total: 0, formula: '6001+6051', is_enabled: 1 },
+    { id: 'preview-report-item-cash', template_id: 'preview-cash-flow', item_code: '001', item_name: '销售商品、提供劳务收到的现金', parent_id: null, item_level: 1, sort_order: 10, is_total: 0, formula: '经营活动现金流入', is_enabled: 1 },
+  ])
   const effectiveAssetCategories = isTauri ? assetCategories : previewAssetCategories
   const effectiveBusinessTags = isTauri ? businessTags : previewBusinessTags
   const effectiveAdapterAuthorizations = isTauri ? adapterAuthorizations : previewAdapterAuthorizations
+  const effectiveReportTemplates = isTauri ? reportTemplates : previewReportTemplates
+  const effectiveReportItems = isTauri ? reportItems : previewReportItems
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -5997,11 +6010,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'reportFormulaSettings' && usesLiveReportFormulaData) {
+    if (kind === 'reportFormulaSettings' && (usesLiveReportFormulaData || previewReportItems.length > 0)) {
       return {
         ...baseConfig,
-        rows: mapLiveReportFormulaRows(reportTemplates, reportItems),
-        summary: summarizeLiveReportFormulas(reportTemplates, reportItems),
+        rows: mapLiveReportFormulaRows(effectiveReportTemplates, effectiveReportItems),
+        summary: summarizeLiveReportFormulas(effectiveReportTemplates, effectiveReportItems),
       }
     }
 
@@ -6192,7 +6205,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewReportItems, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -7330,6 +7343,31 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveReportFormula = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      if (!editingReportFormulaId) return
+      const item = previewReportItems.find((current) => current.id === editingReportFormulaId)
+      const template = item ? previewReportTemplates.find((current) => current.id === item.template_id) : undefined
+      if (!item || !template) {
+        setOperationNotice('未找到当前预览的报表公式项目。')
+        return
+      }
+      if (!reportFormulaDraft.itemName.trim() || !reportFormulaDraft.formula.trim()) {
+        setOperationNotice('请填写报表项目和取数公式。')
+        return
+      }
+      setPreviewReportItems((items) => items.map((current) => current.id === item.id ? {
+        ...current,
+        item_name: reportFormulaDraft.itemName.trim(),
+        formula: reportFormulaDraft.formula.trim(),
+        sort_order: Number(reportFormulaDraft.sortOrder || 0),
+        is_total: reportFormulaDraft.isTotal ? 1 : 0,
+      } : current))
+      writeModuleAudit('编辑报表公式', `${template.template_name}｜${item.item_code}`, '高', '成功')
+      setOperationNotice(`报表公式已保存到当前预览：${template.template_name}｜${reportFormulaDraft.itemName.trim()}。请重算报表并人工复核取数结果。`)
+      setEditingReportFormulaId(null)
+      setShowReportFormulaDialog(false)
+      return
+    }
     if (!selectedCompanyId || !editingReportFormulaId) return
     const item = reportItems.find((current) => current.id === editingReportFormulaId)
     const template = item ? reportTemplates.find((current) => current.id === item.template_id) : undefined
@@ -8900,8 +8938,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowAdapterAuthorizationDialog(true)
       return
     }
-    if (kind === 'reportFormulaSettings' && isTauri && selectedCompanyId) {
-      const item = reportItems.find((current) => `report-formula-${current.id}` === row.id)
+    if (kind === 'reportFormulaSettings') {
+      const item = effectiveReportItems.find((current) => `report-formula-${current.id}` === row.id)
       if (!item) {
         setOperationNotice('未找到报表公式项目。')
         return
