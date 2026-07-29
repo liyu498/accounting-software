@@ -6,6 +6,7 @@ const businessSource = readFileSync('src/pages/operations/BusinessModulePage.tsx
 const roleManagerSource = readFileSync('src/pages/settings/RoleManager.tsx', 'utf8')
 const agencyNavSource = readFileSync('src/pages/agency/agencyNav.tsx', 'utf8')
 const agencySource = readFileSync('src/pages/agency/AgencyModulePage.tsx', 'utf8')
+const pdfExportSource = readFileSync('src/lib/pdfExport.ts', 'utf8')
 
 const unique = (values) => [...new Set(values)]
 
@@ -208,6 +209,11 @@ const errors = [
   ...(!businessSource.includes('账户币别与计量口径维护') ? ['account unit currency settings must render a dedicated workflow'] : []),
   ...(!businessSource.includes('资产类别与辅助核算维度控制') ? ['asset and auxiliary settings must render a dedicated workflow'] : []),
   ...(!businessSource.includes('打印模板版本与输出校验') ? ['print templates must render a dedicated workflow'] : []),
+  ...(!businessSource.includes('renderVoucherPrintHtml') ? ['voucher exports must use a fixed print template'] : []),
+  ...(!businessSource.includes('renderLedgerPrintHtml') ? ['ledger exports must use a fixed print template'] : []),
+  ...(!businessSource.includes('renderFinancialPrintHtml') ? ['financial exports must use a fixed print template'] : []),
+  ...(!businessSource.includes('renderTaxPrintHtml') ? ['tax exports must use a fixed print template'] : []),
+  ...(!pdfExportSource.includes('collectPdfPageBreaks') ? ['PDF export must choose page breaks at business row boundaries'] : []),
   ...(!businessSource.includes('账期锁定与反结账审批') ? ['period management must render a dedicated workflow'] : []),
   ...(!businessSource.includes('reviewFoundationConfiguration') ? ['foundation workflow must register a review'] : []),
   ...(!businessSource.includes('账套设置导航与生效范围') ? ['settings overview must render a dedicated workflow'] : []),

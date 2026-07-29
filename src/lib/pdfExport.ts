@@ -27,6 +27,32 @@ function isLandscapeDocument(html: string) {
   return /@page\s*\{[^}]*\blandscape\b/i.test(html)
 }
 
+function collectPdfPageBreaks(root: HTMLElement, canvas: HTMLCanvasElement, sliceHeightPx: number) {
+  const rootRect = root.getBoundingClientRect()
+  const cssHeight = Math.max(root.scrollHeight, Math.ceil(rootRect.height), 1)
+  const canvasScale = canvas.height / cssHeight
+  const rowStarts = Array.from(root.querySelectorAll('tr, .voucher, .page-break-block'))
+    .map((element) => {
+      const rect = element.getBoundingClientRect()
+      return Math.round((rect.top - rootRect.top) * canvasScale)
+    })
+    .filter((offset) => offset > 0 && offset < canvas.height)
+    .sort((left, right) => left - right)
+
+  const breaks: Array<{ top: number; height: number }> = []
+  let top = 0
+  while (top < canvas.height) {
+    const desiredEnd = Math.min(top + sliceHeightPx, canvas.height)
+    const minimumEnd = top + Math.floor(sliceHeightPx * 0.55)
+    const safeCandidates = rowStarts.filter((offset) => offset >= minimumEnd && offset <= desiredEnd)
+    const safeEnd = safeCandidates[safeCandidates.length - 1]
+    const end = safeEnd ?? desiredEnd
+    breaks.push({ top, height: end - top })
+    top = end
+  }
+  return breaks
+}
+
 export async function exportHtmlToPdf({ html, fileName, pageTitle }: ExportHtmlToPdfOptions) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
   const { styles, body } = extractPrintableHtml(html)
@@ -72,30 +98,25 @@ export async function exportHtmlToPdf({ html, fileName, pageTitle }: ExportHtmlT
     const contentWidth = pageWidth - marginX * 2
     const contentHeight = pageHeight - marginY * 2
     const sliceHeightPx = Math.floor(canvas.width * (contentHeight / contentWidth))
-    let renderedHeight = 0
-    let pageIndex = 0
+    const pageBreaks = collectPdfPageBreaks(target, canvas, sliceHeightPx)
 
-    while (renderedHeight < canvas.height) {
+    pageBreaks.forEach(({ top, height }, pageIndex) => {
       const pageCanvas = document.createElement('canvas')
-      const pageSliceHeight = Math.min(sliceHeightPx, canvas.height - renderedHeight)
       pageCanvas.width = canvas.width
-      pageCanvas.height = pageSliceHeight
+      pageCanvas.height = height
       const ctx = pageCanvas.getContext('2d')
       if (!ctx) throw new Error('PDF canvas context unavailable')
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height)
-      ctx.drawImage(canvas, 0, renderedHeight, canvas.width, pageSliceHeight, 0, 0, canvas.width, pageSliceHeight)
+      ctx.drawImage(canvas, 0, top, canvas.width, height, 0, 0, canvas.width, height)
 
       if (pageIndex > 0) pdf.addPage()
-      const imageHeightMm = pageSliceHeight * (contentWidth / canvas.width)
+      const imageHeightMm = height * (contentWidth / canvas.width)
       pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', marginX, marginY, contentWidth, imageHeightMm)
       pdf.setFontSize(8)
       pdf.setTextColor(100)
       pdf.text(`${pageIndex + 1}`, pageWidth - marginX, pageHeight - 3, { align: 'right' })
-
-      renderedHeight += pageSliceHeight
-      pageIndex += 1
-    }
+    })
 
     pdf.save(fileName)
   } finally {
