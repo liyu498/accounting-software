@@ -4928,8 +4928,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [previewMatchingRules, setPreviewMatchingRules] = useState<typeof matchingRules>([])
   const [previewAssetCategories, setPreviewAssetCategories] = useState<typeof assetCategories>([])
   const [previewBusinessTags, setPreviewBusinessTags] = useState<typeof businessTags>([])
+  const [previewAdapterAuthorizations, setPreviewAdapterAuthorizations] = useState<AdapterAuthorization[]>([])
   const effectiveAssetCategories = isTauri ? assetCategories : previewAssetCategories
   const effectiveBusinessTags = isTauri ? businessTags : previewBusinessTags
+  const effectiveAdapterAuthorizations = isTauri ? adapterAuthorizations : previewAdapterAuthorizations
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -6003,19 +6005,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'taxAdapterSettings' && usesLiveAdapterAuthorizationData) {
+    if (kind === 'taxAdapterSettings' && (usesLiveAdapterAuthorizationData || previewAdapterAuthorizations.some((item) => item.adapterType === 'tax'))) {
       return {
         ...baseConfig,
-        rows: mapLiveAdapterAuthorizationRows(adapterAuthorizations, 'tax'),
-        summary: summarizeLiveAdapterAuthorizations(adapterAuthorizations, 'tax'),
+        rows: mapLiveAdapterAuthorizationRows(effectiveAdapterAuthorizations, 'tax'),
+        summary: summarizeLiveAdapterAuthorizations(effectiveAdapterAuthorizations, 'tax'),
       }
     }
 
-    if (kind === 'bankAdapterSettings' && usesLiveAdapterAuthorizationData) {
+    if (kind === 'bankAdapterSettings' && (usesLiveAdapterAuthorizationData || previewAdapterAuthorizations.some((item) => item.adapterType === 'bank'))) {
       return {
         ...baseConfig,
-        rows: mapLiveAdapterAuthorizationRows(adapterAuthorizations, 'bank'),
-        summary: summarizeLiveAdapterAuthorizations(adapterAuthorizations, 'bank'),
+        rows: mapLiveAdapterAuthorizationRows(effectiveAdapterAuthorizations, 'bank'),
+        summary: summarizeLiveAdapterAuthorizations(effectiveAdapterAuthorizations, 'bank'),
       }
     }
 
@@ -6190,7 +6192,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveBusinessTags, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -6719,6 +6721,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'tagArchive') {
       resetBusinessTagDraft()
       setShowBusinessTagDialog(true)
+      return
+    }
+    if (kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') {
+      resetAdapterAuthorizationDraft()
+      setShowAdapterAuthorizationDialog(true)
       return
     }
     if (kind === 'accountArchive') {
@@ -7254,7 +7261,44 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveAdapterAuthorization = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!selectedCompanyId || !['taxAdapterSettings', 'bankAdapterSettings'].includes(kind)) return
+    if (!['taxAdapterSettings', 'bankAdapterSettings'].includes(kind)) return
+    if (!isTauri) {
+      const adapterType = kind === 'taxAdapterSettings' ? 'tax' : 'bank'
+      const timestamp = new Date().toISOString()
+      const adapter: AdapterAuthorization = {
+        id: editingAdapterAuthorizationId || `preview-${adapterType}-adapter-${Date.now()}`,
+        companyId: selectedCompanyId || 'preview-company',
+        companyName: selectedCompany?.name || '当前预览账套',
+        adapterType,
+        adapterCode: adapterAuthorizationDraft.adapterCode.trim(),
+        region: adapterAuthorizationDraft.region.trim() || null,
+        authStatus: adapterAuthorizationDraft.authStatus,
+        accountMask: adapterAuthorizationDraft.accountMask.trim() || null,
+        loginIdentity: adapterAuthorizationDraft.loginIdentity.trim() || null,
+        capabilityScope: adapterAuthorizationDraft.capabilityScope.trim() || null,
+        lastCheckedAt: timestamp,
+        expiresAt: adapterAuthorizationDraft.expiresAt || null,
+        riskMessage: adapterAuthorizationDraft.riskMessage.trim() || null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }
+      if (!adapter.adapterCode) {
+        setOperationNotice('请填写渠道名称。')
+        return
+      }
+      setPreviewAdapterAuthorizations((items) => {
+        const next = editingAdapterAuthorizationId
+          ? items.map((item) => item.id === adapter.id ? { ...adapter, createdAt: item.createdAt } : item)
+          : [...items, adapter]
+        return [...next].sort((left, right) => left.adapterType.localeCompare(right.adapterType) || left.adapterCode.localeCompare(right.adapterCode, 'zh-CN'))
+      })
+      writeModuleAudit(editingAdapterAuthorizationId ? '编辑授权配置' : '新增授权配置', `${adapter.adapterType}｜${adapter.adapterCode}`, '高', '待审批')
+      setOperationNotice(`授权渠道已保存到当前预览：${adapter.adapterCode}。仅保存脱敏元数据；真实登录、采集与申报必须在合法渠道授权并人工确认。`)
+      resetAdapterAuthorizationDraft()
+      setShowAdapterAuthorizationDialog(false)
+      return
+    }
+    if (!selectedCompanyId) return
     try {
       const adapterType = kind === 'taxAdapterSettings' ? 'tax' : 'bank'
       const result = await automationApi.upsertAdapterAuthorization({
@@ -8844,9 +8888,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowVoucherTemplateDialog(true)
       return
     }
-    if (['taxAdapterSettings', 'bankAdapterSettings'].includes(kind) && isTauri && selectedCompanyId) {
+    if (kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') {
       const prefix = kind === 'taxAdapterSettings' ? 'tax-adapter-' : 'bank-adapter-'
-      const adapter = adapterAuthorizations.find((item) => `${prefix}${item.id}` === row.id)
+      const adapter = effectiveAdapterAuthorizations.find((item) => `${prefix}${item.id}` === row.id)
       if (!adapter) {
         setOperationNotice('未找到当前账套的授权配置。')
         return
@@ -9668,7 +9712,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'auxiliaryItems' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增项目" onClick={() => { if ((isTauri ? auxiliaryCategories : previewAuxiliaryCategories).length === 0) { setOperationNotice('请先新增辅助核算类别，再维护辅助核算项目。'); return }; resetAuxiliaryItemDraft(); setShowAuxiliaryItemDialog(true) }} />}
             {kind === 'commonDigests' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增摘要" onClick={() => { resetCommonDigestDraft(); setShowCommonDigestDialog(true) }} />}
             {kind === 'voucherTemplateSettings' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增凭证模板" onClick={() => { resetVoucherTemplateDraft(); setShowVoucherTemplateDialog(true) }} />}
-            {(kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'} onClick={() => { resetAdapterAuthorizationDraft(); setShowAdapterAuthorizationDialog(true) }} />}
+            {(kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'} onClick={() => { resetAdapterAuthorizationDraft(); setShowAdapterAuthorizationDialog(true) }} />}
             {kind === 'socialSecurity' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={openSocialSecurityEditor} />}
             {kind === 'specialDeduction' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={openSpecialDeductionEditor} />}
             {(kind === 'billList' || kind === 'bankStatement') && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={openBankTransactionEditor} />}
