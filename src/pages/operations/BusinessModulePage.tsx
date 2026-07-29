@@ -4684,7 +4684,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const accounts = useAccountStore((state) => state.accounts)
   const fetchAccounts = useAccountStore((state) => state.fetchAccounts)
   const createAccount = useAccountStore((state) => state.createAccount)
+  const updateAccount = useAccountStore((state) => state.updateAccount)
   const toggleAccount = useAccountStore((state) => state.toggleAccount)
+  const deleteAccount = useAccountStore((state) => state.deleteAccount)
   const auxiliaryCategories = useAuxiliaryStore((state) => state.categories)
   const auxiliaryItems = useAuxiliaryStore((state) => state.items)
   const fetchCategories = useAuxiliaryStore((state) => state.fetchCategories)
@@ -4943,6 +4945,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [companyAccountDraft, setCompanyAccountDraft] = useState({ accountName: '', accountType: '银行账户', bankName: '', accountNumber: '', subjectCode: '1002 银行存款', openingBalance: '0', attachmentNote: '', status: '启用' as '启用' | '停用' })
   const [showCompanyInfoDialog, setShowCompanyInfoDialog] = useState(false)
   const [companyInfoDraft, setCompanyInfoDraft] = useState({ code: '', name: '', taxId: '', taxpayerType: 'general', province: '', city: '', district: '', accountingSystem: 'small_enterprise', enableYear: String(new Date().getFullYear()), enableMonth: String(new Date().getMonth() + 1), serviceStart: '', serviceEnd: '', industry: '', enterpriseType: '私营有限责任公司' })
+  const [showSubjectDialog, setShowSubjectDialog] = useState(false)
+  const [editingSubjectCode, setEditingSubjectCode] = useState<string | null>(null)
+  const [subjectDraft, setSubjectDraft] = useState({ code: '', name: '', accountType: '资产类', normalBalance: 'debit', level: '1', parentCode: '', isDetail: true, hasQuantity: false, defaultUnit: '', hasAuxiliary: false })
   const [previewCompanyAccounts, setPreviewCompanyAccounts] = useState<typeof companyAccounts>([])
   const [previewCurrencies, setPreviewCurrencies] = useState<typeof currencies>([])
   const [previewCommonDigests, setPreviewCommonDigests] = useState<typeof commonDigests>([])
@@ -6671,6 +6676,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       openCompanyInfoEditor()
       return
     }
+    if (kind === 'subjectSettings') {
+      openSubjectEditor()
+      return
+    }
     if (kind === 'aiJobQueue') {
       startAiTaskDraft()
       return
@@ -7723,6 +7732,83 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     } catch (error) {
       setOperationNotice(`保存企业资料失败：${String(error)}`)
     }
+  }
+
+  const openSubjectEditor = (account?: typeof accounts[number]) => {
+    setEditingSubjectCode(account?.code || null)
+    setSubjectDraft({
+      code: account?.code || '',
+      name: account?.name || '',
+      accountType: account?.account_type || '资产类',
+      normalBalance: account?.normal_balance || 'debit',
+      level: String(account?.level || 1),
+      parentCode: account?.parent_code || '',
+      isDetail: account?.is_detail !== 0,
+      hasQuantity: account?.has_quantity === 1,
+      defaultUnit: account?.default_unit || '',
+      hasAuxiliary: account?.has_auxiliary === 1,
+    })
+    setShowSubjectDialog(true)
+  }
+
+  const handleSaveSubject = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!subjectDraft.code.trim() || !subjectDraft.name.trim()) {
+      setOperationNotice('请填写科目编码和科目名称。')
+      return
+    }
+    if (subjectDraft.parentCode.trim() === subjectDraft.code.trim()) {
+      setOperationNotice('上级科目不能是当前科目。')
+      return
+    }
+    if (!isTauri) {
+      writeModuleAudit(editingSubjectCode ? '预览编辑会计科目' : '预览新增会计科目', `${subjectDraft.code}｜${subjectDraft.name}`, '中', '成功')
+      setOperationNotice('浏览器预览已完成科目校验；桌面端保存会写入当前账套的科目表。')
+      setShowSubjectDialog(false)
+      return
+    }
+    if (!selectedCompanyId) {
+      setOperationNotice('请先进入账套，再维护会计科目。')
+      return
+    }
+    try {
+      const input = {
+        code: subjectDraft.code.trim(), company_id: selectedCompanyId, name: subjectDraft.name.trim(), account_type: subjectDraft.accountType,
+        normal_balance: subjectDraft.normalBalance, level: Number(subjectDraft.level || 1), parent_code: subjectDraft.parentCode.trim() || undefined,
+        is_detail: subjectDraft.isDetail ? 1 : 0, has_quantity: subjectDraft.hasQuantity ? 1 : 0,
+        default_unit: subjectDraft.hasQuantity ? subjectDraft.defaultUnit.trim() || undefined : undefined,
+        has_auxiliary: subjectDraft.hasAuxiliary ? 1 : 0,
+      }
+      const account = editingSubjectCode
+        ? await updateAccount(editingSubjectCode, selectedCompanyId, input)
+        : await createAccount(input)
+      writeModuleAudit(editingSubjectCode ? '编辑会计科目' : '新增会计科目', `${account.code}｜${account.name}`, '中', '成功')
+      setOperationNotice(`科目“${account.code} ${account.name}”已保存。科目核算口径只影响后续凭证建议、账簿与报表取数，不会重写历史凭证。`)
+      setShowSubjectDialog(false)
+    } catch (error) {
+      setOperationNotice(`保存会计科目失败：${String(error)}`)
+    }
+  }
+
+  const handleToggleSubject = async () => {
+    if (!editingSubjectCode || !selectedCompanyId || !isTauri) return
+    try {
+      const account = await toggleAccount(editingSubjectCode, selectedCompanyId)
+      writeModuleAudit(account.is_enabled === 1 ? '启用会计科目' : '停用会计科目', `${account.code}｜${account.name}`, '中', '成功')
+      setOperationNotice(`科目“${account.name}”已${account.is_enabled === 1 ? '启用' : '停用'}。`)
+      setShowSubjectDialog(false)
+    } catch (error) { setOperationNotice(`更新科目状态失败：${String(error)}`) }
+  }
+
+  const handleDeleteSubject = async () => {
+    if (!editingSubjectCode || !selectedCompanyId || !isTauri) return
+    if (!window.confirm(`确认删除科目 ${editingSubjectCode} 吗？有下级科目或历史业务引用时将无法删除。`)) return
+    try {
+      await deleteAccount(editingSubjectCode, selectedCompanyId)
+      writeModuleAudit('删除会计科目', editingSubjectCode, '高', '成功')
+      setOperationNotice(`科目“${editingSubjectCode}”已删除。`)
+      setShowSubjectDialog(false)
+    } catch (error) { setOperationNotice(`删除会计科目失败：${String(error)}`) }
   }
 
   const resetCompanyAccountDraft = () => {
@@ -8796,6 +8882,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         setShowImportValidationDialog(true)
         return
       }
+    }
+    if (kind === 'subjectSettings') {
+      const account = accounts.find((item) => item.code === row.id || item.code === row.values.code)
+      if (account) {
+        openSubjectEditor(account)
+      } else {
+        setEditingSubjectCode(row.values.code || row.id)
+        setSubjectDraft({ code: row.values.code || row.id, name: row.values.name || '', accountType: '资产类', normalBalance: row.values.direction === '贷' ? 'credit' : 'debit', level: '1', parentCode: '', isDetail: true, hasQuantity: false, defaultUnit: '', hasAuxiliary: Boolean(row.values.aux && row.values.aux !== '-') })
+        setShowSubjectDialog(true)
+      }
+      return
     }
     if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData && selectedCompanyId) {
       if (row.status === '已生成凭证') {
@@ -10898,6 +10995,29 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               </section>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowCompanyInfoDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存企业资料</button></div>
+          </form>
+        </div>
+      )}
+      {showSubjectDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingSubjectCode ? '编辑会计科目' : '新增会计科目'}>
+          <form onSubmit={handleSaveSubject} className="flex max-h-[92vh] w-full max-w-3xl flex-col border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingSubjectCode ? '编辑会计科目' : '新增会计科目'}</h2><p className="mt-0.5 text-xs text-slate-500">科目变更需保持层级、余额方向和辅助核算一致，保存后请复核关联凭证模板和报表映射。</p></div><button type="button" onClick={() => setShowSubjectDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
+            <div className="min-h-0 overflow-y-auto p-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1 text-xs text-slate-600">科目编码 *<input required disabled={Boolean(editingSubjectCode)} value={subjectDraft.code} onChange={(event) => setSubjectDraft((draft) => ({ ...draft, code: event.target.value }))} placeholder="如：1002" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100" /></label>
+                <label className="grid gap-1 text-xs text-slate-600">科目名称 *<input required value={subjectDraft.name} onChange={(event) => setSubjectDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="如：银行存款" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+                <label className="grid gap-1 text-xs text-slate-600">科目类别 *<select value={subjectDraft.accountType} onChange={(event) => setSubjectDraft((draft) => ({ ...draft, accountType: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option>资产类</option><option>负债类</option><option>共同类</option><option>所有者权益类</option><option>成本类</option><option>损益类</option></select></label>
+                <label className="grid gap-1 text-xs text-slate-600">余额方向 *<select value={subjectDraft.normalBalance} onChange={(event) => setSubjectDraft((draft) => ({ ...draft, normalBalance: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="debit">借方</option><option value="credit">贷方</option></select></label>
+                <label className="grid gap-1 text-xs text-slate-600">科目级次 *<input required type="number" min="1" max="9" value={subjectDraft.level} onChange={(event) => setSubjectDraft((draft) => ({ ...draft, level: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+                <label className="grid gap-1 text-xs text-slate-600">上级科目<select value={subjectDraft.parentCode} onChange={(event) => setSubjectDraft((draft) => ({ ...draft, parentCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="">无上级科目</option>{accounts.filter((account) => account.code !== editingSubjectCode).map((account) => <option key={account.code} value={account.code}>{account.code}｜{account.name}</option>)}</select></label>
+                <label className="inline-flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={subjectDraft.isDetail} onChange={(event) => setSubjectDraft((draft) => ({ ...draft, isDetail: event.target.checked }))} />末级明细科目</label>
+                <label className="inline-flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={subjectDraft.hasAuxiliary} onChange={(event) => setSubjectDraft((draft) => ({ ...draft, hasAuxiliary: event.target.checked }))} />启用辅助核算</label>
+                <label className="inline-flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={subjectDraft.hasQuantity} onChange={(event) => setSubjectDraft((draft) => ({ ...draft, hasQuantity: event.target.checked }))} />启用数量核算</label>
+                <label className="grid gap-1 text-xs text-slate-600">默认计量单位<input disabled={!subjectDraft.hasQuantity} value={subjectDraft.defaultUnit} onChange={(event) => setSubjectDraft((draft) => ({ ...draft, defaultUnit: event.target.value }))} placeholder="如：个、吨、台" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100" /></label>
+              </div>
+              <p className="mt-4 border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">科目核算口径只影响后续凭证建议、账簿与报表取数；系统不会据此自动修改历史凭证、已结账期间或税务申报包。</p>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div className="flex gap-2">{editingSubjectCode && isTauri && <button type="button" onClick={() => void handleToggleSubject()} className="h-8 rounded border border-amber-300 px-3 text-xs text-amber-700">启用/停用</button>}{editingSubjectCode && isTauri && <button type="button" onClick={() => void handleDeleteSubject()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700">删除科目</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowSubjectDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存科目</button></div></div>
           </form>
         </div>
       )}
