@@ -206,7 +206,7 @@ function App() {
             <Route path="/settings/accounts" element={businessPage('accountArchive', '账户登记', '维护银行账户、现金账户、第三方支付账户和默认科目。')} />
             <Route path="/settings/customers" element={businessPage('customerArchive', '客户', '维护客户编码、名称、税号、开户行、银行账号和默认科目。')} />
             <Route path="/settings/contracts" element={businessPage('contractLedger', '合同台账', '维护客户和供应商合同、应税合同、发票关联、印花税取数和附件归档。')} />
-            <Route path="/settings/customers-contracts" element={businessPage('customerContractLedger', '客户与合同', '维护客户、合同和应税合同台账。')} />
+            <Route path="/settings/customers-contracts" element={<Navigate to="/agency/service-contracts" replace />} />
             <Route path="/settings/suppliers" element={businessPage('supplierArchive', '供应商', '维护供应商编码、税号、银行账号、别名和默认科目。')} />
             <Route path="/settings/other-contacts" element={businessPage('otherContactArchive', '其他往来', '维护员工、股东、个人和其他往来辅助资料。')} />
             <Route path="/settings/projects" element={businessPage('projectArchive', '项目', '维护项目档案、项目辅助核算和默认科目。')} />

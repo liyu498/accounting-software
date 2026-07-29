@@ -78,7 +78,7 @@ const settingsModules = [
         title: '客户与合同',
         description: '管理客户信息和合同',
         icon: Users,
-        path: '/settings/customer-contracts',
+        path: '/agency/service-contracts',
         color: 'bg-indigo-100 text-indigo-600',
       },
       {

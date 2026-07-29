@@ -161,7 +161,6 @@ type ModuleKind =
   | 'aiRuleTraining'
   | 'notificationCenter'
   | 'contractLedger'
-  | 'customerContractLedger'
   | 'outputInvoice'
   | 'inputInvoice'
   | 'billList'
@@ -716,34 +715,6 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { id: 'con-003', status: '异常', voucher: '-', attachment: '缺签章', values: { contractNo: 'HT-2026-019', partner: '南京云杉贸易有限公司', type: '采购合同', signDate: '待补', amount: '¥98,000.00', taxItem: '购销合同', invoice: '未关联', archive: '需补资料' } },
     ],
     notes: ['合同台账影响客户资料、单据登记、印花税取数和附件归档，是税务申报闭环里的关键台账。', '当前先补合同编号、相对方、金额、税目、发票关联和归档状态框架。'],
-  },
-  customerContractLedger: {
-    keywordPlaceholder: '搜索客户、合同编号、服务套餐、收费状态、协同事项',
-    primaryAction: '新增客户合同',
-    importLabel: '导入客户合同',
-    statusOptions: ['全部', '启用', '停用', '待确认', '异常'],
-    summary: [
-      { label: '服务客户', value: '126 户', tone: 'blue' },
-      { label: '有效合同', value: '118 份', tone: 'green' },
-      { label: '待续费', value: '9 份', tone: 'amber' },
-      { label: '异常授权', value: '3 户', tone: 'red' },
-    ],
-    columns: [
-      { key: 'customerCode', label: '客户编码' },
-      { key: 'customerName', label: '客户名称' },
-      { key: 'contractNo', label: '合同编号' },
-      { key: 'servicePackage', label: '服务套餐' },
-      { key: 'period', label: '服务期限' },
-      { key: 'fee', label: '服务费', align: 'right' },
-      { key: 'billingStatus', label: '收费状态' },
-      { key: 'collaboration', label: '协同/授权' },
-    ],
-    rows: [
-      { id: 'ccl-001', status: '启用', voucher: '收款计划', attachment: '合同PDF', values: { customerCode: '01460', customerName: '科旋电气（上海）有限公司', contractNo: 'DL-2026-01460', servicePackage: '代理记账+申报', period: '2026-01 至 2026-12', fee: '¥18,000.00', billingStatus: '已收 6 期', collaboration: '税务授权有效' } },
-      { id: 'ccl-002', status: '待确认', voucher: '待开票', attachment: '续费单', values: { customerCode: '02018', customerName: '上海云启科技有限公司', contractNo: 'DL-2026-02018', servicePackage: '记账+工资社保', period: '2026-05 至 2027-04', fee: '¥24,000.00', billingStatus: '待续费', collaboration: '资料待补' } },
-      { id: 'ccl-003', status: '异常', voucher: '-', attachment: '授权截图', values: { customerCode: '03009', customerName: '杭州辰光贸易有限公司', contractNo: 'DL-2026-03009', servicePackage: '小规模基础包', period: '2025-07 至 2026-06', fee: '¥9,600.00', billingStatus: '欠费 1 期', collaboration: '税务授权失效' } },
-    ],
-    notes: ['客户与合同承载机构级客户服务关系，收费、授权、协同事项放在同一条合同链路里。', '服务套餐、客户协同和收费状态不再作为首页重复入口，统一从客户合同穿透。'],
   },
   outputInvoice: {
     keywordPlaceholder: '搜索采集来源、发票号码、购方名称、商品名称、备注',
@@ -10487,7 +10458,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'outputInvoice' && <OutputInvoiceWorkflowPanel onAdd={() => void handlePrimaryAction()} onReview={() => reviewControlEvidence('risk')} />}
 
-        {(kind === 'contractLedger' || kind === 'customerContractLedger') && <ContractWorkflowPanel onReview={() => reviewControlEvidence('risk')} />}
+        {kind === 'contractLedger' && <ContractWorkflowPanel onReview={() => reviewControlEvidence('risk')} />}
 
         {kind === 'invoiceVoucherMatching' && <InvoiceVoucherMatchingWorkflowPanel onOpen={openInvoiceVoucherMatching} onReview={() => reviewControlEvidence('risk')} />}
 
