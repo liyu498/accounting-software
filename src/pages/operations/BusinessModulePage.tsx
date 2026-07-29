@@ -3548,15 +3548,28 @@ function getModuleTabs(kind: ModuleKind) {
   if (kind === 'companyInfo') return ['企业资料', '工商登记', '税务信息', '办税授权', '服务账期', '变更记录']
   if (kind === 'initialBalance') return ['期初清单', '辅助期初', '试算平衡', '迁移差异', '启用控制', '操作日志']
   if (kind === 'subjectSettings') return ['科目清单', '科目属性', '辅助核算', '报表映射', '启停记录', '变更日志']
+  if (kind === 'tagArchive') return ['标签清单', '适用模块', '筛选口径', '业务引用', '启停记录', '变更日志']
+  if (kind === 'unitSettings') return ['计量单位', '换算关系', '适用存货', '导入映射', '启停记录', '变更日志']
+  if (kind === 'periodManagement') return ['账期清单', '结账状态', '前置校验', '反结账审批', '锁定记录', '操作日志']
+  if (kind === 'auditLog') return ['审计清单', '高风险操作', '操作对象', '导出记录', '留痕证据', '审计日志']
+  if (kind === 'backupRestore') return ['备份快照', '文件校验', '恢复预演', '恢复记录', '异常处理', '操作日志']
+  if (kind === 'voucherRecycle') return ['回收凭证', '删除原因', '恢复审批', '原始附件', '恢复记录', '操作日志']
+  if (kind === 'printTemplateSettings') return ['打印模板', '版式字段', '凭证样式', '报表样式', '预览记录', '变更日志']
   if (kind === 'accountArchive') return ['账户清单', '开户资料', '默认科目', '期初余额', '附件资料', '变更记录']
   if (['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'].includes(kind)) return ['档案清单', '基本资料', '默认科目', '业务关联', '支持材料', '变更记录']
   if (kind === 'assetCategory') return ['资产类别', '折旧参数', '默认科目', '适用资产', '支持材料', '变更记录']
   if (kind === 'auxiliaryCategories') return ['类别清单', '适用科目', '项目数量', '启停控制', '支持材料', '变更记录']
   if (kind === 'auxiliaryItems') return ['项目清单', '所属类别', '默认科目', '业务引用', '支持材料', '变更记录']
-  if (['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping', 'settlementRules', 'voucherTemplateSettings', 'reportFormulaSettings'].includes(kind)) return ['规则清单', '适用范围', '取数条件', '执行结果', '版本记录', '操作日志']
   if (kind === 'currencySettings') return ['币别清单', '汇率口径', '本位币控制', '科目换算', '启停记录', '操作日志']
   if (kind === 'commonDigests') return ['摘要清单', '适用业务', '凭证引用', '维护记录', '停用记录', '操作日志']
-  if (kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') return ['授权渠道', '授权范围', '连接状态', '操作日志', '安全策略', '变更记录']
+  if (kind === 'invoiceMatchingRules') return ['发票规则', '票种范围', '字段条件', '命中结果', '发布版本', '操作日志']
+  if (kind === 'billMatchingRules') return ['流水规则', '账户范围', '摘要条件', '命中结果', '发布版本', '操作日志']
+  if (kind === 'cashFlowMapping') return ['现金流映射', '科目范围', '凭证条件', '未映射项', '发布版本', '操作日志']
+  if (kind === 'settlementRules') return ['结转规则', '结转范围', '取数条件', '执行结果', '发布版本', '操作日志']
+  if (kind === 'voucherTemplateSettings') return ['凭证模板', '适用业务', '分录规则', '辅助核算', '发布版本', '操作日志']
+  if (kind === 'reportFormulaSettings') return ['报表公式', '适用报表', '取数科目', '勾稽校验', '发布版本', '操作日志']
+  if (kind === 'taxAdapterSettings') return ['税局授权', '地区税种', '取数范围', '提交边界', '安全策略', '变更记录']
+  if (kind === 'bankAdapterSettings') return ['银行授权', '账户范围', '导入格式', '对账范围', '安全策略', '变更记录']
   if (kind === 'taxInit') return ['税种认定', '申报周期', '取数适配', '授权信息', '启用记录', '变更日志']
   if (kind === 'declarationCalendar') return ['待办日历', '截止提醒', '取数准备', '申报确认', '回执归档', '处理日志']
   if (kind === 'taxReport') return ['本期申报', '取数快照', '风险校验', '申报包', '回执缴款', '处理日志']
@@ -3676,6 +3689,31 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
       title: '会计科目维护范围',
       description: '科目编码、余额方向、明细级次、辅助核算和报表映射需要一致维护；停用只影响后续录入，不改写历史凭证。',
       metrics: [...commonMetrics, { label: '已关联凭证', value: `${voucherRows} 条`, tone: 'green' }],
+    }
+  }
+  const governanceWorkspaceContext: Partial<Record<ModuleKind, { title: string; description: string; evidenceLabel: string }>> = {
+    tagArchive: { title: '业务标签与筛选口径范围', description: '标签仅用于当前账套的检索、筛选和规则适用范围，不会改变原始凭证、单据或报表金额。启停和合并标签需要保留变更记录。', evidenceLabel: '业务引用' },
+    unitSettings: { title: '计量单位与换算范围', description: '单位和换算关系用于存货、采购、销售及导入字段解释。变更前应复核已引用存货，不能回写历史出入库数量。', evidenceLabel: '适用存货' },
+    periodManagement: { title: '账期结账与锁定范围', description: '账期关闭前必须完成风险、凭证、税表和结转校验；反结账、删除和锁定解除属于高风险操作，需要审批与审计留痕。', evidenceLabel: '结账依据' },
+    auditLog: { title: '账套操作审计范围', description: '审计日志只追加当前账套的操作人、对象、结果、风险等级和证据索引，不提供修改、删除或覆盖历史审计记录的入口。', evidenceLabel: '审计证据' },
+    backupRestore: { title: '备份恢复与校验范围', description: '备份仅生成本机账套快照及校验值。恢复必须先校验文件并进行人工确认，不覆盖未备份数据，也不伪造恢复成功结果。', evidenceLabel: '快照校验' },
+    voucherRecycle: { title: '凭证回收与恢复范围', description: '回收凭证保留删除原因、原始附件和恢复审批。恢复后仍须重新审核，不能作为绕开反结账或审计控制的途径。', evidenceLabel: '删除依据' },
+    printTemplateSettings: { title: '打印模板与版式范围', description: '模板只定义本地 Excel、PDF 和打印版式字段；凭证、账表和税表的正式取数仍以当前账期数据和审核状态为准。', evidenceLabel: '模板样式' },
+    invoiceMatchingRules: { title: '发票匹配规则范围', description: '发票规则按票种、对方单位、金额和日期生成候选匹配，不会自动确认凭证或替代人工处理异常发票。', evidenceLabel: '规则版本' },
+    billMatchingRules: { title: '流水匹配规则范围', description: '流水规则按账户、摘要、金额和对方户名生成候选匹配。匹配成功仍需人工确认才能影响凭证草稿。', evidenceLabel: '规则版本' },
+    cashFlowMapping: { title: '现金流量映射范围', description: '映射规则只解释凭证到现金流量项目的取数口径。未映射或冲突分录必须人工补齐，不自动改写历史报表。', evidenceLabel: '映射版本' },
+    settlementRules: { title: '结转规则与取数范围', description: '结转规则定义来源科目、计算方式和凭证模板。发布后只作用于后续任务，执行前仍需人工复核金额和前置条件。', evidenceLabel: '规则版本' },
+    voucherTemplateSettings: { title: '凭证模板与分录范围', description: '模板仅生成候选摘要、借贷科目和辅助核算。金额、附件和借贷平衡必须按具体业务由会计人员确认。', evidenceLabel: '模板版本' },
+    reportFormulaSettings: { title: '报表公式与勾稽范围', description: '公式修改会影响后续报表取数口径，必须保留版本并通过勾稽校验。历史已归档报表不会被自动覆盖。', evidenceLabel: '公式版本' },
+    taxAdapterSettings: { title: '税局适配授权范围', description: '税局渠道仅记录人工授权、地区、税种和本地取数范围。不保存明文凭据，不自动登录税局或提交申报。', evidenceLabel: '授权记录' },
+    bankAdapterSettings: { title: '银行适配授权范围', description: '银行渠道仅配置受控导入格式、账户范围与对账能力。不保存网银密码，不自动发起付款或直接连接账户。', evidenceLabel: '授权记录' },
+  }
+  if (governanceWorkspaceContext[kind]) {
+    const context = governanceWorkspaceContext[kind]!
+    return {
+      title: context.title,
+      description: context.description,
+      metrics: [...commonMetrics, { label: context.evidenceLabel, value: `${attachmentRows} 条`, tone: 'green' }],
     }
   }
   if (['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'accountArchive', 'assetCategory', 'auxiliaryCategories', 'auxiliaryItems'].includes(kind)) {
