@@ -260,7 +260,7 @@ const requiredPageSnippets = [
   ['module import write handler', 'const handleCommitLocalImport = async () => {'],
   ['module import settings targets', "type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover' | 'companyAccount' | 'auxiliaryArchive' | 'businessTag' | 'currency' | 'matchingRule' | 'settlementRule' | 'commonDigest' | 'voucherTemplate' | 'assetCategory' | 'auxiliaryCategory' | 'auxiliaryItem' | 'initialBalance' | 'subject'"],
   ['module import committed status', "status === '已关联' || status === '已校验' || status === '已写入'"],
-  ['module receipt and expense import scope', "if (kind === 'documentRegister' || kind === 'receipt' || kind === 'expenseReimbursement') return 'document'"],
+  ['module receipt expense and contract import scope', "if (kind === 'documentRegister' || kind === 'contractLedger' || kind === 'receipt' || kind === 'expenseReimbursement') return 'document'"],
   ['module matching rule import scope', "if (kind === 'invoiceMatchingRules' || kind === 'billMatchingRules' || kind === 'cashFlowMapping') return 'matchingRule'"],
   ['matching rule preview mapping', 'mapLiveMatchingRuleRows(isTauri ? matchingRules : previewMatchingRules, matchingRuleScope)'],
   ['module settlement rule import scope', "if (kind === 'settlementRules') return 'settlementRule'"],
@@ -1202,6 +1202,7 @@ const requiredDocumentRecordPageSnippets = [
   ['document record edit state', 'const [editingDocumentRecordId, setEditingDocumentRecordId] = useState<string | null>(null)'],
   ['document record edit row binding', "if (['documentRegister', 'contractLedger', 'expenseReimbursement', 'receipt'].includes(kind))"],
   ['document record row mapper', 'mapLiveDocumentRecordRows(documentRecords)'],
+  ['contract document import target', "kind === 'contractLedger' || kind === 'receipt'"],
 ]
 
 const requiredExpenseReimbursementPageSnippets = [
