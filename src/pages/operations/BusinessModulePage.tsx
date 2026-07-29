@@ -3229,6 +3229,46 @@ function getModuleListMeta(kind: ModuleKind, title: string): ModuleListMeta {
       hint: '按凭证字、日期、摘要、借贷金额、附件和审核状态处理凭证。',
       exportHint: '导出遵循会计凭证编号、分录金额、附件张数和审核口径。',
     },
+    invoiceVoucherMatching: {
+      title: '票据凭证匹配复核清单',
+      hint: '逐笔核验发票、单据、流水与凭证之间的金额、日期、科目和置信度差异。',
+      exportHint: '导出保留票据来源、匹配规则、差异金额、人工确认人和凭证关联。',
+    },
+    riskCheck: {
+      title: '结账前风险与处置清单',
+      hint: '按风险等级、来源规则、阻断影响、处理人和修复凭证跟踪本期风险。',
+      exportHint: '导出包含规则编号、触发依据、风险等级、处置记录和复核时间。',
+    },
+    closingTasks: {
+      title: '月末结转执行控制清单',
+      hint: '按固定顺序核对前置条件、取数快照、凭证草稿、阻断原因和审批状态。',
+      exportHint: '导出保留结转顺序、取数来源、凭证模板、执行结果和阻断说明。',
+    },
+    notificationCenter: {
+      title: '账套待办与协同提醒清单',
+      hint: '集中处理当前账套的资料补传、人工确认、风险修复、报表重算与申报截止事项。',
+      exportHint: '导出保留待办来源、优先级、负责人、截止时间、处理入口和完成记录。',
+    },
+    contractLedger: {
+      title: '合同与印花税资料清单',
+      hint: '核验客户或供应商合同、税目、金额、发票关联、归档附件和待计税事项。',
+      exportHint: '导出包含合同编号、相对方、税目、金额、发票关联与归档状态。',
+    },
+    attachmentCenter: {
+      title: '附件归档与关联清单',
+      hint: '按文件校验值、来源模块、关联单据、归档状态和异常原因管理本地附件元数据。',
+      exportHint: '导出保留文件名、校验值、关联对象、归档状态、上传人和处理时间。',
+    },
+    importCenter: {
+      title: '导入批次与失败行清单',
+      hint: '按导入模板、字段映射、成功失败行、目标模块和写入记录复核本地导入批次。',
+      exportHint: '导出保留批次文件、模板、行数、失败原因、操作人和写入状态。',
+    },
+    exportCenter: {
+      title: '导出文件与下载留痕清单',
+      hint: '按输出模板、文件格式、生成状态、下载范围、校验值和有效期管理本地导出文件。',
+      exportHint: '导出保留生成文件、格式、范围、校验值、操作人、时间和保留期限。',
+    },
     transfer: {
       title: '账户内部转账清单',
       hint: '核验转出转入账户、手续费、流水号、回单和内部转账凭证。',
@@ -3273,21 +3313,6 @@ function getModuleListMeta(kind: ModuleKind, title: string): ModuleListMeta {
       title: '往来账龄与风险清单',
       hint: '按往来单位、科目、余额、账龄区间和最近凭证识别逾期风险。',
       exportHint: '导出包含往来余额、账龄区间、逾期金额、责任人和风险状态。',
-    },
-    invoiceVoucherMatching: {
-      title: '票据凭证匹配核验清单',
-      hint: '核验发票、单据、银行流水与凭证之间的金额、日期和科目匹配。',
-      exportHint: '导出包含源单据、匹配规则、匹配结果、差异和凭证关联。',
-    },
-    riskCheck: {
-      title: '账套风险检查清单',
-      hint: '汇总发票、凭证、报表和税务规则命中的风险项及处置结果。',
-      exportHint: '导出包含风险规则、触发数据、风险等级、负责人和处理状态。',
-    },
-    closingTasks: {
-      title: '期末结转任务清单',
-      hint: '按结账步骤、前置校验、执行顺序、生成凭证和审批要求完成关账。',
-      exportHint: '导出保留结转步骤、前置条件、执行状态、凭证和审批记录。',
     },
     taxReport: {
       title: '申报取数与校验清单',
@@ -3406,6 +3431,18 @@ function getModuleDetailMeta(kind: ModuleKind, title: string): ModuleDetailMeta 
   if (['purchaseManagement', 'salesManagement'].includes(kind)) {
     return { title: '购销业务履约明细', boundary: '查看只读取当前账套采购或销售订单、收发货、发票和收付款关联；实际履约、开票和收付款仍需由经办人员确认。' }
   }
+  if (kind === 'voucher' || kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
+    return { title: '会计凭证分录明细', boundary: '查看只读取当前账套凭证、分录、附件和审核状态；过账、反审核、删除和反结账均需在受控操作中留痕确认。' }
+  }
+  if (kind === 'invoiceVoucherMatching') {
+    return { title: '票据凭证匹配明细', boundary: '查看只读取票据来源、匹配规则、金额差异和凭证关联；自动匹配仅提供候选结果，确认或解除匹配均需人工留痕。' }
+  }
+  if (kind === 'riskCheck' || kind === 'closingTasks') {
+    return { title: '结账控制与风险明细', boundary: '查看只读取检查规则、取数快照、阻断原因、结转任务和复核记录；不会绕过审批直接修复风险或锁定账期。' }
+  }
+  if (['attachmentCenter', 'importCenter', 'exportCenter', 'notificationCenter'].includes(kind)) {
+    return { title: '资料批次与协同明细', boundary: '查看只读取本地文件、导入导出批次和待办记录；不会上传第三方、覆盖业务数据或发送外部通知。' }
+  }
   if (['depreciation', 'inventorySettings', 'inventoryMovement', 'costCarryover'].includes(kind)) {
     return { title: '资产存货与成本明细', boundary: '查看只读取资产、存货、出入库与成本结转依据；计提、出入库和月末结转必须先完成来源单据与会计口径复核。' }
   }
@@ -3441,6 +3478,22 @@ function getModuleTableMeta(kind: ModuleKind): ModuleTableMeta {
   if (['purchaseManagement', 'salesManagement'].includes(kind)) {
     return { statusLabel: '履约状态', voucherLabel: '业务凭证', attachmentLabel: '订单/单据', showVoucher: true, showAttachment: true }
   }
+  if (kind === 'voucher' || kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
+    return { statusLabel: '审核状态', voucherLabel: '凭证字号', attachmentLabel: '原始附件', showVoucher: false, showAttachment: true }
+  }
+  if (kind === 'invoiceVoucherMatching') {
+    return { statusLabel: '匹配结论', voucherLabel: '目标凭证', attachmentLabel: '源票据', showVoucher: true, showAttachment: true }
+  }
+  if (kind === 'riskCheck') {
+    return { statusLabel: '风险处置', voucherLabel: '修复凭证', attachmentLabel: '检查依据', showVoucher: true, showAttachment: true }
+  }
+  if (kind === 'closingTasks') {
+    return { statusLabel: '执行状态', voucherLabel: '结转凭证', attachmentLabel: '取数快照', showVoucher: true, showAttachment: true }
+  }
+  if (kind === 'attachmentCenter') return { statusLabel: '归档状态', voucherLabel: '关联凭证', attachmentLabel: '文件类型', showVoucher: true, showAttachment: true }
+  if (kind === 'importCenter') return { statusLabel: '写入状态', voucherLabel: '目标草稿', attachmentLabel: '导入文件', showVoucher: true, showAttachment: true }
+  if (kind === 'exportCenter') return { statusLabel: '生成状态', voucherLabel: '输出范围', attachmentLabel: '输出文件', showVoucher: false, showAttachment: true }
+  if (kind === 'notificationCenter') return { statusLabel: '待办状态', voucherLabel: '关联事项', attachmentLabel: '处理依据', showVoucher: true, showAttachment: true }
   if (['depreciation', 'inventorySettings', 'inventoryMovement', 'costCarryover'].includes(kind)) {
     return { statusLabel: '核算状态', voucherLabel: '计提/结转凭证', attachmentLabel: '核算依据', showVoucher: kind !== 'inventorySettings', showAttachment: true }
   }
@@ -3469,6 +3522,12 @@ function getModuleTabs(kind: ModuleKind) {
   if (kind === 'historySubsidiaryLedger') return ['明细清单', '凭证穿透', '对方科目', '余额核验', '来源文件', '迁移日志']
   if (kind === 'outputInvoice') return ['销项台账', '开票明细', '开票汇总', '会计凭证', '发票影像', '开票日志']
   if (kind === 'inputInvoice') return ['进项台账', '发票明细', '认证勾选', '抵扣用途', '发票影像', '处理日志']
+  if (kind === 'voucher' || kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') return ['凭证清单', '分录明细', '附件张数', '审核记账', '凭证打印', '操作日志']
+  if (kind === 'invoiceVoucherMatching') return ['匹配清单', '票据来源', '凭证候选', '差异复核', '确认记录', '操作日志']
+  if (kind === 'riskCheck') return ['风险清单', '检查规则', '阻断事项', '修复建议', '复核记录', '检查日志']
+  if (kind === 'closingTasks') return ['结转任务', '执行顺序', '取数快照', '凭证草稿', '阻断审批', '结账日志']
+  if (kind === 'notificationCenter') return ['待办清单', '今日到期', '资料催办', '风险提醒', '完成记录', '处理日志']
+  if (kind === 'contractLedger') return ['合同清单', '相对方信息', '印花税税目', '发票关联', '归档附件', '变更记录']
   if (kind === 'receipt') return ['票据台账', '票据明细', '到期管理', '背书用途', '票据影像', '处理日志']
   if (kind === 'documentRegister') return ['单据登记', '业务明细', '审核流转', '入账准备', '原始附件', '处理日志']
   if (kind === 'expenseReimbursement') return ['报销清单', '费用明细', '审批节点', '付款准备', '票据附件', '处理日志']
@@ -3663,6 +3722,25 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
   }
   if (businessWorkspaceContext[kind]) {
     const context = businessWorkspaceContext[kind]!
+    return {
+      title: context.title,
+      description: context.description,
+      metrics: [...commonMetrics, { label: context.evidenceLabel, value: `${attachmentRows} 条`, tone: 'green' }],
+    }
+  }
+  const controlWorkspaceContext: Partial<Record<ModuleKind, { title: string; description: string; evidenceLabel: string }>> = {
+    voucher: { title: '会计凭证审核与记账范围', description: '凭证字号、日期、分录、借贷平衡、附件和审核状态应逐项复核。系统不会自动过账、反审核或修改已结账期间凭证。', evidenceLabel: '原始附件' },
+    voucherCreate: { title: '会计凭证审核与记账范围', description: '凭证字号、日期、分录、借贷平衡、附件和审核状态应逐项复核。系统不会自动过账、反审核或修改已结账期间凭证。', evidenceLabel: '原始附件' },
+    voucherEdit: { title: '会计凭证审核与记账范围', description: '凭证字号、日期、分录、借贷平衡、附件和审核状态应逐项复核。系统不会自动过账、反审核或修改已结账期间凭证。', evidenceLabel: '原始附件' },
+    voucherDetail: { title: '会计凭证审核与记账范围', description: '凭证字号、日期、分录、借贷平衡、附件和审核状态应逐项复核。系统不会自动过账、反审核或修改已结账期间凭证。', evidenceLabel: '原始附件' },
+    invoiceVoucherMatching: { title: '票据凭证匹配确认范围', description: '票据金额、日期、对方单位、科目和凭证金额必须同时校验。置信度仅用于排序，匹配确认或解除都必须留下人工复核记录。', evidenceLabel: '源票据' },
+    riskCheck: { title: '风险检查与修复范围', description: '风险检查只读分析发票、凭证、工资、报表和税表的异常。修复应回到源业务处理，不能在风险页直接改写会计数据。', evidenceLabel: '检查依据' },
+    closingTasks: { title: '期末结转与关账范围', description: '结转按固定顺序检查来源、生成草稿、人工复核和审批。存在阻断风险或未审核凭证时，系统不得锁定账期或执行反结账。', evidenceLabel: '取数快照' },
+    notificationCenter: { title: '账套待办处理范围', description: '待办仅聚合当前账套的资料、风险、确认和申报提醒。处理结果需要回到原始模块完成，不发送短信或外部消息。', evidenceLabel: '关联依据' },
+    contractLedger: { title: '合同归档与税目范围', description: '合同金额、相对方、签订日期、印花税税目、发票关联和签章附件分别复核。合同台账不替代合同审批或税务申报确认。', evidenceLabel: '合同附件' },
+  }
+  if (controlWorkspaceContext[kind]) {
+    const context = controlWorkspaceContext[kind]!
     return {
       title: context.title,
       description: context.description,
