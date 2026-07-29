@@ -412,8 +412,14 @@ const fixedPrintTemplatePreviews = [
   { name: '业务清单', paper: 'A4 横向', version: 'v1.0', layout: '筛选范围、列表字段、附件与操作说明', pagination: '表头重复，按业务记录行分页' },
 ]
 
-type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover' | 'companyAccount' | 'auxiliaryArchive' | 'businessTag' | 'currency' | 'matchingRule' | 'settlementRule' | 'commonDigest' | 'voucherTemplate' | 'assetCategory' | 'auxiliaryCategory' | 'auxiliaryItem' | 'initialBalance' | 'subject'
-type LocalImportCommitDraft = { jobId: string; fileName: string; headers: string[]; rows: string[][]; target: LocalImportWriteTarget }
+type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover' | 'companyAccount' | 'auxiliaryArchive' | 'businessTag' | 'currency' | 'matchingRule' | 'settlementRule' | 'commonDigest' | 'voucherTemplate' | 'assetCategory' | 'auxiliaryCategory' | 'auxiliaryItem' | 'initialBalance' | 'subject' | 'historyVoucher' | 'historyBalance'
+type LocalImportCommitDraft = { jobId: string; fileName: string; headers: string[]; rows: string[][]; target: LocalImportWriteTarget; periodId: string; periodLabel: string }
+
+const historyMigrationKinds: ModuleKind[] = ['historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger']
+
+function isHistoryMigrationKind(kind: ModuleKind) {
+  return historyMigrationKinds.includes(kind)
+}
 
 function localImportWriteTarget(kind: ModuleKind): LocalImportWriteTarget | null {
   if (kind === 'outputInvoice' || kind === 'inputInvoice') return 'invoice'
@@ -445,6 +451,8 @@ function localImportWriteTarget(kind: ModuleKind): LocalImportWriteTarget | null
   if (kind === 'auxiliaryItems') return 'auxiliaryItem'
   if (kind === 'initialBalance') return 'initialBalance'
   if (kind === 'subjectSettings') return 'subject'
+  if (kind === 'historyVoucher' || kind === 'historySubsidiaryLedger') return 'historyVoucher'
+  if (kind === 'historyBalance' || kind === 'historyGeneralLedger') return 'historyBalance'
   return null
 }
 
@@ -6333,6 +6341,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const auditScope = `${status}/${keyword.trim() || '全部'}`
   const supportsFileImport = /导入|采集|上传/.test(config.importLabel)
+  const primaryActionHandlesImport = /导入|采集|上传/.test(config.primaryAction)
   const exportPeriodLabel = currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel
   const exportDocumentContext = {
     companyName: selectedCompany?.name || '科旋电气（上海）有限公司',
@@ -6397,6 +6406,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleImportAction = () => {
+    if (isHistoryMigrationKind(kind) && isTauri && !selectedHistoryPeriodId) {
+      setOperationNotice('请先选择目标历史账期，再导入迁移文件。系统不会根据文件名猜测账期，也不会覆盖当前账期。')
+      return
+    }
     if (supportsFileImport) {
       importFileRef.current?.click()
       return
@@ -6410,9 +6423,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (files.length === 0) return
 
     try {
+      const isHistoryMigration = isHistoryMigrationKind(kind)
+      const targetPeriodId = isHistoryMigration ? selectedHistoryPeriodId : currentPeriodId
+      const targetPeriodLabel = isHistoryMigration ? selectedHistoryPeriodLabel : currentPeriodLabel
+      if (isHistoryMigration && (!targetPeriodId || !targetPeriodLabel)) {
+        setOperationNotice('未选择目标历史账期，导入已取消。请先选择账期后再上传迁移文件。')
+        return
+      }
       const scope = {
         companyId: selectedCompanyId || 'browser-preview',
-        period: currentPeriodLabel,
+        period: targetPeriodLabel,
       }
       if (kind === 'attachmentCenter') {
         const records = await Promise.all(files.map((file) => recordLocalAttachment({
@@ -6438,10 +6458,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       files.forEach((file) => writeModuleAudit(config.importLabel, `${title}-${file.name}`, '中', '待审批'))
       const target = localImportWriteTarget(kind)
       const firstJob = jobs.find((job): job is LocalImportJob => Boolean(job))
-      if (target && firstJob && files.length === 1 && isTauri && selectedCompanyId && currentPeriodLabel !== '当前账期') {
+      if (target && firstJob && files.length === 1 && isTauri && selectedCompanyId && targetPeriodId && targetPeriodLabel !== '当前账期') {
         const parsed = await parseLocalImportFile(files[0])
         if (parsed.headers.length > 0 && parsed.rows.length > 0) {
-          setImportCommitDraft({ jobId: firstJob.id, fileName: firstJob.fileName, headers: parsed.headers, rows: parsed.rows, target })
+          setImportCommitDraft({ jobId: firstJob.id, fileName: firstJob.fileName, headers: parsed.headers, rows: parsed.rows, target, periodId: targetPeriodId, periodLabel: targetPeriodLabel })
           setOperationNotice(null)
           return
         }
@@ -8800,8 +8820,124 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('附件关联已登记到本机台账；不会移动原始文件、写入外部存储或修改凭证。')
   }
 
+  const handleCommitHistoryVoucherImport = async (draft: LocalImportCommitDraft) => {
+    if (!selectedCompanyId) return
+    const failureRows: LocalImportFailure[] = []
+    const addFailure = (rowNumber: number, message: string) => {
+      if (failureRows.length < 20) failureRows.push({ rowNumber, message })
+    }
+    const groups = new Map<string, { voucherNo: string; date: string; summary: string; wordName: string; attachmentCount: number; rows: Array<{ rowNumber: number; accountCode: string; debit: number; credit: number; summary: string }> }>()
+
+    for (const [rowIndex, row] of draft.rows.entries()) {
+      const voucherNo = importRowValue(draft.headers, row, ['凭证字号', '原凭证号', '凭证号'])
+      const date = importRowValue(draft.headers, row, ['凭证日期', '制单日期', '日期'])
+      const accountCode = importRowValue(draft.headers, row, ['科目编码', '会计科目编码', '科目'])
+      const debit = importAmount(importRowValue(draft.headers, row, ['借方金额', '借方发生额', '借方']))
+      const credit = importAmount(importRowValue(draft.headers, row, ['贷方金额', '贷方发生额', '贷方']))
+      if (!voucherNo || !date || !accountCode || (debit <= 0 && credit <= 0) || (debit > 0 && credit > 0)) {
+        addFailure(rowIndex + 2, '凭证号、日期、科目和单边借贷金额必须完整')
+        continue
+      }
+      const groupKey = `${voucherNo}::${date}`
+      const group = groups.get(groupKey) || {
+        voucherNo,
+        date,
+        summary: importRowValue(draft.headers, row, ['摘要', '凭证摘要']) || '历史账迁移',
+        wordName: importRowValue(draft.headers, row, ['凭证字', '字']) || voucherNo.split(/[-－]/)[0],
+        attachmentCount: Math.max(0, Math.floor(importAmount(importRowValue(draft.headers, row, ['附件数', '附件张数'])))),
+        rows: [],
+      }
+      group.rows.push({ rowNumber: rowIndex + 2, accountCode, debit, credit, summary: importRowValue(draft.headers, row, ['分录摘要', '摘要', '凭证摘要']) || group.summary })
+      groups.set(groupKey, group)
+    }
+
+    let successCount = 0
+    let failedCount = draft.rows.length - Array.from(groups.values()).reduce((total, group) => total + group.rows.length, 0)
+    const existing = await queryVouchers({ company_id: selectedCompanyId, period_id: draft.periodId, page: 1, page_size: 500 })
+    const existingNumbers = new Set(existing.map((voucher) => voucher.voucher_number))
+
+    for (const group of groups.values()) {
+      try {
+        if (existingNumbers.has(group.voucherNo)) throw new Error(`凭证号 ${group.voucherNo} 已存在，拒绝重复导入`)
+        const word = voucherWords.find((item) => item.word_name === group.wordName || group.voucherNo.startsWith(`${item.word_name}-`)) || voucherWords[0]
+        if (!word) throw new Error('当前账套未配置凭证字')
+        const entries = group.rows.map((line) => {
+          const account = accounts.find((item) => item.code === line.accountCode)
+          if (!account) throw new Error(`科目 ${line.accountCode} 不存在或未映射`)
+          return {
+            account_code: account.code,
+            account_name: account.name,
+            direction: line.debit > 0 ? 'debit' : 'credit',
+            amount: line.debit > 0 ? line.debit : line.credit,
+            summary: line.summary,
+            doc_number: `历史迁移｜${draft.fileName}`,
+          }
+        })
+        const debitTotal = group.rows.reduce((total, line) => total + line.debit, 0)
+        const creditTotal = group.rows.reduce((total, line) => total + line.credit, 0)
+        if (entries.length < 2 || Math.abs(debitTotal - creditTotal) > 0.005) throw new Error(`借贷不平：借 ${debitTotal.toFixed(2)}，贷 ${creditTotal.toFixed(2)}`)
+        await addVoucher({ company_id: selectedCompanyId, period_id: draft.periodId, voucher_word_id: word.id, voucher_date: group.date, voucher_number: group.voucherNo, summary: group.summary, attachment_count: group.attachmentCount, created_by: '历史账迁移', entries })
+        existingNumbers.add(group.voucherNo)
+        successCount += group.rows.length
+      } catch (error) {
+        failedCount += group.rows.length
+        addFailure(group.rows[0]?.rowNumber || 2, error instanceof Error ? error.message : String(error))
+      }
+    }
+
+    updateLocalImportJobCommit(draft.jobId, successCount, failedCount, failureRows)
+    writeModuleAudit('导入历史凭证', `${draft.periodLabel}｜${draft.fileName}｜成功 ${successCount} 行`, '高', successCount > 0 ? '成功' : '失败')
+    setImportCommitDraft(null)
+    setOperationNotice(`历史凭证迁移完成：成功 ${successCount} 行，失败 ${failedCount} 行。仅写入目标历史账期 ${draft.periodLabel}；未自动审核、结账或改写当前账期。`)
+  }
+
+  const handleCommitHistoryBalanceImport = async (draft: LocalImportCommitDraft) => {
+    const failureRows: LocalImportFailure[] = []
+    const addFailure = (rowNumber: number, message: string) => {
+      if (failureRows.length < 20) failureRows.push({ rowNumber, message })
+    }
+    let successCount = 0
+    let failedCount = 0
+
+    for (const [rowIndex, row] of draft.rows.entries()) {
+      try {
+        const accountCode = importRowValue(draft.headers, row, ['科目编码', '会计科目编码', '科目'])
+        const account = accounts.find((item) => item.code === accountCode)
+        const explicitDebit = importAmount(importRowValue(draft.headers, row, ['期初借方', '借方期初', '期初借']))
+        const explicitCredit = importAmount(importRowValue(draft.headers, row, ['期初贷方', '贷方期初', '期初贷']))
+        const balance = importAmount(importRowValue(draft.headers, row, ['期初余额', '期末余额', '余额']))
+        const direction = importRowValue(draft.headers, row, ['余额方向', '方向'])
+        const openingDebit = explicitDebit || (explicitCredit === 0 && balance > 0 && direction !== '贷' ? balance : 0)
+        const openingCredit = explicitCredit || (explicitDebit === 0 && balance > 0 && direction === '贷' ? balance : 0)
+        if (!account || (openingDebit <= 0 && openingCredit <= 0) || (openingDebit > 0 && openingCredit > 0)) throw new Error('期初科目不存在或借贷金额不正确')
+        await saveInitialBalance({ period_id: draft.periodId, account_code: account.code, opening_debit: openingDebit, opening_credit: openingCredit, created_by: `历史迁移｜${draft.fileName}` })
+        successCount += 1
+      } catch (error) {
+        failedCount += 1
+        addFailure(rowIndex + 2, error instanceof Error ? error.message : String(error))
+      }
+    }
+
+    if (successCount > 0) {
+      const trialBalance = await fetchTrialBalance(draft.periodId)
+      setLiveReports((reports) => ({ ...reports, historyBalance: trialBalance }))
+    }
+    updateLocalImportJobCommit(draft.jobId, successCount, failedCount, failureRows)
+    writeModuleAudit('导入历史余额', `${draft.periodLabel}｜${draft.fileName}｜成功 ${successCount} 行`, '高', successCount > 0 ? '成功' : '失败')
+    setImportCommitDraft(null)
+    setOperationNotice(`历史余额迁移完成：成功 ${successCount} 行，失败 ${failedCount} 行。余额仅登记为目标历史账期 ${draft.periodLabel} 的期初基础，仍需执行试算平衡和人工确认。`)
+  }
+
   const handleCommitLocalImport = async () => {
-    if (!importCommitDraft || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!importCommitDraft || !selectedCompanyId || !importCommitDraft.periodId) return
+    if (importCommitDraft.target === 'historyVoucher') {
+      await handleCommitHistoryVoucherImport(importCommitDraft)
+      return
+    }
+    if (importCommitDraft.target === 'historyBalance') {
+      await handleCommitHistoryBalanceImport(importCommitDraft)
+      return
+    }
     let successCount = 0
     let failedCount = 0
     const failureRows: LocalImportFailure[] = []
@@ -10297,7 +10433,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <span className="max-w-[720px] truncate text-xs text-slate-500">{description}</span>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
-            <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />
+            {!primaryActionHandlesImport && <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />}
             {kind === 'aiVoucherSuggestions' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增建议" onClick={openAiVoucherSuggestionEditor} />}
             {kind === 'employee' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增人员" onClick={openEmployeeEditor} />}
             {kind === 'payroll' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={openPayrollEditor} />}
@@ -10904,7 +11040,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="确认写入本地台账">
           <div className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-start justify-between border-b border-slate-200 px-4 py-3"><div><h2 className="text-sm font-semibold text-slate-900">确认写入本地台账</h2><p className="mt-1 text-xs text-slate-500">{importCommitDraft.fileName}，共 {importCommitDraft.rows.length} 行候选数据。</p></div><button type="button" onClick={() => setImportCommitDraft(null)} className="text-xs text-slate-500">取消</button></div>
-            <div className="space-y-3 p-4 text-xs text-slate-700"><p>目标模块：{importCommitDraft.target === 'invoice' ? '发票台账' : importCommitDraft.target === 'bank' ? '银行流水台账' : importCommitDraft.target === 'document' ? '单据登记台账' : importCommitDraft.target === 'businessOrder' ? '采购/销售订单台账' : importCommitDraft.target === 'employee' ? '人员档案' : importCommitDraft.target === 'payroll' ? '薪酬台账' : importCommitDraft.target === 'socialSecurity' ? '社保公积金台账' : importCommitDraft.target === 'specialDeduction' ? '专项附加扣除台账' : importCommitDraft.target === 'inventoryMovement' ? '出入库台账' : importCommitDraft.target === 'fixedAsset' ? '固定资产台账' : importCommitDraft.target === 'inventoryItem' ? '存货档案' : importCommitDraft.target === 'settlement' ? '核销台账' : importCommitDraft.target === 'bankReconciliation' ? '银行对账台账' : importCommitDraft.target === 'measurementUnit' ? '计量单位档案' : importCommitDraft.target === 'accountTransfer' ? '账户转账台账' : importCommitDraft.target === 'costCarryover' ? '成本结转台账' : importCommitDraft.target === 'companyAccount' ? '账户登记档案' : importCommitDraft.target === 'auxiliaryArchive' ? '辅助核算档案' : importCommitDraft.target === 'businessTag' ? '业务标签' : importCommitDraft.target === 'subject' ? '会计科目' : importCommitDraft.target === 'initialBalance' ? '期初余额' : importCommitDraft.target === 'assetCategory' ? '资产类别档案' : importCommitDraft.target === 'auxiliaryCategory' ? '辅助核算类别' : importCommitDraft.target === 'auxiliaryItem' ? '辅助核算项目' : importCommitDraft.target === 'matchingRule' ? '自动匹配规则' : importCommitDraft.target === 'settlementRule' ? '期末结转规则' : importCommitDraft.target === 'commonDigest' ? '常用摘要' : importCommitDraft.target === 'voucherTemplate' ? '凭证模板' : '币别汇率'}。不完整或格式错误的行会被跳过并保留在导入批次中。</p><div className="border border-slate-200 bg-slate-50 p-3"><p className="font-medium">字段映射建议</p>{buildImportFieldMappings(importCommitDraft.headers, config.columns).map(({ header, target }) => <div key={header} className="mt-1 grid grid-cols-[1fr_20px_1fr] gap-2"><span className="truncate">{header}</span><span className="text-center text-slate-400">→</span><span className="truncate">{target}</span></div>)}</div><p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 leading-5">安全边界：本操作只写入当前桌面端账套和账期的本地台账，不会采集发票、登录银行、生成凭证或向税局提交。</p></div>
+            <div className="space-y-3 p-4 text-xs text-slate-700"><p>目标模块：{importCommitDraft.target === 'historyVoucher' ? `${importCommitDraft.periodLabel} 历史凭证` : importCommitDraft.target === 'historyBalance' ? `${importCommitDraft.periodLabel} 历史期初余额` : importCommitDraft.target === 'invoice' ? '发票台账' : importCommitDraft.target === 'bank' ? '银行流水台账' : importCommitDraft.target === 'document' ? '单据登记台账' : importCommitDraft.target === 'businessOrder' ? '采购/销售订单台账' : importCommitDraft.target === 'employee' ? '人员档案' : importCommitDraft.target === 'payroll' ? '薪酬台账' : importCommitDraft.target === 'socialSecurity' ? '社保公积金台账' : importCommitDraft.target === 'specialDeduction' ? '专项附加扣除台账' : importCommitDraft.target === 'inventoryMovement' ? '出入库台账' : importCommitDraft.target === 'fixedAsset' ? '固定资产台账' : importCommitDraft.target === 'inventoryItem' ? '存货档案' : importCommitDraft.target === 'settlement' ? '核销台账' : importCommitDraft.target === 'bankReconciliation' ? '银行对账台账' : importCommitDraft.target === 'measurementUnit' ? '计量单位档案' : importCommitDraft.target === 'accountTransfer' ? '账户转账台账' : importCommitDraft.target === 'costCarryover' ? '成本结转台账' : importCommitDraft.target === 'companyAccount' ? '账户登记档案' : importCommitDraft.target === 'auxiliaryArchive' ? '辅助核算档案' : importCommitDraft.target === 'businessTag' ? '业务标签' : importCommitDraft.target === 'subject' ? '会计科目' : importCommitDraft.target === 'initialBalance' ? '期初余额' : importCommitDraft.target === 'assetCategory' ? '资产类别档案' : importCommitDraft.target === 'auxiliaryCategory' ? '辅助核算类别' : importCommitDraft.target === 'auxiliaryItem' ? '辅助核算项目' : importCommitDraft.target === 'matchingRule' ? '自动匹配规则' : importCommitDraft.target === 'settlementRule' ? '期末结转规则' : importCommitDraft.target === 'commonDigest' ? '常用摘要' : importCommitDraft.target === 'voucherTemplate' ? '凭证模板' : '币别汇率'}。不完整或格式错误的行会被跳过并保留在导入批次中。</p><div className="border border-slate-200 bg-slate-50 p-3"><p className="font-medium">字段映射建议</p>{buildImportFieldMappings(importCommitDraft.headers, config.columns).map(({ header, target }) => <div key={header} className="mt-1 grid grid-cols-[1fr_20px_1fr] gap-2"><span className="truncate">{header}</span><span className="text-center text-slate-400">→</span><span className="truncate">{target}</span></div>)}</div><p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 leading-5">安全边界：{importCommitDraft.target === 'historyVoucher' ? '历史凭证会按凭证号分组校验科目、借贷平衡和重复号后写入所选历史账期；不会自动审核、结账或覆盖当前账期。' : importCommitDraft.target === 'historyBalance' ? '历史余额和总账只会转换为所选历史账期的期初基础，不会直接伪造总账发生额或覆盖当前账期；写入后仍需试算平衡。' : '本操作只写入当前桌面端账套和账期的本地台账，不会采集发票、登录银行、生成凭证或向税局提交。'}</p></div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setImportCommitDraft(null)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="button" onClick={handleCommitLocalImport} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">确认写入</button></div>
           </div>
         </div>
