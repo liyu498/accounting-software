@@ -250,6 +250,20 @@ type ModuleKind =
   | 'voucherRecycle'
   | 'declarationReceipt'
 
+const voucherGenerationModuleKinds: ModuleKind[] = [
+  'outputInvoice', 'inputInvoice', 'billList',
+  'bankStatement', 'documentRegister', 'expenseReimbursement', 'receipt',
+  'purchaseManagement', 'salesManagement', 'payroll', 'socialSecurity',
+  'depreciation', 'inventoryMovement', 'costCarryover', 'transfer',
+  'bankReconciliation', 'receivableSettlement', 'payableSettlement',
+  'aiVoucherSuggestions', 'voucher', 'voucherRecycle',
+  'attachmentCenter', 'importCenter',
+]
+
+function canGenerateVoucherFromModule(kind: ModuleKind) {
+  return voucherGenerationModuleKinds.includes(kind)
+}
+
 interface BusinessModulePageProps {
   kind: ModuleKind
   title: string
@@ -4642,6 +4656,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const auditLogs = useAuditLogs()
   const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
   const selectedCompany = useCompanyStore((state) => state.companies.find((company) => company.id === state.selectedCompanyId))
+  const updateCompany = useCompanyStore((state) => state.updateCompany)
   const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
   const periods = usePeriodStore((state) => state.periods)
   const currentPeriod = useMemo(() => periods.find((period) => period.id === currentPeriodId), [currentPeriodId, periods])
@@ -4926,6 +4941,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showCompanyAccountDialog, setShowCompanyAccountDialog] = useState(false)
   const [editingCompanyAccountId, setEditingCompanyAccountId] = useState<string | null>(null)
   const [companyAccountDraft, setCompanyAccountDraft] = useState({ accountName: '', accountType: '银行账户', bankName: '', accountNumber: '', subjectCode: '1002 银行存款', openingBalance: '0', attachmentNote: '', status: '启用' as '启用' | '停用' })
+  const [showCompanyInfoDialog, setShowCompanyInfoDialog] = useState(false)
+  const [companyInfoDraft, setCompanyInfoDraft] = useState({ code: '', name: '', taxId: '', taxpayerType: 'general', province: '', city: '', district: '', accountingSystem: 'small_enterprise', enableYear: String(new Date().getFullYear()), enableMonth: String(new Date().getMonth() + 1), serviceStart: '', serviceEnd: '', industry: '', enterpriseType: '私营有限责任公司' })
   const [previewCompanyAccounts, setPreviewCompanyAccounts] = useState<typeof companyAccounts>([])
   const [previewCurrencies, setPreviewCurrencies] = useState<typeof currencies>([])
   const [previewCommonDigests, setPreviewCommonDigests] = useState<typeof commonDigests>([])
@@ -6650,6 +6667,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handlePrimaryAction = async () => {
+    if (kind === 'companyInfo') {
+      openCompanyInfoEditor()
+      return
+    }
     if (kind === 'aiJobQueue') {
       startAiTaskDraft()
       return
@@ -7640,6 +7661,68 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!tag || !window.confirm(`确认删除标签“${tag.name}”吗？`)) return
     try { await deleteBusinessTag(tag.id, selectedCompanyId); writeModuleAudit('删除业务标签', `${tag.color_name}｜${tag.name}`, '高', '成功'); setOperationNotice(`标签“${tag.name}”已删除。`); resetBusinessTagDraft(); setShowBusinessTagDialog(false) }
     catch (error) { setOperationNotice(`删除业务标签失败：${String(error)}`) }
+  }
+
+  const openCompanyInfoEditor = () => {
+    const company = selectedCompany
+    setCompanyInfoDraft({
+      code: company?.code || '20258497',
+      name: company?.name || '科旋电气（上海）有限公司',
+      taxId: company?.tax_id || '91310115MA1K3****X',
+      taxpayerType: company?.tax_type || 'general',
+      province: company?.province || '上海市',
+      city: company?.city || '上海市',
+      district: company?.district || '浦东新区',
+      accountingSystem: company?.accounting_system || 'small_enterprise',
+      enableYear: String(company?.enable_year || new Date().getFullYear()),
+      enableMonth: String(company?.enable_month || new Date().getMonth() + 1),
+      serviceStart: company?.service_start || '',
+      serviceEnd: company?.service_end || '',
+      industry: company?.industry || '',
+      enterpriseType: company?.enterprise_type || '私营有限责任公司',
+    })
+    setShowCompanyInfoDialog(true)
+  }
+
+  const handleSaveCompanyInfo = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!companyInfoDraft.name.trim() || !companyInfoDraft.taxId.trim()) {
+      setOperationNotice('请填写企业名称和纳税人识别号。')
+      return
+    }
+    if (!isTauri) {
+      writeModuleAudit('预览企业资料保存', `${companyInfoDraft.code}｜${companyInfoDraft.name}`, '高', '成功')
+      setOperationNotice('浏览器预览已完成企业资料校验；桌面端保存会写入当前账套，不会保存税局、个税或工商密码。')
+      setShowCompanyInfoDialog(false)
+      return
+    }
+    if (!selectedCompanyId) {
+      setOperationNotice('请先从账套管理进入一家企业，再维护企业资料。')
+      return
+    }
+    try {
+      const company = await updateCompany(selectedCompanyId, {
+        code: companyInfoDraft.code.trim(),
+        name: companyInfoDraft.name.trim(),
+        tax_id: companyInfoDraft.taxId.trim(),
+        tax_type: companyInfoDraft.taxpayerType,
+        industry: companyInfoDraft.industry.trim() || undefined,
+        accounting_system: companyInfoDraft.accountingSystem,
+        province: companyInfoDraft.province.trim() || undefined,
+        city: companyInfoDraft.city.trim() || undefined,
+        district: companyInfoDraft.district.trim() || undefined,
+        enterprise_type: companyInfoDraft.enterpriseType,
+        service_start: companyInfoDraft.serviceStart || undefined,
+        service_end: companyInfoDraft.serviceEnd || undefined,
+        enable_year: Number(companyInfoDraft.enableYear),
+        enable_month: Number(companyInfoDraft.enableMonth),
+      })
+      writeModuleAudit('保存企业资料', `${company.code}｜${company.name}`, '高', '成功')
+      setOperationNotice(`企业资料已保存：${company.name}。税局、个税和工商授权仍需在授权中心单独维护。`)
+      setShowCompanyInfoDialog(false)
+    } catch (error) {
+      setOperationNotice(`保存企业资料失败：${String(error)}`)
+    }
   }
 
   const resetCompanyAccountDraft = () => {
@@ -9886,7 +9969,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <FinancialStatementWorkflowPanel onReview={reviewFinancialStatements} onRefresh={() => void handlePrimaryAction()} />
         )}
 
-        {kind === 'companyInfo' && <CompanyInfoWorkflowPanel onReview={reviewCompanyRegistration} />}
+        {kind === 'companyInfo' && <CompanyInfoWorkflowPanel onEdit={openCompanyInfoEditor} onReview={reviewCompanyRegistration} />}
 
         {kind === 'initialBalance' && <InitialBalanceWorkflowPanel onValidate={reviewInitialBalance} />}
 
@@ -10251,7 +10334,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                           {kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
-                      {!isLocalTaxTaskKind && kind !== 'declarationReceipt' && kind !== 'taxInit' && kind !== 'printTemplateSettings' && !(isLocalRegistryModule && !isLocalRegistryRow) && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
+                      {canGenerateVoucherFromModule(kind) && !(isLocalRegistryModule && !isLocalRegistryRow) && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'attachmentCenter' || kind === 'importCenter' ? '撤销登记' : kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'aiVoucherSuggestions' ? row.status === '已生成凭证' ? '查看凭证' : '进入草稿' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
                       </button>}
                     </td>
@@ -10777,6 +10860,44 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="inline-flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={businessTagDraft.isEnabled} onChange={(event) => setBusinessTagDraft((draft) => ({ ...draft, isEnabled: event.target.checked }))} />立即启用</label>
             </div>
             <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3"><div>{editingBusinessTagId && <button type="button" onClick={() => void handleDeleteBusinessTag()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700">删除标签</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowBusinessTagDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存标签</button></div></div>
+          </form>
+        </div>
+      )}
+      {showCompanyInfoDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="编辑当前账套企业资料">
+          <form onSubmit={handleSaveCompanyInfo} className="flex max-h-[92vh] w-full max-w-4xl flex-col border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">编辑当前账套企业资料</h2>
+                <p className="mt-0.5 text-xs text-slate-500">维护当前企业的主体、账套和服务信息。会计制度及启用期间变更需在无业务数据或完成审批后执行。</p>
+              </div>
+              <button type="button" onClick={() => setShowCompanyInfoDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="min-h-0 space-y-4 overflow-y-auto p-4">
+              <fieldset className="grid gap-3 sm:grid-cols-2">
+                <legend className="mb-2 text-sm font-semibold text-slate-900">企业基本信息</legend>
+                <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">企业名称 *<input required value={companyInfoDraft.name} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, name: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+                <label className="grid gap-1 text-xs text-slate-600">企业编码 *<input required value={companyInfoDraft.code} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, code: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+                <label className="grid gap-1 text-xs text-slate-600">纳税人识别号 *<input required value={companyInfoDraft.taxId} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, taxId: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+                <label className="grid gap-1 text-xs text-slate-600">省份 *<input required value={companyInfoDraft.province} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, province: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+                <label className="grid gap-1 text-xs text-slate-600">城市 *<input required value={companyInfoDraft.city} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, city: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+                <label className="grid gap-1 text-xs text-slate-600">区县<input value={companyInfoDraft.district} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, district: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+                <label className="grid gap-1 text-xs text-slate-600">纳税人资格 *<select value={companyInfoDraft.taxpayerType} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, taxpayerType: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="general">一般纳税人</option><option value="small">小规模纳税人</option></select></label>
+              </fieldset>
+              <fieldset className="grid gap-3 border-t border-slate-200 pt-4 sm:grid-cols-2">
+                <legend className="mb-2 text-sm font-semibold text-slate-900">账套与服务信息</legend>
+                <label className="grid gap-1 text-xs text-slate-600">会计制度 *<select value={companyInfoDraft.accountingSystem} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, accountingSystem: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="small_enterprise">小企业会计准则</option><option value="enterprise">企业会计准则</option><option value="non_profit">民间非营利组织会计制度</option><option value="government">政府会计制度</option></select></label>
+                <label className="grid gap-1 text-xs text-slate-600">启用期间 *<span className="grid grid-cols-2 gap-2"><select value={companyInfoDraft.enableYear} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, enableYear: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{[2025, 2026, 2027].map((year) => <option key={year} value={year}>{year}年</option>)}</select><select value={companyInfoDraft.enableMonth} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, enableMonth: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{Array.from({ length: 12 }, (_, index) => index + 1).map((month) => <option key={month} value={month}>{month}月</option>)}</select></span></label>
+                <label className="grid gap-1 text-xs text-slate-600">服务期限起<input type="date" value={companyInfoDraft.serviceStart} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, serviceStart: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+                <label className="grid gap-1 text-xs text-slate-600">服务期限止<input type="date" value={companyInfoDraft.serviceEnd} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, serviceEnd: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+                <label className="grid gap-1 text-xs text-slate-600">会计行业<input value={companyInfoDraft.industry} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, industry: event.target.value }))} placeholder="如：软件和信息技术服务业" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+                <label className="grid gap-1 text-xs text-slate-600">企业类型<select value={companyInfoDraft.enterpriseType} onChange={(event) => setCompanyInfoDraft((draft) => ({ ...draft, enterpriseType: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option>私营有限责任公司</option><option>内资企业</option><option>个体工商户</option><option>外商投资企业</option></select></label>
+              </fieldset>
+              <section className="border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-5 text-slate-700">
+                税局办税人、登录及工商联络相关授权通过授权中心维护，只记录脱敏状态和有效期，不在企业资料页存储密码、令牌、Cookie 或证书。
+              </section>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowCompanyInfoDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存企业资料</button></div>
           </form>
         </div>
       )}
@@ -12139,7 +12260,7 @@ function FinancialStatementWorkflowPanel({ onReview, onRefresh }: { onReview: ()
   )
 }
 
-function CompanyInfoWorkflowPanel({ onReview }: { onReview: () => void }) {
+function CompanyInfoWorkflowPanel({ onEdit, onReview }: { onEdit: () => void; onReview: () => void }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="企业税务资料与授权维护">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -12147,7 +12268,10 @@ function CompanyInfoWorkflowPanel({ onReview }: { onReview: () => void }) {
           <h2 className="text-sm font-semibold text-slate-900">企业税务资料与授权维护</h2>
           <p className="mt-1 text-xs text-slate-500">企业资料、会计制度、启用账期和税务授权分项维护。外部税局或工商资料采集需要独立授权，不会通过页面自动登录。</p>
         </div>
-        <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核企业资料" onClick={onReview} />
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="编辑企业资料" onClick={onEdit} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核企业资料" onClick={onReview} />
+        </div>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {[
