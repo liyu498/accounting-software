@@ -4526,6 +4526,41 @@ function mapLiveDocumentRecordRows(documentRecords: DocumentRecord[]): ModuleRow
   }))
 }
 
+function contractLedgerRecords(documentRecords: DocumentRecord[]) {
+  return documentRecords.filter((record) => /合同/.test(record.businessType) || Boolean(record.stampTaxItem))
+}
+
+function mapLiveContractLedgerRows(documentRecords: DocumentRecord[]): ModuleRow[] {
+  return contractLedgerRecords(documentRecords).map((record) => ({
+    id: record.id,
+    status: record.status === '异常' ? '异常' : record.attachmentStatus === '已归档' && record.stampTaxItem ? '已通过' : '待确认',
+    voucher: record.stampTaxItem ? '印花税取数' : '待计税',
+    attachment: record.attachmentStatus,
+    values: {
+      contractNo: record.documentCode,
+      partner: record.partner || '待补相对方',
+      type: record.businessType,
+      signDate: record.businessDate,
+      amount: payrollCurrency(record.amount),
+      taxItem: record.stampTaxItem || '待确认税目',
+      invoice: record.status === '已生成凭证' ? '已关联凭证' : '待关联',
+      archive: record.attachmentStatus,
+    },
+  }))
+}
+
+function summarizeLiveContractLedger(documentRecords: DocumentRecord[]): ModuleConfig['summary'] {
+  const records = contractLedgerRecords(documentRecords)
+  const archived = records.filter((record) => record.attachmentStatus === '已归档')
+  const pendingTax = records.filter((record) => !record.stampTaxItem || record.stampTaxRate === null)
+  return [
+    { label: '合同数量', value: `${records.length} 份`, tone: records.length > 0 ? 'blue' : 'gray' },
+    { label: '已归档', value: `${archived.length} 份`, tone: archived.length > 0 ? 'green' : 'gray' },
+    { label: '待计税', value: `${pendingTax.length} 份`, tone: pendingTax.length > 0 ? 'amber' : 'gray' },
+    { label: '异常', value: `${records.filter((record) => record.status === '异常').length} 份`, tone: records.some((record) => record.status === '异常') ? 'red' : 'gray' },
+  ]
+}
+
 function stampTaxRecords(documentRecords: DocumentRecord[]) {
   return documentRecords.filter((record) => record.stampTaxItem || /合同|购销|技术|产权/.test(record.businessType))
 }
@@ -4585,6 +4620,7 @@ function reimbursementRecords(documentRecords: DocumentRecord[]) {
 }
 
 function documentBusinessType(kind: ModuleKind) {
+  if (kind === 'contractLedger') return '业务合同'
   if (kind === 'expenseReimbursement') return '费用报销'
   if (kind === 'receipt') return '收款票据'
   if (kind === 'stampTaxReport') return '合同付款'
@@ -4837,13 +4873,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveReconciliationData = Boolean(isTauri && selectedCompanyId && ['bankReconciliation', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind))
   const usesLiveBankReconciliationRecordData = Boolean(isTauri && selectedCompanyId && kind === 'bankReconciliation')
   const usesLiveSettlementRecordData = Boolean(isTauri && selectedCompanyId && ['receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind))
-  const usesLiveDocumentRecordData = Boolean(isTauri && selectedCompanyId && kind === 'documentRegister')
+  const usesLiveDocumentRecordData = Boolean(isTauri && selectedCompanyId && ['documentRegister', 'contractLedger'].includes(kind))
   const usesLiveStampTaxData = Boolean(isTauri && selectedCompanyId && kind === 'stampTaxReport')
   const usesLiveExpenseReimbursementData = Boolean(isTauri && selectedCompanyId && kind === 'expenseReimbursement')
   const usesLiveReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'receipt')
   const usesLiveBusinessOrderData = Boolean(isTauri && selectedCompanyId && ['purchaseManagement', 'salesManagement'].includes(kind))
   const canEditBusinessOrders = kind === 'purchaseManagement' || kind === 'salesManagement'
-  const canEditDocumentRecords = ['documentRegister', 'expenseReimbursement', 'receipt', 'stampTaxReport'].includes(kind)
+  const canEditDocumentRecords = ['documentRegister', 'contractLedger', 'expenseReimbursement', 'receipt', 'stampTaxReport'].includes(kind)
   const usesLiveAccountTransferData = Boolean(isTauri && selectedCompanyId && kind === 'transfer')
   const usesLiveFixedAssetData = Boolean(isTauri && selectedCompanyId && kind === 'depreciation')
   const usesLiveInventoryMovementData = Boolean(isTauri && selectedCompanyId && ['inventoryMovement', 'costCarryover'].includes(kind))
@@ -5801,6 +5837,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'payableSettlement' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'payable') }
     if (kind === 'receivablePayableAging' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementAgingRows(settlementRecords) }
     if (kind === 'documentRegister' && (usesLiveDocumentRecordData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveDocumentRecordRows(documentRecords), summary: summarizeLiveDocumentRecords(documentRecords) }
+    if (kind === 'contractLedger' && (usesLiveDocumentRecordData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveContractLedgerRows(documentRecords), summary: summarizeLiveContractLedger(documentRecords) }
     if (kind === 'stampTaxReport' && (usesLiveStampTaxData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveStampTaxRows(documentRecords), summary: summarizeLiveStampTax(documentRecords) }
     if (kind === 'expenseReimbursement' && (usesLiveExpenseReimbursementData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveExpenseReimbursementRows(documentRecords), summary: summarizeLiveExpenseReimbursements(documentRecords) }
     if (kind === 'receipt' && (usesLiveReceiptData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveReceiptRows(documentRecords), summary: summarizeLiveReceipts(documentRecords) }
@@ -8359,7 +8396,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const record: DocumentRecord = {
-        id: `preview-document-${Date.now()}`,
+        id: editingDocumentRecordId || `preview-document-${Date.now()}`,
         companyId: selectedCompanyId || 'preview-company',
         period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
         businessDate: documentRecordDraft.businessDate,
@@ -8375,10 +8412,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         createdAt: timestamp,
         updatedAt: timestamp,
       }
-      setDocumentRecords((records) => [record, ...records])
-      writeModuleAudit('新增登记单据', record.documentCode, '中', '成功')
-      setOperationNotice(`登记单据已保存到当前预览：${record.documentCode}。桌面端会写入当前账套，后续仍需审核、关联附件和确认凭证。`)
+      setDocumentRecords((records) => editingDocumentRecordId ? records.map((item) => item.id === record.id ? { ...record, createdAt: item.createdAt } : item) : [record, ...records])
+      writeModuleAudit(editingDocumentRecordId ? '编辑登记单据' : '新增登记单据', record.documentCode, '中', '成功')
+      setOperationNotice(editingDocumentRecordId
+        ? `当前预览登记单据已更新：${record.documentCode}。桌面端会写入当前账套，后续仍需审核、关联附件和确认凭证。`
+        : `登记单据已保存到当前预览：${record.documentCode}。桌面端会写入当前账套，后续仍需审核、关联附件和确认凭证。`)
       setDocumentRecordDraft({ businessDate: '', documentCode: '', businessType: documentBusinessType(kind), partner: '', amount: '', owner: '', attachmentStatus: '待补附件', stampTaxItem: '', stampTaxRate: '' })
+      setEditingDocumentRecordId(null)
       setShowDocumentRecordDialog(false)
       return
     }
@@ -9505,7 +9545,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowBankTransactionDialog(true)
       return
     }
-    if (['documentRegister', 'expenseReimbursement', 'receipt'].includes(kind) && isTauri && selectedCompanyId) {
+    if (['documentRegister', 'contractLedger', 'expenseReimbursement', 'receipt'].includes(kind)) {
       const record = documentRecords.find((item) => item.id === row.id)
       if (!record) {
         setOperationNotice('未找到当前账期的登记单据。')
@@ -10754,7 +10794,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
                         <button type="button" onClick={() => kind === 'printTemplateSettings' ? openPrintTemplatePreview() : handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                          {kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                          {kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
                       {canGenerateVoucherFromModule(kind) && !(isLocalRegistryModule && !isLocalRegistryRow) && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">

@@ -1200,7 +1200,7 @@ const requiredDocumentRecordPageSnippets = [
   ['document record api create binding', 'documentRecordApi.createDocumentRecord({'],
   ['document record api update binding', 'documentRecordApi.updateDocumentRecord({'],
   ['document record edit state', 'const [editingDocumentRecordId, setEditingDocumentRecordId] = useState<string | null>(null)'],
-  ['document record edit row binding', "if (['documentRegister', 'expenseReimbursement', 'receipt'].includes(kind) && isTauri && selectedCompanyId)"],
+  ['document record edit row binding', "if (['documentRegister', 'contractLedger', 'expenseReimbursement', 'receipt'].includes(kind))"],
   ['document record row mapper', 'mapLiveDocumentRecordRows(documentRecords)'],
 ]
 

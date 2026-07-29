@@ -189,6 +189,8 @@ const errors = [
   ...(!businessSource.includes('const prepareSocialSecurityVoucher') ? ['social security primary action must prepare a dedicated voucher workflow'] : []),
   ...(!businessSource.includes('const syncSpecialDeductionRecords') ? ['special deduction primary action must use a dedicated synchronization workflow'] : []),
   ...(!businessSource.includes('const runAgingCalculation') ? ['aging primary action must use a dedicated calculation workflow'] : []),
+  ...(!businessSource.includes('function mapLiveContractLedgerRows') ? ['contract ledger must map dedicated contract records'] : []),
+  ...(!businessSource.includes("if (kind === 'contractLedger') return '业务合同'") ? ['contract ledger must open the dedicated contract editor'] : []),
   ...(!businessSource.includes("kind === 'aiRecognitionResults'") ? ['AI recognition primary action must use its dedicated review workflow'] : []),
   ...(!businessSource.includes("kind === 'auditLog'") ? ['audit export primary action must use a concrete export workflow'] : []),
   ...(!businessSource.includes('openAuxiliaryArchiveEditor') ? ['auxiliary archive modules must provide dedicated archive editors'] : []),
