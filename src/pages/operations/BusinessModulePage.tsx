@@ -10,6 +10,7 @@ import {
   FileText,
   Filter,
   Paperclip,
+  Plus,
   Printer,
   RefreshCw,
   Search,
@@ -4948,6 +4949,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showSubjectDialog, setShowSubjectDialog] = useState(false)
   const [editingSubjectCode, setEditingSubjectCode] = useState<string | null>(null)
   const [subjectDraft, setSubjectDraft] = useState({ code: '', name: '', accountType: '资产类', normalBalance: 'debit', level: '1', parentCode: '', isDetail: true, hasQuantity: false, defaultUnit: '', hasAuxiliary: false })
+  const [showInitialBalanceDialog, setShowInitialBalanceDialog] = useState(false)
+  const [initialBalanceDraft, setInitialBalanceDraft] = useState({ accountCode: '', openingDebit: '', openingCredit: '', sourceNote: '' })
   const [previewCompanyAccounts, setPreviewCompanyAccounts] = useState<typeof companyAccounts>([])
   const [previewCurrencies, setPreviewCurrencies] = useState<typeof currencies>([])
   const [previewCommonDigests, setPreviewCommonDigests] = useState<typeof commonDigests>([])
@@ -6676,6 +6679,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       openCompanyInfoEditor()
       return
     }
+    if (kind === 'initialBalance' && !isTauri) {
+      writeModuleAudit('执行试算平衡', `${currentPeriodLabel}｜预览期初余额`, '高', '待审批')
+      setOperationNotice('浏览器预览已登记试算平衡操作；桌面端会校验当前账期全部借贷期初余额，平衡后仍需人工确认建账。')
+      return
+    }
     if (kind === 'subjectSettings') {
       openSubjectEditor()
       return
@@ -7811,6 +7819,51 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     } catch (error) { setOperationNotice(`删除会计科目失败：${String(error)}`) }
   }
 
+  const openInitialBalanceEditor = (row?: ModuleRow) => {
+    setInitialBalanceDraft({
+      accountCode: row?.values.code || '',
+      openingDebit: row ? String(importAmount(row.values.debit || '')) : '',
+      openingCredit: row ? String(importAmount(row.values.credit || '')) : '',
+      sourceNote: row?.attachment && row.attachment !== '-' ? row.attachment : '',
+    })
+    setShowInitialBalanceDialog(true)
+  }
+
+  const handleSaveInitialBalance = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const accountCode = initialBalanceDraft.accountCode.trim()
+    const openingDebit = Number(initialBalanceDraft.openingDebit || 0)
+    const openingCredit = Number(initialBalanceDraft.openingCredit || 0)
+    if (!accountCode || !Number.isFinite(openingDebit) || !Number.isFinite(openingCredit) || openingDebit < 0 || openingCredit < 0 || (openingDebit === 0 && openingCredit === 0) || (openingDebit > 0 && openingCredit > 0)) {
+      setOperationNotice('请选定科目，并且只填写借方或贷方其中一侧的非负期初金额。')
+      return
+    }
+    if (!isTauri) {
+      writeModuleAudit('预览登记期初余额', `${accountCode}｜借 ${openingDebit.toFixed(2)}｜贷 ${openingCredit.toFixed(2)}${initialBalanceDraft.sourceNote.trim() ? `｜来源：${initialBalanceDraft.sourceNote.trim()}` : ''}`, '高', '成功')
+      setOperationNotice('浏览器预览已校验期初余额；桌面端保存会覆盖当前账期同一科目的期初行，随后可执行试算平衡。')
+      setShowInitialBalanceDialog(false)
+      return
+    }
+    if (!currentPeriodId) {
+      setOperationNotice('未选择当前账期，无法登记期初余额。')
+      return
+    }
+    if (accounts.length > 0 && !accounts.some((account) => account.code === accountCode)) {
+      setOperationNotice('所选科目不属于当前账套，请先维护会计科目。')
+      return
+    }
+    try {
+      await saveInitialBalance({ period_id: currentPeriodId, account_code: accountCode, opening_debit: openingDebit, opening_credit: openingCredit, created_by: 'admin' })
+      const initialBalance = await fetchTrialBalance(currentPeriodId)
+      setLiveReports((reports) => ({ ...reports, initialBalance }))
+      writeModuleAudit('登记期初余额', `${accountCode}｜借 ${openingDebit.toFixed(2)}｜贷 ${openingCredit.toFixed(2)}${initialBalanceDraft.sourceNote.trim() ? `｜来源：${initialBalanceDraft.sourceNote.trim()}` : ''}`, '高', '成功')
+      setOperationNotice(`期初余额已保存：${accountCode}。请继续执行试算平衡；期初余额不会自动生成凭证、结账或税务申报。`)
+      setShowInitialBalanceDialog(false)
+    } catch (error) {
+      setOperationNotice(`保存期初余额失败：${String(error)}`)
+    }
+  }
+
   const resetCompanyAccountDraft = () => {
     setEditingCompanyAccountId(null)
     setCompanyAccountDraft({ accountName: '', accountType: '银行账户', bankName: '', accountNumber: '', subjectCode: '1002 银行存款', openingBalance: '0', attachmentNote: '', status: '启用' })
@@ -8867,6 +8920,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleViewRow = async (row: ModuleRow) => {
+    if (kind === 'initialBalance') {
+      openInitialBalanceEditor(row)
+      return
+    }
     if (kind === 'attachmentCenter') {
       const attachment = localAttachmentRecords.find((item) => item.id === row.id)
       if (attachment) {
@@ -10068,7 +10125,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'companyInfo' && <CompanyInfoWorkflowPanel onEdit={openCompanyInfoEditor} onReview={reviewCompanyRegistration} />}
 
-        {kind === 'initialBalance' && <InitialBalanceWorkflowPanel onValidate={reviewInitialBalance} />}
+        {kind === 'initialBalance' && <InitialBalanceWorkflowPanel onEdit={openInitialBalanceEditor} onValidate={reviewInitialBalance} />}
 
         {kind === 'subjectSettings' && <SubjectSettingsWorkflowPanel onReview={reviewSubjectSettings} />}
 
@@ -11018,6 +11075,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <p className="mt-4 border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">科目核算口径只影响后续凭证建议、账簿与报表取数；系统不会据此自动修改历史凭证、已结账期间或税务申报包。</p>
             </div>
             <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div className="flex gap-2">{editingSubjectCode && isTauri && <button type="button" onClick={() => void handleToggleSubject()} className="h-8 rounded border border-amber-300 px-3 text-xs text-amber-700">启用/停用</button>}{editingSubjectCode && isTauri && <button type="button" onClick={() => void handleDeleteSubject()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700">删除科目</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowSubjectDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存科目</button></div></div>
+          </form>
+        </div>
+      )}
+      {showInitialBalanceDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="登记期初余额">
+          <form onSubmit={handleSaveInitialBalance} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">登记期初余额</h2><p className="mt-0.5 text-xs text-slate-500">按当前账期的会计科目登记借方或贷方期初。重复保存同一科目会更新该账期的期初金额。</p></div><button type="button" onClick={() => setShowInitialBalanceDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">会计科目 *<select required value={initialBalanceDraft.accountCode} onChange={(event) => setInitialBalanceDraft((draft) => ({ ...draft, accountCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="">请选择会计科目</option>{(accounts.length > 0 ? accounts.map((account) => ({ code: account.code, name: account.name })) : config.rows.map((row) => ({ code: row.values.code || row.id, name: row.values.name || row.values.code || row.id }))).map((account) => <option key={account.code} value={account.code}>{account.code}｜{account.name}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600">期初借方（元）<input type="number" min="0" step="0.01" value={initialBalanceDraft.openingDebit} onChange={(event) => setInitialBalanceDraft((draft) => ({ ...draft, openingDebit: event.target.value }))} placeholder="0.00" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">期初贷方（元）<input type="number" min="0" step="0.01" value={initialBalanceDraft.openingCredit} onChange={(event) => setInitialBalanceDraft((draft) => ({ ...draft, openingCredit: event.target.value }))} placeholder="0.00" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">来源说明（审计留痕）<input value={initialBalanceDraft.sourceNote} onChange={(event) => setInitialBalanceDraft((draft) => ({ ...draft, sourceNote: event.target.value }))} placeholder="如：2025 年末科目余额表、历史账导入批次" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <p className="border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900 sm:col-span-2">每一科目只能填写借方或贷方其中一侧；保存后需要执行试算平衡。期初余额不会自动生成凭证、结账或税务申报。</p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowInitialBalanceDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存期初余额</button></div>
           </form>
         </div>
       )}
@@ -12411,7 +12483,7 @@ function CompanyInfoWorkflowPanel({ onEdit, onReview }: { onEdit: () => void; on
   )
 }
 
-function InitialBalanceWorkflowPanel({ onValidate }: { onValidate: () => void }) {
+function InitialBalanceWorkflowPanel({ onEdit, onValidate }: { onEdit: () => void; onValidate: () => void }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="期初余额试算与启用控制">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -12419,7 +12491,10 @@ function InitialBalanceWorkflowPanel({ onValidate }: { onValidate: () => void })
           <h2 className="text-sm font-semibold text-slate-900">期初余额试算与启用控制</h2>
           <p className="mt-1 text-xs text-slate-500">期初余额按会计科目和辅助核算双层登记，借贷试算、历史迁移差异和启用条件须在锁定前逐项确认。</p>
         </div>
-        <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="执行试算平衡" onClick={onValidate} />
+        <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton icon={<Plus className="h-3.5 w-3.5" />} label="登记期初余额" onClick={() => onEdit()} />
+          <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="执行试算平衡" onClick={onValidate} />
+        </div>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {[
