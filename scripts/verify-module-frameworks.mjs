@@ -151,6 +151,7 @@ const errors = [
   ...(!businessSource.includes('结转规则已保存到当前预览') ? ['settlement rule preview saves must update the specialized workspace'] : []),
   ...(!businessSource.includes('自动匹配规则已保存到当前预览') ? ['matching rule preview saves must update the specialized workspace'] : []),
   ...(!businessSource.includes('资产类别已保存到当前预览') ? ['asset category preview saves must update the specialized workspace'] : []),
+  ...(!businessSource.includes('业务标签已保存到当前预览') ? ['business tag preview saves must update the specialized workspace'] : []),
   ...(!businessSource.includes('资产折旧与凭证准备') ? ['fixed assets must render a dedicated depreciation workflow'] : []),
   ...(!businessSource.includes('存货收发与成本结转') ? ['inventory modules must render a dedicated inventory workflow'] : []),
   ...(!businessSource.includes('月末成本结转复核') ? ['cost carryover must render a dedicated closing workflow'] : []),

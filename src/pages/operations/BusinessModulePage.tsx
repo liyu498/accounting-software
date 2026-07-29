@@ -4927,7 +4927,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [previewSettlementRules, setPreviewSettlementRules] = useState<typeof settlementRules>([])
   const [previewMatchingRules, setPreviewMatchingRules] = useState<typeof matchingRules>([])
   const [previewAssetCategories, setPreviewAssetCategories] = useState<typeof assetCategories>([])
+  const [previewBusinessTags, setPreviewBusinessTags] = useState<typeof businessTags>([])
   const effectiveAssetCategories = isTauri ? assetCategories : previewAssetCategories
+  const effectiveBusinessTags = isTauri ? businessTags : previewBusinessTags
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -5630,7 +5632,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'outputInvoice' && usesLiveModuleData) {
       return {
         ...baseConfig,
-        rows: mapLiveInvoiceRows(invoices, 'output', invoiceTagIds, businessTags),
+        rows: mapLiveInvoiceRows(invoices, 'output', invoiceTagIds, effectiveBusinessTags),
         summary: summarizeLiveInvoices(invoices, 'output'),
       }
     }
@@ -5638,7 +5640,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'inputInvoice' && usesLiveModuleData) {
       return {
         ...baseConfig,
-        rows: mapLiveInvoiceRows(invoices, 'input', invoiceTagIds, businessTags),
+        rows: mapLiveInvoiceRows(invoices, 'input', invoiceTagIds, effectiveBusinessTags),
         summary: summarizeLiveInvoices(invoices, 'input'),
       }
     }
@@ -5646,7 +5648,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'voucher' && usesLiveModuleData) {
       return {
         ...baseConfig,
-        rows: mapLiveVoucherRows(vouchers, voucherTagIds, businessTags),
+        rows: mapLiveVoucherRows(vouchers, voucherTagIds, effectiveBusinessTags),
         summary: summarizeLiveVouchers(vouchers),
       }
     }
@@ -5708,7 +5710,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'socialSecurityTaxReport' && usesLiveSocialSecurityTaxData) return { ...baseConfig, rows: mapLiveSocialSecurityTaxRows(socialSecurityRecords), summary: summarizeLiveSocialSecurityTax(socialSecurityRecords) }
     if (kind === 'incomeTaxReport' && usesLiveReportData && liveReports.incomeStatement) return { ...baseConfig, rows: mapLiveIncomeTaxRows(liveReports.incomeStatement), summary: summarizeLiveIncomeTax(liveReports.incomeStatement) }
     if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
-    if ((kind === 'billList' || kind === 'bankStatement') && (usesLiveBankTransactionData || bankTransactions.length > 0)) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, businessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
+    if ((kind === 'billList' || kind === 'bankStatement') && (usesLiveBankTransactionData || bankTransactions.length > 0)) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, effectiveBusinessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
     if (kind === 'bankReconciliation' && (usesLiveBankReconciliationRecordData || bankReconciliationRecords.length > 0)) return { ...baseConfig, rows: mapLiveBankReconciliationRows(bankReconciliationRecords) }
     if (kind === 'receivableSettlement' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'receivable') }
     if (kind === 'payableSettlement' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'payable') }
@@ -6103,11 +6105,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (usesLiveBusinessTagData) {
+    if (usesLiveBusinessTagData || previewBusinessTags.length > 0) {
       return {
         ...baseConfig,
-        rows: mapLiveBusinessTagRows(businessTags),
-        summary: summarizeLiveBusinessTags(businessTags),
+        rows: mapLiveBusinessTagRows(effectiveBusinessTags),
+        summary: summarizeLiveBusinessTags(effectiveBusinessTags),
       }
     }
 
@@ -6188,7 +6190,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveBusinessTags, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -6714,7 +6716,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowAssetCategoryDialog(true)
       return
     }
-    if (usesLiveBusinessTagData && selectedCompanyId) {
+    if (kind === 'tagArchive') {
       resetBusinessTagDraft()
       setShowBusinessTagDialog(true)
       return
@@ -7462,6 +7464,37 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveBusinessTag = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const tag = {
+        id: editingBusinessTagId || `preview-business-tag-${Date.now()}`,
+        company_id: selectedCompanyId || 'preview-company',
+        name: businessTagDraft.name.trim(),
+        applicable_modules: businessTagDraft.applicableModules.trim(),
+        color_name: businessTagDraft.colorName,
+        auto_rule: businessTagDraft.autoRule.trim() || null,
+        usage_count: 0,
+        remarks: businessTagDraft.remarks.trim() || null,
+        is_enabled: businessTagDraft.isEnabled ? 1 : 0,
+        created_at: timestamp,
+        updated_at: timestamp,
+      }
+      if (!tag.name || !tag.applicable_modules) {
+        setOperationNotice('请填写标签名称和适用模块。')
+        return
+      }
+      setPreviewBusinessTags((items) => {
+        const next = editingBusinessTagId
+          ? items.map((item) => item.id === tag.id ? { ...tag, created_at: item.created_at, usage_count: item.usage_count } : item)
+          : [...items, tag]
+        return [...next].sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'))
+      })
+      writeModuleAudit(editingBusinessTagId ? '编辑业务标签' : '新增业务标签', `${tag.color_name}｜${tag.name}`, '中', '成功')
+      setOperationNotice(`业务标签已保存到当前预览：${tag.name}。可用于发票、流水和凭证的筛选与人工跟踪，不会自动改动账务。`)
+      resetBusinessTagDraft()
+      setShowBusinessTagDialog(false)
+      return
+    }
     if (!selectedCompanyId) return
     try {
       const input = {
@@ -7477,6 +7510,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleDeleteBusinessTag = async () => {
+    if (!isTauri && editingBusinessTagId) {
+      const tag = previewBusinessTags.find((item) => item.id === editingBusinessTagId)
+      if (!window.confirm(`确认删除标签“${tag?.name || ''}”吗？`)) return
+      setPreviewBusinessTags((items) => items.filter((item) => item.id !== editingBusinessTagId))
+      writeModuleAudit('删除业务标签', tag ? `${tag.color_name}｜${tag.name}` : editingBusinessTagId, '高', '成功')
+      setOperationNotice(`已从当前预览删除业务标签“${tag?.name || ''}”。`)
+      resetBusinessTagDraft()
+      setShowBusinessTagDialog(false)
+      return
+    }
     if (!selectedCompanyId || !editingBusinessTagId) return
     const tag = businessTags.find((item) => item.id === editingBusinessTagId)
     if (!tag || !window.confirm(`确认删除标签“${tag.name}”吗？`)) return
@@ -8709,8 +8752,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowAssetCategoryDialog(true)
       return
     }
-    if (usesLiveBusinessTagData && selectedCompanyId) {
-      const tag = businessTags.find((item) => `business-tag-${item.id}` === row.id)
+    if (kind === 'tagArchive') {
+      const tag = effectiveBusinessTags.find((item) => `business-tag-${item.id}` === row.id)
       if (!tag) { setOperationNotice('未找到当前账套的业务标签。'); return }
       setEditingBusinessTagId(tag.id)
       setBusinessTagDraft({ name: tag.name, applicableModules: tag.applicable_modules, colorName: tag.color_name, autoRule: tag.auto_rule || '', remarks: tag.remarks || '', isEnabled: tag.is_enabled === 1 })
@@ -9580,8 +9623,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             <fieldset className="space-y-1 text-xs text-slate-600 md:col-span-4">
               <legend>业务标签</legend>
               <div className="flex min-h-8 flex-wrap items-center gap-2 border border-slate-200 bg-white px-2 py-1.5">
-                {businessTags.filter((tag) => tag.is_enabled === 1).length === 0 && <span className="text-slate-400">请先在“标签”档案中维护可用标签。</span>}
-                {businessTags.filter((tag) => tag.is_enabled === 1).map((tag) => isVoucherReadOnly
+                {effectiveBusinessTags.filter((tag) => tag.is_enabled === 1).length === 0 && <span className="text-slate-400">请先在“标签”档案中维护可用标签。</span>}
+                {effectiveBusinessTags.filter((tag) => tag.is_enabled === 1).map((tag) => isVoucherReadOnly
                   ? <span key={tag.id} className={cn('border px-2 py-1', selectedVoucherTagIds.includes(tag.id) ? 'border-[#1f65a7] bg-blue-50 text-[#1f65a7]' : 'border-slate-200 text-slate-400')}>{tag.name}</span>
                   : <label key={tag.id} className="inline-flex items-center gap-1 border border-slate-300 px-2 py-1 text-xs text-slate-700"><input type="checkbox" checked={selectedVoucherTagIds.includes(tag.id)} onChange={(event) => setSelectedVoucherTagIds((ids) => event.target.checked ? [...ids, tag.id] : ids.filter((id) => id !== tag.id))} />{tag.name}</label>) }
               </div>
@@ -9919,7 +9962,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
-            {supportsBusinessTagFilter && businessTags.some((tag) => tag.is_enabled === 1) && (
+            {supportsBusinessTagFilter && effectiveBusinessTags.some((tag) => tag.is_enabled === 1) && (
               <select
                 value={businessTagFilter}
                 onChange={(event) => setBusinessTagFilter(event.target.value)}
@@ -9927,7 +9970,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 aria-label="业务标签筛选"
               >
                 <option value="全部">全部标签</option>
-                {businessTags.filter((tag) => tag.is_enabled === 1).map((tag) => <option key={tag.id} value={tag.name}>{tag.name}</option>)}
+                {effectiveBusinessTags.filter((tag) => tag.is_enabled === 1).map((tag) => <option key={tag.id} value={tag.name}>{tag.name}</option>)}
               </select>
             )}
             {kind === 'subsidiaryLedgerReport' && usesLiveLedgerDetailData && (
@@ -10363,8 +10406,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <fieldset className="space-y-1 text-xs text-slate-600 sm:col-span-2">
                 <legend>业务标签</legend>
                 <div className="flex flex-wrap gap-2 border border-slate-200 p-2">
-                  {businessTags.filter((tag) => tag.is_enabled === 1).length === 0 && <span className="text-slate-400">请先在“标签”档案中维护可用标签。</span>}
-                  {businessTags.filter((tag) => tag.is_enabled === 1).map((tag) => <label key={tag.id} className="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-xs text-slate-700"><input type="checkbox" checked={selectedInvoiceTagIds.includes(tag.id)} onChange={(event) => setSelectedInvoiceTagIds((ids) => event.target.checked ? [...ids, tag.id] : ids.filter((id) => id !== tag.id))} />{tag.name}</label>)}
+                  {effectiveBusinessTags.filter((tag) => tag.is_enabled === 1).length === 0 && <span className="text-slate-400">请先在“标签”档案中维护可用标签。</span>}
+                  {effectiveBusinessTags.filter((tag) => tag.is_enabled === 1).map((tag) => <label key={tag.id} className="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-xs text-slate-700"><input type="checkbox" checked={selectedInvoiceTagIds.includes(tag.id)} onChange={(event) => setSelectedInvoiceTagIds((ids) => event.target.checked ? [...ids, tag.id] : ids.filter((id) => id !== tag.id))} />{tag.name}</label>)}
                 </div>
               </fieldset>
             </div>
@@ -10774,8 +10817,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <fieldset className="space-y-1 text-xs text-slate-600 sm:col-span-2">
                 <legend>业务标签</legend>
                 <div className="flex flex-wrap gap-2 border border-slate-200 p-2">
-                  {businessTags.filter((tag) => tag.is_enabled === 1).length === 0 && <span className="text-slate-400">请先在“标签”档案中维护可用标签。</span>}
-                  {businessTags.filter((tag) => tag.is_enabled === 1).map((tag) => <label key={tag.id} className="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-xs text-slate-700"><input type="checkbox" checked={selectedBankTransactionTagIds.includes(tag.id)} onChange={(event) => setSelectedBankTransactionTagIds((ids) => event.target.checked ? [...ids, tag.id] : ids.filter((id) => id !== tag.id))} />{tag.name}</label>)}
+                  {effectiveBusinessTags.filter((tag) => tag.is_enabled === 1).length === 0 && <span className="text-slate-400">请先在“标签”档案中维护可用标签。</span>}
+                  {effectiveBusinessTags.filter((tag) => tag.is_enabled === 1).map((tag) => <label key={tag.id} className="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-xs text-slate-700"><input type="checkbox" checked={selectedBankTransactionTagIds.includes(tag.id)} onChange={(event) => setSelectedBankTransactionTagIds((ids) => event.target.checked ? [...ids, tag.id] : ids.filter((id) => id !== tag.id))} />{tag.name}</label>)}
                 </div>
               </fieldset>
             </div>
