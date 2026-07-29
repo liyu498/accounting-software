@@ -4940,11 +4940,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     { id: 'preview-report-item-revenue', template_id: 'preview-income-statement', item_code: '010', item_name: '营业收入', parent_id: null, item_level: 1, sort_order: 10, is_total: 0, formula: '6001+6051', is_enabled: 1 },
     { id: 'preview-report-item-cash', template_id: 'preview-cash-flow', item_code: '001', item_name: '销售商品、提供劳务收到的现金', parent_id: null, item_level: 1, sort_order: 10, is_total: 0, formula: '经营活动现金流入', is_enabled: 1 },
   ])
+  const [previewPeriods, setPreviewPeriods] = useState<typeof periods>([
+    { id: 'preview-period-2026-04', company_id: 'preview-company', period_year: 2026, period_month: 4, start_date: '2026-04-01', end_date: '2026-04-30', status: 'closed', closed_at: '2026-05-05T09:30:00.000Z', closed_by: 'admin', created_at: '2026-04-01T00:00:00.000Z', updated_at: '2026-05-05T09:30:00.000Z' },
+    { id: 'preview-period-2026-05', company_id: 'preview-company', period_year: 2026, period_month: 5, start_date: '2026-05-01', end_date: '2026-05-31', status: 'open', closed_at: null, closed_by: null, created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' },
+  ])
   const effectiveAssetCategories = isTauri ? assetCategories : previewAssetCategories
   const effectiveBusinessTags = isTauri ? businessTags : previewBusinessTags
   const effectiveAdapterAuthorizations = isTauri ? adapterAuthorizations : previewAdapterAuthorizations
   const effectiveReportTemplates = isTauri ? reportTemplates : previewReportTemplates
   const effectiveReportItems = isTauri ? reportItems : previewReportItems
+  const effectivePeriods = isTauri ? periods : previewPeriods
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -5970,11 +5975,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'periodManagement' && usesLivePeriodManagementData) {
+    if (kind === 'periodManagement' && (usesLivePeriodManagementData || previewPeriods.length > 0)) {
       return {
         ...baseConfig,
-        rows: mapLivePeriodManagementRows(periods),
-        summary: summarizeLivePeriodManagement(periods),
+        rows: mapLivePeriodManagementRows(effectivePeriods),
+        summary: summarizeLivePeriodManagement(effectivePeriods),
       }
     }
 
@@ -6205,7 +6210,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewReportItems, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -6793,6 +6798,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         writeModuleAudit('立即备份', `${title}-${auditScope}`, '高', '失败')
         setOperationNotice(`备份失败：${String(error)}`)
       }
+      return
+    }
+
+    if (kind === 'periodManagement' && !isTauri) {
+      const period = previewPeriods.find((item) => item.status !== 'closed')
+      if (!period) {
+        setOperationNotice('当前预览没有可结账的账期。')
+        return
+      }
+      const label = `${period.period_year}-${String(period.period_month).padStart(2, '0')}`
+      if (!window.confirm(`确认结账账期 ${label} 吗？结账后账期将锁定。`)) return
+      const timestamp = new Date().toISOString()
+      setPreviewPeriods((items) => items.map((item) => item.id === period.id ? { ...item, status: 'closed', closed_at: timestamp, closed_by: 'admin', updated_at: timestamp } : item))
+      writeModuleAudit('执行结账', `${label}｜当前预览账期`, '高', '成功')
+      setOperationNotice(`当前预览账期已结账并锁定：${label}。桌面端结账还会校验凭证、申报和审批阻断项。`)
       return
     }
 

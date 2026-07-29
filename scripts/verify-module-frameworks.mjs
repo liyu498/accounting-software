@@ -154,6 +154,7 @@ const errors = [
   ...(!businessSource.includes('业务标签已保存到当前预览') ? ['business tag preview saves must update the specialized workspace'] : []),
   ...(!businessSource.includes('授权渠道已保存到当前预览') ? ['adapter authorization preview saves must update the specialized workspace'] : []),
   ...(!businessSource.includes('报表公式已保存到当前预览') ? ['report formula preview saves must update the specialized workspace'] : []),
+  ...(!businessSource.includes('当前预览账期已结账并锁定') ? ['period management preview must retain closing control behavior'] : []),
   ...(!businessSource.includes('资产折旧与凭证准备') ? ['fixed assets must render a dedicated depreciation workflow'] : []),
   ...(!businessSource.includes('存货收发与成本结转') ? ['inventory modules must render a dedicated inventory workflow'] : []),
   ...(!businessSource.includes('月末成本结转复核') ? ['cost carryover must render a dedicated closing workflow'] : []),
