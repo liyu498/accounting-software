@@ -362,6 +362,14 @@ type ExcelTemplateData = {
   merges: SheetMerge[]
 }
 
+const fixedPrintTemplatePreviews = [
+  { name: '记账凭证', paper: 'A4 纵向', version: 'v1.2', layout: '凭证头、分录、借贷合计、制单审核栏', pagination: '按凭证块分页，不拆分分录表格' },
+  { name: '账簿与余额表', paper: 'A4 横向', version: 'v1.1', layout: '单位、期间、明细表、页内小计', pagination: '表头重复，优先按账簿行分页' },
+  { name: '财务报表', paper: 'A4 纵向', version: 'v1.1', layout: '编制单位、所属期、报表项目、签署栏', pagination: '按报表项目行分页，保留金额列' },
+  { name: '税务申报包', paper: 'A4 横向', version: 'v1.1', layout: '纳税人、税号、申报清单、风险与日志', pagination: '申报清单与风险表分别按行分页' },
+  { name: '业务清单', paper: 'A4 横向', version: 'v1.0', layout: '筛选范围、列表字段、附件与操作说明', pagination: '表头重复，按业务记录行分页' },
+]
+
 type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover' | 'companyAccount' | 'auxiliaryArchive' | 'businessTag' | 'currency' | 'matchingRule' | 'settlementRule' | 'commonDigest' | 'voucherTemplate' | 'assetCategory' | 'auxiliaryCategory' | 'auxiliaryItem' | 'initialBalance' | 'subject'
 type LocalImportCommitDraft = { jobId: string; fileName: string; headers: string[]; rows: string[][]; target: LocalImportWriteTarget }
 
@@ -2872,7 +2880,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   },
   printTemplateSettings: {
     keywordPlaceholder: '搜索模板名称、适用模块、纸张、启用状态',
-    primaryAction: '新增模板',
+    primaryAction: '查看模板预览',
     importLabel: '导入模板',
     statusOptions: ['全部', '启用', '停用', '待确认', '异常'],
     summary: [
@@ -4906,6 +4914,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [editingReportFormulaId, setEditingReportFormulaId] = useState<string | null>(null)
   const [reportFormulaDraft, setReportFormulaDraft] = useState({ itemName: '', formula: '', sortOrder: '0', isTotal: false })
   const [showMatchingRuleDialog, setShowMatchingRuleDialog] = useState(false)
+  const [showPrintTemplatePreviewDialog, setShowPrintTemplatePreviewDialog] = useState(false)
   const [editingMatchingRuleId, setEditingMatchingRuleId] = useState<string | null>(null)
   const [matchingRuleDraft, setMatchingRuleDraft] = useState({ name: '', conditionText: '', actionText: '', targetAccountCode: '', voucherTemplateId: '', priority: '50', isEnabled: true })
   const [showAssetCategoryDialog, setShowAssetCategoryDialog] = useState(false)
@@ -6643,6 +6652,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handlePrimaryAction = async () => {
     if (kind === 'aiJobQueue') {
       startAiTaskDraft()
+      return
+    }
+    if (kind === 'printTemplateSettings') {
+      openPrintTemplatePreview()
       return
     }
     if (kind === 'attachmentCenter' || kind === 'importCenter') {
@@ -9695,6 +9708,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice(scope === 'account' ? '已登记账户、币别和计量单位复核。默认科目、换算精度和汇率口径变更应在业务发生前确认。' : scope === 'auxiliary' ? '已登记资产类别与辅助核算维度复核。折旧参数和维度启停会影响凭证、账簿与报表取数。' : scope === 'print' ? '已登记打印模板复核。模板版本、纸张方向、字段范围和页码样式应在导出前验证。' : '已登记账期控制复核。结账、反结账与归档均需明确审批记录，不能直接覆盖历史账期。')
   }
 
+  const openPrintTemplatePreview = () => {
+    writeModuleAudit('查看内置模板预览', `${currentPeriodLabel}｜固定输出版式`, '中', '成功')
+    setShowPrintTemplatePreviewDialog(true)
+  }
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
@@ -9937,7 +9955,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {['assetCategory', 'auxiliaryCategories', 'auxiliaryItems', 'tagArchive'].includes(kind) && <AuxiliaryFoundationWorkflowPanel onReview={() => reviewFoundationConfiguration('auxiliary')} />}
 
-        {kind === 'printTemplateSettings' && <PrintTemplateWorkflowPanel onReview={() => reviewFoundationConfiguration('print')} />}
+        {kind === 'printTemplateSettings' && <PrintTemplateWorkflowPanel onPreview={openPrintTemplatePreview} onReview={() => reviewFoundationConfiguration('print')} />}
 
         {kind === 'periodManagement' && <PeriodManagementWorkflowPanel onReview={() => reviewFoundationConfiguration('period')} />}
 
@@ -10229,11 +10247,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>}
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
-                        <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                          {kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        <button type="button" onClick={() => kind === 'printTemplateSettings' ? openPrintTemplatePreview() : handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
+                          {kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
-                      {!isLocalTaxTaskKind && kind !== 'declarationReceipt' && kind !== 'taxInit' && !(isLocalRegistryModule && !isLocalRegistryRow) && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
+                      {!isLocalTaxTaskKind && kind !== 'declarationReceipt' && kind !== 'taxInit' && kind !== 'printTemplateSettings' && !(isLocalRegistryModule && !isLocalRegistryRow) && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
                         {kind === 'attachmentCenter' || kind === 'importCenter' ? '撤销登记' : kind === 'voucher' ? '编辑' : kind === 'voucherRecycle' ? '彻底删除' : kind === 'aiVoucherSuggestions' ? row.status === '已生成凭证' ? '查看凭证' : '进入草稿' : kind === 'outputInvoice' || kind === 'inputInvoice' ? '新建凭证' : '生成凭证'}
                       </button>}
                     </td>
@@ -10306,6 +10324,35 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               ))}
             </div>
             <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">{detailMeta.boundary}</div>
+          </div>
+        </div>
+      )}
+      {showPrintTemplatePreviewDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="内置固定模板预览">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto border border-slate-300 bg-white shadow-xl">
+            <div className="sticky top-0 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">内置固定模板预览</h2>
+                <p className="mt-1 text-xs leading-5 text-slate-500">当前版式由应用内置的凭证、账簿、财务报表、税务申报与业务清单模板生成。此页面用于查看版本和输出规则，不会直接修改 PDF 版式或历史导出文件。</p>
+              </div>
+              <button type="button" onClick={() => setShowPrintTemplatePreviewDialog(false)} className="shrink-0 text-xs text-slate-500 hover:text-slate-900">关闭</button>
+            </div>
+            <div className="grid gap-3 p-4">
+              {fixedPrintTemplatePreviews.map((template) => (
+                <section key={template.name} className="border border-slate-200 bg-[#fbfcfe] p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-slate-900">{template.name}</h3>
+                    <div className="flex items-center gap-2 text-xs text-slate-500"><span>{template.paper}</span><span>{template.version}</span></div>
+                  </div>
+                  <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                    <div><span className="text-slate-500">版式字段：</span><span className="text-slate-800">{template.layout}</span></div>
+                    <div><span className="text-slate-500">分页策略：</span><span className="text-slate-800">{template.pagination}</span></div>
+                  </div>
+                </section>
+              ))}
+              <div className="border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900">输出验证范围：Noto Sans SC 中文字体、A4 方向、重复表头、业务行/凭证块分页与页码均在导出层执行。需要调整字段或版式时应修改对应模板代码并重新验证，而不是在此处绕过版本控制。</div>
+            </div>
+            <div className="flex justify-end border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowPrintTemplatePreviewDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">关闭</button></div>
           </div>
         </div>
       )}
@@ -12497,8 +12544,8 @@ function AuxiliaryFoundationWorkflowPanel({ onReview }: { onReview: () => void }
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="资产类别与辅助核算维度控制"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">资产类别与辅助核算维度控制</h2><p className="mt-1 text-xs text-slate-500">资产类别、辅助核算类别、辅助项目和业务标签决定折旧、凭证、账簿与报表的维度和取数范围。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核维度配置" onClick={onReview} /></div><WorkflowMetrics items={['资产类别|8 个|折旧方法与科目已配置', '辅助类别|6 个|客户、供应商、项目等维度', '辅助项目|148 条|须保持启用状态可追溯', '业务标签|12 个|用于凭证和流水分类']}/></section>
 }
 
-function PrintTemplateWorkflowPanel({ onReview }: { onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="打印模板版本与输出校验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">打印模板版本与输出校验</h2><p className="mt-1 text-xs text-slate-500">凭证、账簿、财务报表和税表输出按固定模板、A4 分页与中文字体生成；模板切换前应验证字段和分页。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核打印模板" onClick={onReview} /></div><WorkflowMetrics items={['固定模板|5 类|凭证、账簿、财报、税表、清单', '中文字体|已就绪|支持 PDF 与打印输出', '分页校验|A4|页码与表头保持一致', '待发布版本|1 个|需核验后启用']}/></section>
+function PrintTemplateWorkflowPanel({ onPreview, onReview }: { onPreview: () => void; onReview: () => void }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="打印模板版本与输出校验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">打印模板版本与输出校验</h2><p className="mt-1 text-xs text-slate-500">凭证、账簿、财务报表和税表输出按固定模板、A4 分页与中文字体生成；模板切换前应验证字段和分页。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="查看固定模板" onClick={onPreview} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核打印模板" onClick={onReview} /></div></div><WorkflowMetrics items={['固定模板|5 类|凭证、账簿、财报、税表、清单', '中文字体|已就绪|支持 PDF 与打印输出', '分页校验|A4|页码与表头保持一致', '待发布版本|1 个|需核验后启用']}/></section>
 }
 
 function PeriodManagementWorkflowPanel({ onReview }: { onReview: () => void }) {
