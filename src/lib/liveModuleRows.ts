@@ -23,6 +23,7 @@ import type { Currency } from '../stores/currencyStore'
 import type { CommonDigest, VoucherTemplateType, VoucherTemplateWithEntries } from '../stores/templateStore'
 import type { ReportItem, ReportTemplate } from '../stores/reportTemplateStore'
 import type { AdapterAuthorization, AutomationJob, OperationAuditLog, TaxDeclarationTask } from '../lib/api'
+import { auxiliaryArchiveDefinitions, parseAuxiliaryArchiveProfile, type AuxiliaryArchiveKind } from './auxiliaryArchiveProfile'
 
 export type LiveModuleStatus = '待处理' | '已匹配' | '已确认' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
 
@@ -2091,39 +2092,30 @@ export function summarizeLiveSubjects(accounts: AccountCode[]): LiveSummaryItem[
   ]
 }
 
-type LiveAuxiliaryArchiveKind = 'customerArchive' | 'supplierArchive' | 'otherContactArchive' | 'projectArchive' | 'departmentArchive'
-
-const archiveCategoryCodes: Record<LiveAuxiliaryArchiveKind, string> = {
-  customerArchive: 'CUST',
-  supplierArchive: 'SUPP',
-  otherContactArchive: 'EMP',
-  projectArchive: 'PROJ',
-  departmentArchive: 'DEPT',
-}
-
-function archiveValues(kind: LiveAuxiliaryArchiveKind, item: AuxiliaryItem): Record<string, string> {
-  const remark = item.remarks || '待补充'
+function archiveValues(kind: AuxiliaryArchiveKind, item: AuxiliaryItem): Record<string, string> {
+  const profile = parseAuxiliaryArchiveProfile(item.remarks)
+  const remark = profile.remark || item.remarks || '待补充'
   if (kind === 'customerArchive') {
-    return { code: item.code, name: item.name, taxNo: '待补充', bank: '待补充', subject: '1122 应收账款', contract: remark }
+    return { code: item.code, name: item.name, taxNo: profile.taxNo || '待补充', bank: profile.bank || '待补充', subject: profile.subject || '1122 应收账款', contract: profile.contract || remark }
   }
   if (kind === 'supplierArchive') {
-    return { code: item.code, name: item.name, alias: remark, taxNo: '待补充', subject: '2202 应付账款', taxRate: '待维护' }
+    return { code: item.code, name: item.name, alias: profile.alias || remark, taxNo: profile.taxNo || '待补充', subject: profile.subject || '2202 应付账款', taxRate: profile.taxRate || '待维护' }
   }
   if (kind === 'otherContactArchive') {
-    return { code: item.code, name: item.name, type: '职员/其他往来', idNo: '待补充', subject: '1221/2241 待设置', remark }
+    return { code: item.code, name: item.name, type: profile.contactType || '职员/其他往来', idNo: profile.idNo || '待补充', subject: profile.subject || '1221/2241 待设置', remark }
   }
   if (kind === 'projectArchive') {
-    return { code: item.code, name: item.name, owner: '待补充', start: '待补充', subject: '待设置', budget: remark }
+    return { code: item.code, name: item.name, owner: profile.owner || '待补充', start: profile.start || '待补充', subject: profile.subject || '待设置', budget: profile.budget || remark }
   }
-  return { code: item.code, name: item.name, parent: '待补充', owner: '待补充', subject: '待设置', people: remark }
+  return { code: item.code, name: item.name, parent: profile.parent || '待补充', owner: profile.owner || '待补充', subject: profile.subject || '待设置', people: profile.people || remark }
 }
 
 export function mapLiveAuxiliaryArchiveRows(
-  kind: LiveAuxiliaryArchiveKind,
+  kind: AuxiliaryArchiveKind,
   categories: AuxiliaryCategory[],
   items: AuxiliaryItem[],
 ): LiveModuleRow[] {
-  const category = categories.find((item) => item.code === archiveCategoryCodes[kind])
+  const category = categories.find((item) => item.code === auxiliaryArchiveDefinitions[kind].categoryCode)
   if (!category) return []
   return items
     .filter((item) => item.category_id === category.id)
@@ -2137,15 +2129,15 @@ export function mapLiveAuxiliaryArchiveRows(
 }
 
 export function summarizeLiveAuxiliaryArchive(
-  kind: LiveAuxiliaryArchiveKind,
+  kind: AuxiliaryArchiveKind,
   categories: AuxiliaryCategory[],
   items: AuxiliaryItem[],
 ): LiveSummaryItem[] {
-  const category = categories.find((item) => item.code === archiveCategoryCodes[kind])
+  const category = categories.find((item) => item.code === auxiliaryArchiveDefinitions[kind].categoryCode)
   const scoped = category ? items.filter((item) => item.category_id === category.id) : []
   const enabled = scoped.filter((item) => item.is_enabled === 1).length
   const disabled = scoped.length - enabled
-  const labels: Record<LiveAuxiliaryArchiveKind, string> = {
+  const labels: Record<AuxiliaryArchiveKind, string> = {
     customerArchive: '客户数量',
     supplierArchive: '供应商',
     otherContactArchive: '其他往来',

@@ -18,6 +18,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { auxiliaryArchiveDefinitions, parseAuxiliaryArchiveProfile, serializeAuxiliaryArchiveProfile, type AuxiliaryArchiveKind } from '../../lib/auxiliaryArchiveProfile'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
@@ -4951,6 +4952,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [subjectDraft, setSubjectDraft] = useState({ code: '', name: '', accountType: '资产类', normalBalance: 'debit', level: '1', parentCode: '', isDetail: true, hasQuantity: false, defaultUnit: '', hasAuxiliary: false })
   const [showInitialBalanceDialog, setShowInitialBalanceDialog] = useState(false)
   const [initialBalanceDraft, setInitialBalanceDraft] = useState({ accountCode: '', openingDebit: '', openingCredit: '', sourceNote: '' })
+  const [showAuxiliaryArchiveDialog, setShowAuxiliaryArchiveDialog] = useState(false)
+  const [editingAuxiliaryArchiveItemId, setEditingAuxiliaryArchiveItemId] = useState<string | null>(null)
+  const [auxiliaryArchiveDraft, setAuxiliaryArchiveDraft] = useState({ code: '', name: '', taxNo: '', bank: '', subject: '', contract: '', alias: '', taxRate: '', contactType: '', idNo: '', owner: '', start: '', budget: '', parent: '', people: '', remark: '' })
   const [previewCompanyAccounts, setPreviewCompanyAccounts] = useState<typeof companyAccounts>([])
   const [previewCurrencies, setPreviewCurrencies] = useState<typeof currencies>([])
   const [previewCommonDigests, setPreviewCommonDigests] = useState<typeof commonDigests>([])
@@ -6175,11 +6179,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (usesLiveArchiveData && isLiveAuxiliaryArchiveKind(kind)) {
+    if (isLiveAuxiliaryArchiveKind(kind) && (usesLiveArchiveData || previewAuxiliaryCategories.some((category) => category.code === auxiliaryArchiveDefinitions[kind].categoryCode))) {
       return {
         ...baseConfig,
-        rows: mapLiveAuxiliaryArchiveRows(kind, auxiliaryCategories, auxiliaryItems),
-        summary: summarizeLiveAuxiliaryArchive(kind, auxiliaryCategories, auxiliaryItems),
+        rows: mapLiveAuxiliaryArchiveRows(kind, isTauri ? auxiliaryCategories : previewAuxiliaryCategories, isTauri ? auxiliaryItems : previewAuxiliaryItems),
+        summary: summarizeLiveAuxiliaryArchive(kind, isTauri ? auxiliaryCategories : previewAuxiliaryCategories, isTauri ? auxiliaryItems : previewAuxiliaryItems),
       }
     }
 
@@ -6682,6 +6686,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'initialBalance' && !isTauri) {
       writeModuleAudit('执行试算平衡', `${currentPeriodLabel}｜预览期初余额`, '高', '待审批')
       setOperationNotice('浏览器预览已登记试算平衡操作；桌面端会校验当前账期全部借贷期初余额，平衡后仍需人工确认建账。')
+      return
+    }
+    if (isLiveAuxiliaryArchiveKind(kind)) {
+      openAuxiliaryArchiveEditor()
       return
     }
     if (kind === 'subjectSettings') {
@@ -7864,6 +7872,90 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
   }
 
+  const openAuxiliaryArchiveEditor = (item?: typeof auxiliaryItems[number], row?: ModuleRow) => {
+    const profile = item ? parseAuxiliaryArchiveProfile(item.remarks) : {}
+    setEditingAuxiliaryArchiveItemId(item?.id || null)
+    setAuxiliaryArchiveDraft({
+      code: item?.code || row?.values.code || '', name: item?.name || row?.values.name || '',
+      taxNo: profile.taxNo || row?.values.taxNo || '', bank: profile.bank || row?.values.bank || '', subject: profile.subject || row?.values.subject || '', contract: profile.contract || row?.values.contract || '',
+      alias: profile.alias || row?.values.alias || '', taxRate: profile.taxRate || row?.values.taxRate || '', contactType: profile.contactType || row?.values.type || '', idNo: profile.idNo || row?.values.idNo || '',
+      owner: profile.owner || row?.values.owner || '', start: profile.start || row?.values.start || '', budget: profile.budget || row?.values.budget || '', parent: profile.parent || row?.values.parent || '', people: profile.people || row?.values.people || '', remark: profile.remark || row?.values.remark || '',
+    })
+    setShowAuxiliaryArchiveDialog(true)
+  }
+
+  const handleSaveAuxiliaryArchive = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!isLiveAuxiliaryArchiveKind(kind)) return
+    const archiveKind = kind as AuxiliaryArchiveKind
+    const definition = auxiliaryArchiveDefinitions[archiveKind]
+    const code = auxiliaryArchiveDraft.code.trim()
+    const name = auxiliaryArchiveDraft.name.trim()
+    if (!code || !name) {
+      setOperationNotice(`请填写${definition.title}编码和名称。`)
+      return
+    }
+    const remarks = serializeAuxiliaryArchiveProfile({
+      taxNo: auxiliaryArchiveDraft.taxNo.trim(), bank: auxiliaryArchiveDraft.bank.trim(), subject: auxiliaryArchiveDraft.subject.trim(), contract: auxiliaryArchiveDraft.contract.trim(),
+      alias: auxiliaryArchiveDraft.alias.trim(), taxRate: auxiliaryArchiveDraft.taxRate.trim(), contactType: auxiliaryArchiveDraft.contactType.trim(), idNo: auxiliaryArchiveDraft.idNo.trim(),
+      owner: auxiliaryArchiveDraft.owner.trim(), start: auxiliaryArchiveDraft.start.trim(), budget: auxiliaryArchiveDraft.budget.trim(), parent: auxiliaryArchiveDraft.parent.trim(), people: auxiliaryArchiveDraft.people.trim(), remark: auxiliaryArchiveDraft.remark.trim(),
+    })
+    if (!isTauri) {
+      let categoryId = previewAuxiliaryCategories.find((category) => category.code === definition.categoryCode)?.id
+      if (!categoryId) {
+        categoryId = `preview-archive-category-${definition.categoryCode}`
+        setPreviewAuxiliaryCategories((items) => [...items, { id: categoryId!, company_id: selectedCompanyId || 'preview-company', code: definition.categoryCode, name: definition.categoryName, is_system: 0, sort_order: items.length + 1 }])
+      }
+      const record = { id: editingAuxiliaryArchiveItemId || `preview-archive-${Date.now()}`, category_id: categoryId, company_id: selectedCompanyId || 'preview-company', code, name, is_enabled: 1, remarks }
+      setPreviewAuxiliaryItems((items) => editingAuxiliaryArchiveItemId ? items.map((item) => item.id === editingAuxiliaryArchiveItemId ? { ...record, is_enabled: item.is_enabled } : item) : [...items, record])
+      writeModuleAudit(editingAuxiliaryArchiveItemId ? `预览编辑${definition.title}` : `预览新增${definition.title}`, `${code}｜${name}`, '中', '成功')
+      setOperationNotice(`${definition.title}档案已保存到浏览器预览；桌面端会写入当前账套的辅助核算档案，并保留扩展字段与变更记录。`)
+      setShowAuxiliaryArchiveDialog(false)
+      return
+    }
+    if (!selectedCompanyId) {
+      setOperationNotice('请先进入账套，再维护基础档案。')
+      return
+    }
+    try {
+      let categoryId = auxiliaryCategories.find((category) => category.code === definition.categoryCode)?.id
+      if (!categoryId) {
+        const category = await createAuxiliaryCategory({ company_id: selectedCompanyId, code: definition.categoryCode, name: definition.categoryName, sort_order: auxiliaryCategories.length + 1 })
+        categoryId = category.id
+      }
+      const item = editingAuxiliaryArchiveItemId
+        ? await updateAuxiliaryItem(editingAuxiliaryArchiveItemId, { company_id: selectedCompanyId, category_id: categoryId, code, name, remarks })
+        : await createAuxiliaryItem({ company_id: selectedCompanyId, category_id: categoryId, code, name, remarks })
+      writeModuleAudit(editingAuxiliaryArchiveItemId ? `编辑${definition.title}` : `新增${definition.title}`, `${item.code}｜${item.name}`, '中', '成功')
+      setOperationNotice(`${definition.title}档案已保存：${item.name}。启停与删除仍受业务引用校验，历史凭证不会被自动修改。`)
+      setShowAuxiliaryArchiveDialog(false)
+    } catch (error) {
+      setOperationNotice(`保存${definition.title}档案失败：${String(error)}`)
+    }
+  }
+
+  const handleToggleAuxiliaryArchive = async () => {
+    if (!editingAuxiliaryArchiveItemId || !selectedCompanyId || !isTauri || !isLiveAuxiliaryArchiveKind(kind)) return
+    try {
+      await toggleAuxiliaryItem(editingAuxiliaryArchiveItemId, selectedCompanyId)
+      writeModuleAudit('启用/停用基础档案', auxiliaryArchiveDraft.name, '中', '成功')
+      setOperationNotice(`${auxiliaryArchiveDefinitions[kind].title}档案状态已更新。`)
+      setShowAuxiliaryArchiveDialog(false)
+    } catch (error) { setOperationNotice(`更新档案状态失败：${String(error)}`) }
+  }
+
+  const handleDeleteAuxiliaryArchive = async () => {
+    if (!editingAuxiliaryArchiveItemId || !selectedCompanyId || !isTauri || !isLiveAuxiliaryArchiveKind(kind)) return
+    const title = auxiliaryArchiveDefinitions[kind].title
+    if (!window.confirm(`确认删除${title}档案“${auxiliaryArchiveDraft.name}”吗？已有业务引用时系统会阻止删除。`)) return
+    try {
+      await deleteAuxiliaryItem(editingAuxiliaryArchiveItemId, selectedCompanyId)
+      writeModuleAudit(`删除${title}`, auxiliaryArchiveDraft.name, '高', '成功')
+      setOperationNotice(`${title}档案已删除。`)
+      setShowAuxiliaryArchiveDialog(false)
+    } catch (error) { setOperationNotice(`删除${title}档案失败：${String(error)}`) }
+  }
+
   const resetCompanyAccountDraft = () => {
     setEditingCompanyAccountId(null)
     setCompanyAccountDraft({ accountName: '', accountType: '银行账户', bankName: '', accountNumber: '', subjectCode: '1002 银行存款', openingBalance: '0', attachmentNote: '', status: '启用' })
@@ -8922,6 +9014,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleViewRow = async (row: ModuleRow) => {
     if (kind === 'initialBalance') {
       openInitialBalanceEditor(row)
+      return
+    }
+    if (isLiveAuxiliaryArchiveKind(kind)) {
+      const itemId = row.id.replace('auxiliary-', '')
+      openAuxiliaryArchiveEditor((isTauri ? auxiliaryItems : previewAuxiliaryItems).find((item) => item.id === itemId), row)
       return
     }
     if (kind === 'attachmentCenter') {
@@ -11093,6 +11190,24 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </form>
         </div>
       )}
+      {showAuxiliaryArchiveDialog && isLiveAuxiliaryArchiveKind(kind) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingAuxiliaryArchiveItemId ? `编辑${auxiliaryArchiveDefinitions[kind].title}档案` : `新增${auxiliaryArchiveDefinitions[kind].title}档案`}>
+          <form onSubmit={handleSaveAuxiliaryArchive} className="flex max-h-[92vh] w-full max-w-3xl flex-col border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingAuxiliaryArchiveItemId ? `编辑${auxiliaryArchiveDefinitions[kind].title}档案` : `新增${auxiliaryArchiveDefinitions[kind].title}档案`}</h2><p className="mt-0.5 text-xs text-slate-500">档案只服务当前账套；启停和删除保留业务引用校验，历史凭证与已结账账期不会自动改写。</p></div><button type="button" onClick={() => setShowAuxiliaryArchiveDialog(false)} className="text-xs text-slate-500">取消</button></div>
+            <div className="min-h-0 overflow-y-auto p-4"><div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">{auxiliaryArchiveDefinitions[kind].title}编码 *<input required value={auxiliaryArchiveDraft.code} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, code: event.target.value }))} placeholder="如：C001" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">{auxiliaryArchiveDefinitions[kind].title}名称 *<input required value={auxiliaryArchiveDraft.name} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, name: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              {kind === 'customerArchive' && <><label className="grid gap-1 text-xs text-slate-600">纳税人识别号<input value={auxiliaryArchiveDraft.taxNo} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, taxNo: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">开户行<input value={auxiliaryArchiveDraft.bank} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, bank: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">默认科目<input value={auxiliaryArchiveDraft.subject} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, subject: event.target.value }))} placeholder="1122 应收账款" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">关联合同<input value={auxiliaryArchiveDraft.contract} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, contract: event.target.value }))} placeholder="HT-2026-001" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label></>}
+              {kind === 'supplierArchive' && <><label className="grid gap-1 text-xs text-slate-600">发票/流水别名<input value={auxiliaryArchiveDraft.alias} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, alias: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">纳税人识别号<input value={auxiliaryArchiveDraft.taxNo} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, taxNo: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">默认科目<input value={auxiliaryArchiveDraft.subject} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, subject: event.target.value }))} placeholder="2202 应付账款" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">常用税率<input value={auxiliaryArchiveDraft.taxRate} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, taxRate: event.target.value }))} placeholder="如：13%" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label></>}
+              {kind === 'otherContactArchive' && <><label className="grid gap-1 text-xs text-slate-600">往来类型<select value={auxiliaryArchiveDraft.contactType} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, contactType: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="">请选择</option><option>员工备用金</option><option>股东往来</option><option>个人往来</option><option>临时往来</option></select></label><label className="grid gap-1 text-xs text-slate-600">证件号/税号<input value={auxiliaryArchiveDraft.idNo} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, idNo: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">默认科目<input value={auxiliaryArchiveDraft.subject} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, subject: event.target.value }))} placeholder="1221 其他应收款" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label></>}
+              {kind === 'projectArchive' && <><label className="grid gap-1 text-xs text-slate-600">负责人<input value={auxiliaryArchiveDraft.owner} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, owner: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">开始日期<input type="date" value={auxiliaryArchiveDraft.start} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, start: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">默认科目<input value={auxiliaryArchiveDraft.subject} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, subject: event.target.value }))} placeholder="5301 研发支出" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">预算金额<input type="number" min="0" step="0.01" value={auxiliaryArchiveDraft.budget} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, budget: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label></>}
+              {kind === 'departmentArchive' && <><label className="grid gap-1 text-xs text-slate-600">上级部门<input value={auxiliaryArchiveDraft.parent} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, parent: event.target.value }))} placeholder="如：总部" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">负责人<input value={auxiliaryArchiveDraft.owner} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, owner: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">费用科目<input value={auxiliaryArchiveDraft.subject} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, subject: event.target.value }))} placeholder="6602 管理费用" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">人员数<input type="number" min="0" step="1" value={auxiliaryArchiveDraft.people} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, people: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label></>}
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">备注<input value={auxiliaryArchiveDraft.remark} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, remark: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+            </div></div>
+            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div className="flex gap-2">{editingAuxiliaryArchiveItemId && isTauri && <button type="button" onClick={() => void handleToggleAuxiliaryArchive()} className="h-8 rounded border border-amber-300 px-3 text-xs text-amber-700">启用/停用</button>}{editingAuxiliaryArchiveItemId && isTauri && <button type="button" onClick={() => void handleDeleteAuxiliaryArchive()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700">删除档案</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowAuxiliaryArchiveDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存档案</button></div></div>
+          </form>
+        </div>
+      )}
       {showCompanyAccountDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingCompanyAccountId ? '编辑账户档案' : '新增账户档案'}>
           <form onSubmit={handleSaveCompanyAccount} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
@@ -12548,7 +12663,7 @@ function AuxiliaryArchiveWorkflowPanel({ onReview }: { onReview: () => void }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">辅助档案完整性与业务引用</h2>
-          <p className="mt-1 text-xs text-slate-500">客户、供应商、人员、项目和部门档案为发票、流水、凭证与辅助账提供引用基础，缺失资料须在业务流转前补齐。</p>
+          <p className="mt-1 text-xs text-slate-500">客户、供应商、其他往来、项目和部门档案为发票、流水、凭证与辅助账提供引用基础，缺失资料须在业务流转前补齐。</p>
         </div>
         <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核档案引用" onClick={onReview} />
       </div>

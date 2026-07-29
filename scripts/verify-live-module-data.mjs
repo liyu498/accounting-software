@@ -196,7 +196,7 @@ const requiredPageSnippets = [
   ['auxiliary category refresh', 'fetchCategories(selectedCompanyId)'],
   ['auxiliary item refresh', 'fetchAllItems(selectedCompanyId)'],
   ['subject settings mapping', 'mapLiveSubjectRows(accounts)'],
-  ['auxiliary archive mapping', 'mapLiveAuxiliaryArchiveRows(kind, auxiliaryCategories, auxiliaryItems)'],
+  ['auxiliary archive mapping', 'mapLiveAuxiliaryArchiveRows(kind, isTauri ? auxiliaryCategories : previewAuxiliaryCategories'],
   ['ledger overview mapping', 'mapLiveLedgerOverviewRows(liveReports.ledgerOverview)'],
   ['account summary mapping', 'mapLiveAccountSummaryRows(liveReports.accountSummary)'],
   ['subsidiary ledger query', 'getSubsidiaryLedger(currentPeriodId, selectedLedgerAccountCode)'],
