@@ -3400,6 +3400,15 @@ function getModuleDetailMeta(kind: ModuleKind, title: string): ModuleDetailMeta 
   if (['employee', 'payroll', 'socialSecurity', 'specialDeduction'].includes(kind)) {
     return { title: '人员档案明细', boundary: '查看只读取当前账套人员、薪酬和申报资料；证件与联系方式按脱敏规则展示，不会发放工资或提交社保、个税数据。' }
   }
+  if (['receipt', 'documentRegister', 'expenseReimbursement'].includes(kind)) {
+    return { title: '原始单据与报销明细', boundary: '查看只读取当前账套的票据、原始单据、报销审批与付款准备信息；不会替代审批、发起付款或直接生成正式凭证。' }
+  }
+  if (['purchaseManagement', 'salesManagement'].includes(kind)) {
+    return { title: '购销业务履约明细', boundary: '查看只读取当前账套采购或销售订单、收发货、发票和收付款关联；实际履约、开票和收付款仍需由经办人员确认。' }
+  }
+  if (['depreciation', 'inventorySettings', 'inventoryMovement', 'costCarryover'].includes(kind)) {
+    return { title: '资产存货与成本明细', boundary: '查看只读取资产、存货、出入库与成本结转依据；计提、出入库和月末结转必须先完成来源单据与会计口径复核。' }
+  }
   if (['billList', 'bankStatement', 'bankReconciliation', 'transfer', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind)) {
     return { title: '资金与往来明细', boundary: '查看只读取当前账套的流水、核销、对账和账龄记录；不会连接银行、发起付款或变更核销结果。' }
   }
@@ -3426,6 +3435,15 @@ function getModuleTableMeta(kind: ModuleKind): ModuleTableMeta {
   if (['employee', 'payroll', 'socialSecurity', 'specialDeduction'].includes(kind)) {
     return { statusLabel: '资料状态', voucherLabel: '工资凭证', attachmentLabel: '资料附件', showVoucher: kind !== 'employee', showAttachment: true }
   }
+  if (['receipt', 'documentRegister', 'expenseReimbursement'].includes(kind)) {
+    return { statusLabel: '审批/入账状态', voucherLabel: '入账凭证', attachmentLabel: '原始票据', showVoucher: true, showAttachment: true }
+  }
+  if (['purchaseManagement', 'salesManagement'].includes(kind)) {
+    return { statusLabel: '履约状态', voucherLabel: '业务凭证', attachmentLabel: '订单/单据', showVoucher: true, showAttachment: true }
+  }
+  if (['depreciation', 'inventorySettings', 'inventoryMovement', 'costCarryover'].includes(kind)) {
+    return { statusLabel: '核算状态', voucherLabel: '计提/结转凭证', attachmentLabel: '核算依据', showVoucher: kind !== 'inventorySettings', showAttachment: true }
+  }
   if (['billList', 'bankStatement', 'bankReconciliation', 'transfer', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind)) {
     return { statusLabel: '核对状态', voucherLabel: '关联凭证', attachmentLabel: '回单/附件', showVoucher: true, showAttachment: true }
   }
@@ -3451,6 +3469,18 @@ function getModuleTabs(kind: ModuleKind) {
   if (kind === 'historySubsidiaryLedger') return ['明细清单', '凭证穿透', '对方科目', '余额核验', '来源文件', '迁移日志']
   if (kind === 'outputInvoice') return ['销项台账', '开票明细', '开票汇总', '会计凭证', '发票影像', '开票日志']
   if (kind === 'inputInvoice') return ['进项台账', '发票明细', '认证勾选', '抵扣用途', '发票影像', '处理日志']
+  if (kind === 'receipt') return ['票据台账', '票据明细', '到期管理', '背书用途', '票据影像', '处理日志']
+  if (kind === 'documentRegister') return ['单据登记', '业务明细', '审核流转', '入账准备', '原始附件', '处理日志']
+  if (kind === 'expenseReimbursement') return ['报销清单', '费用明细', '审批节点', '付款准备', '票据附件', '处理日志']
+  if (kind === 'purchaseManagement') return ['采购订单', '入库验收', '供应商发票', '应付核对', '成本入账', '处理日志']
+  if (kind === 'salesManagement') return ['销售订单', '出库履约', '销项开票', '回款核销', '收入入账', '处理日志']
+  if (kind === 'depreciation') return ['资产清单', '计提明细', '折旧参数', '凭证准备', '资产附件', '处理日志']
+  if (kind === 'inventorySettings') return ['存货档案', '规格单位', '默认科目', '成本口径', '启停记录', '变更日志']
+  if (kind === 'inventoryMovement') return ['出入库单', '收发明细', '仓库库存', '单据匹配', '成本依据', '处理日志']
+  if (kind === 'costCarryover') return ['结转任务', '成本来源', '结转方法', '凭证准备', '异常复核', '处理日志']
+  if (kind === 'receivableSettlement') return ['应收清单', '回款流水', '核销明细', '差额处理', '收入凭证', '处理日志']
+  if (kind === 'payableSettlement') return ['应付清单', '付款流水', '核销明细', '差额处理', '成本凭证', '处理日志']
+  if (kind === 'receivablePayableAging') return ['账龄清单', '应收风险', '应付风险', '最近凭证', '催收处置', '处理日志']
   if (['billList', 'bankStatement', 'bankReconciliation', 'transfer'].includes(kind)) return ['流水台账', '交易明细', '匹配结果', '回单附件', '关联凭证', '处理日志']
   if (kind === 'employee') return ['人员档案', '证照资料', '岗位参保', '工资关联', '资料附件', '变更记录']
   if (kind === 'payroll') return ['薪酬表', '工资项明细', '个税社保', '工资凭证', '工资附件', '发放日志']
@@ -3615,6 +3645,28 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
       title: '人员与薪税资料范围',
       description: '人员档案、工资、社保和专项扣除按当前账期关联复核；缺少证照、工资项或缴费依据的记录不会进入凭证和申报取数。',
       metrics: [...commonMetrics, { label: '资料附件齐备', value: `${attachmentRows} 条`, tone: 'green' }],
+    }
+  }
+  const businessWorkspaceContext: Partial<Record<ModuleKind, { title: string; description: string; evidenceLabel: string }>> = {
+    receipt: { title: '票据到期与背书范围', description: '票据金额、出票信息、到期日、背书用途和影像附件必须逐笔核验。票据处理记录不等同于实际托收、贴现或资金入账。', evidenceLabel: '票据影像' },
+    documentRegister: { title: '原始单据审核与入账范围', description: '登记单据先确认业务日期、金额、审批、附件和归属科目，再进入凭证准备。缺少原始附件或审批依据的单据不得直接入账。', evidenceLabel: '原始附件' },
+    expenseReimbursement: { title: '费用报销审批与付款范围', description: '报销类别、报销人、审批节点、票据和付款状态须分别复核。系统只准备付款与凭证草稿，不发起银行付款。', evidenceLabel: '报销票据' },
+    purchaseManagement: { title: '采购履约与成本入账范围', description: '采购订单、入库验收、供应商进项票、应付核对和成本入账按顺序复核。未验收或无票业务不能自动形成成本凭证。', evidenceLabel: '采购单据' },
+    salesManagement: { title: '销售履约与收入确认范围', description: '销售订单、出库或服务履约、销项开票、回款核销和收入入账分开核验。未满足收入确认条件的记录不能自动入账。', evidenceLabel: '履约单据' },
+    depreciation: { title: '资产折旧与摊销范围', description: '资产原值、类别、启用日期、折旧方法和本期计提金额需要按账期复核。系统只生成待确认计提凭证，不能改写已结账期间。', evidenceLabel: '资产依据' },
+    inventorySettings: { title: '存货档案与成本口径范围', description: '存货编码、规格单位、默认科目和成本口径是出入库、成本结转的基础。修改口径只影响后续处理，并须保留变更记录。', evidenceLabel: '档案依据' },
+    inventoryMovement: { title: '出入库与成本依据范围', description: '入库、出库、调拨和盘点单据应先确认数量、仓库、存货与来源业务，再参与成本计算和凭证准备。', evidenceLabel: '收发单据' },
+    costCarryover: { title: '月末成本结转范围', description: '成本来源、结转方法、金额和凭证模板必须在月末前复核。结转只生成待确认结果，不能绕过结账控制直接修改账簿。', evidenceLabel: '结转依据' },
+    receivableSettlement: { title: '应收核销与回款范围', description: '客户应收、回款流水、核销金额和余额差异需要逐笔确认。自动匹配仅为建议，收入凭证必须由会计人员复核。', evidenceLabel: '回款回单' },
+    payableSettlement: { title: '应付核销与付款范围', description: '供应商应付、付款流水、核销金额和差额处理需要逐笔确认。系统不直接发起付款，成本费用凭证仍需会计人员复核。', evidenceLabel: '付款回单' },
+    receivablePayableAging: { title: '往来账龄与风险处置范围', description: '账龄根据当前账套应收应付、核销和最近凭证计算。逾期提醒仅用于跟进，不会替代催收、付款或坏账处理审批。', evidenceLabel: '往来凭证' },
+  }
+  if (businessWorkspaceContext[kind]) {
+    const context = businessWorkspaceContext[kind]!
+    return {
+      title: context.title,
+      description: context.description,
+      metrics: [...commonMetrics, { label: context.evidenceLabel, value: `${attachmentRows} 条`, tone: 'green' }],
     }
   }
   if (['billList', 'bankStatement', 'bankReconciliation', 'transfer', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind)) {
