@@ -3468,7 +3468,17 @@ function getModuleTabs(kind: ModuleKind) {
   if (kind === 'currencySettings') return ['币别清单', '汇率口径', '本位币控制', '科目换算', '启停记录', '操作日志']
   if (kind === 'commonDigests') return ['摘要清单', '适用业务', '凭证引用', '维护记录', '停用记录', '操作日志']
   if (kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') return ['授权渠道', '授权范围', '连接状态', '操作日志', '安全策略', '变更记录']
-  if (kind === 'taxInit' || kind === 'taxReport' || kind === 'declarationCalendar' || kind === 'declarationReceipt' || kind.endsWith('TaxReport') || kind === 'nonTaxRevenueReport') return ['申报清单', '取数快照', '校验结果', '申报包', '回执缴款', '处理日志']
+  if (kind === 'taxInit') return ['税种认定', '申报周期', '取数适配', '授权信息', '启用记录', '变更日志']
+  if (kind === 'declarationCalendar') return ['待办日历', '截止提醒', '取数准备', '申报确认', '回执归档', '处理日志']
+  if (kind === 'taxReport') return ['本期申报', '取数快照', '风险校验', '申报包', '回执缴款', '处理日志']
+  if (kind === 'vatTaxReport') return ['增值税主表', '销项取数', '进项抵扣', '附加税费', '校验风险', '申报日志']
+  if (kind === 'withholdingTaxReport') return ['扣缴清单', '人员扣缴', '专项扣除', '税款计算', '校验风险', '申报日志']
+  if (kind === 'stampTaxReport') return ['税目清单', '应税凭证', '计税依据', '减免事项', '校验风险', '申报日志']
+  if (kind === 'incomeTaxReport') return ['利润口径', '纳税调整', '弥补亏损', '预缴计算', '校验风险', '申报日志']
+  if (kind === 'socialSecurityTaxReport') return ['缴费人员', '缴费基数', '单位金额', '个人金额', '校验风险', '申报日志']
+  if (kind === 'financeTaxReport') return ['财报清单', '报表取数', '勾稽校验', '报送材料', '回执附件', '报送日志']
+  if (kind === 'nonTaxRevenueReport') return ['征收项目', '计费依据', '减免事项', '缴款信息', '校验风险', '申报日志']
+  if (kind === 'declarationReceipt') return ['回执清单', '申报状态', '缴款书', '支付记录', '归档附件', '处理日志']
   if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) return ['任务队列', '输入来源', '识别结果', '人工确认', '规则版本', '运行日志']
   if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') return ['账表清单', '取数明细', '凭证穿透', '勾稽校验', '输出模板', '计算日志']
   if (kind.includes('Archive') || kind.includes('Settings') || kind.includes('Rules') || ['settingsData', 'companyInfo', 'initialBalance', 'subjectSettings', 'unitSettings', 'periodManagement', 'auditLog', 'backupRestore', 'voucherRecycle'].includes(kind)) return ['配置清单', '生效范围', '关联规则', '变更记录', '审计证据', '操作日志']
@@ -3590,6 +3600,27 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
       title: '资金与往来核对范围',
       description: '流水、回单、往来余额和核销结果仅生成待确认建议；金额差异和未达项需由经办人复核后才能影响凭证或结账。',
       metrics: [...commonMetrics, { label: '已关联凭证', value: `${voucherRows} 条`, tone: 'green' }],
+    }
+  }
+  const taxWorkspaceContext: Partial<Record<ModuleKind, { title: string; description: string; evidenceLabel: string }>> = {
+    taxInit: { title: '税种认定与启用范围', description: '税种认定、申报周期、取数适配与授权信息需逐项确认。没有适配器授权时，只能保留本地资料，不能自动登录或提交。', evidenceLabel: '授权证据' },
+    declarationCalendar: { title: '申报日程与节点范围', description: '日历只安排当前账套的取数、校验、人工确认和回执归档节点；截止提醒不代表已向税局完成申报。', evidenceLabel: '已归档回执' },
+    vatTaxReport: { title: '增值税取数与抵扣范围', description: '销项发票、进项认证、勾选抵扣和附加税费分别核验。抵扣确认必须由已授权人员在税局渠道人工完成。', evidenceLabel: '抵扣附件' },
+    withholdingTaxReport: { title: '扣缴个税计算范围', description: '人员、薪酬、专项附加扣除和代扣税额必须按所属期复核。系统只生成待确认取数，不自动代扣或提交。', evidenceLabel: '人员资料' },
+    stampTaxReport: { title: '印花税凭证核验范围', description: '合同、应税凭证、税目、计税依据和减免事项须逐条复核。税款申报与缴纳需要人工确认和回执归档。', evidenceLabel: '应税凭证' },
+    incomeTaxReport: { title: '企业所得税预缴范围', description: '利润口径、纳税调整、亏损弥补和预缴计算必须保留取数来源。最终申报金额不能由系统直接确认或提交。', evidenceLabel: '调整依据' },
+    socialSecurityTaxReport: { title: '社保费申报核验范围', description: '人员参保状态、缴费基数、单位个人金额和工资表要先完成一致性核验；不会自动向社保或税局提交。', evidenceLabel: '缴费资料' },
+    financeTaxReport: { title: '财务报表报送范围', description: '报表取数、勾稽校验、报送材料和回执附件分开管理。报送前仍需由具备权限的人员核对并人工确认。', evidenceLabel: '报送材料' },
+    nonTaxRevenueReport: { title: '非税收入核定范围', description: '征收项目、计费依据、减免事项和缴款信息需逐笔留痕。系统不会替代主管机关核定或自动发起缴款。', evidenceLabel: '核定依据' },
+    declarationReceipt: { title: '回执与缴款归档范围', description: '回执号、缴款书、支付状态和附件只是本地归档记录。真实申报、缴款和回执以外部渠道或人工导入凭据为准。', evidenceLabel: '归档附件' },
+    taxReport: { title: '本期申报编制范围', description: '本期税种分别完成取数、校验、人工确认和申报包归档。工作台不会绕过授权直接向税局提交。', evidenceLabel: '申报材料' },
+  }
+  if (taxWorkspaceContext[kind]) {
+    const context = taxWorkspaceContext[kind]!
+    return {
+      title: context.title,
+      description: context.description,
+      metrics: [...commonMetrics, { label: context.evidenceLabel, value: `${attachmentRows} 条`, tone: 'green' }],
     }
   }
   if (kind === 'taxInit' || kind === 'taxReport' || kind === 'declarationCalendar' || kind === 'declarationReceipt' || kind.endsWith('TaxReport') || kind === 'nonTaxRevenueReport') {
