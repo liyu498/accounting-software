@@ -6692,6 +6692,30 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       openAuxiliaryArchiveEditor()
       return
     }
+    if (kind === 'settlementRules') {
+      resetSettlementRuleDraft()
+      setShowSettlementRuleDialog(true)
+      return
+    }
+    if (kind === 'currencySettings') {
+      resetCurrencyDraft()
+      setShowCurrencyDialog(true)
+      return
+    }
+    if (kind === 'commonDigests') {
+      resetCommonDigestDraft()
+      setShowCommonDigestDialog(true)
+      return
+    }
+    if (kind === 'voucherTemplateSettings') {
+      resetVoucherTemplateDraft()
+      setShowVoucherTemplateDialog(true)
+      return
+    }
+    if (kind === 'reportFormulaSettings') {
+      reviewRuleTemplateGovernance('template')
+      return
+    }
     if (kind === 'subjectSettings') {
       openSubjectEditor()
       return
@@ -10115,13 +10139,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'aiVoucherSuggestions' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增建议" onClick={openAiVoucherSuggestionEditor} />}
             {kind === 'employee' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增人员" onClick={openEmployeeEditor} />}
             {kind === 'payroll' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={openPayrollEditor} />}
-            {kind === 'settlementRules' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增结转规则" onClick={() => { resetSettlementRuleDraft(); setShowSettlementRuleDialog(true) }} />}
             {kind === 'accountArchive' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增账户" onClick={() => { resetCompanyAccountDraft(); setShowCompanyAccountDialog(true) }} />}
-            {kind === 'currencySettings' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增币别" onClick={() => { resetCurrencyDraft(); setShowCurrencyDialog(true) }} />}
             {kind === 'auxiliaryCategories' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增类别" onClick={() => { resetAuxiliaryCategoryDraft(); setShowAuxiliaryCategoryDialog(true) }} />}
             {kind === 'auxiliaryItems' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增项目" onClick={() => { if ((isTauri ? auxiliaryCategories : previewAuxiliaryCategories).length === 0) { setOperationNotice('请先新增辅助核算类别，再维护辅助核算项目。'); return }; resetAuxiliaryItemDraft(); setShowAuxiliaryItemDialog(true) }} />}
-            {kind === 'commonDigests' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增摘要" onClick={() => { resetCommonDigestDraft(); setShowCommonDigestDialog(true) }} />}
-            {kind === 'voucherTemplateSettings' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增凭证模板" onClick={() => { resetVoucherTemplateDraft(); setShowVoucherTemplateDialog(true) }} />}
+            {kind === 'reportFormulaSettings' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增公式" onClick={() => { setEditingReportFormulaId(null); setReportFormulaDraft({ itemName: '', formula: '', sortOrder: '0', isTotal: false }); setShowReportFormulaDialog(true) }} />}
             {(kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'} onClick={() => { resetAdapterAuthorizationDraft(); setShowAdapterAuthorizationDialog(true) }} />}
             {kind === 'socialSecurity' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={openSocialSecurityEditor} />}
             {kind === 'specialDeduction' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={openSpecialDeductionEditor} />}
