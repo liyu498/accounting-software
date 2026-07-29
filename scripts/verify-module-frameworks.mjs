@@ -97,7 +97,7 @@ const errors = [
   ...(!businessSource.includes('getWorkspaceTabContext') ? ['workspace tabs must provide domain-specific context'] : []),
   ...(!businessSource.includes('开票汇总取数') ? ['invoice summary tabs must show invoice-specific context'] : []),
   ...(!businessSource.includes('申报包与回执边界') ? ['tax workspace tabs must show declaration-specific context'] : []),
-  ...(!businessSource.includes('AI人工确认范围') ? ['AI workspace tabs must show review-specific context'] : []),
+  ...(!businessSource.includes('AI任务执行范围') || !businessSource.includes('凭证建议确认范围') ? ['AI workspace tabs must show review-specific context'] : []),
   ...(!businessSource.includes('新增 AI 处理任务') ? ['AI task queue must provide a dedicated task editor'] : []),
   ...(!businessSource.includes('handleSaveAiJob') ? ['AI task queue must persist task drafts'] : []),
   ...(!businessSource.includes('不会自动生成或入账凭证') ? ['AI task editor must explain the manual confirmation boundary'] : []),

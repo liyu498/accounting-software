@@ -3494,6 +3494,13 @@ function getModuleTabs(kind: ModuleKind) {
   if (kind === 'cashFlowReport') return ['现金流主表', '经营活动', '投资活动', '筹资活动', '凭证穿透', '计算日志']
   if (kind === 'cashFlowQuarterReport') return ['季度现金流', '经营活动', '投资活动', '筹资活动', '报送快照', '计算日志']
   if (kind === 'equityChangeReport') return ['权益变动表', '实收资本', '留存收益', '本期变动', '勾稽校验', '计算日志']
+  if (kind === 'aiJobQueue') return ['任务队列', '来源资料', '执行节点', '异常重试', '人工确认', '运行日志']
+  if (kind === 'aiRecognitionResults') return ['识别结果', 'OCR字段', '置信度', '业务匹配', '异常样本', '处理日志']
+  if (kind === 'aiVoucherSuggestions') return ['凭证建议', '来源资料', '科目建议', '借贷校验', '人工确认', '运行日志']
+  if (kind === 'aiRuleTraining') return ['规则样本', '触发条件', '训练版本', '命中统计', '发布审批', '运行日志']
+  if (kind === 'attachmentCenter') return ['附件清单', '关联单据', '文件校验', '归档状态', '异常文件', '操作日志']
+  if (kind === 'importCenter') return ['导入批次', '文件校验', '字段映射', '失败行', '写入记录', '操作日志']
+  if (kind === 'exportCenter') return ['导出任务', '输出模板', '生成状态', '下载记录', '失败原因', '操作日志']
   if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) return ['任务队列', '输入来源', '识别结果', '人工确认', '规则版本', '运行日志']
   if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report')) return ['账表清单', '取数明细', '凭证穿透', '勾稽校验', '输出模板', '计算日志']
   if (kind.includes('Archive') || kind.includes('Settings') || kind.includes('Rules') || ['settingsData', 'companyInfo', 'initialBalance', 'subjectSettings', 'unitSettings', 'periodManagement', 'auditLog', 'backupRestore', 'voucherRecycle'].includes(kind)) return ['配置清单', '生效范围', '关联规则', '变更记录', '审计证据', '操作日志']
@@ -3645,13 +3652,6 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
       metrics: [...commonMetrics, { label: '已归档回执', value: `${attachmentRows} 条`, tone: 'green' }],
     }
   }
-  if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) {
-    return {
-      title: 'AI人工确认范围',
-      description: '识别结果、凭证建议和训练规则只作为候选数据；低置信度、异常和规则变更均需要人工确认并写入审计记录。',
-      metrics: [...commonMetrics, { label: '已转凭证草稿', value: `${voucherRows} 条`, tone: 'green' }],
-    }
-  }
   const reportWorkspaceContext: Partial<Record<ModuleKind, { title: string; description: string; traceLabel: string }>> = {
     ledgerReport: { title: '账簿总览与勾稽范围', description: '总览只聚合余额表、总账、明细账与辅助账的取数状态；各账表仍需回查到科目、账期和凭证来源后才能结账或导出。', traceLabel: '可穿透记录' },
     trialBalanceReport: { title: '科目余额与试算范围', description: '期初、本期发生、累计发生与期末余额按科目及辅助维度核对。借贷试算不平时必须回查分录或期初来源。', traceLabel: '平衡依据' },
@@ -3675,6 +3675,23 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
       title: context.title,
       description: context.description,
       metrics: [...commonMetrics, { label: context.traceLabel, value: `${voucherRows} 条`, tone: 'green' }],
+    }
+  }
+  const aiWorkspaceContext: Partial<Record<ModuleKind, { title: string; description: string; evidenceLabel: string }>> = {
+    aiJobQueue: { title: 'AI任务执行范围', description: '任务队列只跟踪当前账套已登记的 OCR、分类和建议生成任务。异常重试不会覆盖原始资料，完成后仍需人工确认结果。', evidenceLabel: '来源资料' },
+    aiRecognitionResults: { title: 'OCR识别复核范围', description: '识别字段、置信度和业务匹配结果仅作为候选数据。低置信度、缺少影像或字段冲突必须人工修正后才能用于后续处理。', evidenceLabel: '识别影像' },
+    aiVoucherSuggestions: { title: '凭证建议确认范围', description: 'AI 只生成借贷科目和摘要建议，不能自行保存正式凭证。金额、辅助核算、附件和借贷平衡必须由会计人员确认。', evidenceLabel: '建议来源' },
+    aiRuleTraining: { title: '规则训练发布范围', description: '训练样本、触发条件、命中结果和版本需要分开审计。规则发布只影响后续建议，不会自动批量改写既有凭证或申报。', evidenceLabel: '训练样本' },
+    attachmentCenter: { title: '附件归档与关联范围', description: '附件中心只登记本机文件元数据、校验值和关联单据，不移动原文件、不上传第三方存储，也不自动修改凭证附件张数。', evidenceLabel: '已关联单据' },
+    importCenter: { title: '导入批次核验范围', description: '导入文件须先完成表头映射、候选行预览和失败行校验。只有人工确认的本地导入才会写入目标台账，不调用外部系统。', evidenceLabel: '已核验批次' },
+    exportCenter: { title: '导出文件留痕范围', description: '导出中心记录本地生成的 Excel、PDF 和打印包。下载记录不代表外部报送，敏感字段仍按当前账套权限和模板规则处理。', evidenceLabel: '已生成文件' },
+  }
+  if (aiWorkspaceContext[kind]) {
+    const context = aiWorkspaceContext[kind]!
+    return {
+      title: context.title,
+      description: context.description,
+      metrics: [...commonMetrics, { label: context.evidenceLabel, value: `${attachmentRows} 条`, tone: 'green' }],
     }
   }
   if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') {
