@@ -6783,6 +6783,26 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       await handleExportExcel()
       return
     }
+    if (kind === 'exportCenter') {
+      await handleExportExcel()
+      return
+    }
+    if (kind === 'declarationCalendar') {
+      runDeclarationPlanning()
+      return
+    }
+    if (kind === 'socialSecurity') {
+      prepareSocialSecurityVoucher()
+      return
+    }
+    if (kind === 'specialDeduction') {
+      syncSpecialDeductionRecords()
+      return
+    }
+    if (kind === 'receivablePayableAging') {
+      runAgingCalculation()
+      return
+    }
     if (isLedgerReportKind(kind)) {
       runLedgerCalculation()
       return
@@ -6817,6 +6837,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
       return
     }
+    if (kind === 'voucherRecycle') {
+      reviewControlEvidence('recycle')
+      return
+    }
     if (kind === 'invoiceVoucherMatching' && isTauri && selectedCompanyId) {
       setSelectedMatchInvoiceId((current) => current || invoices.find((invoice) => !invoice.voucher_id)?.id || '')
       setSelectedMatchVoucherId((current) => current || vouchers[0]?.id || '')
@@ -6834,6 +6858,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return
       }
       openDeclarationReceiptEditor(task)
+      return
+    }
+    if (kind === 'declarationReceipt') {
+      openTaxReceiptWorkflow()
       return
     }
     if (kind === 'taxInit' && usesLiveTaxInitData && selectedCompanyId) {
@@ -6944,6 +6972,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         writeModuleAudit('立即备份', `${title}-${auditScope}`, '高', '失败')
         setOperationNotice(`备份失败：${String(error)}`)
       }
+      return
+    }
+    if (kind === 'backupRestore') {
+      reviewImportArchiveData('backup')
       return
     }
 
@@ -10058,6 +10090,32 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const reviewTaxTaskData = () => {
     writeModuleAudit('复核申报取数与校验', `${currentPeriodLabel}｜税种与申报包`, '高', '待审批')
     setOperationNotice('已登记税务取数复核。税务认定、发票勾选、工资社保、纳税调整和地区政策需完成校验后才能生成待确认申报包。')
+  }
+
+  const runDeclarationPlanning = () => {
+    writeModuleAudit('生成申报计划', `${currentPeriodLabel}｜税种认定与截止日`, '高', '待审批')
+    setOperationNotice('已生成当前账期本地申报计划复核记录。计划依据税种认定、所属期和截止日整理，不会自动向税务机关提交申报或发起扣款。')
+  }
+
+  const prepareSocialSecurityVoucher = () => {
+    const ready = socialSecurityRecords.filter((record) => record.status === '已确认').length
+    const pending = socialSecurityRecords.filter((record) => record.status !== '已确认').length
+    writeModuleAudit('生成社保凭证准备', `${currentPeriodLabel}｜已确认 ${ready} 人，待确认 ${pending} 人`, '高', '待审批')
+    setOperationNotice(`已登记社保凭证准备。${ready} 条已确认社保记录可进入凭证草稿，${pending} 条待确认记录不会自动生成凭证，仍需人工核对缴费基数和单位/个人部分。`)
+  }
+
+  const syncSpecialDeductionRecords = () => {
+    const active = specialDeductionRecords.filter((record) => record.status === '已确认').length
+    const pending = specialDeductionRecords.filter((record) => record.status !== '已确认').length
+    writeModuleAudit('同步专项附加扣除', `${currentPeriodLabel}｜已确认 ${active} 条，待确认 ${pending} 条`, '高', '待审批')
+    setOperationNotice(`已登记专项附加扣除同步复核。${active} 条已确认记录可进入个税取数，${pending} 条待确认或异常记录需要补齐证明资料后再由人工确认。`)
+  }
+
+  const runAgingCalculation = () => {
+    const receivable = settlementRecords.filter((record) => record.settlementType === 'receivable').length
+    const payable = settlementRecords.filter((record) => record.settlementType === 'payable').length
+    writeModuleAudit('重算往来账龄', `${currentPeriodLabel}｜应收 ${receivable} 条，应付 ${payable} 条`, '中', '成功')
+    setOperationNotice(`已按当前账期重新整理往来账龄。应收 ${receivable} 条、应付 ${payable} 条的账龄和逾期金额仍需结合期末余额、核销记录和业务单据人工复核。`)
   }
 
   const runTaxDataCollection = () => {
