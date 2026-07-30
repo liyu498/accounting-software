@@ -111,6 +111,7 @@ const errors = [
   ...(!businessSource.includes('发票匹配规则范围') || !businessSource.includes('报表公式与勾稽范围') ? ['rule workspaces must show their own governance context'] : []),
   ...(!businessSource.includes('税局适配授权范围') || !businessSource.includes('银行适配授权范围') ? ['adapter workspaces must show their own authorization context'] : []),
   ...(!businessSource.includes('客户往来与应收范围') || !businessSource.includes('供应商往来与应付范围') ? ['customer and supplier archives must show their own accounting scope'] : []),
+  ...(!businessSource.includes("['账套概览', '会计制度', '账期控制', '打印输出', '权限策略', '变更日志']") ? ['account settings must expose its own control tabs'] : []),
   ...(!businessSource.includes('项目收入成本归集范围') || !businessSource.includes('部门费用归集范围') ? ['project and department archives must show their own accounting scope'] : []),
   ...(!businessSource.includes('账户档案与流水范围') || !businessSource.includes('辅助核算项目引用范围') ? ['account and auxiliary archives must show their own accounting scope'] : []),
   ...(!businessSource.includes('新增 AI 处理任务') ? ['AI task queue must provide a dedicated task editor'] : []),

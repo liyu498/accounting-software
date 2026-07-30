@@ -3451,6 +3451,9 @@ function getModuleListMeta(kind: ModuleKind, title: string): ModuleListMeta {
 }
 
 function getModuleDetailMeta(kind: ModuleKind, title: string): ModuleDetailMeta {
+  if (kind === 'settingsData') {
+    return { title: '账套设置控制明细', boundary: '查看只读取当前账套的会计制度、账期、输出和权限控制配置；修改已结账账期、授权范围或历史数据必须进入对应受控模块。' }
+  }
   if (isHistoryMigrationKind(kind)) {
     return { title: '历史账迁移明细', boundary: '查看只读取所选历史账期、原始导入批次、科目映射和校验结果；迁移写入必须由人工选择目标账期，并不会覆盖当前账期。' }
   }
@@ -3498,6 +3501,7 @@ function getModuleDetailMeta(kind: ModuleKind, title: string): ModuleDetailMeta 
 
 function getModuleTableMeta(kind: ModuleKind): ModuleTableMeta {
   const defaultMeta: ModuleTableMeta = { statusLabel: '处理状态', voucherLabel: '关联凭证', attachmentLabel: '附件', showVoucher: true, showAttachment: true }
+  if (kind === 'settingsData') return { statusLabel: '生效状态', voucherLabel: '关联控制', attachmentLabel: '配置依据', showVoucher: false, showAttachment: false }
   if (isHistoryMigrationKind(kind)) {
     return { statusLabel: '迁移校验', voucherLabel: '历史凭证', attachmentLabel: '来源文件', showVoucher: kind !== 'historyBalance' && kind !== 'historyGeneralLedger', showAttachment: true }
   }
@@ -3581,6 +3585,7 @@ function getModuleTabs(kind: ModuleKind) {
   if (kind === 'socialSecurity') return ['缴费明细', '人员基数', '申报核对', '凭证关联', '资料附件', '处理日志']
   if (kind === 'specialDeduction') return ['扣除清单', '人员资料', '有效期间', '个税取数', '证明附件', '处理日志']
   if (kind === 'companyInfo') return ['企业资料', '工商登记', '税务信息', '办税授权', '服务账期', '变更记录']
+  if (kind === 'settingsData') return ['账套概览', '会计制度', '账期控制', '打印输出', '权限策略', '变更日志']
   if (kind === 'initialBalance') return ['期初清单', '辅助期初', '试算平衡', '迁移差异', '启用控制', '操作日志']
   if (kind === 'subjectSettings') return ['科目清单', '科目属性', '辅助核算', '报表映射', '启停记录', '变更日志']
   if (kind === 'tagArchive') return ['标签清单', '适用模块', '筛选口径', '业务引用', '启停记录', '变更日志']
