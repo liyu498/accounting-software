@@ -10969,11 +10969,28 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'declarationReceipt' && <TaxReceiptWorkflowPanel onOpen={openTaxReceiptWorkflow} onReview={reviewTaxTaskData} />}
 
-        {kind === 'attachmentCenter' && <AttachmentWorkflowPanel onUpload={handleImportAction} onReview={() => reviewImportArchiveData('attachment')} />}
+        {kind === 'attachmentCenter' && (
+          <AttachmentWorkflowPanel
+            onUpload={handleImportAction}
+            onReview={() => reviewImportArchiveData('attachment')}
+            records={localAttachmentRecords}
+          />
+        )}
 
-        {kind === 'importCenter' && <ImportWorkflowPanel onImport={handleImportAction} onReview={() => reviewImportArchiveData('import')} />}
+        {kind === 'importCenter' && (
+          <ImportWorkflowPanel
+            onImport={handleImportAction}
+            onReview={() => reviewImportArchiveData('import')}
+            jobs={localImportJobs}
+          />
+        )}
 
-        {kind === 'exportCenter' && <ExportWorkflowPanel onReview={() => reviewImportArchiveData('export')} />}
+        {kind === 'exportCenter' && (
+          <ExportWorkflowPanel
+            onReview={() => reviewImportArchiveData('export')}
+            rows={config.rows}
+          />
+        )}
 
         {kind === 'backupRestore' && <BackupWorkflowPanel onBackup={() => void handlePrimaryAction()} onReview={() => reviewImportArchiveData('backup')} />}
 
@@ -13504,7 +13521,10 @@ function TaxReceiptWorkflowPanel({ onOpen, onReview }: { onOpen: () => void; onR
   )
 }
 
-function AttachmentWorkflowPanel({ onUpload, onReview }: { onUpload: () => void; onReview: () => void }) {
+function AttachmentWorkflowPanel({ onUpload, onReview, records }: { onUpload: () => void; onReview: () => void; records: LocalAttachmentRecord[] }) {
+  const pending = records.filter((record) => record.status === '待确认').length
+  const associated = records.filter((record) => record.status === '已关联').length
+  const totalSize = records.reduce((total, record) => total + record.fileSize, 0)
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="附件来源与归档完整性">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13519,10 +13539,10 @@ function AttachmentWorkflowPanel({ onUpload, onReview }: { onUpload: () => void;
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          ['已归档附件', '186 份', '来源与关联单据可追溯'],
-          ['待关联单据', '8 份', '需要绑定业务记录'],
-          ['哈希校验', '174 份通过', '文件变更可被识别'],
-          ['缺失资料', '4 份', '阻断凭证或申报归档'],
+          ['当前账套附件', `${records.length} 份`, '仅统计本机登记记录'],
+          ['待关联单据', `${pending} 份`, '需要绑定业务记录'],
+          ['已关联单据', `${associated} 份`, '来源与关联单据可追溯'],
+          ['登记文件大小', formatLocalFileSize(totalSize), '哈希已在登记时计算'],
         ].map(([label, value, detail]) => (
           <div key={label} className="border border-slate-200 bg-white p-2.5">
             <div className="text-xs text-slate-500">{label}</div>
@@ -13535,7 +13555,10 @@ function AttachmentWorkflowPanel({ onUpload, onReview }: { onUpload: () => void;
   )
 }
 
-function ImportWorkflowPanel({ onImport, onReview }: { onImport: () => void; onReview: () => void }) {
+function ImportWorkflowPanel({ onImport, onReview, jobs }: { onImport: () => void; onReview: () => void; jobs: LocalImportJob[] }) {
+  const pending = jobs.filter((job) => job.status === '待确认' || job.status === '已校验').length
+  const committed = jobs.filter((job) => job.status === '已写入').length
+  const failedRows = jobs.reduce((total, job) => total + (job.failedRowCount || 0), 0)
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="导入批次解析与字段映射">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13550,10 +13573,10 @@ function ImportWorkflowPanel({ onImport, onReview }: { onImport: () => void; onR
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          ['本期批次', '24 批', '模板与来源文件已登记'],
-          ['待映射字段', '6 列', '必须确认目标字段'],
-          ['错误行', '7 行', '保留原始行供修复'],
-          ['可提交批次', '16 批', '仍需人工确认写入'],
+          ['当前账套批次', `${jobs.length} 批`, '模板与来源文件已登记'],
+          ['待确认批次', `${pending} 批`, '必须确认字段映射与目标台账'],
+          ['失败行', `${failedRows} 行`, '保留原始行供修复'],
+          ['已写入批次', `${committed} 批`, '写入后仍可追溯批次和失败行'],
         ].map(([label, value, detail]) => (
           <div key={label} className="border border-slate-200 bg-white p-2.5">
             <div className="text-xs text-slate-500">{label}</div>
@@ -13566,7 +13589,10 @@ function ImportWorkflowPanel({ onImport, onReview }: { onImport: () => void; onR
   )
 }
 
-function ExportWorkflowPanel({ onReview }: { onReview: () => void }) {
+function ExportWorkflowPanel({ onReview, rows }: { onReview: () => void; rows: ModuleRow[] }) {
+  const completed = rows.filter((row) => row.status === '已通过').length
+  const pending = rows.filter((row) => row.status === '待确认' || row.status === '待处理').length
+  const failed = rows.filter((row) => row.status === '异常').length
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="导出文件留痕与下载控制">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13578,10 +13604,10 @@ function ExportWorkflowPanel({ onReview }: { onReview: () => void }) {
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          ['已生成文件', '36 份', 'Excel、PDF 与 ZIP'],
-          ['可下载', '28 份', '保留文件哈希与操作人'],
-          ['待生成', '5 份', '等待取数或确认'],
-          ['下载异常', '3 份', '需要重新生成或检查模板'],
+          ['当前导出任务', `${rows.length} 份`, 'Excel、PDF 与打印包'],
+          ['已生成文件', `${completed} 份`, '保留模块、哈希与操作人'],
+          ['待生成文件', `${pending} 份`, '等待取数或人工确认'],
+          ['生成异常', `${failed} 份`, '需要重新生成或检查模板'],
         ].map(([label, value, detail]) => (
           <div key={label} className="border border-slate-200 bg-white p-2.5">
             <div className="text-xs text-slate-500">{label}</div>
