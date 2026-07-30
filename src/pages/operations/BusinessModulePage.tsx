@@ -4929,8 +4929,37 @@ function summarizeLiveBankTransactions(bankTransactions: BankTransaction[], kind
   ]
 }
 function mapLiveBankReconciliationRows(records: BankReconciliationRecord[]): ModuleRow[] { return records.map((record) => ({ id:record.id,status:record.status==='异常'?'异常':record.differenceAmount===0?'已匹配':'待处理',voucher:record.voucherNo||'待关联',attachment:record.note||'待补说明',values:{account:record.accountName,statementNo:record.transactionNo,date:record.reconciliationDate,summary:record.summary||'-',bankAmount:payrollCurrency(record.bankAmount),bookAmount:payrollCurrency(record.bookAmount),difference:payrollCurrency(record.differenceAmount),matchStatus:record.matchStatus} })) }
+function summarizeLiveBankReconciliation(records: BankReconciliationRecord[]): ModuleConfig['summary'] {
+  const bankBalance = records.reduce((sum, record) => sum + record.bankAmount, 0)
+  const bookBalance = records.reduce((sum, record) => sum + record.bookAmount, 0)
+  const unmatched = records.filter((record) => record.differenceAmount !== 0 || !/已匹配|自动匹配/.test(record.matchStatus)).length
+  const difference = records.reduce((sum, record) => sum + Math.abs(record.differenceAmount), 0)
+  return [
+    { label: '银行余额', value: payrollCurrency(bankBalance), tone: records.length > 0 ? 'blue' : 'gray' },
+    { label: '账面余额', value: payrollCurrency(bookBalance), tone: records.length > 0 ? 'green' : 'gray' },
+    { label: '未达账项', value: `${unmatched} 笔`, tone: unmatched > 0 ? 'amber' : 'gray' },
+    { label: '差异金额', value: payrollCurrency(difference), tone: difference > 0 ? 'red' : 'gray' },
+  ]
+}
 function mapLiveSettlementRecordRows(records: SettlementRecord[], settlementType: 'receivable' | 'payable'): ModuleRow[] { return records.filter((record) => record.settlementType === settlementType).map((record) => ({ id: record.id, status: record.status === '异常' ? '异常' : record.balanceAmount === 0 ? '已匹配' : '待确认', voucher: record.transactionNo || '待关联流水', attachment: record.sourceDocument || '待补附件', values: settlementType === 'receivable' ? { customer: record.counterparty, invoiceNo: record.invoiceNo || record.settlementNo, receivable: payrollCurrency(record.totalAmount), receipt: record.transactionNo || '待匹配流水', settled: payrollCurrency(record.settledAmount), balance: payrollCurrency(record.balanceAmount), method: record.settlementMethod, owner: record.owner || '待分配' } : { supplier: record.counterparty, invoiceNo: record.invoiceNo || record.settlementNo, payable: payrollCurrency(record.totalAmount), payment: record.transactionNo || '待匹配流水', settled: payrollCurrency(record.settledAmount), balance: payrollCurrency(record.balanceAmount), method: record.settlementMethod, owner: record.owner || '待分配' } })) }
-function mapLiveSettlementAgingRows(records: SettlementRecord[]): ModuleRow[] { return records.filter((record) => record.balanceAmount > 0).map((record) => { const days = Math.max(0, Math.floor((Date.now() - new Date(record.settlementDate).getTime()) / 86400000)); return { id: record.id, status: record.status === '异常' ? '异常' : '待确认', voucher: record.transactionNo || '待关联流水', attachment: record.sourceDocument || '待补附件', values: { counterparty: record.counterparty, subject: record.settlementType === 'receivable' ? '应收账款' : '应付账款', direction: record.settlementType === 'receivable' ? '借方' : '贷方', balance: payrollCurrency(record.balanceAmount), age: days <= 30 ? '0-30天' : days <= 60 ? '31-60天' : days <= 90 ? '61-90天' : '90天以上', overdue: `${days} 天`, lastVoucher: record.transactionNo || '待关联流水', owner: record.owner || '待分配' } } }) }
+function settlementAgeDays(record: SettlementRecord) {
+  const timestamp = new Date(record.settlementDate).getTime()
+  return Number.isFinite(timestamp) ? Math.max(0, Math.floor((Date.now() - timestamp) / 86400000)) : 0
+}
+function mapLiveSettlementAgingRows(records: SettlementRecord[]): ModuleRow[] { return records.filter((record) => record.balanceAmount > 0).map((record) => { const days = settlementAgeDays(record); const overdue = days > 30; return { id: record.id, status: record.status === '异常' ? '异常' : '待确认', voucher: record.transactionNo || '待关联流水', attachment: record.sourceDocument || '待补附件', values: { counterparty: record.counterparty, subject: record.settlementType === 'receivable' ? '应收账款' : '应付账款', direction: record.settlementType === 'receivable' ? '借方' : '贷方', balance: payrollCurrency(record.balanceAmount), age: days <= 30 ? '0-30天' : days <= 60 ? '31-60天' : days <= 90 ? '61-90天' : '90天以上', overdue: overdue ? payrollCurrency(record.balanceAmount) : '¥0.00', lastVoucher: record.transactionNo || '待关联流水', owner: record.owner || '待分配' } } }) }
+function summarizeLiveSettlementAging(records: SettlementRecord[]): ModuleConfig['summary'] {
+  const outstanding = records.filter((record) => record.balanceAmount > 0)
+  const receivable = outstanding.filter((record) => record.settlementType === 'receivable')
+  const payable = outstanding.filter((record) => record.settlementType === 'payable')
+  const overdue = outstanding.filter((record) => settlementAgeDays(record) > 30)
+  const highRisk = outstanding.filter((record) => record.status === '异常' || settlementAgeDays(record) > 90)
+  return [
+    { label: '应收余额', value: payrollCurrency(receivable.reduce((sum, record) => sum + record.balanceAmount, 0)), tone: receivable.length > 0 ? 'blue' : 'gray' },
+    { label: '应付余额', value: payrollCurrency(payable.reduce((sum, record) => sum + record.balanceAmount, 0)), tone: payable.length > 0 ? 'green' : 'gray' },
+    { label: '逾期金额', value: payrollCurrency(overdue.reduce((sum, record) => sum + record.balanceAmount, 0)), tone: overdue.length > 0 ? 'amber' : 'gray' },
+    { label: '高风险往来', value: `${new Set(highRisk.map((record) => record.counterparty)).size} 户`, tone: highRisk.length > 0 ? 'red' : 'gray' },
+  ]
+}
 
 function mapLiveDocumentRecordRows(documentRecords: DocumentRecord[]): ModuleRow[] {
   return documentRecords.map((record) => ({
@@ -6271,10 +6300,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'incomeTaxReport' && usesLiveReportData && liveReports.incomeStatement) return { ...baseConfig, rows: mapLiveIncomeTaxRows(liveReports.incomeStatement), summary: summarizeLiveIncomeTax(liveReports.incomeStatement) }
     if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
     if ((kind === 'billList' || kind === 'bankStatement') && (usesLiveBankTransactionData || bankTransactions.length > 0)) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, effectiveBusinessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
-    if (kind === 'bankReconciliation' && (usesLiveBankReconciliationRecordData || bankReconciliationRecords.length > 0)) return { ...baseConfig, rows: mapLiveBankReconciliationRows(bankReconciliationRecords) }
+    if (kind === 'bankReconciliation' && (usesLiveBankReconciliationRecordData || bankReconciliationRecords.length > 0)) return { ...baseConfig, rows: mapLiveBankReconciliationRows(bankReconciliationRecords), summary: summarizeLiveBankReconciliation(bankReconciliationRecords) }
     if (kind === 'receivableSettlement' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'receivable') }
     if (kind === 'payableSettlement' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'payable') }
-    if (kind === 'receivablePayableAging' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementAgingRows(settlementRecords) }
+    if (kind === 'receivablePayableAging' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementAgingRows(settlementRecords), summary: summarizeLiveSettlementAging(settlementRecords) }
     if (kind === 'documentRegister' && (usesLiveDocumentRecordData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveDocumentRecordRows(documentRecords), summary: summarizeLiveDocumentRecords(documentRecords) }
     if (kind === 'contractLedger' && (usesLiveDocumentRecordData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveContractLedgerRows(documentRecords), summary: summarizeLiveContractLedger(documentRecords) }
     if (kind === 'stampTaxReport' && (usesLiveStampTaxData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveStampTaxRows(documentRecords), summary: summarizeLiveStampTax(documentRecords) }
@@ -11256,6 +11285,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'bankReconciliation' && (
           <BankReconciliationWorkflowPanel
+            summary={config.summary}
             onAdd={openBankReconciliationEditor}
             onReview={reviewBankReconciliation}
           />
@@ -11270,7 +11300,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           />
         )}
 
-        {kind === 'receivablePayableAging' && <AgingWorkflowPanel onReview={reviewAging} />}
+        {kind === 'receivablePayableAging' && <AgingWorkflowPanel summary={config.summary} onReview={reviewAging} />}
 
         {kind === 'closingTasks' && <ClosingWorkflowPanel summary={config.summary} onReview={reviewClosingTasks} onRun={() => void handlePrimaryAction()} />}
 
@@ -13139,13 +13169,7 @@ function CostCarryoverWorkflowPanel({
   )
 }
 
-function BankReconciliationWorkflowPanel({
-  onAdd,
-  onReview,
-}: {
-  onAdd: () => void
-  onReview: () => void
-}) {
+function BankReconciliationWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="银行对账与未达项处理">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13159,16 +13183,11 @@ function BankReconciliationWorkflowPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 md:grid-cols-4">
-        {[
-          ['银行余额', '¥1,428,650.72', '来源为已导入账单'],
-          ['账面余额', '¥1,426,930.72', '来源为当前账期凭证'],
-          ['未达账项', '6 笔', '保留调节和复核状态'],
-          ['差异金额', '¥1,720.00', '差异不自动改账'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label === '未达账项' ? '保留调节和复核状态' : item.label === '差异金额' ? '差异不自动改账' : '按当前账套对账记录实时汇总'}</div>
           </div>
         ))}
       </div>
@@ -13215,7 +13234,7 @@ function SettlementWorkflowPanel({
   )
 }
 
-function AgingWorkflowPanel({ onReview }: { onReview: () => void }) {
+function AgingWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="往来账龄与风险处置">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13226,16 +13245,11 @@ function AgingWorkflowPanel({ onReview }: { onReview: () => void }) {
         <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="重算账龄风险" onClick={onReview} />
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['应收余额', '¥642,300.00', '按客户及科目汇总'],
-          ['应付余额', '¥388,920.00', '按供应商及科目汇总'],
-          ['逾期金额', '¥96,800.00', '账龄超过约定区间'],
-          ['高风险往来', '5 户', '需进入人工处置队列'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label === '高风险往来' ? '需进入人工处置队列' : item.label === '逾期金额' ? '账龄超过 30 天的未核销余额' : '按当前账套往来核销记录实时重算'}</div>
           </div>
         ))}
       </div>

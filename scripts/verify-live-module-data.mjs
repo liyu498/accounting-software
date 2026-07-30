@@ -139,6 +139,18 @@ const requiredLedgerWorkflowSummarySnippets = [
   ['closing summary uses pending confirmation label', "{ label: '待确认', value: `${pending} 项`, tone: pending > 0 ? 'amber' : 'gray' }"],
 ]
 
+const requiredReconciliationAndAgingWorkflowSummarySnippets = [
+  ['bank reconciliation live summary mapper', 'function summarizeLiveBankReconciliation(records: BankReconciliationRecord[]): ModuleConfig[\'summary\']'],
+  ['bank reconciliation config summary binding', 'summary: summarizeLiveBankReconciliation(bankReconciliationRecords)'],
+  ['bank reconciliation workflow receives live summary', '<BankReconciliationWorkflowPanel\n            summary={config.summary}'],
+  ['bank reconciliation workflow summary contract', 'function BankReconciliationWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig[\'summary\'] })'],
+  ['aging live summary mapper', 'function summarizeLiveSettlementAging(records: SettlementRecord[]): ModuleConfig[\'summary\']'],
+  ['aging config summary binding', 'summary: summarizeLiveSettlementAging(settlementRecords)'],
+  ['aging workflow receives live summary', '<AgingWorkflowPanel summary={config.summary} onReview={reviewAging} />'],
+  ['aging workflow summary contract', 'function AgingWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig[\'summary\'] })'],
+  ['aging workflow renders current summary', '按当前账套往来核销记录实时重算'],
+]
+
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
@@ -1564,6 +1576,7 @@ const errors = [
   ...verify(pageSource, requiredClosingPrecheckSnippets, 'closing precheck boundary'),
   ...verify(pageSource, requiredLedgerWorkflowSummarySnippets.slice(0, 3), 'cost and settlement workflow panels'),
   ...verify(adapterSource, requiredLedgerWorkflowSummarySnippets.slice(3), 'closing task adapter'),
+  ...verify(pageSource, requiredReconciliationAndAgingWorkflowSummarySnippets, 'reconciliation and aging workflow panels'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
