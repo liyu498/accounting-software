@@ -870,6 +870,17 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     expiresAt: '',
     riskMessage: '',
   })
+  const [showAutomationReviewDialog, setShowAutomationReviewDialog] = useState(false)
+  const [automationReviewDraft, setAutomationReviewDraft] = useState({
+    id: '',
+    companyId: '',
+    taskName: '',
+    status: 'reviewing',
+    confidence: '',
+    riskLevel: 'normal',
+    reviewer: 'admin',
+    resultSummary: '',
+  })
   const pageConfig = useMemo(() => getAgencyTabConfig(config, activeTab, isTauri), [activeTab, config])
   const overviewRows = useMemo(
     () => agencyOverview ? mapAgencyOverviewRows(agencyOverview, activeTab) : [],
@@ -1119,6 +1130,20 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     setShowAuthorizationDialog(true)
   }
 
+  const openAutomationReview = (row: AgencyRow) => {
+    setAutomationReviewDraft({
+      id: row.id,
+      companyId: row.values.companyId || 'browser-preview',
+      taskName: row.values.name || row.id,
+      status: row.values.jobStatus || 'reviewing',
+      confidence: row.values.confidenceValue || '',
+      riskLevel: row.values.riskLevel || 'normal',
+      reviewer: row.values.reviewer || 'admin',
+      resultSummary: row.values.resultSummary || row.values.result || '',
+    })
+    setShowAutomationReviewDialog(true)
+  }
+
   const handleProcessRow = async (row: AgencyRow) => {
     const object = rowObjectLabel(row)
     if (kind === 'batchOps') {
@@ -1180,6 +1205,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
     if (kind === 'authorizationCenter') {
       await openAuthorizationEditor(row)
+      return
+    }
+
+    if (kind === 'automation') {
+      openAutomationReview(row)
       return
     }
 
@@ -1598,6 +1628,32 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     void loadRemoteRows()
   }
 
+  const handleSaveAutomationReview = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const confidence = automationReviewDraft.confidence.trim() === '' ? undefined : Number(automationReviewDraft.confidence)
+    if (confidence !== undefined && (!Number.isFinite(confidence) || confidence < 0 || confidence > 1)) {
+      setOperationNotice('AI 置信度应填写 0 到 1 之间的数值。')
+      return
+    }
+    const result = await automationApi.updateAutomationJobStatus({
+      id: automationReviewDraft.id,
+      companyId: automationReviewDraft.companyId,
+      status: automationReviewDraft.status,
+      confidence,
+      riskLevel: automationReviewDraft.riskLevel,
+      reviewer: automationReviewDraft.reviewer || undefined,
+      resultSummary: automationReviewDraft.resultSummary || undefined,
+    })
+    if (!result.success || !result.data) {
+      setOperationNotice(`保存任务复核失败：${result.error || '未知错误'}`)
+      return
+    }
+    writeAgencyAudit('保存自动化复核', `${automationReviewDraft.taskName}｜${automationReviewDraft.status}`, automationReviewDraft.riskLevel === 'high' ? '高' : '中', automationReviewDraft.status === 'failed' ? '失败' : '成功')
+    setShowAutomationReviewDialog(false)
+    setOperationNotice('自动化任务复核已保存到本地队列；凭证生成、结账和税务申报仍需进入对应模块人工确认。')
+    void loadRemoteRows()
+  }
+
   const handleCreateAuthorization = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const result = await automationApi.upsertAdapterAuthorization({
@@ -1827,6 +1883,49 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
               <button type="button" onClick={() => { setShowCollaborationDialog(false); resetCollaborationEditor() }} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
               <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingCollaborationId ? '保存协同变更' : '保存协同事项'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+      {showAutomationReviewDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+          <form onSubmit={handleSaveAutomationReview} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">复核自动化任务</h2>
+                <p className="mt-1 text-xs text-slate-500">{automationReviewDraft.taskName}。复核仅更新本地任务结论，不自动入账、结账或提交申报。</p>
+              </div>
+              <button type="button" onClick={() => setShowAutomationReviewDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>复核状态</span>
+                <select value={automationReviewDraft.status} onChange={(event) => setAutomationReviewDraft((draft) => ({ ...draft, status: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="queued">待处理</option><option value="reviewing">复核中</option><option value="completed">已完成</option><option value="failed">已驳回/失败</option>
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>AI 置信度</span>
+                <input min="0" max="1" step="0.01" type="number" value={automationReviewDraft.confidence} onChange={(event) => setAutomationReviewDraft((draft) => ({ ...draft, confidence: event.target.value }))} placeholder="例如：0.92" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>风险级别</span>
+                <select value={automationReviewDraft.riskLevel} onChange={(event) => setAutomationReviewDraft((draft) => ({ ...draft, riskLevel: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  <option value="normal">正常</option><option value="medium">中风险</option><option value="high">高风险</option>
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>复核人</span>
+                <input value={automationReviewDraft.reviewer} onChange={(event) => setAutomationReviewDraft((draft) => ({ ...draft, reviewer: event.target.value }))} className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                <span>复核结论</span>
+                <textarea rows={4} value={automationReviewDraft.resultSummary} onChange={(event) => setAutomationReviewDraft((draft) => ({ ...draft, resultSummary: event.target.value }))} placeholder="记录识别依据、人工调整和下一步处理意见" className="w-full resize-y border border-slate-300 px-2 py-1.5 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowAutomationReviewDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存复核结论</button>
             </div>
           </form>
         </div>
@@ -2264,6 +2363,12 @@ function mapAgencyAutomationJobRow(item: AutomationJob): AgencyRow {
       confidence: item.confidence === null ? '-' : `${Math.round(item.confidence * 100)}%`,
       confirm: item.riskLevel === 'high' ? '必须人工确认' : item.reviewer || '人工复核',
       result: item.resultSummary || item.status,
+      companyId: item.companyId,
+      jobStatus: item.status,
+      confidenceValue: item.confidence === null ? '' : String(item.confidence),
+      riskLevel: item.riskLevel,
+      reviewer: item.reviewer || '',
+      resultSummary: item.resultSummary || '',
     },
   }
 }
