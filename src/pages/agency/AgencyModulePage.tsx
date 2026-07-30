@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Activity,
@@ -36,6 +36,7 @@ import { usePeriodStore } from '../../stores/periodStore'
 import { exportHtmlToPdf } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useExportJobs, type ExportJob } from '../../lib/exportJobs'
+import { recordLocalImportJob } from '../../lib/localFileRegistry'
 
 export type AgencyModuleKind =
   | 'clients'
@@ -818,6 +819,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
+  const importFileRef = useRef<HTMLInputElement>(null)
   const [localRows, setLocalRows] = useState<AgencyRow[]>([])
   const [detailRow, setDetailRow] = useState<AgencyRow | null>(null)
   const [showBatchTaskDialog, setShowBatchTaskDialog] = useState(false)
@@ -1256,8 +1258,34 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       navigate('/?importCompanies=1')
       return
     }
-    writeAgencyAudit('导入资料', `${pageConfig.title}-导入批次`, '中', '待审批')
-    setOperationNotice('导入任务已进入待确认留痕；后续会接入文件选择、字段映射和错误清单。')
+    importFileRef.current?.click()
+  }
+
+  const handleAgencyImportFiles = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+    try {
+      const jobs = await Promise.all(files.map((file) => recordLocalImportJob({
+        companyId: 'agency-workspace',
+        period: agencyPeriodLabel,
+        moduleName: `机构-${pageConfig.title}`,
+        operation: toolbarMeta.importLabel || '导入资料',
+        operator: 'admin',
+        file,
+      })))
+      const completed = jobs.filter(Boolean).length
+      const parsed = jobs.filter((job): job is NonNullable<typeof job> => Boolean(job))
+      const preview = parsed[0]
+      files.forEach((file) => writeAgencyAudit(toolbarMeta.importLabel || '导入资料', `${pageConfig.title}-${file.name}`, '中', '待审批'))
+      setOperationNotice(
+        `已登记 ${completed} 个机构导入批次${preview ? `；首个文件识别 ${preview.rowCount ?? 0} 条候选行、${preview.columnPreview.length} 个字段` : ''}。当前仅保存文件校验值、结构预览和待确认状态，不会直接改写客户账套。`,
+      )
+    } catch (error) {
+      writeAgencyAudit(toolbarMeta.importLabel || '导入资料', `${pageConfig.title}-导入批次`, '中', '失败')
+      setOperationNotice(`登记机构导入批次失败：${String(error)}`)
+    } finally {
+      event.target.value = ''
+    }
   }
 
   const handlePrimaryAction = async () => {
@@ -1596,6 +1624,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   return (
     <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
+      <input ref={importFileRef} type="file" multiple accept=".xlsx,.csv,.pdf,.ofd,.zip,.jpg,.jpeg,.png" className="hidden" onChange={(event) => void handleAgencyImportFiles(event)} />
       {showContractDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
           <form onSubmit={handleCreateContract} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
