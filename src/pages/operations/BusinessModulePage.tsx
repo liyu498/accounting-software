@@ -3383,6 +3383,21 @@ function getModuleListMeta(kind: ModuleKind, title: string): ModuleListMeta {
 
   if (metadata[kind]) return metadata[kind]
 
+  const archiveListMeta: Partial<Record<ModuleKind, ModuleListMeta>> = {
+    settingsData: { title: '账套设置与启用控制清单', hint: '集中查看当前账套的会计制度、账期、打印、权限和自动化基础开关。', exportHint: '导出保留设置项、生效范围、变更人、变更时间和审计说明。' },
+    accountArchive: { title: '银行及现金账户档案清单', hint: '维护开户行、账户性质、默认科目、期初余额和流水导入范围。', exportHint: '导出保留账户信息、默认科目、期初口径、启停状态和支持材料。' },
+    customerArchive: { title: '客户往来与辅助核算清单', hint: '维护客户编码、税号、默认应收科目、信用口径和业务引用。', exportHint: '导出保留客户资料、默认科目、信用等级、启停状态和业务引用。' },
+    supplierArchive: { title: '供应商往来与采购核算清单', hint: '维护供应商编码、税号、默认应付科目、采购结算和进项票关联。', exportHint: '导出保留供应商资料、默认科目、结算条件、启停状态和业务引用。' },
+    otherContactArchive: { title: '其他往来单位档案清单', hint: '维护员工、股东、关联方及其他往来单位的辅助核算和默认科目。', exportHint: '导出保留往来单位、分类、默认科目、启停状态和业务引用。' },
+    projectArchive: { title: '项目辅助核算清单', hint: '维护项目编码、所属客户、收入成本归集范围、负责人和启停状态。', exportHint: '导出保留项目资料、客户关联、归集口径、负责人和业务引用。' },
+    departmentArchive: { title: '部门费用归集清单', hint: '维护部门层级、成本费用归集、人员关联和默认核算口径。', exportHint: '导出保留部门资料、上级部门、归集口径、负责人和业务引用。' },
+    tagArchive: { title: '业务标签与筛选口径清单', hint: '维护标签分类、适用业务、筛选口径和启停记录，不改变原始业务数据。', exportHint: '导出保留标签名称、适用模块、生效范围、启停状态和变更记录。' },
+    assetCategory: { title: '资产类别与折旧参数清单', hint: '维护资产类别、折旧年限、残值率、计提科目和适用资产范围。', exportHint: '导出保留资产类别、折旧参数、默认科目、启停状态和支持材料。' },
+    auxiliaryCategories: { title: '辅助核算类别清单', hint: '维护辅助核算类别、适用科目、项目数量和启停控制。', exportHint: '导出保留辅助类别、适用科目、启停状态和变更记录。' },
+    auxiliaryItems: { title: '辅助核算项目清单', hint: '维护各辅助类别下的项目资料、默认科目和业务引用。', exportHint: '导出保留辅助项目、所属类别、默认科目、启停状态和业务引用。' },
+  }
+  if (archiveListMeta[kind]) return archiveListMeta[kind]!
+
   if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) {
     return {
       title: 'AI 队列与建议处理清单',
@@ -3712,7 +3727,6 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
     }
   }
   const governanceWorkspaceContext: Partial<Record<ModuleKind, { title: string; description: string; evidenceLabel: string }>> = {
-    tagArchive: { title: '业务标签与筛选口径范围', description: '标签仅用于当前账套的检索、筛选和规则适用范围，不会改变原始凭证、单据或报表金额。启停和合并标签需要保留变更记录。', evidenceLabel: '业务引用' },
     unitSettings: { title: '计量单位与换算范围', description: '单位和换算关系用于存货、采购、销售及导入字段解释。变更前应复核已引用存货，不能回写历史出入库数量。', evidenceLabel: '适用存货' },
     periodManagement: { title: '账期结账与锁定范围', description: '账期关闭前必须完成风险、凭证、税表和结转校验；反结账、删除和锁定解除属于高风险操作，需要审批与审计留痕。', evidenceLabel: '结账依据' },
     auditLog: { title: '账套操作审计范围', description: '审计日志只追加当前账套的操作人、对象、结果、风险等级和证据索引，不提供修改、删除或覆盖历史审计记录的入口。', evidenceLabel: '审计证据' },
@@ -3730,6 +3744,27 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
   }
   if (governanceWorkspaceContext[kind]) {
     const context = governanceWorkspaceContext[kind]!
+    return {
+      title: context.title,
+      description: context.description,
+      metrics: [...commonMetrics, { label: context.evidenceLabel, value: `${attachmentRows} 条`, tone: 'green' }],
+    }
+  }
+  const archiveWorkspaceContext: Partial<Record<ModuleKind, { title: string; description: string; evidenceLabel: string }>> = {
+    settingsData: { title: '账套设置与启用范围', description: '账套设置只定义当前公司的会计制度、账期和本地功能开关。涉及已结账账期、凭证或外部授权的变更必须回到对应受控模块处理。', evidenceLabel: '变更依据' },
+    accountArchive: { title: '账户档案与流水范围', description: '账户资料定义银行流水导入、默认科目和余额核对范围。不会保存网银密码，也不从账户档案页直接发起付款或修改银行流水。', evidenceLabel: '开户材料' },
+    customerArchive: { title: '客户往来与应收范围', description: '客户档案用于应收、销项发票、项目和辅助核算归集。删除或停用前必须核查未核销应收、发票和历史凭证引用。', evidenceLabel: '客户资料' },
+    supplierArchive: { title: '供应商往来与应付范围', description: '供应商档案用于采购、进项发票、应付核销和成本核算。删除或停用前必须核查未核销应付、进项票和历史凭证引用。', evidenceLabel: '供应商资料' },
+    otherContactArchive: { title: '其他往来辅助核算范围', description: '其他往来单位用于员工、股东和关联方辅助核算。分类和默认科目变更只影响后续录入，不回写历史分录。', evidenceLabel: '往来资料' },
+    projectArchive: { title: '项目收入成本归集范围', description: '项目档案用于收入、成本、费用和合同的辅助归集。项目关闭前应核对未完工业务、收入成本余额和关联凭证。', evidenceLabel: '项目资料' },
+    departmentArchive: { title: '部门费用归集范围', description: '部门档案用于人员、报销、工资和费用的辅助归集。部门调整必须保留生效期间，不能直接改写历史凭证辅助项。', evidenceLabel: '部门资料' },
+    tagArchive: { title: '业务标签与筛选口径范围', description: '标签仅用于当前账套的检索、筛选和规则适用范围，不会改变原始凭证、单据或报表金额。启停和合并标签需要保留变更记录。', evidenceLabel: '业务引用' },
+    assetCategory: { title: '资产类别与折旧范围', description: '资产类别定义折旧年限、残值率、默认科目和适用资产。参数变更需要从生效期开始，不能追溯改写已经计提的折旧。', evidenceLabel: '资产依据' },
+    auxiliaryCategories: { title: '辅助核算类别适用范围', description: '辅助类别决定可选择的科目及项目维度。类别停用前需检查所有辅助项目和凭证引用，避免形成无法穿透的历史数据。', evidenceLabel: '适用科目' },
+    auxiliaryItems: { title: '辅助核算项目引用范围', description: '辅助项目用于凭证、账簿和报表维度穿透。项目停用只阻止后续选择，已发生业务仍按原始项目保留。', evidenceLabel: '凭证引用' },
+  }
+  if (archiveWorkspaceContext[kind]) {
+    const context = archiveWorkspaceContext[kind]!
     return {
       title: context.title,
       description: context.description,
