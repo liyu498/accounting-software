@@ -11188,13 +11188,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'voucherRecycle' && <VoucherRecycleWorkflowPanel onRestore={() => void handlePrimaryAction()} onReview={() => reviewControlEvidence('recycle')} />}
 
-        {kind === 'outputInvoice' && <OutputInvoiceWorkflowPanel onAdd={() => void handlePrimaryAction()} onReview={() => reviewControlEvidence('risk')} />}
+        {kind === 'outputInvoice' && <OutputInvoiceWorkflowPanel summary={config.summary} onAdd={() => void handlePrimaryAction()} onReview={() => reviewControlEvidence('risk')} />}
 
         {kind === 'contractLedger' && <ContractWorkflowPanel onReview={() => reviewControlEvidence('risk')} />}
 
-        {kind === 'invoiceVoucherMatching' && <InvoiceVoucherMatchingWorkflowPanel onOpen={openInvoiceVoucherMatching} onReview={() => reviewControlEvidence('risk')} />}
+        {kind === 'invoiceVoucherMatching' && <InvoiceVoucherMatchingWorkflowPanel summary={config.summary} onOpen={openInvoiceVoucherMatching} onReview={() => reviewControlEvidence('risk')} />}
 
-        {kind === 'receipt' && <ReceiptWorkflowPanel onReview={() => reviewControlEvidence('risk')} />}
+        {kind === 'receipt' && <ReceiptWorkflowPanel summary={config.summary} onReview={() => reviewControlEvidence('risk')} />}
 
         {kind === 'transfer' && <AccountTransferWorkflowPanel onAdd={openAccountTransferEditor} onReview={() => reviewControlEvidence('risk')} />}
 
@@ -11212,6 +11212,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'inputInvoice' && (
           <InputInvoiceWorkflowPanel
+            summary={config.summary}
             onSync={syncInputInvoicePool}
             onAdd={openInputInvoiceEditor}
             onMatch={openInputInvoiceMatcher}
@@ -12748,10 +12749,12 @@ function InputInvoiceWorkflowPanel({
   onSync,
   onAdd,
   onMatch,
+  summary,
 }: {
   onSync: () => void
   onAdd: () => void
   onMatch: () => void
+  summary: ModuleConfig['summary']
 }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="进项抵扣处理流程">
@@ -12767,18 +12770,10 @@ function InputInvoiceWorkflowPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 md:grid-cols-4">
-        {[
-          ['1', '票池与采集', '72 张已入池，3 张待复核'],
-          ['2', '抵扣用途确认', '18 张待勾选用途'],
-          ['3', '认证与异常复核', '3 张异常不进入申报取数'],
-          ['4', '凭证草稿关联', '12 张已关联，人工确认入账'],
-        ].map(([step, label, detail]) => (
-          <div key={step} className="flex min-w-0 gap-2 border border-slate-200 bg-white p-2.5">
-            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-blue-50 text-xs font-semibold text-[#1f65a7]">{step}</span>
-            <div className="min-w-0">
-              <div className="text-xs font-medium text-slate-800">{label}</div>
-              <div className="mt-0.5 text-xs leading-4 text-slate-500">{detail}</div>
-            </div>
+        {summary.map((item, index) => (
+          <div key={item.label} className="flex min-w-0 gap-2 border border-slate-200 bg-white p-2.5">
+            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-blue-50 text-xs font-semibold text-[#1f65a7]">{index + 1}</span>
+            <div className="min-w-0"><div className="text-xs font-medium text-slate-800">{item.label}</div><div className="mt-0.5 text-xs leading-4 text-slate-500">{item.label === '待勾选' ? '未确认用途不进入抵扣取数' : item.label === '异常发票' ? '异常票不进入申报取数' : '按当前账套进项发票台账实时汇总'}</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div></div>
           </div>
         ))}
       </div>
@@ -13742,20 +13737,20 @@ function NotificationWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onR
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="待办分派与截止跟踪"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">待办分派与截止跟踪</h2><p className="mt-1 text-xs text-slate-500">待办仅归属当前账套与账期，记录资料补传、AI确认、凭证异常、报表重算和申报截止事项；不发送短信或外部消息。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增待办" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核待办分派" onClick={onReview} /></div></div><WorkflowMetrics items={['处理范围|当前账套|不混入机构级协同', '完成留痕|操作人和时间|保留本地审计依据', '风险待办|阻断和逾期|优先回到原模块处理', '外部动作|不执行|短信、邮件与税局操作均不触发']}/></section>
 }
 
-function OutputInvoiceWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="销项开票与凭证确认流程"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">销项开票与凭证确认流程</h2><p className="mt-1 text-xs text-slate-500">销项发票按购方、税率、商品行和收款状态复核，异常票和未核验来源不能直接生成会计凭证。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增销项发票" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核开票风险" onClick={onReview} /></div></div><WorkflowMetrics items={['已开票|58 张|购方与税号已登记', '待生成凭证|12 张|需确认收入与税额', '异常发票|2 张|税率或商品待核验', '关联回款|46 笔|支持应收核销']}/></section>
+function OutputInvoiceWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="销项开票与凭证确认流程"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">销项开票与凭证确认流程</h2><p className="mt-1 text-xs text-slate-500">销项发票按购方、税率、商品行和收款状态复核，异常票和未核验来源不能直接生成会计凭证。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增销项发票" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核开票风险" onClick={onReview} /></div></div><WorkflowMetrics summary={summary} detailFor={(label) => label === '异常发票' ? '税率或商品待核验' : label === '销项税额' ? '需确认收入与税额' : '按当前账套发票与凭证台账实时汇总'} /></section>
 }
 
 function ContractWorkflowPanel({ onReview }: { onReview: () => void }) {
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="合同履约与印花税核验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">合同履约与印花税核验</h2><p className="mt-1 text-xs text-slate-500">合同台账跟踪相对方、履约、收付款、附件与税目；应税合同须在申报前核对金额、税目和签章资料。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核合同税目" onClick={onReview} /></div><WorkflowMetrics items={['有效合同|46 份|关联客户或供应商', '履约待确认|5 份|需核验收付款与开票', '应税合同|18 份|进入印花税取数范围', '缺失附件|2 份|阻断归档与申报']}/></section>
 }
 
-function InvoiceVoucherMatchingWorkflowPanel({ onOpen, onReview }: { onOpen: () => void; onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="发票凭证关联与差异复核"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">发票凭证关联与差异复核</h2><p className="mt-1 text-xs text-slate-500">发票与凭证按金额、税额、摘要、科目和附件关联；差异项须人工处理，避免凭证与发票台账脱节。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="建立发票凭证关联" onClick={onOpen} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核匹配差异" onClick={onReview} /></div></div><WorkflowMetrics items={['已匹配|108 张|金额和税额已核验', '待匹配|22 张|需选择会计凭证', '金额差异|3 项|禁止自动确认', '附件缺失|4 项|补齐后可归档']}/></section>
+function InvoiceVoucherMatchingWorkflowPanel({ onOpen, onReview, summary }: { onOpen: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="发票凭证关联与差异复核"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">发票凭证关联与差异复核</h2><p className="mt-1 text-xs text-slate-500">发票与凭证按金额、税额、摘要、科目和附件关联；差异项须人工处理，避免凭证与发票台账脱节。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="建立发票凭证关联" onClick={onOpen} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核匹配差异" onClick={onReview} /></div></div><WorkflowMetrics summary={summary} detailFor={(label) => label === '差异票据' ? '金额差异禁止自动确认' : label === '待人工确认' ? '需复核凭证金额和科目' : '按当前账套发票与凭证台账实时汇总'} /></section>
 }
 
-function ReceiptWorkflowPanel({ onReview }: { onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="票据到期与背书用途核验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">票据到期与背书用途核验</h2><p className="mt-1 text-xs text-slate-500">商业汇票、收据和其他票据按出票方、到期日、背书、贴现和附件管理，到期风险与凭证处理需同步复核。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核到期票据" onClick={onReview} /></div><WorkflowMetrics items={['持有票据|14 份|含票面金额与到期日', '临期票据|3 份|需安排兑付或背书', '背书用途|5 笔|关联付款或收款业务', '影像缺失|1 份|不可完成归档']}/></section>
+function ReceiptWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="票据到期与背书用途核验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">票据到期与背书用途核验</h2><p className="mt-1 text-xs text-slate-500">商业汇票、收据和其他票据按出票方、到期日、背书、贴现和附件管理，到期风险与凭证处理需同步复核。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核到期票据" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label === '待确认' ? '需确认到期、背书或贴现用途' : label === '异常' ? '影像缺失或票面信息异常不可归档' : '按当前账套发票与凭证台账实时汇总'} /></section>
 }
 
 function AccountTransferWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
@@ -13786,8 +13781,11 @@ function SettingsOverviewWorkflowPanel({ onReview }: { onReview: () => void }) {
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账套设置导航与生效范围"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账套设置导航与生效范围</h2><p className="mt-1 text-xs text-slate-500">按企业资料、期初、基础档案、会计科目、规则模板、账期与审计归类管理。每项配置只作用于当前账套，并保留启用状态和变更记录。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核配置生效范围" onClick={onReview} /></div><WorkflowMetrics items={['企业与账期|2 类|主体、制度和启用期间', '基础档案|8 类|客户、供应商、项目和维度', '规则模板|6 类|匹配、凭证、报表和打印', '控制记录|4 类|授权、审计、备份和回收']}/></section>
 }
 
-function WorkflowMetrics({ items }: { items: string[] }) {
-  return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{items.map((item) => { const [label, value, detail] = item.split('|'); return <div key={label} className="border border-slate-200 bg-white p-2.5"><div className="text-xs text-slate-500">{label}</div><div className="mt-1 text-sm font-semibold text-slate-900">{value}</div><div className="mt-1 text-xs text-slate-500">{detail}</div></div> })}</div>
+function WorkflowMetrics({ items, summary, detailFor }: { items?: string[]; summary?: ModuleConfig['summary']; detailFor?: (label: string) => string }) {
+  const metrics = summary
+    ? summary.map((item) => ({ label: item.label, value: item.value, detail: detailFor?.(item.label) || '按当前账套发票与凭证台账实时汇总' }))
+    : (items || []).map((item) => { const [label, value, detail] = item.split('|'); return { label, value, detail } })
+  return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{metrics.map((item) => <div key={item.label} className="border border-slate-200 bg-white p-2.5"><div className="text-xs text-slate-500">{item.label}</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div><div className="mt-1 text-xs text-slate-500">{item.detail}</div></div>)}</div>
 }
 
 function RulesLogDialog({

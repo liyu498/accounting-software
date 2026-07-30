@@ -185,6 +185,15 @@ const requiredOperationsWorkflowSummarySnippets = [
   ['operations workflow renders current summary', '按当前账套业务台账实时汇总'],
 ]
 
+const requiredInvoiceWorkflowSummarySnippets = [
+  ['workflow metrics supports live summary', "function WorkflowMetrics({ items, summary, detailFor }: { items?: string[]; summary?: ModuleConfig['summary']; detailFor?: (label: string) => string })"],
+  ['output invoice workflow receives live summary', '<OutputInvoiceWorkflowPanel summary={config.summary}'],
+  ['input invoice workflow receives live summary', '<InputInvoiceWorkflowPanel\n            summary={config.summary}'],
+  ['invoice voucher workflow receives live summary', '<InvoiceVoucherMatchingWorkflowPanel summary={config.summary}'],
+  ['receipt workflow receives live summary', '<ReceiptWorkflowPanel summary={config.summary}'],
+  ['invoice workflow renders current summary', '按当前账套发票与凭证台账实时汇总'],
+]
+
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
@@ -1614,6 +1623,7 @@ const errors = [
   ...verify(pageSource, requiredInventoryWorkflowSummarySnippets, 'inventory workflow panel'),
   ...verify(pageSource, requiredPeopleWorkflowSummarySnippets, 'people workflow panels'),
   ...verify(pageSource, requiredOperationsWorkflowSummarySnippets, 'operations workflow panels'),
+  ...verify(pageSource, requiredInvoiceWorkflowSummarySnippets, 'invoice workflow panels'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
