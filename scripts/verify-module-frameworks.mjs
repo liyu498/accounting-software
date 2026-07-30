@@ -69,6 +69,7 @@ const errors = [
   ...(shellSource.includes('handleSmsAction') ? ['SMS shell action must be removed'] : []),
   ...(!shellSource.includes("label: 'AI做账工作台'") ? ['AI accounting navigation must be named as a workbench'] : []),
   ...(!shellSource.includes("label: '规则与自动化'") ? ['AI automation navigation must clarify its rule and queue scope'] : []),
+  ...(shellSource.includes("path: '/ai/jobs'") ? ['AI task queue must not duplicate the top-level AI workbench entry'] : []),
   ...(!shellSource.includes('z-[80]') ? ['theme menu must render above the account header overlay'] : []),
   ...(businessSource.includes('支持导出和打印') ? ['business list headers must not use one generic export/print hint'] : []),
   ...(!businessSource.includes('getModuleListMeta') ? ['business list metadata must be derived per module domain'] : []),
