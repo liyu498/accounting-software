@@ -76,6 +76,33 @@ impl Database {
         .execute(pool)
         .await?;
 
+        // Current-account-set todo ledger. This deliberately stays separate from agency-wide collaboration.
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS company_todos (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                period TEXT,
+                title TEXT NOT NULL,
+                source_module TEXT NOT NULL,
+                priority TEXT NOT NULL DEFAULT 'normal',
+                owner TEXT,
+                due_date TEXT,
+                related_entry TEXT,
+                evidence TEXT,
+                note TEXT,
+                status TEXT NOT NULL DEFAULT 'open',
+                completed_at TEXT,
+                completed_by TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
         // Invoice, bank bill, and cash-flow rules share one company-scoped rule registry.
         sqlx::query(
             r#"
@@ -1457,6 +1484,10 @@ impl Database {
             .await?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_employees_company_status ON employees(company_id, employment_status)")
+            .execute(pool)
+            .await?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_company_todos_scope ON company_todos(company_id, period, status)")
             .execute(pool)
             .await?;
 

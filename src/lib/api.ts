@@ -106,6 +106,26 @@ export interface CompanyMemoRecord {
   updatedAt: string
 }
 
+export interface CompanyTodo {
+  id: string
+  companyId: string
+  companyName: string | null
+  period: string | null
+  title: string
+  sourceModule: string
+  priority: 'normal' | 'high' | 'blocking'
+  owner: string | null
+  dueDate: string | null
+  relatedEntry: string | null
+  evidence: string | null
+  note: string | null
+  status: 'open' | 'review' | 'blocked' | 'completed'
+  completedAt: string | null
+  completedBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Subject {
   code: string
   name: string
@@ -472,6 +492,66 @@ export const companyMemoApi = {
           updated_by: input.updatedBy || null,
         },
       }) as CompanyMemoRecord
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
+
+export const companyTodoApi = {
+  getAll: async (filters: { companyId: string; period?: string; status?: string }): Promise<ApiResponse<CompanyTodo[]>> => {
+    try {
+      const result = await invoke('get_company_todos', filters) as CompanyTodo[]
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  create: async (input: {
+    companyId: string
+    period?: string
+    title: string
+    sourceModule: string
+    priority?: CompanyTodo['priority']
+    owner?: string
+    dueDate?: string
+    relatedEntry?: string
+    evidence?: string
+    note?: string
+  }): Promise<ApiResponse<CompanyTodo>> => {
+    try {
+      const result = await invoke('create_company_todo', {
+        input: {
+          company_id: input.companyId,
+          period: input.period || null,
+          title: input.title,
+          source_module: input.sourceModule,
+          priority: input.priority || 'normal',
+          owner: input.owner || null,
+          due_date: input.dueDate || null,
+          related_entry: input.relatedEntry || null,
+          evidence: input.evidence || null,
+          note: input.note || null,
+        },
+      }) as CompanyTodo
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  complete: async (input: { id: string; companyId: string; completedBy?: string; note?: string }): Promise<ApiResponse<CompanyTodo>> => {
+    try {
+      const result = await invoke('complete_company_todo', {
+        input: {
+          id: input.id,
+          company_id: input.companyId,
+          completed_by: input.completedBy || null,
+          note: input.note || null,
+        },
+      }) as CompanyTodo
       return { success: true, data: result }
     } catch (error) {
       return { success: false, error: String(error) }

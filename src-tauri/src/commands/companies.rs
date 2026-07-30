@@ -425,6 +425,8 @@ pub async fn permanent_delete_company(
         "invoices",
         "initial_balances",
         "user_companies",
+        "company_memos",
+        "company_todos",
     ];
 
     for table in &related_tables {
@@ -491,7 +493,7 @@ pub async fn cleanup_expired_companies(
             "currencies", "voucher_template_types", "voucher_templates", "common_digests",
             "settlement_rules", "dashboard_widgets", "financial_indicators", "voucher_words",
             "accounting_periods", "account_codes", "counterparties", "invoices",
-            "initial_balances", "user_companies", "company_memos",
+            "initial_balances", "user_companies", "company_memos", "company_todos",
         ];
 
         for table in &related_tables {

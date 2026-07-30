@@ -13,6 +13,9 @@ const shellSource = readFileSync('src/components/layout/AppShell.tsx', 'utf8')
 const roleManagerSource = readFileSync('src/pages/settings/RoleManager.tsx', 'utf8')
 const companyStoreSource = readFileSync('src/stores/companyStore.ts', 'utf8')
 const companyCommandSource = readFileSync('src-tauri/src/commands/companies.rs', 'utf8')
+const companyTodoCommandSource = existsSync('src-tauri/src/commands/company_todos.rs')
+  ? readFileSync('src-tauri/src/commands/company_todos.rs', 'utf8')
+  : ''
 const databaseSource = readFileSync('src-tauri/src/db.rs', 'utf8')
 const periodCommandSource = readFileSync('src-tauri/src/commands/periods.rs', 'utf8')
 const backupCommandSource = existsSync('src-tauri/src/commands/backups.rs')
@@ -96,6 +99,20 @@ const companyAccountCommandSource = existsSync('src-tauri/src/commands/company_a
 const automationCommandSource = readFileSync('src-tauri/src/commands/automation.rs', 'utf8')
 const voucherCommandSource = readFileSync('src-tauri/src/commands/vouchers.rs', 'utf8')
 const localFileRegistrySource = readFileSync('src/lib/localFileRegistry.ts', 'utf8')
+
+const requiredCompanyTodoSnippets = [
+  ['company todo schema', 'CREATE TABLE IF NOT EXISTS company_todos'],
+  ['company todo list command', 'pub async fn get_company_todos'],
+  ['company todo create command', 'pub async fn create_company_todo'],
+  ['company todo completion command', 'pub async fn complete_company_todo'],
+  ['company todo API', 'export const companyTodoApi'],
+  ['company todo API type', 'export interface CompanyTodo'],
+  ['company todo live scope', 'usesLiveCompanyTodoData'],
+  ['company todo list refresh', 'companyTodoApi.getAll({'],
+  ['company todo create binding', 'companyTodoApi.create({'],
+  ['company todo completion binding', 'companyTodoApi.complete({'],
+  ['company todo dialog', '新增账套待办'],
+]
 
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
@@ -1513,6 +1530,10 @@ const errors = [
   ...verify(databaseSource, requiredUnitCommandSnippets.slice(0, 1), 'database schema'),
   ...verify(unitCommandSource, requiredUnitCommandSnippets.slice(1), 'unit commands'),
   ...verify(pageSource, requiredUnitPageSnippets, 'unit module page'),
+  ...verify(databaseSource, requiredCompanyTodoSnippets.slice(0, 1), 'company todo schema'),
+  ...verify(companyTodoCommandSource, requiredCompanyTodoSnippets.slice(1, 4), 'company todo commands'),
+  ...verify(apiSource, requiredCompanyTodoSnippets.slice(4, 6), 'company todo API'),
+  ...verify(pageSource, requiredCompanyTodoSnippets.slice(6), 'company todo module page'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

@@ -24,7 +24,7 @@ import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useAuditLogs, useExportJobs, type AuditLog, type ExportJob } from '../../lib/exportJobs'
 import { formatLocalFileSize, parseLocalImportFile, recordLocalAttachment, recordLocalImportJob, removeLocalAttachment, removeLocalImportJob, updateLocalAttachmentAssociation, updateLocalImportJobCommit, updateLocalImportJobValidation, useLocalAttachmentRecords, useLocalImportJobs, type LocalAttachmentRecord, type LocalImportFailure, type LocalImportJob } from '../../lib/localFileRegistry'
 import { isTauri } from '../../lib/tauri'
-import { accountTransferApi, automationApi, backupApi, bankReconciliationApi, bankTransactionApi, businessOrderApi, costCarryoverApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, settlementRecordApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankReconciliationRecord, type BankTransaction, type BusinessOrder, type CostCarryoverRecord, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SettlementRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
+import { accountTransferApi, automationApi, backupApi, bankReconciliationApi, bankTransactionApi, businessOrderApi, companyTodoApi, costCarryoverApi, documentRecordApi, employeeApi, fixedAssetApi, inventoryItemApi, inventoryMovementApi, payrollApi, settlementRecordApi, socialSecurityApi, specialDeductionApi, type AccountTransfer, type AdapterAuthorization, type AutomationJob, type BankReconciliationRecord, type BankTransaction, type BusinessOrder, type CompanyTodo, type CostCarryoverRecord, type DocumentRecord, type Employee, type FixedAsset, type InventoryItem, type InventoryMovement, type LocalBackupSnapshot, type LocalBackupVerification, type OperationAuditLog, type PayrollRecord, type SettlementRecord, type SocialSecurityRecord, type SpecialDeductionRecord, type TaxDeclarationTask } from '../../lib/api'
 import { measurementUnitApi, type MeasurementUnit } from '../../lib/api'
 import {
   mapLiveBalanceSheetRows,
@@ -4594,6 +4594,36 @@ function maskEmployeeId(value: string | null) {
   return `${value.slice(0, 3)}********${value.slice(-4)}`
 }
 
+function mapLiveCompanyTodoRows(companyTodos: CompanyTodo[], companyName: string): ModuleRow[] {
+  return companyTodos.map((todo) => ({
+    id: todo.id,
+    status: todo.status === 'completed' ? '已通过' : todo.status === 'blocked' ? '异常' : todo.status === 'review' ? '待确认' : '待处理',
+    voucher: todo.relatedEntry || '-',
+    attachment: todo.evidence || '待补依据',
+    values: {
+      title: todo.title,
+      customer: todo.companyName || companyName,
+      module: todo.sourceModule,
+      level: todo.priority === 'blocking' ? '阻断' : todo.priority === 'high' ? '高' : '普通',
+      owner: todo.owner || '待分配',
+      deadline: todo.dueDate || '未设置',
+      link: todo.relatedEntry || '待补处理入口',
+      result: todo.status === 'completed' ? `已完成${todo.completedAt ? ` ${todo.completedAt.replace('T', ' ').slice(0, 16)}` : ''}` : todo.note || '待处理',
+    },
+  }))
+}
+
+function summarizeLiveCompanyTodos(companyTodos: CompanyTodo[]): ModuleConfig['summary'] {
+  const today = new Date().toISOString().slice(0, 10)
+  const active = companyTodos.filter((todo) => todo.status !== 'completed')
+  return [
+    { label: '待办事项', value: `${active.length} 条`, tone: 'blue' },
+    { label: '今日到期', value: `${active.filter((todo) => todo.dueDate === today).length} 条`, tone: 'amber' },
+    { label: '已完成', value: `${companyTodos.filter((todo) => todo.status === 'completed').length} 条`, tone: 'green' },
+    { label: '阻断/逾期', value: `${active.filter((todo) => todo.priority === 'blocking' || todo.status === 'blocked' || (todo.dueDate !== null && todo.dueDate < today)).length} 条`, tone: 'red' },
+  ]
+}
+
 function mapLiveEmployeeRows(employees: Employee[]): ModuleRow[] {
   return employees.map((employee) => ({
     id: employee.id,
@@ -5248,6 +5278,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
   const usesLiveExportData = Boolean(isTauri && selectedCompanyId && kind === 'exportCenter')
   const usesLiveImportData = Boolean(isTauri && selectedCompanyId && kind === 'importCenter')
+  const usesLiveCompanyTodoData = Boolean(isTauri && selectedCompanyId && kind === 'notificationCenter')
   const usesLiveEmployeeData = Boolean(isTauri && selectedCompanyId && kind === 'employee')
   const usesLivePayrollData = Boolean(isTauri && selectedCompanyId && kind === 'payroll')
   const usesLiveSocialSecurityData = Boolean(isTauri && selectedCompanyId && kind === 'socialSecurity')
@@ -5306,6 +5337,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
   const [localBackups, setLocalBackups] = useState<LocalBackupSnapshot[]>([])
   const [backupValidations, setBackupValidations] = useState<Record<string, LocalBackupVerification>>({})
+  const [companyTodos, setCompanyTodos] = useState<CompanyTodo[]>([])
+  const [showCompanyTodoDialog, setShowCompanyTodoDialog] = useState(false)
+  const [companyTodoDraft, setCompanyTodoDraft] = useState({ title: '', sourceModule: '资料采集', priority: 'normal' as CompanyTodo['priority'], owner: '', dueDate: '', relatedEntry: '', evidence: '', note: '' })
   const [employees, setEmployees] = useState<Employee[]>([])
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([])
   const [socialSecurityRecords, setSocialSecurityRecords] = useState<SocialSecurityRecord[]>([])
@@ -5927,6 +5961,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [usesLiveBackupData])
 
   useEffect(() => {
+    if (!usesLiveCompanyTodoData || !selectedCompanyId) return
+    let active = true
+    void companyTodoApi.getAll({ companyId: selectedCompanyId, period: currentPeriodLabel === '当前账期' ? undefined : currentPeriodLabel }).then((result) => {
+      if (active) setCompanyTodos(result.success ? result.data || [] : [])
+    })
+    return () => {
+      active = false
+    }
+  }, [currentPeriodLabel, selectedCompanyId, usesLiveCompanyTodoData])
+
+  useEffect(() => {
     if (!(usesLiveEmployeeData || usesLivePayrollData || usesLiveSocialSecurityData || usesLiveSpecialDeductionData || usesLiveWithholdingTaxData || usesLiveSocialSecurityTaxData) || !selectedCompanyId) return
     let active = true
     void employeeApi.getEmployees(selectedCompanyId).then((result) => {
@@ -6197,6 +6242,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         ...baseConfig,
         rows: mapLocalBackupRows(localBackups, backupValidations),
         summary: summarizeLocalBackups(localBackups, backupValidations),
+      }
+    }
+
+    if (kind === 'notificationCenter' && (usesLiveCompanyTodoData || companyTodos.length > 0)) {
+      return {
+        ...baseConfig,
+        rows: mapLiveCompanyTodoRows(companyTodos, selectedCompany?.name || '当前账套'),
+        summary: summarizeLiveCompanyTodos(companyTodos),
       }
     }
 
@@ -6698,7 +6751,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -7149,6 +7202,56 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('申报认定事项已保存到本地账套；取数、申报确认和外部提交仍需分别人工核验。')
   }
 
+  const openCompanyTodoEditor = () => {
+    setCompanyTodoDraft({ title: '', sourceModule: '资料采集', priority: 'normal', owner: '', dueDate: '', relatedEntry: '', evidence: '', note: '' })
+    setShowCompanyTodoDialog(true)
+  }
+
+  const handleSaveCompanyTodo = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCompanyId && isTauri) {
+      setOperationNotice('请先选择账套，再新建待办。')
+      return
+    }
+    const result = await companyTodoApi.create({
+      companyId: selectedCompanyId || 'browser-preview',
+      period: currentPeriodLabel === '当前账期' ? undefined : currentPeriodLabel,
+      title: companyTodoDraft.title.trim(),
+      sourceModule: companyTodoDraft.sourceModule.trim(),
+      priority: companyTodoDraft.priority,
+      owner: companyTodoDraft.owner.trim() || undefined,
+      dueDate: companyTodoDraft.dueDate || undefined,
+      relatedEntry: companyTodoDraft.relatedEntry.trim() || undefined,
+      evidence: companyTodoDraft.evidence.trim() || undefined,
+      note: companyTodoDraft.note.trim() || undefined,
+    })
+    if (!result.success || !result.data) {
+      setOperationNotice(`新增账套待办失败：${result.error || '未知错误'}`)
+      return
+    }
+    setCompanyTodos((todos) => [result.data!, ...todos.filter((todo) => todo.id !== result.data!.id)])
+    setShowCompanyTodoDialog(false)
+    writeModuleAudit('新增账套待办', `${currentPeriodLabel}｜${result.data.title}`, companyTodoDraft.priority === 'blocking' ? '高' : '中', '成功')
+    setOperationNotice('待办已保存到当前账套和账期；不会发送短信、邮件或触发外部动作。')
+  }
+
+  const completeCompanyTodo = async (todoId: string) => {
+    const todo = companyTodos.find((item) => item.id === todoId)
+    if (todo?.status === 'completed') return
+    if (!selectedCompanyId && isTauri) {
+      setOperationNotice('请先选择账套，再完成待办。')
+      return
+    }
+    const result = await companyTodoApi.complete({ id: todoId, companyId: selectedCompanyId || 'browser-preview', completedBy: '当前操作人' })
+    if (!result.success || !result.data) {
+      setOperationNotice(`完成账套待办失败：${result.error || '未知错误'}`)
+      return
+    }
+    setCompanyTodos((todos) => todos.map((item) => item.id === result.data!.id ? result.data! : item))
+    writeModuleAudit('完成账套待办', `${currentPeriodLabel}｜${result.data.title}`, '中', '成功')
+    setOperationNotice('待办已标记完成并保留处理时间和操作人；原始业务仍需在对应模块核验。')
+  }
+
   const handlePrimaryAction = async () => {
     if (kind === 'companyInfo') {
       openCompanyInfoEditor()
@@ -7216,7 +7319,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'notificationCenter') {
-      reviewControlEvidence('notification')
+      openCompanyTodoEditor()
       return
     }
     if (kind === 'riskCheck') {
@@ -11042,13 +11145,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {['historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger'].includes(kind) && <HistoryMigrationWorkflowPanel onReview={() => reviewControlEvidence('history')} />}
 
+        {kind === 'notificationCenter' && <NotificationWorkflowPanel onAdd={openCompanyTodoEditor} onReview={() => reviewControlEvidence('notification')} />}
+
         {kind === 'riskCheck' && <RiskWorkflowPanel onReview={() => reviewControlEvidence('risk')} />}
 
         {kind === 'auditLog' && <AuditWorkflowPanel onReview={() => reviewControlEvidence('audit')} />}
 
         {kind === 'voucherRecycle' && <VoucherRecycleWorkflowPanel onRestore={() => void handlePrimaryAction()} onReview={() => reviewControlEvidence('recycle')} />}
-
-        {kind === 'notificationCenter' && <NotificationWorkflowPanel onReview={() => reviewControlEvidence('notification')} />}
 
         {kind === 'outputInvoice' && <OutputInvoiceWorkflowPanel onAdd={() => void handlePrimaryAction()} onReview={() => reviewControlEvidence('risk')} />}
 
@@ -11328,6 +11431,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     ? localAttachmentRecords.some((item) => item.id === row.id)
                     : kind === 'importCenter' && localImportJobs.some((item) => item.id === row.id)
                   const isLocalRegistryModule = kind === 'attachmentCenter' || kind === 'importCenter'
+                  const isCompanyTodoRow = kind === 'notificationCenter' && companyTodos.some((item) => item.id === row.id)
                   return (
                   <tr key={row.id} className="hover:bg-[#f8fbff]">
                     <td className="border-b border-slate-100 px-2 py-2">
@@ -11358,8 +11462,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     </td>}
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
-                        <button type="button" onClick={() => kind === 'printTemplateSettings' ? openPrintTemplatePreview() : handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
-                          {kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                        <button type="button" disabled={isCompanyTodoRow && row.status === '已通过'} onClick={() => isCompanyTodoRow ? void completeCompanyTodo(row.id) : kind === 'printTemplateSettings' ? openPrintTemplatePreview() : handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline disabled:cursor-not-allowed disabled:text-slate-400">
+                          {isCompanyTodoRow ? row.status === '已通过' ? '已完成' : '完成待办' : kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'unitSettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
                       {canGenerateVoucherFromModule(kind) && !(isLocalRegistryModule && !isLocalRegistryRow) && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
@@ -12335,6 +12439,27 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600">订单状态<select value={businessOrderDraft.status} onChange={(event) => setBusinessOrderDraft((draft) => ({ ...draft, status: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['待确认', '已完成', '异常'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowBusinessOrderDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingBusinessOrderId ? '保存修改' : '保存订单'}</button></div>
+          </form>
+        </div>
+      )}
+      {showCompanyTodoDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增账套待办">
+          <form onSubmit={handleSaveCompanyTodo} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+              <div><h2 className="text-sm font-semibold text-slate-900">新增账套待办</h2><p className="mt-0.5 text-xs text-slate-500">待办只保存到当前账套和账期，不发送短信、邮件，也不触发税务局或银行外部动作。</p></div>
+              <button type="button" onClick={() => setShowCompanyTodoDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">待办标题 *<input required value={companyTodoDraft.title} onChange={(event) => setCompanyTodoDraft((draft) => ({ ...draft, title: event.target.value }))} placeholder="例如：补传 2026-05 银行回单" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">来源模块 *<select value={companyTodoDraft.sourceModule} onChange={(event) => setCompanyTodoDraft((draft) => ({ ...draft, sourceModule: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['资料采集', '进项发票', '销项发票', '会计凭证', '报表申报', '风险检查', '人工新增'].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600">优先级<select value={companyTodoDraft.priority} onChange={(event) => setCompanyTodoDraft((draft) => ({ ...draft, priority: event.target.value as CompanyTodo['priority'] }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="normal">普通</option><option value="high">高</option><option value="blocking">阻断</option></select></label>
+              <label className="grid gap-1 text-xs text-slate-600">负责人<input value={companyTodoDraft.owner} onChange={(event) => setCompanyTodoDraft((draft) => ({ ...draft, owner: event.target.value }))} placeholder="内部处理人" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">截止日期<input type="date" value={companyTodoDraft.dueDate} onChange={(event) => setCompanyTodoDraft((draft) => ({ ...draft, dueDate: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">处理入口/关联事项<input value={companyTodoDraft.relatedEntry} onChange={(event) => setCompanyTodoDraft((draft) => ({ ...draft, relatedEntry: event.target.value }))} placeholder="例如：进项发票 INV-001" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600">处理依据/附件说明<input value={companyTodoDraft.evidence} onChange={(event) => setCompanyTodoDraft((draft) => ({ ...draft, evidence: event.target.value }))} placeholder="例如：银行回单 PDF" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">补充说明<textarea value={companyTodoDraft.note} onChange={(event) => setCompanyTodoDraft((draft) => ({ ...draft, note: event.target.value }))} rows={3} className="rounded border border-slate-300 px-2 py-1.5 text-sm text-slate-900" /></label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={() => setShowCompanyTodoDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存待办</button></div>
           </form>
         </div>
       )}
@@ -13728,8 +13853,8 @@ function VoucherRecycleWorkflowPanel({ onRestore, onReview }: { onRestore: () =>
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="删除凭证恢复与销毁控制"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">删除凭证恢复与销毁控制</h2><p className="mt-1 text-xs text-slate-500">删除凭证在回收期内可恢复；彻底删除须人工确认并记录原凭证、操作人、时间和关联附件处理情况。</p></div><div className="flex flex-wrap gap-1.5"><ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="恢复已勾选凭证" onClick={onRestore} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核回收记录" onClick={onReview} /></div></div><WorkflowMetrics items={['待恢复凭证|6 张|可回到草稿继续复核', '到期清理|2 张|需确认保留期限', '关联附件|8 份|恢复时保持引用关系', '审计记录|14 条|删除与恢复均可追溯']}/></section>
 }
 
-function NotificationWorkflowPanel({ onReview }: { onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="待办分派与截止跟踪"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">待办分派与截止跟踪</h2><p className="mt-1 text-xs text-slate-500">资料补传、AI确认、凭证异常、报表重算和申报截止事项按账套、责任人、优先级和处理入口集中追踪。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核待办分派" onClick={onReview} /></div><WorkflowMetrics items={['待办事项|64 条|按模块和客户账套汇总', '今日到期|18 条|优先跟进责任人', '逾期风险|7 条|需记录催办和处置', '已完成|39 条|保留完成时间与结果']}/></section>
+function NotificationWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="待办分派与截止跟踪"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">待办分派与截止跟踪</h2><p className="mt-1 text-xs text-slate-500">待办仅归属当前账套与账期，记录资料补传、AI确认、凭证异常、报表重算和申报截止事项；不发送短信或外部消息。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增待办" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核待办分派" onClick={onReview} /></div></div><WorkflowMetrics items={['处理范围|当前账套|不混入机构级协同', '完成留痕|操作人和时间|保留本地审计依据', '风险待办|阻断和逾期|优先回到原模块处理', '外部动作|不执行|短信、邮件与税局操作均不触发']}/></section>
 }
 
 function OutputInvoiceWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
