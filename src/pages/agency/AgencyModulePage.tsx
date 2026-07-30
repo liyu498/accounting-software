@@ -855,6 +855,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     status: 'pending',
   })
   const [showAuthorizationDialog, setShowAuthorizationDialog] = useState(false)
+  const [editingAuthorization, setEditingAuthorization] = useState(false)
   const [authorizationDraft, setAuthorizationDraft] = useState({
     companyId: '',
     adapterType: 'tax',
@@ -1087,6 +1088,35 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     setShowCollaborationDialog(true)
   }
 
+  const resetAuthorizationEditor = () => {
+    setEditingAuthorization(false)
+    setAuthorizationDraft({ companyId: '', adapterType: 'tax', adapterCode: '', region: '', authStatus: 'pending', accountMask: '', loginIdentity: '', capabilityScope: '', expiresAt: '', riskMessage: '' })
+  }
+
+  const openAuthorizationEditor = async (row?: AgencyRow) => {
+    if (isTauri && companies.length === 0) await fetchCompanies()
+    if (!row) {
+      resetAuthorizationEditor()
+      setAuthorizationDraft((draft) => ({ ...draft, adapterType: agencyAuthorizationAdapterType(activeTab) || 'tax' }))
+      setShowAuthorizationDialog(true)
+      return
+    }
+    setEditingAuthorization(true)
+    setAuthorizationDraft({
+      companyId: row.values.companyId || '',
+      adapterType: row.values.adapterType || 'tax',
+      adapterCode: row.values.adapterCode || row.values.method || '',
+      region: row.values.region || '',
+      authStatus: row.values.authStatus || 'pending',
+      accountMask: row.values.accountMask || (row.values.taxNo === '-' ? '' : row.values.taxNo || ''),
+      loginIdentity: row.values.loginIdentity || (row.values.loginPerson === '-' ? '' : row.values.loginPerson || ''),
+      capabilityScope: row.values.capabilityScope || (row.values.identity === '-' ? '' : row.values.identity || ''),
+      expiresAt: row.values.expiresAt === '-' ? '' : row.values.expiresAt || '',
+      riskMessage: row.values.riskMessage === '无' ? '' : row.values.riskMessage || '',
+    })
+    setShowAuthorizationDialog(true)
+  }
+
   const handleProcessRow = async (row: AgencyRow) => {
     const object = rowObjectLabel(row)
     if (kind === 'batchOps') {
@@ -1146,7 +1176,12 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       return
     }
 
-    const isRisky = row.status === '异常' || kind === 'authorizationCenter' || kind === 'healthCheck'
+    if (kind === 'authorizationCenter') {
+      await openAuthorizationEditor(row)
+      return
+    }
+
+    const isRisky = row.status === '异常' || kind === 'healthCheck'
     writeAgencyAudit('处理行任务', `${pageConfig.title}-${object}`, isRisky ? '高' : '中', isRisky ? '待审批' : '成功')
     setOperationNotice(
       isRisky
@@ -1231,12 +1266,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       return
     }
     if (kind === 'authorizationCenter') {
-      if (isTauri && companies.length === 0) await fetchCompanies()
-      setAuthorizationDraft((draft) => ({
-        ...draft,
-        adapterType: agencyAuthorizationAdapterType(activeTab) || 'tax',
-      }))
-      setShowAuthorizationDialog(true)
+      await openAuthorizationEditor()
       return
     }
     if (kind === 'serviceContracts' && activeTab === '收费管理') {
@@ -1555,11 +1585,12 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       riskMessage: authorizationDraft.riskMessage || undefined,
     })
     if (!result.success || !result.data) {
-      setOperationNotice(`保存授权记录失败：${result.error || '未知错误'}`)
+      setOperationNotice(`${editingAuthorization ? '更新' : '保存'}授权记录失败：${result.error || '未知错误'}`)
       return
     }
     setShowAuthorizationDialog(false)
-    setOperationNotice('授权状态已保存到本地台账；批量任务仍会先进行授权预检，不会自动登录外部系统。')
+    resetAuthorizationEditor()
+    setOperationNotice(editingAuthorization ? '授权记录已更新；批量任务仍会先进行授权预检，不会自动登录外部系统。' : '授权状态已保存到本地台账；批量任务仍会先进行授权预检，不会自动登录外部系统。')
     void loadRemoteRows()
   }
 
@@ -1776,10 +1807,10 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           <form onSubmit={handleCreateAuthorization} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">新增授权记录</h2>
+                <h2 className="text-sm font-semibold text-slate-900">{editingAuthorization ? '编辑授权记录' : '新增授权记录'}</h2>
                 <p className="mt-1 text-xs text-slate-500">仅维护授权元数据和掩码账号，不录入密码、验证码、Cookie 或税务局会话信息。</p>
               </div>
-              <button type="button" onClick={() => setShowAuthorizationDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
+              <button type="button" onClick={() => { setShowAuthorizationDialog(false); resetAuthorizationEditor() }} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
             </div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
               <label className="space-y-1 text-xs text-slate-600">
@@ -1838,8 +1869,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
               </label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
-              <button type="button" onClick={() => setShowAuthorizationDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
-              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存授权记录</button>
+              <button type="button" onClick={() => { setShowAuthorizationDialog(false); resetAuthorizationEditor() }} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingAuthorization ? '保存授权变更' : '保存授权记录'}</button>
             </div>
           </form>
         </div>
@@ -2267,6 +2298,16 @@ function mapAgencyAuthorizationRow(item: AdapterAuthorization): AgencyRow {
       expireAt: item.expiresAt || '-',
       lastCollect: item.lastCheckedAt || '-',
       risk: item.riskMessage || '无',
+      companyId: item.companyId,
+      adapterType: item.adapterType,
+      adapterCode: item.adapterCode,
+      region: item.region || '',
+      authStatus: item.authStatus,
+      accountMask: item.accountMask || '',
+      loginIdentity: item.loginIdentity || '',
+      capabilityScope: item.capabilityScope || '',
+      expiresAt: item.expiresAt || '',
+      riskMessage: item.riskMessage || '',
     },
   }
 }
