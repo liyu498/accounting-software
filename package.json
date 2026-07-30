@@ -11,6 +11,7 @@
     "verify:exports": "node scripts/verify-export-templates.mjs",
     "verify:live-data": "node scripts/verify-live-module-data.mjs",
     "verify:routes": "node scripts/audit-routes-visual.mjs",
+    "verify:desktop": "node scripts/verify-desktop-targets.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
