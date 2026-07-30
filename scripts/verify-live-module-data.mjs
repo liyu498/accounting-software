@@ -680,6 +680,8 @@ const requiredRoleManagerSnippets = [
   ['company scope unlink binding', "invoke('unlink_user_company'"],
   ['company scope editor component', 'function UserCompanyScopeEditor'],
   ['company scope browser preview', 'PREVIEW_SCOPE_COMPANIES'],
+  ['permission change audit binding', 'automationApi.writeOperationAuditLog'],
+  ['permission audit module label', "moduleName: '机构权限管理'"],
 ]
 
 const requiredDashboardSnippets = [

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronRight, Edit2, KeyRound, Plus, RefreshCw, Shield, Trash2, Users, X } from 'lucide-react'
 import { invoke, isTauri } from '../../lib/tauri'
+import { automationApi } from '../../lib/api'
 import { useCompanyStore, type Company } from '../../stores/companyStore'
 import { usePermission } from '../../lib/usePermission'
 
@@ -133,6 +134,19 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
   const [scopeUser, setScopeUser] = useState<UserWithRole | null>(null)
   const [scopeCompanyIds, setScopeCompanyIds] = useState<Set<string>>(new Set())
 
+  const writePermissionAudit = (action: string, object: string, detail: string) => {
+    if (!isTauri) return
+    void automationApi.writeOperationAuditLog({
+      moduleName: '机构权限管理',
+      action,
+      objectRef: object,
+      riskLevel: '高',
+      result: '成功',
+      detail,
+      operator: 'admin',
+    })
+  }
+
   const loadData = useCallback(async () => {
     setLoading(true)
     setNotice(null)
@@ -252,6 +266,7 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
       }
       closeEditor()
       await loadData()
+      writePermissionAudit(selectedRole ? '更新角色权限' : '新增角色权限', `${code}｜${name}`, `${permissions.length} 项权限`)
       setNotice(selectedRole ? '角色权限已保存。' : '角色已创建。')
     } catch (error) {
       console.error('Failed to save role:', error)
@@ -270,6 +285,7 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
     try {
       await invoke('delete_role', { id: role.role.id })
       await loadData()
+      writePermissionAudit('删除角色权限', `${role.role.code}｜${role.role.name}`, '已解除成员角色关联')
       setNotice('角色已删除。')
     } catch (error) {
       console.error('Failed to delete role:', error)
@@ -293,6 +309,7 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
     try {
       await invoke('update_user_role', { input: { userId: user.id, roleId } })
       await loadData()
+      writePermissionAudit('调整成员角色', `${user.username}｜${nextRole.role.name}`, '成员角色已变更')
       setNotice('成员角色已更新。')
     } catch (error) {
       console.error('Failed to update user role:', error)
@@ -352,6 +369,7 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
       ])
       closeCompanyScopeEditor()
       await loadData()
+      writePermissionAudit('调整成员账套范围', `${scopeUser.username}｜${nextIds.length} 个账套`, '已更新可见账套关联')
       setNotice(`已保存 ${scopeUser.real_name} 的可见账套范围。`)
     } catch (error) {
       console.error('Failed to update user company scope:', error)
