@@ -10,6 +10,7 @@ const welcomeSource = readFileSync('src/pages/Welcome.tsx', 'utf8')
 const appSource = readFileSync('src/App.tsx', 'utf8')
 const dashboardSource = readFileSync('src/pages/Dashboard.tsx', 'utf8')
 const shellSource = readFileSync('src/components/layout/AppShell.tsx', 'utf8')
+const roleManagerSource = readFileSync('src/pages/settings/RoleManager.tsx', 'utf8')
 const companyStoreSource = readFileSync('src/stores/companyStore.ts', 'utf8')
 const companyCommandSource = readFileSync('src-tauri/src/commands/companies.rs', 'utf8')
 const databaseSource = readFileSync('src-tauri/src/db.rs', 'utf8')
@@ -670,6 +671,15 @@ const requiredShellSnippets = [
   ['shell audit company label', 'const auditCompanyLabel = selectedCompany?.name ||'],
   ['shell audit period label', 'const auditPeriodLabel = currentPeriod'],
   ['shell audit scope binding', 'voucher: `${auditPeriodLabel}/${auditCompanyLabel}`'],
+]
+
+const requiredRoleManagerSnippets = [
+  ['company scope dialog', '设置账套范围'],
+  ['company scope editor state', 'const [scopeUser, setScopeUser]'],
+  ['company scope link binding', "invoke('link_user_company'"],
+  ['company scope unlink binding', "invoke('unlink_user_company'"],
+  ['company scope editor component', 'function UserCompanyScopeEditor'],
+  ['company scope browser preview', 'PREVIEW_SCOPE_COMPANIES'],
 ]
 
 const requiredDashboardSnippets = [
@@ -1366,6 +1376,7 @@ const errors = [
   ...verify(pageSource, requiredVoucherEntryPageSnippets, 'voucher entry page'),
   ...verify(appSource, requiredAppSnippets, 'application routes'),
   ...verify(shellSource, requiredShellSnippets, 'application shell'),
+  ...verify(roleManagerSource, requiredRoleManagerSnippets, 'role manager'),
   ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),
   ...verifyAbsent(dashboardSource, forbiddenDashboardSnippets, 'company dashboard'),
   ...verifyAbsent(pageSource, forbiddenBusinessModulePageSnippets, 'business module page'),

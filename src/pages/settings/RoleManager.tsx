@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronRight, Edit2, KeyRound, Plus, RefreshCw, Shield, Trash2, Users, X } from 'lucide-react'
 import { invoke, isTauri } from '../../lib/tauri'
-import { useCompanyStore } from '../../stores/companyStore'
+import { useCompanyStore, type Company } from '../../stores/companyStore'
 import { usePermission } from '../../lib/usePermission'
 
 interface Role {
@@ -34,6 +34,8 @@ interface UserWithRole {
   role_name: string | null
   company_ids: string[]
 }
+
+type ScopeCompany = Pick<Company, 'id' | 'code' | 'name' | 'tax_id' | 'tax_type'>
 
 const RESOURCES = [
   { key: 'vouchers', label: '凭证与审核' },
@@ -89,6 +91,12 @@ const PREVIEW_USERS: UserWithRole[] = [
   { id: 'user-zhao', username: 'zhao.service', real_name: '赵专员', role: 'accountant', role_id: 'role-service', role_name: '资料专员', company_ids: ['03009'] },
 ]
 
+const PREVIEW_SCOPE_COMPANIES: ScopeCompany[] = [
+  { id: '01460', code: '01460', name: '科旋电气（上海）有限公司', tax_id: '91310115MA1K3****X', tax_type: '一般纳税人' },
+  { id: '02018', code: '02018', name: '上海云启科技有限公司', tax_id: '91310115MA1K4****P', tax_type: '小规模纳税人' },
+  { id: '03009', code: '03009', name: '杭州晨光贸易有限公司', tax_id: '91330106MA2****Q', tax_type: '一般纳税人' },
+]
+
 function createPermissionDraft(permissions: RolePermission[] = []) {
   return Object.fromEntries(RESOURCES.map((resource) => [
     resource.key,
@@ -108,7 +116,7 @@ function clonePreviewRoles() {
 }
 
 export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company' }) {
-  const { selectedCompanyId } = useCompanyStore()
+  const { selectedCompanyId, companies, fetchCompanies } = useCompanyStore()
   const { canCreate, canDelete, canEdit, canView } = usePermission()
   const [roles, setRoles] = useState<RoleWithPermissions[]>([])
   const [users, setUsers] = useState<UserWithRole[]>([])
@@ -122,6 +130,8 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
   const [permissionDraft, setPermissionDraft] = useState<Record<string, Set<string>>>(createPermissionDraft())
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState<string | null>(null)
+  const [scopeUser, setScopeUser] = useState<UserWithRole | null>(null)
+  const [scopeCompanyIds, setScopeCompanyIds] = useState<Set<string>>(new Set())
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -154,9 +164,19 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
     loadData()
   }, [loadData])
 
+  useEffect(() => {
+    void fetchCompanies()
+  }, [fetchCompanies])
+
   const selectedRole = useMemo(() => roles.find((item) => item.role.id === editingRoleId) ?? null, [editingRoleId, roles])
   const isEditorOpen = showEditor || Boolean(selectedRole)
   const assignmentCount = users.filter((user) => user.role_id).length
+  const scopeCompanies = useMemo<ScopeCompany[]>(() => {
+    const activeCompanies = companies
+      .filter((company) => company.is_deleted !== 1)
+      .map(({ id, code, name, tax_id, tax_type }) => ({ id, code, name, tax_id, tax_type }))
+    return !isTauri && activeCompanies.length === 0 ? PREVIEW_SCOPE_COMPANIES : activeCompanies
+  }, [companies])
 
   const openNewRole = () => {
     setEditingRoleId(null)
@@ -280,6 +300,65 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
     }
   }
 
+  const openCompanyScopeEditor = (user: UserWithRole) => {
+    const availableIds = scopeCompanies.map((company) => company.id)
+    const selectedIds = user.company_ids.includes('all') ? availableIds : user.company_ids
+    setScopeUser(user)
+    setScopeCompanyIds(new Set(selectedIds))
+  }
+
+  const closeCompanyScopeEditor = () => {
+    setScopeUser(null)
+    setScopeCompanyIds(new Set())
+  }
+
+  const toggleCompanyScope = (companyId: string) => {
+    setScopeCompanyIds((current) => {
+      const next = new Set(current)
+      if (next.has(companyId)) next.delete(companyId)
+      else next.add(companyId)
+      return next
+    })
+  }
+
+  const toggleAllCompanyScopes = () => {
+    const availableIds = scopeCompanies.map((company) => company.id)
+    setScopeCompanyIds((current) => current.size === availableIds.length ? new Set() : new Set(availableIds))
+  }
+
+  const saveCompanyScope = async () => {
+    if (!scopeUser) return
+    const availableIds = scopeCompanies.map((company) => company.id)
+    const nextIds = [...scopeCompanyIds].filter((companyId) => availableIds.includes(companyId))
+    if (nextIds.length === 0) {
+      setNotice('请至少选择一个可见账套；如需取消成员访问，请先停用成员或调整其角色。')
+      return
+    }
+
+    if (!isTauri) {
+      setUsers((current) => current.map((user) => user.id === scopeUser.id ? { ...user, company_ids: nextIds } : user))
+      closeCompanyScopeEditor()
+      setNotice(`已在预览数据中更新 ${scopeUser.real_name} 的可见账套范围。`)
+      return
+    }
+
+    const previousIds = scopeUser.company_ids.includes('all') ? availableIds : scopeUser.company_ids
+    const previousSet = new Set(previousIds)
+    const nextSet = new Set(nextIds)
+    try {
+      await Promise.all([
+        ...nextIds.filter((companyId) => !previousSet.has(companyId)).map((companyId) => invoke('link_user_company', { input: { userId: scopeUser.id, companyId } })),
+        ...previousIds.filter((companyId) => !nextSet.has(companyId)).map((companyId) => invoke('unlink_user_company', { input: { userId: scopeUser.id, companyId } })),
+      ])
+      closeCompanyScopeEditor()
+      await loadData()
+      setNotice(`已保存 ${scopeUser.real_name} 的可见账套范围。`)
+    } catch (error) {
+      console.error('Failed to update user company scope:', error)
+      setNotice('保存成员账套范围失败，请检查成员权限和本机数据库。')
+    }
+  }
+
   if (!canView('users')) {
     return <div className="flex h-64 items-center justify-center text-sm text-slate-500">您没有权限查看机构成员与角色配置。</div>
   }
@@ -341,12 +420,13 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
       ) : (
         <section className="overflow-hidden border border-slate-200 bg-white dark:border-neutral-700 dark:bg-neutral-900">
           <div className="flex h-9 items-center justify-between border-b border-slate-200 px-3 dark:border-neutral-700"><h2 className="text-sm font-semibold">成员授权</h2><span className="text-xs text-slate-500 dark:text-neutral-400">角色变更将写入机构操作留痕；高风险权限须由管理员复核。</span></div>
-          <div className="overflow-x-auto"><table className="min-w-[760px] w-full text-left text-xs"><thead className="bg-slate-50 text-slate-600 dark:bg-neutral-800 dark:text-neutral-300"><tr><th className="px-3 py-2 font-medium">成员</th><th className="px-3 py-2 font-medium">登录账号</th><th className="px-3 py-2 font-medium">可见账套</th><th className="px-3 py-2 font-medium">当前角色</th><th className="px-3 py-2 text-right font-medium">变更授权</th></tr></thead><tbody>{users.map((user) => <tr key={user.id} className="border-t border-slate-100 hover:bg-slate-50 dark:border-neutral-800 dark:hover:bg-neutral-800"><td className="px-3 py-2.5 font-medium">{user.real_name}</td><td className="px-3 py-2.5 font-mono text-slate-500 dark:text-neutral-400">{user.username}</td><td className="px-3 py-2.5">{user.company_ids.includes('all') ? '全部客户账套' : `${user.company_ids.length} 个账套`}</td><td className="px-3 py-2.5"><span className="inline-flex border border-slate-200 px-1.5 py-0.5 text-slate-700 dark:border-neutral-600 dark:text-neutral-200">{user.role_name || user.role || '未分配'}</span></td><td className="px-3 py-2.5 text-right">{canEdit('users') ? <select value={user.role_id || ''} onChange={(event) => updateUserRole(user, event.target.value)} className="h-7 min-w-28 border border-slate-300 bg-white px-2 text-xs text-slate-700 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100" title={`为${user.real_name}分配角色`}><option value="">选择角色</option>{roles.map((role) => <option key={role.role.id} value={role.role.id}>{role.role.name}</option>)}</select> : <span className="text-slate-400">无编辑权限</span>}</td></tr>)}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="min-w-[860px] w-full text-left text-xs"><thead className="bg-slate-50 text-slate-600 dark:bg-neutral-800 dark:text-neutral-300"><tr><th className="px-3 py-2 font-medium">成员</th><th className="px-3 py-2 font-medium">登录账号</th><th className="px-3 py-2 font-medium">可见账套</th><th className="px-3 py-2 font-medium">当前角色</th><th className="px-3 py-2 text-right font-medium">变更授权</th></tr></thead><tbody>{users.map((user) => <tr key={user.id} className="border-t border-slate-100 hover:bg-slate-50 dark:border-neutral-800 dark:hover:bg-neutral-800"><td className="px-3 py-2.5 font-medium">{user.real_name}</td><td className="px-3 py-2.5 font-mono text-slate-500 dark:text-neutral-400">{user.username}</td><td className="px-3 py-2.5">{user.company_ids.includes('all') ? '全部客户账套' : `${user.company_ids.length} 个账套`}</td><td className="px-3 py-2.5"><span className="inline-flex border border-slate-200 px-1.5 py-0.5 text-slate-700 dark:border-neutral-600 dark:text-neutral-200">{user.role_name || user.role || '未分配'}</span></td><td className="px-3 py-2.5 text-right">{canEdit('users') ? <div className="flex justify-end gap-2"><select value={user.role_id || ''} onChange={(event) => updateUserRole(user, event.target.value)} className="h-7 min-w-28 border border-slate-300 bg-white px-2 text-xs text-slate-700 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100" title={`为${user.real_name}分配角色`}><option value="">选择角色</option>{roles.map((role) => <option key={role.role.id} value={role.role.id}>{role.role.name}</option>)}</select>{scope === 'agency' && <button type="button" onClick={() => openCompanyScopeEditor(user)} className="inline-flex h-7 items-center gap-1 border border-slate-300 px-2 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7] dark:border-neutral-600 dark:text-neutral-200" title={`设置${user.real_name}的可见账套范围`}><KeyRound className="h-3.5 w-3.5" /> 账套范围</button>}</div> : <span className="text-slate-400">无编辑权限</span>}</td></tr>)}</tbody></table></div>
           {!users.length && <div className="px-3 py-10 text-center text-sm text-slate-500 dark:text-neutral-400">当前没有机构成员记录。</div>}
         </section>
       )}
 
       {isEditorOpen && <RoleEditor isEditing={Boolean(selectedRole)} name={roleName} code={roleCode} description={roleDescription} permissions={permissionDraft} onName={setRoleName} onCode={setRoleCode} onDescription={setRoleDescription} onToggle={togglePermission} onCancel={closeEditor} onSave={saveRole} />}
+      {scopeUser && <UserCompanyScopeEditor user={scopeUser} companies={scopeCompanies} companyIds={scopeCompanyIds} onToggle={toggleCompanyScope} onToggleAll={toggleAllCompanyScopes} onCancel={closeCompanyScopeEditor} onSave={saveCompanyScope} />}
     </div>
   )
 }
@@ -409,4 +489,9 @@ function PermissionMatrix({ permissions, onToggle, readOnly }: { permissions: Re
 
 function RoleEditor({ isEditing, name, code, description, permissions, onName, onCode, onDescription, onToggle, onCancel, onSave }: { isEditing: boolean; name: string; code: string; description: string; permissions: Record<string, Set<string>>; onName: (value: string) => void; onCode: (value: string) => void; onDescription: (value: string) => void; onToggle: (resource: string, action: string) => void; onCancel: () => void; onSave: () => void }) {
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" role="dialog" aria-modal="true" aria-label={isEditing ? '编辑角色权限' : '新增角色'}><section className="max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-auto border border-slate-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"><div className="flex h-11 items-center justify-between border-b border-slate-200 px-4 dark:border-neutral-700"><div><h2 className="text-sm font-semibold">{isEditing ? '编辑角色权限' : '新增机构角色'}</h2><p className="mt-0.5 text-xs text-slate-500 dark:text-neutral-400">权限变更应经过机构内部审批；涉及申报、删除和账期操作须保留审计记录。</p></div><button type="button" onClick={onCancel} className="text-slate-500 hover:text-slate-900 dark:text-neutral-400 dark:hover:text-white" title="关闭"><X className="h-4 w-4" /></button></div><div className="space-y-3 p-4"><div className="grid gap-3 md:grid-cols-[1fr_1fr_2fr]"><label className="grid gap-1 text-xs text-slate-600 dark:text-neutral-300">角色名称 *<input value={name} onChange={(event) => onName(event.target.value)} className="h-8 border border-slate-300 bg-white px-2 text-sm text-slate-900 dark:border-neutral-600 dark:bg-neutral-950 dark:text-white" placeholder="例如：税务复核员" /></label><label className="grid gap-1 text-xs text-slate-600 dark:text-neutral-300">角色编码 *<input value={code} onChange={(event) => onCode(event.target.value)} className="h-8 border border-slate-300 bg-white px-2 font-mono text-sm text-slate-900 dark:border-neutral-600 dark:bg-neutral-950 dark:text-white" placeholder="tax_reviewer" /></label><label className="grid gap-1 text-xs text-slate-600 dark:text-neutral-300">职责说明<input value={description} onChange={(event) => onDescription(event.target.value)} className="h-8 border border-slate-300 bg-white px-2 text-sm text-slate-900 dark:border-neutral-600 dark:bg-neutral-950 dark:text-white" placeholder="描述可操作的客户、模块和职责边界" /></label></div><div><div className="mb-2 flex items-center gap-2"><KeyRound className="h-4 w-4 text-[#1f65a7] dark:text-blue-300" /><h3 className="text-sm font-semibold">权限矩阵</h3><span className="text-xs text-slate-500 dark:text-neutral-400">至少配置查看权限后再分配给成员。</span></div><PermissionMatrix permissions={permissions} onToggle={onToggle} readOnly={false} /></div></div><div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-neutral-700"><button type="button" onClick={onCancel} className="h-8 border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800">取消</button><button type="button" onClick={onSave} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#19568e] dark:bg-blue-600 dark:hover:bg-blue-500">保存角色</button></div></section></div>
+}
+
+function UserCompanyScopeEditor({ user, companies, companyIds, onToggle, onToggleAll, onCancel, onSave }: { user: UserWithRole; companies: ScopeCompany[]; companyIds: Set<string>; onToggle: (companyId: string) => void; onToggleAll: () => void; onCancel: () => void; onSave: () => void }) {
+  const allSelected = companies.length > 0 && companies.every((company) => companyIds.has(company.id))
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" role="dialog" aria-modal="true" aria-label="设置账套范围"><section className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"><div className="flex h-11 items-center justify-between border-b border-slate-200 px-4 dark:border-neutral-700"><div><h2 className="text-sm font-semibold">设置账套范围</h2><p className="mt-0.5 text-xs text-slate-500 dark:text-neutral-400">{user.real_name} 仅能访问下列已授权客户账套；角色权限仍决定可执行的动作。</p></div><button type="button" onClick={onCancel} className="text-slate-500 hover:text-slate-900 dark:text-neutral-400 dark:hover:text-white" title="关闭"><X className="h-4 w-4" /></button></div><div className="p-4"><div className="mb-3 flex items-center justify-between border-b border-slate-200 pb-2 text-xs dark:border-neutral-700"><label className="inline-flex items-center gap-2 font-medium text-slate-700 dark:text-neutral-200"><input type="checkbox" checked={allSelected} onChange={onToggleAll} className="h-3.5 w-3.5 rounded border-slate-300 text-[#1f65a7] focus:ring-[#1f65a7] dark:border-neutral-600" />全部当前启用账套</label><span className="text-slate-500 dark:text-neutral-400">已选择 {companyIds.size} / {companies.length}</span></div><div className="max-h-72 divide-y divide-slate-100 overflow-y-auto border border-slate-200 dark:divide-neutral-800 dark:border-neutral-700">{companies.map((company) => <label key={company.id} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-neutral-800"><input type="checkbox" checked={companyIds.has(company.id)} onChange={() => onToggle(company.id)} className="h-3.5 w-3.5 rounded border-slate-300 text-[#1f65a7] focus:ring-[#1f65a7] dark:border-neutral-600" /><span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium text-slate-900 dark:text-white">{company.name}</span><span className="block truncate font-mono text-[11px] text-slate-500 dark:text-neutral-400">{company.code} · {company.tax_id || '未维护税号'}</span></span><span className="text-[11px] text-slate-500 dark:text-neutral-400">{company.tax_type || '未设置'}</span></label>)}{companies.length === 0 && <p className="px-3 py-8 text-center text-sm text-slate-500 dark:text-neutral-400">当前没有可授权的启用账套，请先在首页完成企业建档。</p>}</div></div><div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-neutral-700"><button type="button" onClick={onCancel} className="h-8 border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800">取消</button><button type="button" onClick={onSave} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#19568e] dark:bg-blue-600 dark:hover:bg-blue-500">保存范围</button></div></section></div>
 }
