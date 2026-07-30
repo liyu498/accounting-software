@@ -56,6 +56,29 @@ interface AccountRow {
   real: boolean
 }
 
+interface CompanyMemo {
+  content: string
+  reminderDate: string
+  updatedAt: string
+}
+
+const COMPANY_MEMO_STORAGE_KEY = 'accounting-company-memos-v1'
+
+function loadCompanyMemos(): Record<string, CompanyMemo> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(COMPANY_MEMO_STORAGE_KEY) || '{}')
+    return saved && typeof saved === 'object' ? saved : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveCompanyMemos(memos: Record<string, CompanyMemo>) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(COMPANY_MEMO_STORAGE_KEY, JSON.stringify(memos))
+}
+
 const demoCompanies: AccountRow[] = [
   {
     id: '01460',
@@ -374,6 +397,9 @@ export function Welcome() {
   const { companies, selectCompany, fetchCompanies, createCompany, updateCompany, deactivateCompany, deleteCompany } = useCompanyStore()
   const { fetchPeriods, fetchVoucherWords } = usePeriodStore()
   const [searchQuery, setSearchQuery] = useState('')
+  const [companyMemos, setCompanyMemos] = useState<Record<string, CompanyMemo>>(() => loadCompanyMemos())
+  const [memoCompany, setMemoCompany] = useState<AccountRow | null>(null)
+  const [memoDraft, setMemoDraft] = useState({ content: '', reminderDate: '' })
   const [statusFilter, setStatusFilter] = useState<'normal' | 'disabled'>('normal')
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
   const [showAddModal, setShowAddModal] = useState(false)
@@ -817,8 +843,32 @@ export function Welcome() {
   }
 
   const handleMemoCompany = (company: AccountRow) => {
-    recordWelcomeAudit('新增备忘录', `${company.code}-${company.name}`)
-    setOperationNotice(`${company.name} 已记录备忘录操作；后续将接入可编辑备注、附件和提醒日期。`)
+    const saved = companyMemos[company.id]
+    setMemoCompany(company)
+    setMemoDraft({ content: saved?.content || '', reminderDate: saved?.reminderDate || '' })
+  }
+
+  const handleSaveCompanyMemo = () => {
+    if (!memoCompany) return
+    const content = memoDraft.content.trim()
+    if (!content) {
+      warningToast('请填写备忘录内容')
+      return
+    }
+    const next = {
+      ...companyMemos,
+      [memoCompany.id]: {
+        content,
+        reminderDate: memoDraft.reminderDate,
+        updatedAt: new Date().toLocaleString('zh-CN'),
+      },
+    }
+    setCompanyMemos(next)
+    saveCompanyMemos(next)
+    recordWelcomeAudit('保存备忘录', `${memoCompany.code}-${memoCompany.name}${memoDraft.reminderDate ? `｜提醒 ${memoDraft.reminderDate}` : ''}`)
+    setOperationNotice(`${memoCompany.name} 的备忘录已保存到本机；${memoDraft.reminderDate ? `提醒日期：${memoDraft.reminderDate}。` : '未设置提醒日期。'}`)
+    setMemoCompany(null)
+    setMemoDraft({ content: '', reminderDate: '' })
   }
 
   const handleTaxLogin = (company: AccountRow) => {
@@ -984,7 +1034,7 @@ export function Welcome() {
                   {rows.map((company) => (
                     <tr key={company.id} className="hover:bg-[#f8fbff]">
                       <td className="px-2 py-2 align-top"><input type="checkbox" checked={selectedRows.has(company.id)} onChange={() => toggleRow(company.id)} /></td>
-                      <td className="break-words px-2 py-2 align-top text-[#1f65a7]">✎</td>
+                      <td className="break-words px-2 py-2 align-top text-[#1f65a7]" title={companyMemos[company.id]?.content || '暂无备忘录'}>{companyMemos[company.id] ? '●' : '✎'}</td>
                       <td className="break-words px-2 py-2 align-top font-mono text-xs text-slate-500">{company.code}</td>
                       <td className="break-words px-2 py-2 align-top font-medium">{company.name}</td>
                       <td className="break-words px-2 py-2 align-top">{company.enterpriseType}</td>
@@ -1015,6 +1065,35 @@ export function Welcome() {
           </div>
         </section>
       </main>
+
+      {memoCompany && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <form onSubmit={(event) => { event.preventDefault(); handleSaveCompanyMemo() }} className="w-full max-w-lg rounded border border-slate-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">客户备忘录</h2>
+                <p className="mt-1 text-xs text-slate-500">{memoCompany.code}｜{memoCompany.name}</p>
+              </div>
+              <button type="button" onClick={() => setMemoCompany(null)} className="text-2xl text-slate-400 hover:text-slate-600">×</button>
+            </div>
+            <div className="space-y-4 px-5 py-4">
+              <label className="block text-sm font-medium text-slate-700">
+                备忘内容
+                <textarea required rows={5} value={memoDraft.content} onChange={(event) => setMemoDraft((draft) => ({ ...draft, content: event.target.value }))} placeholder="记录客户沟通、待补资料或服务跟进事项" className="mt-2 w-full resize-y rounded border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                提醒日期
+                <input type="date" value={memoDraft.reminderDate} onChange={(event) => setMemoDraft((draft) => ({ ...draft, reminderDate: event.target.value }))} className="mt-2 h-9 w-full rounded border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" />
+              </label>
+              <p className="text-xs text-slate-500">备忘录仅保存于本机，并写入操作留痕；客户附件请在对应账套的附件中心登记。</p>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-slate-200 px-5 py-4">
+              <Button variant="secondary" onClick={() => setMemoCompany(null)}>取消</Button>
+              <Button type="submit">保存备忘录</Button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
