@@ -139,6 +139,8 @@ pub fn run() {
             commands::companies::permanent_delete_company,
             commands::companies::get_deleted_companies,
             commands::companies::cleanup_expired_companies,
+            commands::companies::get_company_memos,
+            commands::companies::upsert_company_memo,
             // Account code commands
             commands::accounts::get_account_codes,
             commands::accounts::get_account_code,

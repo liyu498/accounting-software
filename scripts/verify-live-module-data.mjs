@@ -455,6 +455,17 @@ const requiredCompanyPersistenceSnippets = [
   ['company database service period migration', 'ALTER TABLE companies ADD COLUMN service_start TEXT'],
 ]
 
+const requiredCompanyMemoPersistenceSnippets = [
+  ['company memo desktop list command', 'pub async fn get_company_memos'],
+  ['company memo desktop upsert command', 'pub async fn upsert_company_memo'],
+  ['company memo database table', 'CREATE TABLE IF NOT EXISTS company_memos'],
+  ['company memo database company scope', 'UNIQUE (company_id)'],
+  ['company memo api binding', 'export const companyMemoApi'],
+  ['company memo load binding', 'companyMemoApi.getAll()'],
+  ['company memo save binding', 'companyMemoApi.upsert({'],
+  ['company memo browser fallback', 'if (!isTauri) {'],
+]
+
 const requiredAgencyModuleSnippets = [
   ['agency company data source', 'useCompanyStore()'],
   ['agency company refresh', 'await fetchCompanies()'],
@@ -1357,6 +1368,10 @@ const errors = [
   ...verify(companyStoreSource, requiredCompanyPersistenceSnippets.slice(0, 2), 'company store'),
   ...verify(companyCommandSource, requiredCompanyPersistenceSnippets.slice(2, 3), 'company commands'),
   ...verify(databaseSource, requiredCompanyPersistenceSnippets.slice(3), 'database schema'),
+  ...verify(companyCommandSource, requiredCompanyMemoPersistenceSnippets.slice(0, 2), 'company memo commands'),
+  ...verify(databaseSource, requiredCompanyMemoPersistenceSnippets.slice(2, 4), 'company memo database schema'),
+  ...verify(apiSource, requiredCompanyMemoPersistenceSnippets.slice(4, 5), 'company memo api'),
+  ...verify(welcomeSource, requiredCompanyMemoPersistenceSnippets.slice(5), 'welcome company memo persistence'),
   ...verify(agencyModuleSource, requiredAgencyModuleSnippets, 'agency module page'),
   ...verify(agencyCommandSource, requiredAgencyFeeEntryCommandSnippets, 'agency commands'),
   ...verify(apiSource, requiredAgencyFeeEntryApiSnippets, 'api bindings'),

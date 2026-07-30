@@ -24,7 +24,7 @@ import { cn } from '../lib/utils'
 import { agencyNavItems } from './agency/agencyNav'
 import { recordAuditLog, recordExportJob } from '../lib/exportJobs'
 import { exportRowsToXlsx } from '../lib/xlsxExport'
-import { automationApi } from '../lib/api'
+import { automationApi, companyMemoApi } from '../lib/api'
 import { isTauri } from '../lib/tauri'
 
 interface SummaryMetric {
@@ -397,7 +397,7 @@ export function Welcome() {
   const { companies, selectCompany, fetchCompanies, createCompany, updateCompany, deactivateCompany, deleteCompany } = useCompanyStore()
   const { fetchPeriods, fetchVoucherWords } = usePeriodStore()
   const [searchQuery, setSearchQuery] = useState('')
-  const [companyMemos, setCompanyMemos] = useState<Record<string, CompanyMemo>>(() => loadCompanyMemos())
+  const [companyMemos, setCompanyMemos] = useState<Record<string, CompanyMemo>>(() => isTauri ? {} : loadCompanyMemos())
   const [memoCompany, setMemoCompany] = useState<AccountRow | null>(null)
   const [memoDraft, setMemoDraft] = useState({ content: '', reminderDate: '' })
   const [statusFilter, setStatusFilter] = useState<'normal' | 'disabled'>('normal')
@@ -411,6 +411,24 @@ export function Welcome() {
   useEffect(() => {
     fetchCompanies().catch((err) => console.error('[Welcome] fetchCompanies failed:', err))
   }, [fetchCompanies])
+
+  useEffect(() => {
+    if (!isTauri) {
+      setCompanyMemos(loadCompanyMemos())
+      return
+    }
+    companyMemoApi.getAll().then((result) => {
+      if (!result.success || !result.data) {
+        console.error('[Welcome] getCompanyMemos failed:', result.error)
+        return
+      }
+      setCompanyMemos(Object.fromEntries(result.data.map((memo) => [memo.companyId, {
+        content: memo.content,
+        reminderDate: memo.reminderDate || '',
+        updatedAt: memo.updatedAt,
+      }])))
+    })
+  }, [])
 
   useEffect(() => {
     if (new URLSearchParams(location.search).get('createCompany') === '1') {
@@ -848,25 +866,42 @@ export function Welcome() {
     setMemoDraft({ content: saved?.content || '', reminderDate: saved?.reminderDate || '' })
   }
 
-  const handleSaveCompanyMemo = () => {
+  const handleSaveCompanyMemo = async () => {
     if (!memoCompany) return
     const content = memoDraft.content.trim()
     if (!content) {
       warningToast('请填写备忘录内容')
       return
     }
-    const next = {
-      ...companyMemos,
-      [memoCompany.id]: {
+    let savedMemo: CompanyMemo = {
+      content,
+      reminderDate: memoDraft.reminderDate,
+      updatedAt: new Date().toLocaleString('zh-CN'),
+    }
+    if (!isTauri) {
+      const next = { ...companyMemos, [memoCompany.id]: savedMemo }
+      saveCompanyMemos(next)
+    } else {
+      const result = await companyMemoApi.upsert({
+        companyId: memoCompany.id,
         content,
         reminderDate: memoDraft.reminderDate,
-        updatedAt: new Date().toLocaleString('zh-CN'),
-      },
+        updatedBy: '机构管理员',
+      })
+      if (!result.success || !result.data) {
+        warningToast(result.error || '客户备忘录保存失败')
+        return
+      }
+      savedMemo = {
+        content: result.data.content,
+        reminderDate: result.data.reminderDate || '',
+        updatedAt: result.data.updatedAt,
+      }
     }
+    const next = { ...companyMemos, [memoCompany.id]: savedMemo }
     setCompanyMemos(next)
-    saveCompanyMemos(next)
     recordWelcomeAudit('保存备忘录', `${memoCompany.code}-${memoCompany.name}${memoDraft.reminderDate ? `｜提醒 ${memoDraft.reminderDate}` : ''}`)
-    setOperationNotice(`${memoCompany.name} 的备忘录已保存到本机；${memoDraft.reminderDate ? `提醒日期：${memoDraft.reminderDate}。` : '未设置提醒日期。'}`)
+    setOperationNotice(`${memoCompany.name} 的备忘录已${isTauri ? '保存到本地数据库' : '保存到浏览器预览数据'}；${memoDraft.reminderDate ? `提醒日期：${memoDraft.reminderDate}。` : '未设置提醒日期。'}`)
     setMemoCompany(null)
     setMemoDraft({ content: '', reminderDate: '' })
   }
@@ -1085,7 +1120,7 @@ export function Welcome() {
                 提醒日期
                 <input type="date" value={memoDraft.reminderDate} onChange={(event) => setMemoDraft((draft) => ({ ...draft, reminderDate: event.target.value }))} className="mt-2 h-9 w-full rounded border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" />
               </label>
-              <p className="text-xs text-slate-500">备忘录仅保存于本机，并写入操作留痕；客户附件请在对应账套的附件中心登记。</p>
+              <p className="text-xs text-slate-500">{isTauri ? '备忘录保存至本地数据库，并写入操作留痕；客户附件请在对应账套的附件中心登记。' : '浏览器预览仅临时保存于本机浏览器；桌面端会保存至本地数据库。'}</p>
             </div>
             <div className="flex justify-end gap-3 border-t border-slate-200 px-5 py-4">
               <Button variant="secondary" onClick={() => setMemoCompany(null)}>取消</Button>

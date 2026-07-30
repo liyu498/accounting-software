@@ -61,6 +61,8 @@ const EMPTY_RESULTS: Record<string, unknown> = {
   get_currencies: [],
   get_roles: [],
   get_users_with_roles: [],
+  get_company_memos: [],
+  upsert_company_memo: { id: 'company-memo-dev-1', companyId: 'mock-1', content: '浏览器预览备忘录', reminderDate: null, updatedBy: 'dev', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   get_agency_service_contracts: [],
   get_agency_fee_collections: [],
   get_agency_collaboration_items: [],

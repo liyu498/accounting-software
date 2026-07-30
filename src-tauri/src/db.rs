@@ -487,6 +487,25 @@ impl Database {
         .execute(pool)
         .await?;
 
+        // Agency-level follow-up memo for each company. Credentials and external session data are never stored here.
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS company_memos (
+                id TEXT PRIMARY KEY,
+                company_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                reminder_date TEXT,
+                updated_by TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+                UNIQUE (company_id)
+            )
+            "#,
+        )
+        .execute(pool)
+        .await?;
+
         // Accounting periods (one per company per month)
         sqlx::query(
             r#"

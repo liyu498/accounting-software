@@ -96,6 +96,16 @@ export interface Company {
   updatedAt: string
 }
 
+export interface CompanyMemoRecord {
+  id: string
+  companyId: string
+  content: string
+  reminderDate: string | null
+  updatedBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Subject {
   code: string
   name: string
@@ -431,6 +441,38 @@ export const companyApi = {
     try {
       await invoke('delete_company', { id })
       return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+}
+
+export const companyMemoApi = {
+  getAll: async (): Promise<ApiResponse<CompanyMemoRecord[]>> => {
+    try {
+      const result = await invoke('get_company_memos') as CompanyMemoRecord[]
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+
+  upsert: async (input: {
+    companyId: string
+    content: string
+    reminderDate?: string
+    updatedBy?: string
+  }): Promise<ApiResponse<CompanyMemoRecord>> => {
+    try {
+      const result = await invoke('upsert_company_memo', {
+        input: {
+          company_id: input.companyId,
+          content: input.content,
+          reminder_date: input.reminderDate || null,
+          updated_by: input.updatedBy || null,
+        },
+      }) as CompanyMemoRecord
+      return { success: true, data: result }
     } catch (error) {
       return { success: false, error: String(error) }
     }

@@ -1,5 +1,88 @@
 use crate::db::{Company, CreateCompanyInput, Database};
+use serde::{Deserialize, Serialize};
 use tauri::State;
+
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct CompanyMemo {
+    pub id: String,
+    pub company_id: String,
+    pub content: String,
+    pub reminder_date: Option<String>,
+    pub updated_by: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpsertCompanyMemoInput {
+    pub company_id: String,
+    pub content: String,
+    pub reminder_date: Option<String>,
+    pub updated_by: Option<String>,
+}
+
+#[tauri::command]
+pub async fn get_company_memos(
+    db: State<'_, Database>,
+) -> Result<Vec<CompanyMemo>, String> {
+    sqlx::query_as(
+        r#"
+        SELECT id, company_id, content, reminder_date, updated_by, created_at, updated_at
+        FROM company_memos
+        ORDER BY updated_at DESC
+        "#,
+    )
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| format!("查询客户备忘录失败: {e}"))
+}
+
+#[tauri::command]
+pub async fn upsert_company_memo(
+    input: UpsertCompanyMemoInput,
+    db: State<'_, Database>,
+) -> Result<CompanyMemo, String> {
+    if input.company_id.trim().is_empty() {
+        return Err("账套不能为空".to_string());
+    }
+    if input.content.trim().is_empty() {
+        return Err("备忘录内容不能为空".to_string());
+    }
+
+    let id = uuid::Uuid::new_v4().to_string();
+    sqlx::query(
+        r#"
+        INSERT INTO company_memos (id, company_id, content, reminder_date, updated_by)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(company_id) DO UPDATE SET
+            content = excluded.content,
+            reminder_date = excluded.reminder_date,
+            updated_by = excluded.updated_by,
+            updated_at = datetime('now')
+        "#,
+    )
+    .bind(&id)
+    .bind(&input.company_id)
+    .bind(input.content.trim())
+    .bind(&input.reminder_date)
+    .bind(&input.updated_by)
+    .execute(db.pool())
+    .await
+    .map_err(|e| format!("保存客户备忘录失败: {e}"))?;
+
+    sqlx::query_as(
+        r#"
+        SELECT id, company_id, content, reminder_date, updated_by, created_at, updated_at
+        FROM company_memos
+        WHERE company_id = ?
+        "#,
+    )
+    .bind(&input.company_id)
+    .fetch_one(db.pool())
+    .await
+    .map_err(|e| format!("读取客户备忘录失败: {e}"))
+}
 
 #[tauri::command]
 pub async fn get_companies(
@@ -408,7 +491,7 @@ pub async fn cleanup_expired_companies(
             "currencies", "voucher_template_types", "voucher_templates", "common_digests",
             "settlement_rules", "dashboard_widgets", "financial_indicators", "voucher_words",
             "accounting_periods", "account_codes", "counterparties", "invoices",
-            "initial_balances", "user_companies",
+            "initial_balances", "user_companies", "company_memos",
         ];
 
         for table in &related_tables {
