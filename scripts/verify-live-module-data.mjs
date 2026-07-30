@@ -157,6 +157,20 @@ const requiredInventoryWorkflowSummarySnippets = [
   ['inventory workflow renders current summary', '按当前账套存货台账实时汇总'],
 ]
 
+const requiredPeopleWorkflowSummarySnippets = [
+  ['employee workflow receives live summary', '<EmployeeVerificationPanel\n            summary={config.summary}'],
+  ['employee workflow summary contract', "function EmployeeVerificationPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['payroll workflow receives live summary', '<PayrollWorkflowPanel\n            summary={config.summary}'],
+  ['payroll workflow summary contract', "function PayrollWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['social security summary mapper', "function summarizeLiveSocialSecurity(records: SocialSecurityRecord[]): ModuleConfig['summary']"],
+  ['social security config summary binding', 'summary: summarizeLiveSocialSecurity(socialSecurityRecords)'],
+  ['social security workflow receives live summary', '<SocialSecurityWorkflowPanel\n            summary={config.summary}'],
+  ['social security workflow summary contract', "function SocialSecurityWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['people workflow renders current summary', '按当前账套人员档案实时汇总'],
+  ['payroll workflow renders current summary', '按当前账套薪酬台账实时汇总'],
+  ['social security workflow renders current summary', '按当前账套社保台账实时汇总'],
+]
+
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
@@ -1584,6 +1598,7 @@ const errors = [
   ...verify(adapterSource, requiredLedgerWorkflowSummarySnippets.slice(3), 'closing task adapter'),
   ...verify(pageSource, requiredReconciliationAndAgingWorkflowSummarySnippets, 'reconciliation and aging workflow panels'),
   ...verify(pageSource, requiredInventoryWorkflowSummarySnippets, 'inventory workflow panel'),
+  ...verify(pageSource, requiredPeopleWorkflowSummarySnippets, 'people workflow panels'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

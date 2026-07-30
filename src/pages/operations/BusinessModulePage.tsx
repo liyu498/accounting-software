@@ -4684,7 +4684,16 @@ function summarizeLivePayroll(payrollRecords: PayrollRecord[]): ModuleConfig['su
     { label: '待确认行', value: `${pending} 行`, tone: pending > 0 ? 'red' : 'gray' },
   ]
 }
-function mapLiveSocialSecurityRows(socialSecurityRecords: SocialSecurityRecord[]): ModuleRow[] { return socialSecurityRecords.map((record) => ({ id: record.id, status: '待确认', voucher: '未生成', attachment: '本地社保明细', values: { name: record.employeeName, city: record.city || '待补', base: payrollCurrency(record.contributionBase), company: payrollCurrency(record.companyAmount), personal: payrollCurrency(record.personalAmount), fund: payrollCurrency(record.fundAmount) } })) }
+function mapLiveSocialSecurityRows(socialSecurityRecords: SocialSecurityRecord[]): ModuleRow[] { return socialSecurityRecords.map((record) => { const confirmed = record.status === '已确认' || record.status === '已通过' || record.status === '已生成凭证'; const status: ModuleRow['status'] = record.status === '异常' ? '异常' : record.status === '已生成凭证' ? '已生成凭证' : confirmed ? '已通过' : '待确认'; return { id: record.id, status, voucher: record.status === '已生成凭证' ? '已关联' : '未生成', attachment: '本地社保明细', values: { name: record.employeeName, city: record.city || '待补', base: payrollCurrency(record.contributionBase), company: payrollCurrency(record.companyAmount), personal: payrollCurrency(record.personalAmount), fund: payrollCurrency(record.fundAmount) } } }) }
+function summarizeLiveSocialSecurity(records: SocialSecurityRecord[]): ModuleConfig['summary'] {
+  const needsReview = records.filter((record) => record.contributionBase <= 0 || !['已确认', '已通过', '已生成凭证'].includes(record.status))
+  return [
+    { label: '缴费人员', value: `${records.length} 人`, tone: records.length > 0 ? 'blue' : 'gray' },
+    { label: '单位缴纳', value: payrollCurrency(records.reduce((sum, record) => sum + record.companyAmount, 0)), tone: records.length > 0 ? 'green' : 'gray' },
+    { label: '个人及公积金', value: payrollCurrency(records.reduce((sum, record) => sum + record.personalAmount + record.fundAmount, 0)), tone: records.length > 0 ? 'amber' : 'gray' },
+    { label: '待复核', value: `${needsReview.length} 人`, tone: needsReview.length > 0 ? 'red' : 'gray' },
+  ]
+}
 function mapLiveSpecialDeductionRows(specialDeductionRecords: SpecialDeductionRecord[]): ModuleRow[] { return specialDeductionRecords.map((record) => ({ id: record.id, status: record.status === '有效' ? '启用' : record.status === '异常' ? '异常' : '待确认', voucher: '-', attachment: '本地扣除资料', values: { name: record.employeeName, type: record.deductionType, start: record.startMonth, end: record.endMonth || '长期有效', amount: payrollCurrency(record.monthlyAmount), source: record.source } })) }
 
 function summarizeLiveSpecialDeductions(specialDeductionRecords: SpecialDeductionRecord[]): ModuleConfig['summary'] {
@@ -6293,7 +6302,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'payroll' && (usesLivePayrollData || payrollRecords.length > 0)) {
       return { ...baseConfig, rows: mapLivePayrollRows(payrollRecords), summary: summarizeLivePayroll(payrollRecords) }
     }
-    if (kind === 'socialSecurity' && (usesLiveSocialSecurityData || socialSecurityRecords.length > 0)) return { ...baseConfig, rows: mapLiveSocialSecurityRows(socialSecurityRecords), summary: baseConfig.summary.map((item) => item.label === '参保人数' ? { ...item, value: `${socialSecurityRecords.length} 人` } : item) }
+    if (kind === 'socialSecurity' && (usesLiveSocialSecurityData || socialSecurityRecords.length > 0)) return { ...baseConfig, rows: mapLiveSocialSecurityRows(socialSecurityRecords), summary: summarizeLiveSocialSecurity(socialSecurityRecords) }
     if (kind === 'specialDeduction' && (usesLiveSpecialDeductionData || specialDeductionRecords.length > 0)) return { ...baseConfig, rows: mapLiveSpecialDeductionRows(specialDeductionRecords), summary: summarizeLiveSpecialDeductions(specialDeductionRecords) }
     if (kind === 'withholdingTaxReport' && usesLiveWithholdingTaxData) return { ...baseConfig, rows: mapLiveWithholdingTaxRows(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords), summary: summarizeLiveWithholdingTax(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords) }
     if (kind === 'socialSecurityTaxReport' && usesLiveSocialSecurityTaxData) return { ...baseConfig, rows: mapLiveSocialSecurityTaxRows(socialSecurityRecords), summary: summarizeLiveSocialSecurityTax(socialSecurityRecords) }
@@ -11211,6 +11220,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'employee' && (
           <EmployeeVerificationPanel
+            summary={config.summary}
             onAdd={openEmployeeEditor}
             onReview={reviewEmployeeDocuments}
           />
@@ -11218,6 +11228,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'payroll' && (
           <PayrollWorkflowPanel
+            summary={config.summary}
             onAdd={openPayrollEditor}
             onReview={validatePayroll}
           />
@@ -11225,6 +11236,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'socialSecurity' && (
           <SocialSecurityWorkflowPanel
+            summary={config.summary}
             onAdd={openSocialSecurityEditor}
             onReview={reconcileSocialSecurity}
           />
@@ -12769,13 +12781,7 @@ function InputInvoiceWorkflowPanel({
   )
 }
 
-function EmployeeVerificationPanel({
-  onAdd,
-  onReview,
-}: {
-  onAdd: () => void
-  onReview: () => void
-}) {
+function EmployeeVerificationPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="人员档案资料核验">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -12789,16 +12795,11 @@ function EmployeeVerificationPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['身份与合同', '39 / 42 已齐全', '3 人待补合同或证件'],
-          ['入离职状态', '41 人状态正常', '1 人离职未完成停缴'],
-          ['社保公积金', '36 人已关联', '6 人待补参保资料'],
-          ['个税与扣除', '32 人资料已确认', '10 人待复核专项扣除'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label === '待补资料' ? '证件、合同或入职日期待维护' : item.label === '离职/停用' ? '离职人员需复核社保与个税停缴' : '按当前账套人员档案实时汇总'}</div>
           </div>
         ))}
       </div>
@@ -12806,13 +12807,7 @@ function EmployeeVerificationPanel({
   )
 }
 
-function PayrollWorkflowPanel({
-  onAdd,
-  onReview,
-}: {
-  onAdd: () => void
-  onReview: () => void
-}) {
+function PayrollWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="工资核算与凭证准备">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -12826,16 +12821,11 @@ function PayrollWorkflowPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 md:grid-cols-4">
-        {[
-          ['人员范围', '42 名在职人员', '3 名本月入职待确认'],
-          ['工资计算', '40 行已核验', '2 行缺少工资项'],
-          ['扣缴核对', '个税 ¥18,420.00', '社保个人扣款待复核'],
-          ['凭证准备', '记-0072 已生成', '待确认行不自动入账'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label === '待确认行' ? '待确认行不自动入账' : item.label === '个税' ? '需与社保个人扣款交叉复核' : '按当前账套薪酬台账实时汇总'}</div>
           </div>
         ))}
       </div>
@@ -12843,13 +12833,7 @@ function PayrollWorkflowPanel({
   )
 }
 
-function SocialSecurityWorkflowPanel({
-  onAdd,
-  onReview,
-}: {
-  onAdd: () => void
-  onReview: () => void
-}) {
+function SocialSecurityWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="社保公积金核对流程">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -12863,16 +12847,11 @@ function SocialSecurityWorkflowPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['缴费人员', '38 人已匹配', '4 人存在资料或基数差异'],
-          ['单位部分', '¥72,650.00', '进入费用计提复核'],
-          ['个人部分', '¥31,220.00', '与工资扣款交叉核对'],
-          ['凭证与申报', '记-0075 已关联', '差异项不进入取数'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label === '待复核' ? '差异项不进入凭证或申报取数' : item.label === '个人及公积金' ? '与工资扣款交叉核对' : '按当前账套社保台账实时汇总'}</div>
           </div>
         ))}
       </div>
