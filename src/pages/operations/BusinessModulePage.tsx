@@ -11059,6 +11059,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'aiJobQueue' && (
           <AiJobWorkflowPanel
+            summary={config.summary}
             onStart={startAiTaskDraft}
             onReview={handleRefreshAction}
           />
@@ -13284,7 +13285,7 @@ function ClosingWorkflowPanel({ onReview, onRun, summary }: { onReview: () => vo
   )
 }
 
-function AiJobWorkflowPanel({ onStart, onReview }: { onStart: () => void; onReview: () => void }) {
+function AiJobWorkflowPanel({ onStart, onReview, summary }: { onStart: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="AI任务编排与人工确认">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13298,16 +13299,11 @@ function AiJobWorkflowPanel({ onStart, onReview }: { onStart: () => void; onRevi
         </div>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['来源待处理', '18 批', '发票、流水、单据与附件'],
-          ['识别处理中', '6 批', '仅记录处理状态和日志'],
-          ['人工待确认', '18 条', '不得自动生成正式凭证'],
-          ['异常任务', '6 条', '需要补充资料或修正规则'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label.includes('异常') ? '需要补充资料、修正规则并人工复核' : item.label.includes('确认') ? '仅生成候选结果，不自动写入凭证或账簿' : '按当前账套任务队列实时统计'}</div>
           </div>
         ))}
       </div>

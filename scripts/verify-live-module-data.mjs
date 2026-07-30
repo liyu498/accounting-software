@@ -120,6 +120,12 @@ const requiredClosingWorkflowSnippets = [
   ['closing workflow renders current summary', 'summary.map((item) => ('],
 ]
 
+const requiredAiJobWorkflowSnippets = [
+  ['AI job workflow receives live summary', 'summary={config.summary}\n            onStart={startAiTaskDraft}'],
+  ['AI job workflow summary contract', "function AiJobWorkflowPanel({ onStart, onReview, summary }: { onStart: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['AI job workflow renders current summary', 'summary.map((item) => ('],
+]
+
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
@@ -1541,6 +1547,7 @@ const errors = [
   ...verify(apiSource, requiredCompanyTodoSnippets.slice(4, 6), 'company todo API'),
   ...verify(pageSource, requiredCompanyTodoSnippets.slice(6), 'company todo module page'),
   ...verify(pageSource, requiredClosingWorkflowSnippets, 'closing workflow panel'),
+  ...verify(pageSource, requiredAiJobWorkflowSnippets, 'AI job workflow panel'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
