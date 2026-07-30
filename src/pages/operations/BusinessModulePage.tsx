@@ -11271,6 +11271,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <InventoryWorkflowPanel
             mode={kind === 'inventorySettings' ? 'archive' : 'movement'}
             onAdd={kind === 'inventorySettings' ? openInventoryItemEditor : openInventoryMovementEditor}
+            summary={config.summary}
             onReview={reviewInventoryMovement}
           />
         )}
@@ -13082,33 +13083,12 @@ function FixedAssetWorkflowPanel({
   )
 }
 
-function InventoryWorkflowPanel({
-  mode,
-  onAdd,
-  onReview,
-}: {
-  mode: 'archive' | 'movement'
-  onAdd: () => void
-  onReview: () => void
-}) {
+function InventoryWorkflowPanel({ mode, onAdd, onReview, summary }: { mode: 'archive' | 'movement'; onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   const isArchive = mode === 'archive'
   const title = isArchive ? '存货档案与核算口径' : '存货收发与成本结转'
   const description = isArchive
     ? '维护编码、单位、税率和默认科目，为发票商品行、出入库和成本结转提供统一口径。'
     : '出入库、发票、数量金额和来源单据先匹配，再进入月末成本结转和凭证草稿。'
-  const cards = isArchive
-    ? [
-        ['存货档案', '128 项', '116 项处于启用状态'],
-        ['单位与税率', '9 项待补税率', '用于发票与成本核验'],
-        ['默认科目', '按存货维护', '决定凭证草稿建议'],
-        ['异常档案', '12 项停用', '不参与本期业务处理'],
-      ]
-    : [
-        ['入库业务', '¥386,420.00', '38 单已匹配发票'],
-        ['出库业务', '¥294,880.00', '待核数量和金额可追溯'],
-        ['单据附件', '4 单异常', '缺票和未核价不结转'],
-        ['成本准备', '待进入结转', '须人工确认凭证'],
-      ]
 
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label={title}>
@@ -13123,11 +13103,11 @@ function InventoryWorkflowPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 md:grid-cols-4">
-        {cards.map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{isArchive ? item.label === '待补税率' ? '用于发票与成本核验' : item.label === '停用' ? '不参与本期业务处理' : '按当前账套存货台账实时汇总' : item.label === '异常单据' ? '缺票和未核价不结转' : item.label === '已匹配发票' ? '已关联来源单据' : '按当前账套存货台账实时汇总'}</div>
           </div>
         ))}
       </div>
