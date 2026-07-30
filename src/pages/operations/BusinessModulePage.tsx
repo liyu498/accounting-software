@@ -11245,6 +11245,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         {(kind === 'billList' || kind === 'bankStatement') && (
           <BankFlowWorkflowPanel
             mode={kind === 'bankStatement' ? '银行账单' : '账单一览'}
+            summary={config.summary}
             onAdd={openBankTransactionEditor}
             onMatch={runBankTransactionMatching}
           />
@@ -11253,6 +11254,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         {(kind === 'purchaseManagement' || kind === 'salesManagement') && (
           <BusinessOrderWorkflowPanel
             mode={kind === 'purchaseManagement' ? 'purchase' : 'sales'}
+            summary={config.summary}
             onAdd={() => openBusinessOrderEditor(kind === 'purchaseManagement' ? 'purchase' : 'sales')}
             onReview={() => reviewBusinessOrder(kind === 'purchaseManagement' ? 'purchase' : 'sales')}
           />
@@ -11260,6 +11262,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'expenseReimbursement' && (
           <ExpenseWorkflowPanel
+            summary={config.summary}
             onAdd={() => openDocumentRecordEditor('费用报销')}
             onReview={() => reviewDocumentRecords('费用报销')}
           />
@@ -11267,6 +11270,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'documentRegister' && (
           <SourceDocumentWorkflowPanel
+            summary={config.summary}
             onAdd={() => openDocumentRecordEditor('其他')}
             onReview={() => reviewDocumentRecords('原始单据')}
           />
@@ -11274,6 +11278,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'depreciation' && (
           <FixedAssetWorkflowPanel
+            summary={config.summary}
             onAdd={openFixedAssetEditor}
             onReview={reviewDepreciation}
           />
@@ -12859,15 +12864,7 @@ function SocialSecurityWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () =
   )
 }
 
-function BankFlowWorkflowPanel({
-  mode,
-  onAdd,
-  onMatch,
-}: {
-  mode: '账单一览' | '银行账单'
-  onAdd: () => void
-  onMatch: () => void
-}) {
+function BankFlowWorkflowPanel({ mode, onAdd, onMatch, summary }: { mode: '账单一览' | '银行账单'; onAdd: () => void; onMatch: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="资金流水匹配处理">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -12881,16 +12878,11 @@ function BankFlowWorkflowPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 md:grid-cols-4">
-        {[
-          ['采集与导入', mode === '银行账单' ? '188 笔银行流水' : '96 笔本期流水', '来源与导入批次可追溯'],
-          ['回单归档', '24 笔待补回单', '缺失附件不生成凭证'],
-          ['单据匹配', '151 笔已匹配', '对方户名和金额可人工修正'],
-          ['账务处理', '5 笔对账差异', '异常项进入待确认清单'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label.includes('待匹配') ? '对方户名和金额可人工修正' : item.label.includes('待补') ? '缺失附件不生成凭证' : '按当前账套业务台账实时汇总'}</div>
           </div>
         ))}
       </div>
@@ -12898,34 +12890,12 @@ function BankFlowWorkflowPanel({
   )
 }
 
-function BusinessOrderWorkflowPanel({
-  mode,
-  onAdd,
-  onReview,
-}: {
-  mode: 'purchase' | 'sales'
-  onAdd: () => void
-  onReview: () => void
-}) {
+function BusinessOrderWorkflowPanel({ mode, onAdd, onReview, summary }: { mode: 'purchase' | 'sales'; onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   const isPurchase = mode === 'purchase'
   const title = isPurchase ? '采购履约与入账准备' : '销售开票与收款准备'
   const description = isPurchase
     ? '订单、入库、进项票和付款状态分别核验，三方差异不自动进入成本或应付处理。'
     : '订单、出库、销项票和回款状态分别核验，异常订单不自动进入收入或应收处理。'
-  const cards = isPurchase
-    ? [
-        ['订单范围', '42 单采购业务', '8 单待收票'],
-        ['履约入库', '31 单已入库', '待入库订单待确认'],
-        ['发票付款', '进项已匹配', '付款需关联流水'],
-        ['入账准备', '3 单三方差异', '差异项不生成凭证'],
-      ]
-    : [
-        ['订单范围', '56 单销售业务', '11 单待收款'],
-        ['履约出库', '54 单已出库', '2 单出库异常'],
-        ['开票回款', '43 单已开票', '回款需关联流水'],
-        ['入账准备', '待确认收入凭证', '异常项不自动入账'],
-      ]
-
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label={title}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -12939,11 +12909,11 @@ function BusinessOrderWorkflowPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 md:grid-cols-4">
-        {cards.map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label.includes('异常') ? '差异项不自动生成凭证' : item.label.includes('待') ? '需人工确认履约、开票或结算状态' : '按当前账套业务台账实时汇总'}</div>
           </div>
         ))}
       </div>
@@ -12951,13 +12921,7 @@ function BusinessOrderWorkflowPanel({
   )
 }
 
-function ExpenseWorkflowPanel({
-  onAdd,
-  onReview,
-}: {
-  onAdd: () => void
-  onReview: () => void
-}) {
+function ExpenseWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="费用报销审批与付款准备">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -12971,16 +12935,11 @@ function ExpenseWorkflowPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['申请与审批', '29 张报销单', '18 张已审批'],
-          ['票据完整性', '2 张附件异常', '缺票项目待补资料'],
-          ['付款安排', '7 张待付款', '付款流水需人工关联'],
-          ['费用入账', '记-0048 已归档', '待确认项目不生成凭证'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label.includes('附件') ? '缺票项目待补资料' : item.label.includes('待付款') ? '付款流水需人工关联' : '按当前账套业务台账实时汇总'}</div>
           </div>
         ))}
       </div>
@@ -12988,13 +12947,7 @@ function ExpenseWorkflowPanel({
   )
 }
 
-function SourceDocumentWorkflowPanel({
-  onAdd,
-  onReview,
-}: {
-  onAdd: () => void
-  onReview: () => void
-}) {
+function SourceDocumentWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="原始单据归档与入账准备">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13008,16 +12961,11 @@ function SourceDocumentWorkflowPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 md:grid-cols-4">
-        {[
-          ['登记范围', '34 张原始单据', '业务日期与经办人可追溯'],
-          ['附件归档', '24 张已审核', '3 张缺少附件'],
-          ['业务分类', '费用、采购、合同等', '分类决定后续凭证规则'],
-          ['凭证准备', '10 张待生成凭证', '未经审核不进入草稿'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label.includes('附件') ? '缺失附件不进入凭证草稿' : item.label.includes('待生成') ? '经人工审核后才可生成凭证' : '按当前账套业务台账实时汇总'}</div>
           </div>
         ))}
       </div>
@@ -13025,13 +12973,7 @@ function SourceDocumentWorkflowPanel({
   )
 }
 
-function FixedAssetWorkflowPanel({
-  onAdd,
-  onReview,
-}: {
-  onAdd: () => void
-  onReview: () => void
-}) {
+function FixedAssetWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="资产折旧与凭证准备">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13045,16 +12987,11 @@ function FixedAssetWorkflowPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['资产原值', '¥1,286,000.00', '2 项来源资料待补'],
-          ['本月折旧', '¥28,650.00', '按资产类别和期限测算'],
-          ['凭证状态', '记-0080 已生成', '待确认项目仍留在清单'],
-          ['异常处置', '2 项待复核', '不进入期末结转'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label === '待计提' ? '未确认资产不进入期末结转' : item.label === '本月折旧' ? '按资产类别和使用期限测算' : '按当前账套业务台账实时汇总'}</div>
           </div>
         ))}
       </div>

@@ -171,6 +171,20 @@ const requiredPeopleWorkflowSummarySnippets = [
   ['social security workflow renders current summary', '按当前账套社保台账实时汇总'],
 ]
 
+const requiredOperationsWorkflowSummarySnippets = [
+  ['bank flow workflow receives live summary', '<BankFlowWorkflowPanel\n            mode={kind === \'bankStatement\' ? \'银行账单\' : \'账单一览\'}\n            summary={config.summary}'],
+  ['bank flow workflow summary contract', "function BankFlowWorkflowPanel({ mode, onAdd, onMatch, summary }: { mode: '账单一览' | '银行账单'; onAdd: () => void; onMatch: () => void; summary: ModuleConfig['summary'] })"],
+  ['business order workflow receives live summary', '<BusinessOrderWorkflowPanel\n            mode={kind === \'purchaseManagement\' ? \'purchase\' : \'sales\'}\n            summary={config.summary}'],
+  ['business order workflow summary contract', "function BusinessOrderWorkflowPanel({ mode, onAdd, onReview, summary }: { mode: 'purchase' | 'sales'; onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['expense workflow receives live summary', '<ExpenseWorkflowPanel\n            summary={config.summary}'],
+  ['expense workflow summary contract', "function ExpenseWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['source document workflow receives live summary', '<SourceDocumentWorkflowPanel\n            summary={config.summary}'],
+  ['source document workflow summary contract', "function SourceDocumentWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['fixed asset workflow receives live summary', '<FixedAssetWorkflowPanel\n            summary={config.summary}'],
+  ['fixed asset workflow summary contract', "function FixedAssetWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['operations workflow renders current summary', '按当前账套业务台账实时汇总'],
+]
+
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
@@ -1599,6 +1613,7 @@ const errors = [
   ...verify(pageSource, requiredReconciliationAndAgingWorkflowSummarySnippets, 'reconciliation and aging workflow panels'),
   ...verify(pageSource, requiredInventoryWorkflowSummarySnippets, 'inventory workflow panel'),
   ...verify(pageSource, requiredPeopleWorkflowSummarySnippets, 'people workflow panels'),
+  ...verify(pageSource, requiredOperationsWorkflowSummarySnippets, 'operations workflow panels'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
