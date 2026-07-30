@@ -11273,7 +11273,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'receivablePayableAging' && <AgingWorkflowPanel onReview={reviewAging} />}
 
-        {kind === 'closingTasks' && <ClosingWorkflowPanel onReview={reviewClosingTasks} onRun={() => void handlePrimaryAction()} />}
+        {kind === 'closingTasks' && <ClosingWorkflowPanel summary={config.summary} onReview={reviewClosingTasks} onRun={() => void handlePrimaryAction()} />}
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-[#fbfcfe] px-3 py-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -13258,7 +13258,7 @@ function AgingWorkflowPanel({ onReview }: { onReview: () => void }) {
   )
 }
 
-function ClosingWorkflowPanel({ onReview, onRun }: { onReview: () => void; onRun: () => void }) {
+function ClosingWorkflowPanel({ onReview, onRun, summary }: { onReview: () => void; onRun: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="期末结账与结转控制">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13272,16 +13272,11 @@ function ClosingWorkflowPanel({ onReview, onRun }: { onReview: () => void; onRun
         </div>
       </div>
       <div className="mt-3 grid gap-2 md:grid-cols-4">
-        {[
-          ['结转任务', '9 项', '含折旧、成本、损益等'],
-          ['已完成', '5 项', '已保留凭证与审计记录'],
-          ['待确认', '3 项', '须人工确认来源与金额'],
-          ['阻断项', '1 项', '解决前不可结账'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label === '阻断' ? '存在阻断项时不能结账' : item.label === '已完成' ? '已通过当前取数与凭证检查' : item.label === '待缴款' ? '需要人工核验来源与金额' : '按当前账期实时核对'}</div>
           </div>
         ))}
       </div>

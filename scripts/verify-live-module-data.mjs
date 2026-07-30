@@ -114,6 +114,12 @@ const requiredCompanyTodoSnippets = [
   ['company todo dialog', '新增账套待办'],
 ]
 
+const requiredClosingWorkflowSnippets = [
+  ['closing workflow receives live summary', '<ClosingWorkflowPanel summary={config.summary}'],
+  ['closing workflow summary contract', "function ClosingWorkflowPanel({ onReview, onRun, summary }: { onReview: () => void; onRun: () => void; summary: ModuleConfig['summary'] })"],
+  ['closing workflow renders current summary', 'summary.map((item) => ('],
+]
+
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
@@ -1534,6 +1540,7 @@ const errors = [
   ...verify(companyTodoCommandSource, requiredCompanyTodoSnippets.slice(1, 4), 'company todo commands'),
   ...verify(apiSource, requiredCompanyTodoSnippets.slice(4, 6), 'company todo API'),
   ...verify(pageSource, requiredCompanyTodoSnippets.slice(6), 'company todo module page'),
+  ...verify(pageSource, requiredClosingWorkflowSnippets, 'closing workflow panel'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
