@@ -211,6 +211,35 @@ type InvokeFn = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>
 let realInvoke: InvokeFn | null = null
 
 async function browserInvoke<T>(cmd: string, _args?: Record<string, unknown>): Promise<T> {
+  const input = (_args?.input ?? {}) as Record<string, unknown>
+  const now = new Date().toISOString()
+  if (cmd === 'create_agency_service_contract' || cmd === 'update_agency_service_contract') {
+    return {
+      id: String(input.id ?? 'agency-contract-preview'), company_id: String(input.company_id ?? 'mock-1'), company_name: '浏览器预览客户',
+      contract_no: String(input.contract_no ?? 'HT-PREVIEW-001'), service_package: String(input.service_package ?? '标准代理记账服务'),
+      service_start: String(input.service_start ?? '2026-01-01'), service_end: String(input.service_end ?? '2026-12-31'),
+      monthly_fee: Number(input.monthly_fee ?? 0), renewal_status: String(input.renewal_status ?? 'normal'), owner: input.owner ?? null,
+      archive_status: String(input.archive_status ?? 'pending'), status: String(input.status ?? 'active'), created_at: now, updated_at: now,
+    } as T
+  }
+  if (cmd === 'create_agency_fee_collection' || cmd === 'update_agency_fee_collection') {
+    const receivable = Number(input.receivable_amount ?? 0)
+    const received = Number(input.received_amount ?? 0)
+    return {
+      id: String(input.id ?? 'agency-fee-preview'), company_id: String(input.company_id ?? 'mock-1'), company_name: '浏览器预览客户',
+      period: String(input.period ?? '2026-05'), receivable_amount: receivable, received_amount: received, arrears_amount: receivable - received,
+      invoice_status: String(input.invoice_status ?? 'pending'), payment_status: String(input.payment_status ?? 'pending'),
+      collector: input.collector ?? null, last_follow_up: input.last_follow_up ?? null, status: String(input.status ?? 'pending'), created_at: now, updated_at: now,
+    } as T
+  }
+  if (cmd === 'create_agency_collaboration_item' || cmd === 'update_agency_collaboration_item') {
+    return {
+      id: String(input.id ?? 'agency-collaboration-preview'), company_id: String(input.company_id ?? 'mock-1'), company_name: '浏览器预览客户',
+      todo_title: String(input.todo_title ?? '补充客户资料'), material_type: input.material_type ?? null, customer_contact: input.customer_contact ?? null,
+      reminder_count: Number(input.reminder_count ?? 0), last_contact_at: input.last_contact_at ?? null, reply_status: String(input.reply_status ?? 'pending'),
+      owner: input.owner ?? null, status: String(input.status ?? 'pending'), created_at: now, updated_at: now,
+    } as T
+  }
   const empty = EMPTY_RESULTS[cmd]
   if (empty !== undefined) {
     return empty as T

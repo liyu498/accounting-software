@@ -3602,6 +3602,8 @@ pub struct AgencyServiceContract {
 }
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CreateAgencyServiceContractInput { pub company_id:String, pub contract_no:String, pub service_package:String, pub service_start:String, pub service_end:String, pub monthly_fee:f64, pub owner:Option<String> }
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateAgencyServiceContractInput { pub id:String, pub company_id:String, pub contract_no:String, pub service_package:String, pub service_start:String, pub service_end:String, pub monthly_fee:f64, pub renewal_status:String, pub archive_status:String, pub status:String, pub owner:Option<String> }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct AgencyFeeCollection {
@@ -3630,6 +3632,8 @@ pub struct CreateAgencyFeeCollectionInput {
     pub payment_status: Option<String>,
     pub collector: Option<String>,
 }
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateAgencyFeeCollectionInput { pub id:String, pub company_id:String, pub period:String, pub receivable_amount:f64, pub received_amount:f64, pub invoice_status:String, pub payment_status:String, pub collector:Option<String>, pub last_follow_up:Option<String>, pub status:String }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct AgencyCollaborationItem {
@@ -3657,6 +3661,8 @@ pub struct CreateAgencyCollaborationItemInput {
     pub reply_status: Option<String>,
     pub owner: Option<String>,
 }
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateAgencyCollaborationItemInput { pub id:String, pub company_id:String, pub todo_title:String, pub material_type:Option<String>, pub customer_contact:Option<String>, pub reply_status:String, pub owner:Option<String>, pub reminder_count:i32, pub last_contact_at:Option<String>, pub status:String }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct AgencyDeliveryTicket {

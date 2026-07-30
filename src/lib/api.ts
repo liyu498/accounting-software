@@ -1302,6 +1302,14 @@ export const agencyApi = {
     }
   },
   createServiceContract: async (input:{companyId:string;contractNo:string;servicePackage:string;serviceStart:string;serviceEnd:string;monthlyFee:number;owner?:string}):Promise<ApiResponse<AgencyServiceContract>>=>{try{const result=await invoke('create_agency_service_contract',{input:{company_id:input.companyId,contract_no:input.contractNo,service_package:input.servicePackage,service_start:input.serviceStart,service_end:input.serviceEnd,monthly_fee:input.monthlyFee,owner:input.owner}}) as RawAgencyServiceContract;return{success:true,data:mapAgencyServiceContract(result)}}catch(error){return{success:false,error:String(error)}}},
+  updateServiceContract: async (input: { id: string; companyId: string; contractNo: string; servicePackage: string; serviceStart: string; serviceEnd: string; monthlyFee: number; renewalStatus: string; archiveStatus: string; status: string; owner?: string }): Promise<ApiResponse<AgencyServiceContract>> => {
+    try {
+      const result = await invoke('update_agency_service_contract', { input: { id: input.id, company_id: input.companyId, contract_no: input.contractNo, service_package: input.servicePackage, service_start: input.serviceStart, service_end: input.serviceEnd, monthly_fee: input.monthlyFee, renewal_status: input.renewalStatus, archive_status: input.archiveStatus, status: input.status, owner: input.owner } }) as RawAgencyServiceContract
+      return { success: true, data: mapAgencyServiceContract(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
 
   getFeeCollections: async (filters: { companyId?: string; period?: string; status?: string } = {}): Promise<ApiResponse<AgencyFeeCollection[]>> => {
     try {
@@ -1337,6 +1345,14 @@ export const agencyApi = {
       return { success: false, error: String(error) }
     }
   },
+  updateFeeCollection: async (input: { id: string; companyId: string; period: string; receivableAmount: number; receivedAmount: number; invoiceStatus: string; paymentStatus: string; collector?: string; lastFollowUp?: string; status: string }): Promise<ApiResponse<AgencyFeeCollection>> => {
+    try {
+      const result = await invoke('update_agency_fee_collection', { input: { id: input.id, company_id: input.companyId, period: input.period, receivable_amount: input.receivableAmount, received_amount: input.receivedAmount, invoice_status: input.invoiceStatus, payment_status: input.paymentStatus, collector: input.collector, last_follow_up: input.lastFollowUp, status: input.status } }) as RawAgencyFeeCollection
+      return { success: true, data: mapAgencyFeeCollection(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
 
   getCollaborationItems: async (filters: { companyId?: string; status?: string } = {}): Promise<ApiResponse<AgencyCollaborationItem[]>> => {
     try {
@@ -1365,6 +1381,14 @@ export const agencyApi = {
           owner: input.owner,
         },
       }) as RawAgencyCollaborationItem
+      return { success: true, data: mapAgencyCollaborationItem(result) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  },
+  updateCollaborationItem: async (input: { id: string; companyId: string; todoTitle: string; materialType?: string; customerContact?: string; replyStatus: string; owner?: string; reminderCount: number; lastContactAt?: string; status: string }): Promise<ApiResponse<AgencyCollaborationItem>> => {
+    try {
+      const result = await invoke('update_agency_collaboration_item', { input: { id: input.id, company_id: input.companyId, todo_title: input.todoTitle, material_type: input.materialType, customer_contact: input.customerContact, reply_status: input.replyStatus, owner: input.owner, reminder_count: input.reminderCount, last_contact_at: input.lastContactAt, status: input.status } }) as RawAgencyCollaborationItem
       return { success: true, data: mapAgencyCollaborationItem(result) }
     } catch (error) {
       return { success: false, error: String(error) }

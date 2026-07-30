@@ -823,8 +823,13 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [showBatchTaskDialog, setShowBatchTaskDialog] = useState(false)
   const [selectedBatchTaskTypes, setSelectedBatchTaskTypes] = useState<string[]>(() => agencyBatchTaskOptions.map((option) => option.id))
   const [showContractDialog, setShowContractDialog] = useState(false)
-  const [contractDraft, setContractDraft] = useState({ companyId: '', contractNo: '', servicePackage: '', serviceStart: '', serviceEnd: '', monthlyFee: '', owner: '' })
+  const [editingContractId, setEditingContractId] = useState<string | null>(null)
+  const [contractDraft, setContractDraft] = useState({
+    companyId: '', contractNo: '', servicePackage: '', serviceStart: '', serviceEnd: '', monthlyFee: '', owner: '',
+    renewalStatus: 'normal', archiveStatus: 'pending', status: 'active',
+  })
   const [showFeeDialog, setShowFeeDialog] = useState(false)
+  const [editingFeeId, setEditingFeeId] = useState<string | null>(null)
   const [feeDraft, setFeeDraft] = useState({
     companyId: '',
     period: agencyPeriodLabel,
@@ -833,8 +838,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     invoiceStatus: 'pending',
     paymentStatus: 'pending',
     collector: '',
+    lastFollowUp: '',
+    status: 'pending',
   })
   const [showCollaborationDialog, setShowCollaborationDialog] = useState(false)
+  const [editingCollaborationId, setEditingCollaborationId] = useState<string | null>(null)
   const [collaborationDraft, setCollaborationDraft] = useState({
     companyId: '',
     todoTitle: '',
@@ -842,6 +850,9 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     customerContact: '',
     replyStatus: 'pending',
     owner: '',
+    reminderCount: '0',
+    lastContactAt: '',
+    status: 'pending',
   })
   const [showAuthorizationDialog, setShowAuthorizationDialog] = useState(false)
   const [authorizationDraft, setAuthorizationDraft] = useState({
@@ -933,6 +944,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         return
       }
 
+      if (!isTauri) {
+        setRemoteRows(null)
+        return
+      }
+
       const nextRows = await fetchAgencyRows(kind, activeTab, agencyPeriodLabel)
       setRemoteRows(nextRows)
     } catch {
@@ -989,6 +1005,88 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     setDetailRow(row)
   }
 
+  const resetContractEditor = () => {
+    setEditingContractId(null)
+    setContractDraft({ companyId: '', contractNo: '', servicePackage: '', serviceStart: '', serviceEnd: '', monthlyFee: '', owner: '', renewalStatus: 'normal', archiveStatus: 'pending', status: 'active' })
+  }
+
+  const openContractEditor = async (row?: AgencyRow) => {
+    if (isTauri && companies.length === 0) await fetchCompanies()
+    if (!row) {
+      resetContractEditor()
+      setShowContractDialog(true)
+      return
+    }
+    setEditingContractId(row.id)
+    setContractDraft({
+      companyId: row.values.companyId || '',
+      contractNo: row.values.contractNo || '',
+      servicePackage: row.values.servicePackage || row.values.package || '',
+      serviceStart: row.values.serviceStart || '',
+      serviceEnd: row.values.serviceEnd || '',
+      monthlyFee: row.values.monthlyFee || '0',
+      owner: row.values.owner === '-' ? '' : row.values.owner || '',
+      renewalStatus: row.values.renewalStatus || 'normal',
+      archiveStatus: row.values.archiveStatus || 'pending',
+      status: row.values.recordStatus || 'active',
+    })
+    setShowContractDialog(true)
+  }
+
+  const resetFeeEditor = () => {
+    setEditingFeeId(null)
+    setFeeDraft({ companyId: '', period: agencyPeriodLabel, receivableAmount: '', receivedAmount: '0', invoiceStatus: 'pending', paymentStatus: 'pending', collector: '', lastFollowUp: '', status: 'pending' })
+  }
+
+  const openFeeEditor = async (row?: AgencyRow) => {
+    if (isTauri && companies.length === 0) await fetchCompanies()
+    if (!row) {
+      resetFeeEditor()
+      setShowFeeDialog(true)
+      return
+    }
+    setEditingFeeId(row.id)
+    setFeeDraft({
+      companyId: row.values.companyId || '',
+      period: row.values.period || agencyPeriodLabel,
+      receivableAmount: row.values.receivableAmount || row.values.amount || '0',
+      receivedAmount: row.values.receivedAmount || row.values.received || '0',
+      invoiceStatus: row.values.invoiceStatus || 'pending',
+      paymentStatus: row.values.paymentStatus || 'pending',
+      collector: row.values.collector === '-' ? '' : row.values.collector || row.values.owner || '',
+      lastFollowUp: row.values.lastFollowUp === '-' ? '' : row.values.lastFollowUp || row.values.followUp || '',
+      status: row.values.recordStatus || 'pending',
+    })
+    setShowFeeDialog(true)
+  }
+
+  const resetCollaborationEditor = () => {
+    setEditingCollaborationId(null)
+    setCollaborationDraft({ companyId: '', todoTitle: '', materialType: '', customerContact: '', replyStatus: 'pending', owner: '', reminderCount: '0', lastContactAt: '', status: 'pending' })
+  }
+
+  const openCollaborationEditor = async (row?: AgencyRow) => {
+    if (isTauri && companies.length === 0) await fetchCompanies()
+    if (!row) {
+      resetCollaborationEditor()
+      setShowCollaborationDialog(true)
+      return
+    }
+    setEditingCollaborationId(row.id)
+    setCollaborationDraft({
+      companyId: row.values.companyId || '',
+      todoTitle: row.values.todo || '',
+      materialType: row.values.materialType || (row.values.material === '-' ? '' : row.values.material || ''),
+      customerContact: row.values.customerContact || (row.values.contact === '-' ? '' : row.values.contact || ''),
+      replyStatus: row.values.replyStatus || 'pending',
+      owner: row.values.owner === '-' ? '' : row.values.owner || '',
+      reminderCount: row.values.reminderCount || '0',
+      lastContactAt: row.values.lastContactAt === '-' ? '' : row.values.lastContactAt || row.values.lastContact || '',
+      status: row.values.recordStatus || 'pending',
+    })
+    setShowCollaborationDialog(true)
+  }
+
   const handleProcessRow = async (row: AgencyRow) => {
     const object = rowObjectLabel(row)
     if (kind === 'batchOps') {
@@ -1023,6 +1121,28 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         : item))
       writeAgencyAudit('执行批量预检', `${pageConfig.title}-${object}`, '高', '待审批')
       setOperationNotice(`${object} 本地预检完成，不会登录或调用税局、银行等外部系统；当前仅更新预览任务状态。`)
+      return
+    }
+
+    if (kind === 'serviceContracts') {
+      if (activeTab === '服务合同' || activeTab === '归档记录') {
+        await openContractEditor(row)
+        return
+      }
+      if (activeTab === '收费管理') {
+        await openFeeEditor(row)
+        return
+      }
+      if (activeTab === '客户协同') {
+        await openCollaborationEditor(row)
+        return
+      }
+      setOperationNotice('服务套餐为合同汇总视图，请在服务合同或归档记录中编辑具体合同。')
+      return
+    }
+
+    if (kind === 'invoiceManagement') {
+      await openFeeEditor(row)
       return
     }
 
@@ -1107,8 +1227,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   const handlePrimaryAction = async () => {
     if (kind === 'serviceContracts' && activeTab === '服务合同') {
-      if (isTauri && companies.length === 0) await fetchCompanies()
-      setShowContractDialog(true)
+      await openContractEditor()
       return
     }
     if (kind === 'authorizationCenter') {
@@ -1121,14 +1240,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       return
     }
     if (kind === 'serviceContracts' && activeTab === '收费管理') {
-      if (isTauri && companies.length === 0) await fetchCompanies()
-      setFeeDraft((draft) => ({ ...draft, period: agencyPeriodLabel }))
-      setShowFeeDialog(true)
+      await openFeeEditor()
       return
     }
     if (kind === 'serviceContracts' && activeTab === '客户协同') {
-      if (isTauri && companies.length === 0) await fetchCompanies()
-      setShowCollaborationDialog(true)
+      await openCollaborationEditor()
       return
     }
     if (kind === 'clients') {
@@ -1324,60 +1440,103 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   const handleCreateContract = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const result = await agencyApi.createServiceContract({
-      companyId: contractDraft.companyId,
-      contractNo: contractDraft.contractNo,
-      servicePackage: contractDraft.servicePackage,
-      serviceStart: contractDraft.serviceStart,
-      serviceEnd: contractDraft.serviceEnd,
-      monthlyFee: Number(contractDraft.monthlyFee || 0),
-      owner: contractDraft.owner || undefined,
-    })
+    const result = editingContractId
+      ? await agencyApi.updateServiceContract({
+          id: editingContractId,
+          companyId: contractDraft.companyId,
+          contractNo: contractDraft.contractNo,
+          servicePackage: contractDraft.servicePackage,
+          serviceStart: contractDraft.serviceStart,
+          serviceEnd: contractDraft.serviceEnd,
+          monthlyFee: Number(contractDraft.monthlyFee || 0),
+          renewalStatus: contractDraft.renewalStatus,
+          archiveStatus: contractDraft.archiveStatus,
+          status: contractDraft.status,
+          owner: contractDraft.owner || undefined,
+        })
+      : await agencyApi.createServiceContract({
+          companyId: contractDraft.companyId,
+          contractNo: contractDraft.contractNo,
+          servicePackage: contractDraft.servicePackage,
+          serviceStart: contractDraft.serviceStart,
+          serviceEnd: contractDraft.serviceEnd,
+          monthlyFee: Number(contractDraft.monthlyFee || 0),
+          owner: contractDraft.owner || undefined,
+        })
     if (!result.success || !result.data) {
-      setOperationNotice(`新增合同失败：${result.error || '未知错误'}`)
+      setOperationNotice(`${editingContractId ? '更新' : '新增'}合同失败：${result.error || '未知错误'}`)
       return
     }
     setShowContractDialog(false)
-    setOperationNotice('服务合同已保存，收费、协同与归档标签将读取该合同记录。')
+    resetContractEditor()
+    setOperationNotice(editingContractId ? '服务合同已更新，续费和归档状态已同步到机构台账。' : '服务合同已保存，收费、协同与归档标签将读取该合同记录。')
     void loadRemoteRows()
   }
 
   const handleCreateFeeCollection = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const result = await agencyApi.createFeeCollection({
-      companyId: feeDraft.companyId,
-      period: feeDraft.period,
-      receivableAmount: Number(feeDraft.receivableAmount),
-      receivedAmount: Number(feeDraft.receivedAmount),
-      invoiceStatus: feeDraft.invoiceStatus,
-      paymentStatus: feeDraft.paymentStatus,
-      collector: feeDraft.collector || undefined,
-    })
+    const result = editingFeeId
+      ? await agencyApi.updateFeeCollection({
+          id: editingFeeId,
+          companyId: feeDraft.companyId,
+          period: feeDraft.period,
+          receivableAmount: Number(feeDraft.receivableAmount),
+          receivedAmount: Number(feeDraft.receivedAmount),
+          invoiceStatus: feeDraft.invoiceStatus,
+          paymentStatus: feeDraft.paymentStatus,
+          collector: feeDraft.collector || undefined,
+          lastFollowUp: feeDraft.lastFollowUp || undefined,
+          status: feeDraft.status,
+        })
+      : await agencyApi.createFeeCollection({
+          companyId: feeDraft.companyId,
+          period: feeDraft.period,
+          receivableAmount: Number(feeDraft.receivableAmount),
+          receivedAmount: Number(feeDraft.receivedAmount),
+          invoiceStatus: feeDraft.invoiceStatus,
+          paymentStatus: feeDraft.paymentStatus,
+          collector: feeDraft.collector || undefined,
+        })
     if (!result.success || !result.data) {
-      setOperationNotice(`新增收费记录失败：${result.error || '未知错误'}`)
+      setOperationNotice(`${editingFeeId ? '更新' : '新增'}收费记录失败：${result.error || '未知错误'}`)
       return
     }
     setShowFeeDialog(false)
-    setOperationNotice('收费记录已保存到本地台账，并同步更新应收、实收和欠费汇总。')
+    resetFeeEditor()
+    setOperationNotice(editingFeeId ? '收费记录已更新，应收、实收、欠费、开票与跟进状态已同步。' : '收费记录已保存到本地台账，并同步更新应收、实收和欠费汇总。')
     void loadRemoteRows()
   }
 
   const handleCreateCollaborationItem = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const result = await agencyApi.createCollaborationItem({
-      companyId: collaborationDraft.companyId,
-      todoTitle: collaborationDraft.todoTitle,
-      materialType: collaborationDraft.materialType || undefined,
-      customerContact: collaborationDraft.customerContact || undefined,
-      replyStatus: collaborationDraft.replyStatus,
-      owner: collaborationDraft.owner || undefined,
-    })
+    const result = editingCollaborationId
+      ? await agencyApi.updateCollaborationItem({
+          id: editingCollaborationId,
+          companyId: collaborationDraft.companyId,
+          todoTitle: collaborationDraft.todoTitle,
+          materialType: collaborationDraft.materialType || undefined,
+          customerContact: collaborationDraft.customerContact || undefined,
+          replyStatus: collaborationDraft.replyStatus,
+          owner: collaborationDraft.owner || undefined,
+          reminderCount: Number(collaborationDraft.reminderCount || 0),
+          lastContactAt: collaborationDraft.lastContactAt || undefined,
+          status: collaborationDraft.status,
+        })
+      : await agencyApi.createCollaborationItem({
+          companyId: collaborationDraft.companyId,
+          todoTitle: collaborationDraft.todoTitle,
+          materialType: collaborationDraft.materialType || undefined,
+          customerContact: collaborationDraft.customerContact || undefined,
+          replyStatus: collaborationDraft.replyStatus,
+          owner: collaborationDraft.owner || undefined,
+        })
     if (!result.success || !result.data) {
-      setOperationNotice(`新增协同事项失败：${result.error || '未知错误'}`)
+      setOperationNotice(`${editingCollaborationId ? '更新' : '新增'}协同事项失败：${result.error || '未知错误'}`)
       return
     }
     setShowCollaborationDialog(false)
-    setOperationNotice('协同事项已保存到本地交付清单，可继续在当前机构层集中催办和跟进。')
+    resetCollaborationEditor()
+    setOperationNotice(editingCollaborationId ? '协同事项已更新，催办次数、答复和跟进状态已同步。' : '协同事项已保存到本地交付清单，可继续在当前机构层集中催办和跟进。')
     void loadRemoteRows()
   }
 
@@ -1411,10 +1570,10 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           <form onSubmit={handleCreateContract} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">新增服务合同</h2>
+                <h2 className="text-sm font-semibold text-slate-900">{editingContractId ? '编辑服务合同' : '新增服务合同'}</h2>
                 <p className="mt-1 text-xs text-slate-500">服务合同是机构服务交付台账，收费、协同、续费和归档均引用同一份合同记录。</p>
               </div>
-              <button type="button" onClick={() => setShowContractDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
+              <button type="button" onClick={() => { setShowContractDialog(false); resetContractEditor() }} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
             </div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
               <label className="space-y-1 text-xs text-slate-600">
@@ -1448,10 +1607,30 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                 <span>负责人</span>
                 <input value={contractDraft.owner} onChange={(event) => setContractDraft((draft) => ({ ...draft, owner: event.target.value }))} placeholder="例如：李会计" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
               </label>
+              {editingContractId && <>
+                <label className="space-y-1 text-xs text-slate-600">
+                  <span>续费状态</span>
+                  <select value={contractDraft.renewalStatus} onChange={(event) => setContractDraft((draft) => ({ ...draft, renewalStatus: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                    <option value="normal">正常</option><option value="expiring">临近续费</option><option value="overdue">逾期</option><option value="renewed">已续签</option>
+                  </select>
+                </label>
+                <label className="space-y-1 text-xs text-slate-600">
+                  <span>归档状态</span>
+                  <select value={contractDraft.archiveStatus} onChange={(event) => setContractDraft((draft) => ({ ...draft, archiveStatus: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                    <option value="pending">待归档</option><option value="archived">已归档</option><option value="missing">缺少附件</option>
+                  </select>
+                </label>
+                <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                  <span>合同状态</span>
+                  <select value={contractDraft.status} onChange={(event) => setContractDraft((draft) => ({ ...draft, status: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                    <option value="active">履约中</option><option value="completed">已完成</option><option value="suspended">已暂停</option><option value="overdue">异常逾期</option>
+                  </select>
+                </label>
+              </>}
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
-              <button type="button" onClick={() => setShowContractDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
-              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存服务合同</button>
+              <button type="button" onClick={() => { setShowContractDialog(false); resetContractEditor() }} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingContractId ? '保存合同变更' : '保存服务合同'}</button>
             </div>
           </form>
         </div>
@@ -1461,10 +1640,10 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           <form onSubmit={handleCreateFeeCollection} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">新增收费记录</h2>
+                <h2 className="text-sm font-semibold text-slate-900">{editingFeeId ? '编辑收费记录' : '新增收费记录'}</h2>
                 <p className="mt-1 text-xs text-slate-500">仅登记代理服务应收与实收，不代替客户账套的经营收入和发票。</p>
               </div>
-              <button type="button" onClick={() => setShowFeeDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
+              <button type="button" onClick={() => { setShowFeeDialog(false); resetFeeEditor() }} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
             </div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
               <label className="space-y-1 text-xs text-slate-600">
@@ -1506,10 +1685,22 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                 <span>收款负责人</span>
                 <input value={feeDraft.collector} onChange={(event) => setFeeDraft((draft) => ({ ...draft, collector: event.target.value }))} placeholder="例如：李会计" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
               </label>
+              {editingFeeId && <>
+                <label className="space-y-1 text-xs text-slate-600">
+                  <span>最近跟进</span>
+                  <input value={feeDraft.lastFollowUp} onChange={(event) => setFeeDraft((draft) => ({ ...draft, lastFollowUp: event.target.value }))} placeholder="例如：2026-07-30 已电话跟进" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+                </label>
+                <label className="space-y-1 text-xs text-slate-600">
+                  <span>台账状态</span>
+                  <select value={feeDraft.status} onChange={(event) => setFeeDraft((draft) => ({ ...draft, status: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                    <option value="pending">待处理</option><option value="completed">已完成</option><option value="overdue">逾期</option>
+                  </select>
+                </label>
+              </>}
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
-              <button type="button" onClick={() => setShowFeeDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
-              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存收费记录</button>
+              <button type="button" onClick={() => { setShowFeeDialog(false); resetFeeEditor() }} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingFeeId ? '保存收费变更' : '保存收费记录'}</button>
             </div>
           </form>
         </div>
@@ -1519,10 +1710,10 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           <form onSubmit={handleCreateCollaborationItem} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">新增协同事项</h2>
+                <h2 className="text-sm font-semibold text-slate-900">{editingCollaborationId ? '编辑协同事项' : '新增协同事项'}</h2>
                 <p className="mt-1 text-xs text-slate-500">用于机构层跟进客户资料和答复；资料入账后在对应账套继续处理。</p>
               </div>
-              <button type="button" onClick={() => setShowCollaborationDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
+              <button type="button" onClick={() => { setShowCollaborationDialog(false); resetCollaborationEditor() }} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
             </div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
               <label className="space-y-1 text-xs text-slate-600">
@@ -1556,10 +1747,26 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                 <span>负责人</span>
                 <input value={collaborationDraft.owner} onChange={(event) => setCollaborationDraft((draft) => ({ ...draft, owner: event.target.value }))} placeholder="例如：李会计" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
               </label>
+              {editingCollaborationId && <>
+                <label className="space-y-1 text-xs text-slate-600">
+                  <span>催办次数</span>
+                  <input min="0" type="number" value={collaborationDraft.reminderCount} onChange={(event) => setCollaborationDraft((draft) => ({ ...draft, reminderCount: event.target.value }))} className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+                </label>
+                <label className="space-y-1 text-xs text-slate-600">
+                  <span>最近联系</span>
+                  <input value={collaborationDraft.lastContactAt} onChange={(event) => setCollaborationDraft((draft) => ({ ...draft, lastContactAt: event.target.value }))} placeholder="例如：2026-07-30 14:30" className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
+                </label>
+                <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                  <span>事项状态</span>
+                  <select value={collaborationDraft.status} onChange={(event) => setCollaborationDraft((draft) => ({ ...draft, status: event.target.value }))} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                    <option value="pending">待处理</option><option value="completed">已完成</option><option value="overdue">已超时</option>
+                  </select>
+                </label>
+              </>}
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
-              <button type="button" onClick={() => setShowCollaborationDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
-              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存协同事项</button>
+              <button type="button" onClick={() => { setShowCollaborationDialog(false); resetCollaborationEditor() }} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingCollaborationId ? '保存协同变更' : '保存协同事项'}</button>
             </div>
           </form>
         </div>
@@ -2165,6 +2372,14 @@ function mapServiceContractRow(item: AgencyServiceContract): AgencyRow {
       renewal: item.renewalStatus,
       owner: item.owner || '-',
       archive: item.archiveStatus,
+      companyId: item.companyId,
+      servicePackage: item.servicePackage,
+      serviceStart: item.serviceStart,
+      serviceEnd: item.serviceEnd,
+      monthlyFee: String(item.monthlyFee),
+      renewalStatus: item.renewalStatus,
+      archiveStatus: item.archiveStatus,
+      recordStatus: item.status,
     },
   }
 }
@@ -2181,6 +2396,14 @@ function mapAgencyContractArchiveRow(item: AgencyServiceContract): AgencyRow {
       renewal: item.renewalStatus || '未设置',
       owner: item.owner || '-',
       updatedAt: item.updatedAt || '-',
+      companyId: item.companyId,
+      servicePackage: item.servicePackage,
+      serviceStart: item.serviceStart,
+      serviceEnd: item.serviceEnd,
+      monthlyFee: String(item.monthlyFee),
+      renewalStatus: item.renewalStatus,
+      archiveStatus: item.archiveStatus,
+      recordStatus: item.status,
     },
   }
 }
@@ -2242,6 +2465,13 @@ function mapFeeCollectionRow(item: AgencyFeeCollection): AgencyRow {
       payment: formatAgencyPaymentStatus(item.paymentStatus),
       collector: item.collector || '-',
       followUp: item.lastFollowUp || '-',
+      companyId: item.companyId,
+      receivableAmount: String(item.receivableAmount),
+      receivedAmount: String(item.receivedAmount),
+      invoiceStatus: item.invoiceStatus,
+      paymentStatus: item.paymentStatus,
+      lastFollowUp: item.lastFollowUp || '',
+      recordStatus: item.status,
     },
   }
 }
@@ -2259,6 +2489,13 @@ function mapAgencyInvoiceManagementRow(item: AgencyFeeCollection): AgencyRow {
       payment: formatAgencyPaymentStatus(item.paymentStatus),
       owner: item.collector || '-',
       followUp: item.lastFollowUp || '-',
+      companyId: item.companyId,
+      receivableAmount: String(item.receivableAmount),
+      receivedAmount: String(item.receivedAmount),
+      invoiceStatus: item.invoiceStatus,
+      paymentStatus: item.paymentStatus,
+      lastFollowUp: item.lastFollowUp || '',
+      recordStatus: item.status,
     },
   }
 }
@@ -2276,6 +2513,13 @@ function mapCollaborationItemRow(item: AgencyCollaborationItem): AgencyRow {
       lastContact: item.lastContactAt || '-',
       reply: item.replyStatus,
       owner: item.owner || '-',
+      companyId: item.companyId,
+      materialType: item.materialType || '',
+      customerContact: item.customerContact || '',
+      replyStatus: item.replyStatus,
+      reminderCount: String(item.reminderCount),
+      lastContactAt: item.lastContactAt || '',
+      recordStatus: item.status,
     },
   }
 }

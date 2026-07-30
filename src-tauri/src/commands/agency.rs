@@ -1,7 +1,8 @@
 use crate::db::{
     AdapterAuthorization, AgencyBatchTask, AgencyCollaborationItem, AgencyDeliveryTicket,
     AgencyFeeCollection, AgencyServiceContract, AutomationJob, CreateAgencyBatchTasksInput,
-    Database, ReviewAgencyBatchTaskInput,
+    Database, ReviewAgencyBatchTaskInput, UpdateAgencyCollaborationItemInput,
+    UpdateAgencyFeeCollectionInput, UpdateAgencyServiceContractInput,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -84,6 +85,47 @@ pub async fn create_agency_service_contract(input: crate::db::CreateAgencyServic
     let id=uuid::Uuid::new_v4().to_string();
     sqlx::query("INSERT INTO agency_service_contracts (id,company_id,contract_no,service_package,service_start,service_end,monthly_fee,owner) VALUES (?,?,?,?,?,?,?,?)").bind(&id).bind(&input.company_id).bind(input.contract_no.trim()).bind(input.service_package.trim()).bind(input.service_start.trim()).bind(input.service_end.trim()).bind(input.monthly_fee).bind(input.owner).execute(db.pool()).await.map_err(|e|format!("新增服务合同失败: {e}"))?;
     sqlx::query_as("SELECT c.id,c.company_id,co.name AS company_name,c.contract_no,c.service_package,c.service_start,c.service_end,c.monthly_fee,c.renewal_status,c.owner,c.archive_status,c.status,c.created_at,c.updated_at FROM agency_service_contracts c LEFT JOIN companies co ON co.id=c.company_id WHERE c.id=?").bind(id).fetch_one(db.pool()).await.map_err(|e|format!("查询新增服务合同失败: {e}"))
+}
+
+#[tauri::command]
+pub async fn update_agency_service_contract(input: UpdateAgencyServiceContractInput, db: State<'_, Database>) -> Result<AgencyServiceContract, String> {
+    if input.id.trim().is_empty() || input.company_id.trim().is_empty() || input.contract_no.trim().is_empty() || input.service_package.trim().is_empty() || input.service_start.trim().is_empty() || input.service_end.trim().is_empty() || input.monthly_fee < 0.0 {
+        return Err("合同编号、套餐、服务期间和客户账套不能为空，服务费不能为负数".into());
+    }
+    if !["normal", "expiring", "overdue", "renewed"].contains(&input.renewal_status.as_str()) {
+        return Err("续费状态不合法".into());
+    }
+    if !["pending", "archived", "missing"].contains(&input.archive_status.as_str()) {
+        return Err("归档状态不合法".into());
+    }
+    if !["active", "completed", "suspended", "overdue"].contains(&input.status.as_str()) {
+        return Err("合同状态不合法".into());
+    }
+
+    let affected = sqlx::query(
+        "UPDATE agency_service_contracts SET company_id=?,contract_no=?,service_package=?,service_start=?,service_end=?,monthly_fee=?,renewal_status=?,owner=?,archive_status=?,status=?,updated_at=datetime('now') WHERE id=?",
+    )
+    .bind(&input.company_id)
+    .bind(input.contract_no.trim())
+    .bind(input.service_package.trim())
+    .bind(input.service_start.trim())
+    .bind(input.service_end.trim())
+    .bind(input.monthly_fee)
+    .bind(&input.renewal_status)
+    .bind(input.owner)
+    .bind(&input.archive_status)
+    .bind(&input.status)
+    .bind(&input.id)
+    .execute(db.pool())
+    .await
+    .map_err(|e| format!("更新服务合同失败: {e}"))?;
+    if affected.rows_affected() == 0 { return Err("未找到要更新的服务合同".into()); }
+
+    sqlx::query_as("SELECT c.id,c.company_id,co.name AS company_name,c.contract_no,c.service_package,c.service_start,c.service_end,c.monthly_fee,c.renewal_status,c.owner,c.archive_status,c.status,c.created_at,c.updated_at FROM agency_service_contracts c LEFT JOIN companies co ON co.id=c.company_id WHERE c.id=?")
+        .bind(&input.id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|e| format!("查询更新后的服务合同失败: {e}"))
 }
 
 #[tauri::command]
@@ -179,6 +221,47 @@ pub async fn create_agency_fee_collection(
 }
 
 #[tauri::command]
+pub async fn update_agency_fee_collection(input: UpdateAgencyFeeCollectionInput, db: State<'_, Database>) -> Result<AgencyFeeCollection, String> {
+    if input.id.trim().is_empty() || input.company_id.trim().is_empty() || input.period.trim().is_empty() || input.receivable_amount < 0.0 || input.received_amount < 0.0 || input.received_amount > input.receivable_amount {
+        return Err("客户账套、收费账期和金额不合法".into());
+    }
+    if !["pending", "issued", "void", "reversed"].contains(&input.invoice_status.as_str()) {
+        return Err("开票状态不合法".into());
+    }
+    if !["pending", "paid", "overdue"].contains(&input.payment_status.as_str()) {
+        return Err("收费状态不合法".into());
+    }
+    if !["pending", "completed", "overdue"].contains(&input.status.as_str()) {
+        return Err("收费台账状态不合法".into());
+    }
+    let arrears = input.receivable_amount - input.received_amount;
+    let affected = sqlx::query(
+        "UPDATE agency_fee_collections SET company_id=?,period=?,receivable_amount=?,received_amount=?,arrears_amount=?,invoice_status=?,payment_status=?,collector=?,last_follow_up=?,status=?,updated_at=datetime('now') WHERE id=?",
+    )
+    .bind(&input.company_id)
+    .bind(input.period.trim())
+    .bind(input.receivable_amount)
+    .bind(input.received_amount)
+    .bind(arrears)
+    .bind(&input.invoice_status)
+    .bind(&input.payment_status)
+    .bind(input.collector)
+    .bind(input.last_follow_up)
+    .bind(&input.status)
+    .bind(&input.id)
+    .execute(db.pool())
+    .await
+    .map_err(|e| format!("更新收费记录失败: {e}"))?;
+    if affected.rows_affected() == 0 { return Err("未找到要更新的收费记录".into()); }
+
+    sqlx::query_as("SELECT f.id,f.company_id,co.name AS company_name,f.period,f.receivable_amount,f.received_amount,f.arrears_amount,f.invoice_status,f.payment_status,f.collector,f.last_follow_up,f.status,f.created_at,f.updated_at FROM agency_fee_collections f LEFT JOIN companies co ON co.id=f.company_id WHERE f.id=?")
+        .bind(&input.id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|e| format!("查询更新后的收费记录失败: {e}"))
+}
+
+#[tauri::command]
 pub async fn get_agency_collaboration_items(
     company_id: Option<String>,
     status: Option<String>,
@@ -254,6 +337,42 @@ pub async fn create_agency_collaboration_item(
     .fetch_one(db.pool())
     .await
     .map_err(|e| format!("查询新增协同事项失败: {e}"))
+}
+
+#[tauri::command]
+pub async fn update_agency_collaboration_item(input: UpdateAgencyCollaborationItemInput, db: State<'_, Database>) -> Result<AgencyCollaborationItem, String> {
+    if input.id.trim().is_empty() || input.company_id.trim().is_empty() || input.todo_title.trim().is_empty() || input.reminder_count < 0 {
+        return Err("客户账套、协同事项和催办次数不合法".into());
+    }
+    if !["pending", "replied", "overdue"].contains(&input.reply_status.as_str()) {
+        return Err("客户答复状态不合法".into());
+    }
+    if !["pending", "completed", "overdue"].contains(&input.status.as_str()) {
+        return Err("协同事项状态不合法".into());
+    }
+    let affected = sqlx::query(
+        "UPDATE agency_collaboration_items SET company_id=?,todo_title=?,material_type=?,customer_contact=?,reply_status=?,owner=?,reminder_count=?,last_contact_at=?,status=?,updated_at=datetime('now') WHERE id=?",
+    )
+    .bind(&input.company_id)
+    .bind(input.todo_title.trim())
+    .bind(input.material_type)
+    .bind(input.customer_contact)
+    .bind(&input.reply_status)
+    .bind(input.owner)
+    .bind(input.reminder_count)
+    .bind(input.last_contact_at)
+    .bind(&input.status)
+    .bind(&input.id)
+    .execute(db.pool())
+    .await
+    .map_err(|e| format!("更新协同事项失败: {e}"))?;
+    if affected.rows_affected() == 0 { return Err("未找到要更新的协同事项".into()); }
+
+    sqlx::query_as("SELECT i.id,i.company_id,co.name AS company_name,i.todo_title,i.material_type,i.customer_contact,i.reminder_count,i.last_contact_at,i.reply_status,i.owner,i.status,i.created_at,i.updated_at FROM agency_collaboration_items i LEFT JOIN companies co ON co.id=i.company_id WHERE i.id=?")
+        .bind(&input.id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|e| format!("查询更新后的协同事项失败: {e}"))
 }
 
 #[tauri::command]
