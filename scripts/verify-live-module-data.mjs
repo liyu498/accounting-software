@@ -126,6 +126,12 @@ const requiredAiJobWorkflowSnippets = [
   ['AI job workflow renders current summary', 'summary.map((item) => ('],
 ]
 
+const requiredClosingPrecheckSnippets = [
+  ['closing task action is precheck', "primaryAction: '执行结转检查'"],
+  ['closing precheck audit record', "writeModuleAudit('执行结转前检查'"],
+  ['closing precheck manual boundary', '请前往账期管理完成最终关账确认。'],
+]
+
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
@@ -1548,6 +1554,7 @@ const errors = [
   ...verify(pageSource, requiredCompanyTodoSnippets.slice(6), 'company todo module page'),
   ...verify(pageSource, requiredClosingWorkflowSnippets, 'closing workflow panel'),
   ...verify(pageSource, requiredAiJobWorkflowSnippets, 'AI job workflow panel'),
+  ...verify(pageSource, requiredClosingPrecheckSnippets, 'closing precheck boundary'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

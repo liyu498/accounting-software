@@ -1520,7 +1520,7 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   },
   closingTasks: {
     keywordPlaceholder: '搜索结转项目、取数来源、凭证模板、阻断原因',
-    primaryAction: '执行结转',
+    primaryAction: '执行结转检查',
     importLabel: '导入规则',
     statusOptions: ['全部', '待处理', '待确认', '已通过', '异常'],
     summary: [
@@ -7568,8 +7568,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
     if (kind === 'closingTasks' && isTauri && currentPeriodId) {
       if (!currentPeriod) {
-        writeModuleAudit(config.primaryAction, `${title}-${auditScope}`, '高', '失败')
-        setOperationNotice('未找到当前账期，无法执行结账。')
+        writeModuleAudit('执行结转前检查', `${title}-${auditScope}`, '高', '失败')
+        setOperationNotice('未找到当前账期，无法执行结转前检查。')
         return
       }
       if (currentPeriod.status === 'closed') {
@@ -7578,26 +7578,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
       const blockers = config.rows.filter((row) => row.status === '异常')
       const pending = config.rows.filter((row) => row.status === '待处理' || row.status === '待确认')
+      const passed = config.rows.filter((row) => row.status === '已通过').length
+      const snapshot = `${currentPeriodLabel}｜通过 ${passed} 项｜待确认 ${pending.length} 项｜阻断 ${blockers.length} 项`
+      writeModuleAudit('执行结转前检查', snapshot, blockers.length > 0 ? '高' : pending.length > 0 ? '中' : '普通', blockers.length > 0 || pending.length > 0 ? '待审批' : '成功')
       if (blockers.length > 0 || pending.length > 0) {
-        writeModuleAudit(config.primaryAction, `${title}-${auditScope}`, '高', '待审批')
-        setOperationNotice(`结账前检查未完成：${blockers.length} 项阻断、${pending.length} 项待确认。`)
+        setOperationNotice(`结转前检查快照已保存：${blockers.length} 项阻断、${pending.length} 项待确认。请完成源业务处理后重新检查。`)
         return
       }
-      if (!window.confirm(`确认结账账期 ${currentPeriodLabel} 吗？结账后账期将锁定。`)) return
-
-      try {
-        await closePeriod(currentPeriodId, 'admin')
-        writeModuleAudit(config.primaryAction, `${title}-${currentPeriodLabel}`, '高', '成功')
-        setOperationNotice(`账期 ${currentPeriodLabel} 已结账并锁定。`)
-      } catch (error) {
-        writeModuleAudit(config.primaryAction, `${title}-${currentPeriodLabel}`, '高', '失败')
-        setOperationNotice(`账期结账失败：${String(error)}`)
-      }
+      setOperationNotice('结转前检查已通过并保存本地快照。请前往账期管理完成最终关账确认。')
       return
     }
 
     if (kind === 'closingTasks') {
-      reviewClosingTasks()
+      const blockers = config.rows.filter((row) => row.status === '异常')
+      const pending = config.rows.filter((row) => row.status === '待处理' || row.status === '待确认')
+      writeModuleAudit('执行结转前检查', `${currentPeriodLabel}｜浏览器预览｜待确认 ${pending.length} 项｜阻断 ${blockers.length} 项`, blockers.length > 0 ? '高' : '中', blockers.length > 0 || pending.length > 0 ? '待审批' : '成功')
+      setOperationNotice(blockers.length > 0 || pending.length > 0 ? `结转前检查已登记：${blockers.length} 项阻断、${pending.length} 项待确认。` : '结转前检查已通过；桌面端请前往账期管理完成最终关账确认。')
       return
     }
 
