@@ -688,6 +688,8 @@ const forbiddenDashboardSnippets = [
 const forbiddenBusinessModulePageSnippets = [
   ['voucher workspace duplicated company and period', "当前账套：{selectedCompany?.name || '未选择'}，账期：{currentPeriodLabel}"],
   ['invoice dialog duplicated company and period', "登记到当前账套 ${selectedCompany?.name || ''} 与账期 ${currentPeriodLabel}"],
+  ['generic import follow-up promise', '后续接入文件选择、字段映射、错误清单和回滚记录'],
+  ['generic primary-action follow-up promise', '后续会接入对应表单、规则校验和附件快照'],
 ]
 
 const requiredBackupCommandSnippets = [

@@ -6817,12 +6817,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice('请先选择目标历史账期，再导入迁移文件。系统不会根据文件名猜测账期，也不会覆盖当前账期。')
       return
     }
+    if (kind === 'exportCenter') {
+      void handleExportExcel()
+      return
+    }
+    if (kind === 'auditLog') {
+      writeModuleAudit('刷新审计日志', `${title}-${auditScope}`)
+      setOperationNotice('已按当前账套、账期和筛选条件刷新审计记录；可从行内明细查看操作对象、风险级别和结果。')
+      return
+    }
     if (supportsFileImport) {
       importFileRef.current?.click()
       return
     }
     writeModuleAudit(config.importLabel, `${title}-导入批次`, '中', '待审批')
-    setOperationNotice(`${config.importLabel} 已进入待确认留痕；后续接入文件选择、字段映射、错误清单和回滚记录。`)
+    setOperationNotice(`${config.importLabel} 不适用于当前模块。请使用本页的导出、刷新或行内维护操作，不会创建空的导入批次。`)
   }
 
   const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -7299,7 +7308,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       openTaxReceiptWorkflow()
       return
     }
-    if (kind === 'taxInit' && usesLiveTaxInitData && selectedCompanyId) {
+    if (kind === 'taxInit') {
       openTaxInitEditor()
       return
     }
@@ -7308,7 +7317,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowNonTaxRevenueDialog(true)
       return
     }
-    if ((kind === 'outputInvoice' || kind === 'inputInvoice') && isTauri && selectedCompanyId && currentPeriodId) {
+    if (kind === 'outputInvoice' || kind === 'inputInvoice') {
+      if (!selectedCompanyId || !currentPeriodId) {
+        setOperationNotice('请先在顶部选择账套和账期，再登记发票。')
+        return
+      }
       setEditingInvoiceId(null)
       setInvoiceDraft({ invoiceNo: '', invoiceCode: '', invoiceDate: currentPeriod?.end_date || '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
       setSelectedInvoiceTagIds([])
@@ -7429,6 +7442,27 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
 
+    if (kind === 'periodManagement' && isTauri && currentPeriodId) {
+      if (!currentPeriod) {
+        setOperationNotice('未找到当前账期，无法执行结账。')
+        return
+      }
+      if (currentPeriod.status === 'closed') {
+        setOperationNotice(`账期 ${currentPeriodLabel} 已结账并锁定。`)
+        return
+      }
+      if (!window.confirm(`确认结账账期 ${currentPeriodLabel} 吗？结账后账期将锁定。`)) return
+      try {
+        await closePeriod(currentPeriodId, 'admin')
+        writeModuleAudit('执行结账', `${currentPeriodLabel}｜账期管理`, '高', '成功')
+        setOperationNotice(`账期 ${currentPeriodLabel} 已结账并锁定；历史账期仍可查询、打印和导出。`)
+      } catch (error) {
+        writeModuleAudit('执行结账', `${currentPeriodLabel}｜账期管理`, '高', '失败')
+        setOperationNotice(`账期结账失败：${String(error)}`)
+      }
+      return
+    }
+
     if (kind === 'closingTasks' && isTauri && currentPeriodId) {
       if (!currentPeriod) {
         writeModuleAudit(config.primaryAction, `${title}-${auditScope}`, '高', '失败')
@@ -7480,7 +7514,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice(
       isHighRiskAction
         ? `${config.primaryAction} 已进入高风险待确认留痕；当前不会自动提交税局、银行或覆盖账套数据。`
-        : `${config.primaryAction} 已记录到审计日志；后续会接入对应表单、规则校验和附件快照。`
+        : `${config.primaryAction} 已记录到审计日志。请从列表选择具体记录执行维护、复核或查看来源附件。`
     )
   }
 
