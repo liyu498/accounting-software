@@ -1213,13 +1213,25 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       return
     }
 
-    const isRisky = row.status === '异常' || kind === 'healthCheck'
+    if (kind === 'healthCheck') {
+      writeAgencyAudit('查看风险整改上下文', `${pageConfig.title}-${object}`, '高', '待审批')
+      setDetailRow(row)
+      setOperationNotice(`${object} 的风险依据已展开。整改需要进入对应客户账套处理；机构体检页不直接修改发票、凭证或税表。`)
+      return
+    }
+
+    if (kind === 'clients' || kind === 'downloadCenter' || kind === 'dataStats') {
+      writeAgencyAudit('查看机构明细', `${pageConfig.title}-${object}`)
+      setDetailRow(row)
+      setOperationNotice(kind === 'clients'
+        ? `${object} 的机构级进度已展开；需进入该客户账套处理具体业务。`
+        : `${object} 的本机记录与统计口径已展开。`)
+      return
+    }
+
+    const isRisky = row.status === '异常'
     writeAgencyAudit('处理行任务', `${pageConfig.title}-${object}`, isRisky ? '高' : '中', isRisky ? '待审批' : '成功')
-    setOperationNotice(
-      isRisky
-        ? `${object} 已进入机构级待审批队列；批量采集、授权、申报和高风险处理不会自动提交外部系统。`
-        : `${object} 已记录处理动作，后续将接入具体表单、附件和审批流。`
-    )
+    setOperationNotice(`${object} 已记录到机构审计日志。`)
   }
 
   const handleReviewBatchTask = async (row: AgencyRow, decision: 'approved' | 'rejected') => {
@@ -1389,13 +1401,12 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       return
     }
 
-    if (kind !== 'batchOps') {
-      writeAgencyAudit(pageConfig.primaryAction, `${pageConfig.title}-${activeTab}`, '中', '待审批')
-      setOperationNotice(`${pageConfig.primaryAction} 已进入机构审计日志，等待后续表单和审批流接入。`)
+    if (kind === 'batchOps') {
+      setShowBatchTaskDialog(true)
       return
     }
 
-    setShowBatchTaskDialog(true)
+    setOperationNotice('当前页面仅提供已保存数据的查询、筛选和导出。')
   }
 
   const handleCreateBatchTasks = async () => {
