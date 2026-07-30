@@ -376,7 +376,7 @@ export function summarizeLiveClosingTasks(
   return [
     { label: '结转任务', value: `${rows.length} 项`, tone: rows.length > 0 ? 'blue' : 'gray' },
     { label: '已完成', value: `${completed} 项`, tone: completed > 0 ? 'green' : 'gray' },
-    { label: '待缴款', value: `${pending} 项`, tone: pending > 0 ? 'amber' : 'gray' },
+    { label: '待确认', value: `${pending} 项`, tone: pending > 0 ? 'amber' : 'gray' },
     { label: '阻断', value: `${blockers} 项`, tone: blockers > 0 ? 'red' : 'gray' },
   ]
 }

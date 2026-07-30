@@ -132,6 +132,13 @@ const requiredClosingPrecheckSnippets = [
   ['closing precheck manual boundary', '请前往账期管理完成最终关账确认。'],
 ]
 
+const requiredLedgerWorkflowSummarySnippets = [
+  ['cost carryover workflow receives live summary', 'summary={config.summary}\n            onAdd={openCostCarryoverEditor}'],
+  ['cost carryover workflow summary contract', 'summary: ModuleConfig[\'summary\']'],
+  ['settlement workflow receives live summary', 'summary={config.summary}\n            onAdd={() => openSettlementRecordEditor'],
+  ['closing summary uses pending confirmation label', "{ label: '待确认', value: `${pending} 项`, tone: pending > 0 ? 'amber' : 'gray' }"],
+]
+
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
@@ -1555,6 +1562,8 @@ const errors = [
   ...verify(pageSource, requiredClosingWorkflowSnippets, 'closing workflow panel'),
   ...verify(pageSource, requiredAiJobWorkflowSnippets, 'AI job workflow panel'),
   ...verify(pageSource, requiredClosingPrecheckSnippets, 'closing precheck boundary'),
+  ...verify(pageSource, requiredLedgerWorkflowSummarySnippets.slice(0, 3), 'cost and settlement workflow panels'),
+  ...verify(adapterSource, requiredLedgerWorkflowSummarySnippets.slice(3), 'closing task adapter'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

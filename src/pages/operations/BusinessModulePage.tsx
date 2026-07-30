@@ -11248,6 +11248,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'costCarryover' && (
           <CostCarryoverWorkflowPanel
+            summary={config.summary}
             onAdd={openCostCarryoverEditor}
             onReview={reviewCostCarryover}
           />
@@ -11263,6 +11264,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         {(kind === 'receivableSettlement' || kind === 'payableSettlement') && (
           <SettlementWorkflowPanel
             mode={kind === 'receivableSettlement' ? 'receivable' : 'payable'}
+            summary={config.summary}
             onAdd={() => openSettlementRecordEditor(kind === 'receivableSettlement' ? 'receivable' : 'payable')}
             onReview={() => reviewSettlementRecords(kind === 'receivableSettlement' ? 'receivable' : 'payable')}
           />
@@ -13106,9 +13108,11 @@ function InventoryWorkflowPanel({
 function CostCarryoverWorkflowPanel({
   onAdd,
   onReview,
+  summary,
 }: {
   onAdd: () => void
   onReview: () => void
+  summary: ModuleConfig['summary']
 }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="月末成本结转复核">
@@ -13123,16 +13127,11 @@ function CostCarryoverWorkflowPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 md:grid-cols-4">
-        {[
-          ['结转范围', '5 个结转批次', '来源为已核验出库单'],
-          ['结转成本', '¥294,880.00', '按选择的计价方法取数'],
-          ['凭证准备', '3 张已生成', '其余进入待确认队列'],
-          ['阻断项', '2 项成本差异', '未核价出库不得结转'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label.includes('差异') || item.label.includes('异常') ? '未核价或金额差异不得进入结转凭证' : '按当前账套成本台账实时汇总'}</div>
           </div>
         ))}
       </div>
@@ -13181,26 +13180,15 @@ function SettlementWorkflowPanel({
   mode,
   onAdd,
   onReview,
+  summary,
 }: {
   mode: 'receivable' | 'payable'
   onAdd: () => void
   onReview: () => void
+  summary: ModuleConfig['summary']
 }) {
   const isReceivable = mode === 'receivable'
   const title = isReceivable ? '应收核销与回款复核' : '应付核销与付款复核'
-  const cards = isReceivable
-    ? [
-        ['应收余额', '¥386,200.00', '来源为销项发票和应收科目'],
-        ['回款匹配', '¥294,800.00 已核销', '关联银行流水'],
-        ['待核销', '¥71,400.00', '支持部分核销'],
-        ['金额差异', '¥20,000.00', '保留客户确认记录'],
-      ]
-    : [
-        ['应付余额', '¥428,600.00', '来源为进项发票和应付科目'],
-        ['付款匹配', '¥216,800.00 已核销', '关联银行流水'],
-        ['待核销', '¥181,800.00', '支持预付款挂账'],
-        ['金额差异', '¥30,000.00', '保留供应商确认记录'],
-      ]
 
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label={title}>
@@ -13215,11 +13203,11 @@ function SettlementWorkflowPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-2 md:grid-cols-4">
-        {cards.map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
+        {summary.map((item) => (
+          <div key={item.label} className="border border-slate-200 bg-white p-2.5">
+            <div className="text-xs text-slate-500">{item.label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+            <div className="mt-1 text-xs text-slate-500">{item.label.includes('差异') ? '差异需保留对方确认记录，不自动改账' : '关联当前账套发票、流水与往来余额'}</div>
           </div>
         ))}
       </div>
