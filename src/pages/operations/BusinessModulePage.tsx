@@ -13615,10 +13615,8 @@ function SettingsOverviewWorkflowPanel({ onReview, summary }: { onReview: () => 
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账套设置导航与生效范围"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账套设置导航与生效范围</h2><p className="mt-1 text-xs text-slate-500">按企业资料、期初、基础档案、会计科目、规则模板、账期与审计归类管理。每项配置只作用于当前账套，并保留启用状态和变更记录。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核配置生效范围" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '需进入对应受控模块完成复核' : '按当前账套模块配置与运行记录汇总'} /></section>
 }
 
-function WorkflowMetrics({ items, summary, detailFor }: { items?: string[]; summary?: ModuleConfig['summary']; detailFor?: (label: string) => string }) {
-  const metrics = summary
-    ? summary.map((item) => ({ label: item.label, value: item.value, detail: detailFor?.(item.label) || '按当前账套发票与凭证台账实时汇总' }))
-    : (items || []).map((item) => { const [label, value, detail] = item.split('|'); return { label, value, detail } })
+function WorkflowMetrics({ summary, detailFor }: { summary: ModuleConfig['summary']; detailFor?: (label: string) => string }) {
+  const metrics = summary.map((item) => ({ label: item.label, value: item.value, detail: detailFor?.(item.label) || '按当前账套模块数据实时汇总' }))
   return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{metrics.map((item) => <div key={item.label} className="border border-slate-200 bg-white p-2.5"><div className="text-xs text-slate-500">{item.label}</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div><div className="mt-1 text-xs text-slate-500">{item.detail}</div></div>)}</div>
 }
 

@@ -186,7 +186,7 @@ const requiredOperationsWorkflowSummarySnippets = [
 ]
 
 const requiredInvoiceWorkflowSummarySnippets = [
-  ['workflow metrics supports live summary', "function WorkflowMetrics({ items, summary, detailFor }: { items?: string[]; summary?: ModuleConfig['summary']; detailFor?: (label: string) => string })"],
+  ['workflow metrics only accepts live summaries', "function WorkflowMetrics({ summary, detailFor }: { summary: ModuleConfig['summary']; detailFor?: (label: string) => string })"],
   ['output invoice workflow receives live summary', '<OutputInvoiceWorkflowPanel summary={config.summary}'],
   ['input invoice workflow receives live summary', '<InputInvoiceWorkflowPanel\n            summary={config.summary}'],
   ['invoice voucher workflow receives live summary', '<InvoiceVoucherMatchingWorkflowPanel summary={config.summary}'],
