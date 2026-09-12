@@ -412,6 +412,33 @@ const fixedPrintTemplatePreviews = [
   { name: '业务清单', paper: 'A4 横向', version: 'v1.0', layout: '筛选范围、列表字段、附件与操作说明', pagination: '表头重复，按业务记录行分页' },
 ]
 
+const fixedPrintTemplateRows: ModuleRow[] = fixedPrintTemplatePreviews.map((template) => {
+  const [paper, orientation] = template.paper.split(' ')
+  const module = template.name === '记账凭证'
+    ? '会计凭证'
+    : template.name === '账簿与余额表'
+      ? '账簿与余额表'
+      : template.name === '财务报表'
+        ? '财务报表'
+        : template.name === '税务申报包'
+          ? '税务申报'
+          : '业务清单'
+  return {
+    id: `fixed-print-template-${template.name}`,
+    status: '启用',
+    voucher: '-',
+    attachment: '内置模板',
+    values: { name: template.name, module, paper, orientation, version: template.version, default: '是', updatedBy: '应用内置', updatedAt: '随应用版本发布' },
+  }
+})
+
+const fixedPrintTemplateSummary: ModuleConfig['summary'] = [
+  { label: '固定模板', value: `${fixedPrintTemplateRows.length} 套`, tone: 'blue' },
+  { label: '已启用', value: `${fixedPrintTemplateRows.length} 套`, tone: 'green' },
+  { label: '待复核', value: '0 套', tone: 'gray' },
+  { label: '输出类型', value: '5 类', tone: 'gray' },
+]
+
 type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover' | 'companyAccount' | 'auxiliaryArchive' | 'businessTag' | 'currency' | 'matchingRule' | 'settlementRule' | 'commonDigest' | 'voucherTemplate' | 'assetCategory' | 'auxiliaryCategory' | 'auxiliaryItem' | 'initialBalance' | 'subject' | 'historyVoucher' | 'historyBalance'
 type LocalImportCommitDraft = { jobId: string; fileName: string; headers: string[]; rows: string[][]; target: LocalImportWriteTarget; periodId: string; periodLabel: string }
 
@@ -2902,15 +2929,10 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   },
   printTemplateSettings: {
     keywordPlaceholder: '搜索模板名称、适用模块、纸张、启用状态',
-    primaryAction: '查看模板预览',
-    importLabel: '导入模板',
-    statusOptions: ['全部', '启用', '停用', '待确认', '异常'],
-    summary: [
-      { label: '打印模板', value: '18 套', tone: 'blue' },
-      { label: '已启用', value: '14 套', tone: 'green' },
-      { label: '待复核', value: '3 套', tone: 'amber' },
-      { label: '异常', value: '1 套', tone: 'red' },
-    ],
+    primaryAction: '查看固定模板',
+    importLabel: '输出说明',
+    statusOptions: ['全部', '启用'],
+    summary: fixedPrintTemplateSummary,
     columns: [
       { key: 'name', label: '模板名称' },
       { key: 'module', label: '适用模块' },
@@ -2921,12 +2943,8 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'updatedBy', label: '维护人' },
       { key: 'updatedAt', label: '更新时间' },
     ],
-    rows: [
-      { id: 'pt-001', status: '启用', voucher: '-', attachment: '预览PDF', values: { name: '记账凭证A4', module: '会计凭证', paper: 'A4', orientation: '纵向', version: 'v1.2', default: '是', updatedBy: '王会计', updatedAt: '06-26 22:10' } },
-      { id: 'pt-002', status: '待确认', voucher: '-', attachment: '预览PDF', values: { name: '资产负债表A4', module: '财务报表', paper: 'A4', orientation: '横向', version: 'v1.0', default: '否', updatedBy: '李会计', updatedAt: '06-26 22:14' } },
-      { id: 'pt-003', status: '异常', voucher: '-', attachment: '渲染日志', values: { name: '申报包留档模板', module: '税务申报', paper: 'A4', orientation: '纵向', version: 'v0.9', default: '否', updatedBy: '赵会计', updatedAt: '待修复' } },
-    ],
-    notes: ['打印模板配置用于统一凭证纸、A4、A5、B5 和申报包版式，后续细化模板时不再散落到各页面。', '正式版本需要记录模板版本、默认状态、预览文件和渲染验证日志。'],
+    rows: fixedPrintTemplateRows,
+    notes: ['打印模板清单直接反映已实现的凭证、账簿、财务报表、税务申报和业务清单输出模板。', '模板随应用版本受控发布；需变更字段或版式时应修改对应导出代码并重新验证，不能在此页伪造可编辑配置。'],
   },
   taxAdapterSettings: {
     keywordPlaceholder: '搜索税局渠道、地区、税种、授权状态',
@@ -6940,6 +6958,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleImportAction = () => {
+    if (kind === 'printTemplateSettings') {
+      openPrintTemplatePreview()
+      return
+    }
     if (isHistoryMigrationKind(kind) && isTauri && !selectedHistoryPeriodId) {
       setOperationNotice('请先选择目标历史账期，再导入迁移文件。系统不会根据文件名猜测账期，也不会覆盖当前账期。')
       return

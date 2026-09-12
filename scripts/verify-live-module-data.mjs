@@ -1054,6 +1054,14 @@ const requiredSettingsOverviewPageSnippets = [
   ['settings overview review action', "if (kind === 'settingsData') {\n      reviewFoundationConfiguration('account')"],
 ]
 
+const requiredFixedPrintTemplateSnippets = [
+  ['fixed print template rows', 'const fixedPrintTemplateRows: ModuleRow[] = fixedPrintTemplatePreviews.map'],
+  ['fixed print template summary', "const fixedPrintTemplateSummary: ModuleConfig['summary']"],
+  ['print template config rows', 'rows: fixedPrintTemplateRows'],
+  ['print template config summary', 'summary: fixedPrintTemplateSummary'],
+  ['fixed template toolbar opens preview', "const handleImportAction = () => {\n    if (kind === 'printTemplateSettings') {\n      openPrintTemplatePreview()"],
+]
+
 const requiredAssetCategoryCommandSnippets = [
   ['asset category list command', 'pub async fn get_asset_categories'],
   ['asset category create command', 'pub async fn create_asset_category'],
@@ -1598,6 +1606,7 @@ const errors = [
   ...verify(pageSource, requiredMatchingRulePageSnippets, 'matching rule module page'),
   ...verify(adapterSource, requiredAiTrainingRuleMappingSnippets, 'AI training rule mapping'),
   ...verify(pageSource, requiredSettingsOverviewPageSnippets, 'settings overview module page'),
+  ...verify(pageSource, requiredFixedPrintTemplateSnippets, 'fixed print template module page'),
   ...verify(databaseSource, [['asset category schema', 'CREATE TABLE IF NOT EXISTS asset_categories']], 'database schema'),
   ...verify(assetCategoryCommandSource, requiredAssetCategoryCommandSnippets, 'asset category commands'),
   ...verify(assetCategoryStoreSource, requiredAssetCategoryStoreSnippets, 'asset category store'),
