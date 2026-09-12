@@ -11165,25 +11165,25 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           />
         )}
 
-        {kind === 'backupRestore' && <BackupWorkflowPanel onBackup={() => void handlePrimaryAction()} onReview={() => reviewImportArchiveData('backup')} />}
+        {kind === 'backupRestore' && <BackupWorkflowPanel summary={config.summary} onBackup={() => void handlePrimaryAction()} onReview={() => reviewImportArchiveData('backup')} />}
 
         {['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping'].includes(kind) && (
-          <MatchingRuleWorkflowPanel onAdd={openMatchingRuleEditor} onReview={() => reviewRuleTemplateGovernance('matching')} />
+          <MatchingRuleWorkflowPanel summary={config.summary} onAdd={openMatchingRuleEditor} onReview={() => reviewRuleTemplateGovernance('matching')} />
         )}
 
         {['settlementRules', 'commonDigests', 'voucherTemplateSettings', 'reportFormulaSettings'].includes(kind) && (
-          <TemplateGovernanceWorkflowPanel onReview={() => reviewRuleTemplateGovernance('template')} />
+          <TemplateGovernanceWorkflowPanel summary={config.summary} onReview={() => reviewRuleTemplateGovernance('template')} />
         )}
 
         {['taxAdapterSettings', 'bankAdapterSettings'].includes(kind) && (
-          <AdapterAuthorizationWorkflowPanel onAdd={openAdapterAuthorizationEditor} onReview={() => reviewRuleTemplateGovernance('adapter')} />
+          <AdapterAuthorizationWorkflowPanel summary={config.summary} onAdd={openAdapterAuthorizationEditor} onReview={() => reviewRuleTemplateGovernance('adapter')} />
         )}
 
-        {['historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger'].includes(kind) && <HistoryMigrationWorkflowPanel onReview={() => reviewControlEvidence('history')} />}
+        {['historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger'].includes(kind) && <HistoryMigrationWorkflowPanel summary={config.summary} onReview={() => reviewControlEvidence('history')} />}
 
         {kind === 'notificationCenter' && <NotificationWorkflowPanel summary={config.summary} onAdd={openCompanyTodoEditor} onReview={() => reviewControlEvidence('notification')} />}
 
-        {kind === 'riskCheck' && <RiskWorkflowPanel onReview={() => reviewControlEvidence('risk')} />}
+        {kind === 'riskCheck' && <RiskWorkflowPanel summary={config.summary} onReview={() => reviewControlEvidence('risk')} />}
 
         {kind === 'auditLog' && <AuditWorkflowPanel summary={config.summary} onReview={() => reviewControlEvidence('audit')} />}
 
@@ -11191,7 +11191,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'outputInvoice' && <OutputInvoiceWorkflowPanel summary={config.summary} onAdd={() => void handlePrimaryAction()} onReview={() => reviewControlEvidence('risk')} />}
 
-        {kind === 'contractLedger' && <ContractWorkflowPanel onReview={() => reviewControlEvidence('risk')} />}
+        {kind === 'contractLedger' && <ContractWorkflowPanel summary={config.summary} onReview={() => reviewControlEvidence('risk')} />}
 
         {kind === 'invoiceVoucherMatching' && <InvoiceVoucherMatchingWorkflowPanel summary={config.summary} onOpen={openInvoiceVoucherMatching} onReview={() => reviewControlEvidence('risk')} />}
 
@@ -11201,13 +11201,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'specialDeduction' && <SpecialDeductionWorkflowPanel summary={config.summary} onAdd={openSpecialDeductionEditor} onReview={() => reviewControlEvidence('risk')} />}
 
-        {['accountArchive', 'currencySettings', 'unitSettings'].includes(kind) && <AccountFoundationWorkflowPanel onReview={() => reviewFoundationConfiguration('account')} />}
+        {['accountArchive', 'currencySettings', 'unitSettings'].includes(kind) && <AccountFoundationWorkflowPanel summary={config.summary} onReview={() => reviewFoundationConfiguration('account')} />}
 
-        {['assetCategory', 'auxiliaryCategories', 'auxiliaryItems', 'tagArchive'].includes(kind) && <AuxiliaryFoundationWorkflowPanel onReview={() => reviewFoundationConfiguration('auxiliary')} />}
+        {['assetCategory', 'auxiliaryCategories', 'auxiliaryItems', 'tagArchive'].includes(kind) && <AuxiliaryFoundationWorkflowPanel summary={config.summary} onReview={() => reviewFoundationConfiguration('auxiliary')} />}
 
         {kind === 'printTemplateSettings' && <PrintTemplateWorkflowPanel onPreview={openPrintTemplatePreview} onReview={() => reviewFoundationConfiguration('print')} />}
 
-        {kind === 'periodManagement' && <PeriodManagementWorkflowPanel onReview={() => reviewFoundationConfiguration('period')} />}
+        {kind === 'periodManagement' && <PeriodManagementWorkflowPanel summary={config.summary} onReview={() => reviewFoundationConfiguration('period')} />}
 
         {kind === 'settingsData' && <SettingsOverviewWorkflowPanel onReview={() => reviewFoundationConfiguration('account')} />}
 
@@ -13660,7 +13660,7 @@ function ExportWorkflowPanel({ onReview, rows }: { onReview: () => void; rows: M
   )
 }
 
-function BackupWorkflowPanel({ onBackup, onReview }: { onBackup: () => void; onReview: () => void }) {
+function BackupWorkflowPanel({ onBackup, onReview, summary }: { onBackup: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账套备份与恢复前校验">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13673,57 +13673,44 @@ function BackupWorkflowPanel({ onBackup, onReview }: { onBackup: () => void; onR
           <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核恢复条件" onClick={onReview} />
         </div>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['本机快照', '6 份', '按账套和账期保留'],
-          ['校验通过', '5 份', '文件完整性已验证'],
-          ['恢复申请', '1 项', '需审批后执行'],
-          ['风险提示', '0 项', '未发现覆盖冲突'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label === '待恢复确认' ? '恢复前需人工确认范围和覆盖影响' : label === '异常' ? '异常备份不得用于恢复操作' : '按当前账套基础与规则台账实时汇总'} />
     </section>
   )
 }
 
-function MatchingRuleWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
+function MatchingRuleWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="自动匹配规则与优先级控制">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">自动匹配规则与优先级控制</h2><p className="mt-1 text-xs text-slate-500">发票、流水和现金流规则按条件、优先级、目标科目和凭证模板维护；命中结果仅生成待确认建议。</p></div><div className="flex flex-wrap gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增匹配规则" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核规则冲突" onClick={onReview} /></div></div>
-      <WorkflowMetrics items={['已启用规则|26 条|按范围和优先级执行', '待审核规则|5 条|须确认样本与目标动作', '冲突规则|2 条|需调整优先级或停用', '命中建议|84 条|仍需人工确认']}/>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label === '待审核' ? '须确认样本、优先级和目标动作' : label === '冲突' ? '冲突规则需调整优先级或停用' : '按当前账套基础与规则台账实时汇总'} />
     </section>
   )
 }
 
-function TemplateGovernanceWorkflowPanel({ onReview }: { onReview: () => void }) {
+function TemplateGovernanceWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="凭证与报表模板版本控制">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">凭证与报表模板版本控制</h2><p className="mt-1 text-xs text-slate-500">常用摘要、凭证模板、期末结转规则和报表公式需带版本、适用范围和变更记录；修改后须重算相关结果。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核模板影响" onClick={onReview} /></div>
-      <WorkflowMetrics items={['生效模板|18 个|当前账套与会计制度适用', '待发布版本|3 个|需要审批后启用', '取数公式|42 项|保留公式和重分类说明', '影响报表|4 张|需重算并复核快照']}/>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '变更需复核后才可生效' : label.includes('异常') ? '异常配置不得参与取数' : '按当前账套基础与规则台账实时汇总'} />
     </section>
   )
 }
 
-function AdapterAuthorizationWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
+function AdapterAuthorizationWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="外部适配授权与脱敏边界">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">外部适配授权与脱敏边界</h2><p className="mt-1 text-xs text-slate-500">税局与银行适配器仅登记渠道、地区、能力范围、脱敏身份和授权状态；密码、令牌、Cookie 与证书不写入账套。</p></div><div className="flex flex-wrap gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增授权渠道" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核授权边界" onClick={onReview} /></div></div>
-      <WorkflowMetrics items={['已授权渠道|2 个|能力范围已登记', '待确认授权|1 个|等待人工核验身份', '到期提醒|1 项|需更新授权状态', '敏感凭据|0 项|系统不保存明文凭据']}/>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '等待人工核验授权范围和身份' : label.includes('异常') ? '敏感凭据不写入账套' : '按当前账套基础与规则台账实时汇总'} />
     </section>
   )
 }
 
-function HistoryMigrationWorkflowPanel({ onReview }: { onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="历史账迁移与差异追溯"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">历史账迁移与差异追溯</h2><p className="mt-1 text-xs text-slate-500">历史凭证、余额、总账和明细账按迁移期间、科目映射和辅助维度保留来源，差异必须回查到旧账记录。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核迁移一致性" onClick={onReview} /></div><WorkflowMetrics items={['迁移批次|4 批|保留来源文件和导入时间', '科目映射|126 条|需与当前科目口径一致', '余额差异|1 项|不可直接形成正式期初', '凭证断号|2 项|需补齐或标记说明']}/></section>
+function HistoryMigrationWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="历史账迁移与差异追溯"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">历史账迁移与差异追溯</h2><p className="mt-1 text-xs text-slate-500">历史凭证、余额、总账和明细账按迁移期间、科目映射和辅助维度保留来源，差异必须回查到旧账记录。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核迁移一致性" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label.includes('差异') ? '差异不可直接形成正式期初或报表' : label.includes('待') ? '需补齐来源或映射说明' : '按当前账套基础与规则台账实时汇总'} /></section>
 }
 
-function RiskWorkflowPanel({ onReview }: { onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="风险检查与处置闭环"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">风险检查与处置闭环</h2><p className="mt-1 text-xs text-slate-500">凭证、发票、工资、报表、税表与结账前检查的风险项必须关联来源、责任人、处置动作和复核结果。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核风险处置" onClick={onReview} /></div><WorkflowMetrics items={['阻断风险|1 项|处理前不可结账', '高风险|4 项|需要负责人确认', '待补资料|8 项|关联发票、单据或人员', '已闭环|23 项|保留处置与复核记录']}/></section>
+function RiskWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="风险检查与处置闭环"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">风险检查与处置闭环</h2><p className="mt-1 text-xs text-slate-500">凭证、发票、工资、报表、税表与结账前检查的风险项必须关联来源、责任人、处置动作和复核结果。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核风险处置" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label.includes('阻断') ? '处理前不可结账或确认申报' : label.includes('高风险') ? '需要负责人确认并保留处置记录' : '按当前账套基础与规则台账实时汇总'} /></section>
 }
 
 function AuditWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
@@ -13742,8 +13729,8 @@ function OutputInvoiceWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () =>
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="销项开票与凭证确认流程"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">销项开票与凭证确认流程</h2><p className="mt-1 text-xs text-slate-500">销项发票按购方、税率、商品行和收款状态复核，异常票和未核验来源不能直接生成会计凭证。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增销项发票" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核开票风险" onClick={onReview} /></div></div><WorkflowMetrics summary={summary} detailFor={(label) => label === '异常发票' ? '税率或商品待核验' : label === '销项税额' ? '需确认收入与税额' : '按当前账套发票与凭证台账实时汇总'} /></section>
 }
 
-function ContractWorkflowPanel({ onReview }: { onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="合同履约与印花税核验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">合同履约与印花税核验</h2><p className="mt-1 text-xs text-slate-500">合同台账跟踪相对方、履约、收付款、附件与税目；应税合同须在申报前核对金额、税目和签章资料。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核合同税目" onClick={onReview} /></div><WorkflowMetrics items={['有效合同|46 份|关联客户或供应商', '履约待确认|5 份|需核验收付款与开票', '应税合同|18 份|进入印花税取数范围', '缺失附件|2 份|阻断归档与申报']}/></section>
+function ContractWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="合同履约与印花税核验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">合同履约与印花税核验</h2><p className="mt-1 text-xs text-slate-500">合同台账跟踪相对方、履约、收付款、附件与税目；应税合同须在申报前核对金额、税目和签章资料。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核合同税目" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '需核验收付款、开票与税目资料' : label.includes('异常') ? '缺失附件阻断归档与申报' : '按当前账套基础与规则台账实时汇总'} /></section>
 }
 
 function InvoiceVoucherMatchingWorkflowPanel({ onOpen, onReview, summary }: { onOpen: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
@@ -13762,20 +13749,20 @@ function SpecialDeductionWorkflowPanel({ onAdd, onReview, summary }: { onAdd: ()
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="专项附加扣除确认与个税取数"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">专项附加扣除确认与个税取数</h2><p className="mt-1 text-xs text-slate-500">专项附加扣除按人员、类型、起止月份和资料来源维护；个税取数前需核验资格、金额和期间有效性。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增专项扣除" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核个税取数" onClick={onReview} /></div></div><WorkflowMetrics summary={summary} detailFor={(label) => label === '待确认' ? '需核验人员资格、起止月份和证明资料' : label === '异常' ? '异常资料不进入个税申报确认' : '按当前账套控制台账实时汇总'} /></section>
 }
 
-function AccountFoundationWorkflowPanel({ onReview }: { onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账户币别与计量口径维护"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账户币别与计量口径维护</h2><p className="mt-1 text-xs text-slate-500">银行账户、币别汇率和计量单位分别维护默认科目、精度、换算关系与启停状态，业务发生后变更需要保留影响说明。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核基础口径" onClick={onReview} /></div><WorkflowMetrics items={['启用账户|6 个|关联银行流水与科目', '币别汇率|3 个|保留本位币与生效日期', '计量单位|12 个|支持换算与精度控制', '待审核变更|1 项|影响存货与报表取数']}/></section>
+function AccountFoundationWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账户币别与计量口径维护"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账户币别与计量口径维护</h2><p className="mt-1 text-xs text-slate-500">银行账户、币别汇率和计量单位分别维护默认科目、精度、换算关系与启停状态，业务发生后变更需要保留影响说明。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核基础口径" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '变更前需复核对存货和报表取数的影响' : label.includes('停用') ? '停用前需检查在用业务关联' : '按当前账套基础与规则台账实时汇总'} /></section>
 }
 
-function AuxiliaryFoundationWorkflowPanel({ onReview }: { onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="资产类别与辅助核算维度控制"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">资产类别与辅助核算维度控制</h2><p className="mt-1 text-xs text-slate-500">资产类别、辅助核算类别、辅助项目和业务标签决定折旧、凭证、账簿与报表的维度和取数范围。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核维度配置" onClick={onReview} /></div><WorkflowMetrics items={['资产类别|8 个|折旧方法与科目已配置', '辅助类别|6 个|客户、供应商、项目等维度', '辅助项目|148 条|须保持启用状态可追溯', '业务标签|12 个|用于凭证和流水分类']}/></section>
+function AuxiliaryFoundationWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="资产类别与辅助核算维度控制"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">资产类别与辅助核算维度控制</h2><p className="mt-1 text-xs text-slate-500">资产类别、辅助核算类别、辅助项目和业务标签决定折旧、凭证、账簿与报表的维度和取数范围。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核维度配置" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '配置变更需复核引用业务和生效范围' : label.includes('停用') ? '停用项不应影响历史凭证追溯' : '按当前账套基础与规则台账实时汇总'} /></section>
 }
 
 function PrintTemplateWorkflowPanel({ onPreview, onReview }: { onPreview: () => void; onReview: () => void }) {
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="打印模板版本与输出校验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">打印模板版本与输出校验</h2><p className="mt-1 text-xs text-slate-500">凭证、账簿、财务报表和税表输出按固定模板、A4 分页与中文字体生成；模板切换前应验证字段和分页。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="查看固定模板" onClick={onPreview} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核打印模板" onClick={onReview} /></div></div><WorkflowMetrics items={['固定模板|5 类|凭证、账簿、财报、税表、清单', '中文字体|已就绪|支持 PDF 与打印输出', '分页校验|A4|页码与表头保持一致', '待发布版本|1 个|需核验后启用']}/></section>
 }
 
-function PeriodManagementWorkflowPanel({ onReview }: { onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账期锁定与反结账审批"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账期锁定与反结账审批</h2><p className="mt-1 text-xs text-slate-500">账期状态、结账锁定、反结账申请和归档标记需有审批记录。已结账期间的凭证与报表变更必须经过受控流程。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核账期控制" onClick={onReview} /></div><WorkflowMetrics items={['当前账期|2026-05|结账状态可追溯', '已锁定账期|4 个|禁止直接修改凭证', '反结账申请|1 项|待高风险审批', '归档快照|5 份|关联报表与导出包']}/></section>
+function PeriodManagementWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账期锁定与反结账审批"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账期锁定与反结账审批</h2><p className="mt-1 text-xs text-slate-500">账期状态、结账锁定、反结账申请和归档标记需有审批记录。已结账期间的凭证与报表变更必须经过受控流程。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核账期控制" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label.includes('锁定') ? '锁定账期禁止直接修改凭证和报表' : label.includes('待') ? '须完成结账前检查与审批确认' : '按当前账套基础与规则台账实时汇总'} /></section>
 }
 
 function SettingsOverviewWorkflowPanel({ onReview }: { onReview: () => void }) {

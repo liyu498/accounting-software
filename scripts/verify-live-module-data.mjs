@@ -208,6 +208,21 @@ const requiredControlWorkflowSummarySnippets = [
   ['control workflow renders current summary', '按当前账套控制台账实时汇总'],
 ]
 
+const requiredFoundationWorkflowSummarySnippets = [
+  ['backup workflow receives live summary', '<BackupWorkflowPanel summary={config.summary}'],
+  ['matching rule workflow receives live summary', '<MatchingRuleWorkflowPanel summary={config.summary}'],
+  ['template governance workflow receives live summary', '<TemplateGovernanceWorkflowPanel summary={config.summary}'],
+  ['adapter authorization workflow receives live summary', '<AdapterAuthorizationWorkflowPanel summary={config.summary}'],
+  ['history migration workflow receives live summary', '<HistoryMigrationWorkflowPanel summary={config.summary}'],
+  ['risk workflow receives live summary', '<RiskWorkflowPanel summary={config.summary}'],
+  ['contract workflow receives live summary', '<ContractWorkflowPanel summary={config.summary}'],
+  ['account foundation workflow receives live summary', '<AccountFoundationWorkflowPanel summary={config.summary}'],
+  ['auxiliary foundation workflow receives live summary', '<AuxiliaryFoundationWorkflowPanel summary={config.summary}'],
+  ['period workflow receives live summary', '<PeriodManagementWorkflowPanel summary={config.summary}'],
+  ['foundation workflow summary contract', "summary: ModuleConfig['summary']"],
+  ['foundation workflow renders current summary', '按当前账套基础与规则台账实时汇总'],
+]
+
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
@@ -1639,6 +1654,7 @@ const errors = [
   ...verify(pageSource, requiredOperationsWorkflowSummarySnippets, 'operations workflow panels'),
   ...verify(pageSource, requiredInvoiceWorkflowSummarySnippets, 'invoice workflow panels'),
   ...verify(pageSource, requiredControlWorkflowSummarySnippets, 'control workflow panels'),
+  ...verify(pageSource, requiredFoundationWorkflowSummarySnippets, 'foundation workflow panels'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
