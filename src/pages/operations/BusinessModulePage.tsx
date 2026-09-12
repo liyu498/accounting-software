@@ -2209,30 +2209,31 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     notes: ['申报日历用于跨税种跟踪截止日期、负责人、取数状态和申报风险。', '后续应和申报工作台、回执缴款书、批量申报联动。'],
   },
   settingsData: {
-    keywordPlaceholder: '搜索编码、名称、助记码、税号',
-    primaryAction: '新增资料',
-    importLabel: '批量导入',
-    statusOptions: ['全部', '启用', '停用'],
+    keywordPlaceholder: '搜索设置项、生效范围、当前值、维护时间',
+    primaryAction: '复核设置范围',
+    importLabel: '导出设置',
+    statusOptions: ['全部', '启用', '已通过', '待确认', '停用'],
     summary: [
-      { label: '资料数量', value: '86 条', tone: 'blue' },
-      { label: '启用', value: '79 条', tone: 'green' },
-      { label: '待补字段', value: '6 条', tone: 'amber' },
-      { label: '停用', value: '7 条', tone: 'gray' },
+      { label: '配置范围', value: '4 项', tone: 'blue' },
+      { label: '已配置', value: '4 项', tone: 'green' },
+      { label: '待补信息', value: '0 项', tone: 'gray' },
+      { label: '固定模板', value: '5 套', tone: 'gray' },
     ],
     columns: [
-      { key: 'code', label: '编码' },
-      { key: 'name', label: '名称' },
-      { key: 'shortName', label: '简称' },
-      { key: 'mnemonic', label: '助记码' },
-      { key: 'taxNo', label: '税号/证件号' },
-      { key: 'account', label: '默认科目/账号' },
+      { key: 'name', label: '设置项' },
+      { key: 'scope', label: '生效范围' },
+      { key: 'currentValue', label: '当前值' },
+      { key: 'source', label: '配置依据' },
+      { key: 'boundary', label: '维护入口' },
+      { key: 'updatedAt', label: '更新时间' },
     ],
     rows: [
-      { id: 'set-001', status: '启用', voucher: '-', attachment: '-', values: { code: 'C001', name: '上海辰光贸易有限公司', shortName: '辰光贸易', mnemonic: 'CGMY', taxNo: '9131**********001X', account: '应收账款' } },
-      { id: 'set-002', status: '启用', voucher: '-', attachment: '-', values: { code: 'S006', name: '苏州材料供应链有限公司', shortName: '苏州材料', mnemonic: 'SZCL', taxNo: '9132**********888K', account: '应付账款' } },
-      { id: 'set-003', status: '异常', voucher: '-', attachment: '-', values: { code: 'P003', name: '研发项目A', shortName: '项目A', mnemonic: 'YFXMA', taxNo: '-', account: '研发支出' } },
+      { id: 'set-company', status: '启用', voucher: '-', attachment: '企业资料', values: { name: '账套主体', scope: '当前账套', currentValue: '已选择企业', source: '企业信息', boundary: '企业信息', updatedAt: '-' } },
+      { id: 'set-system', status: '启用', voucher: '-', attachment: '会计制度', values: { name: '会计制度', scope: '当前账套', currentValue: '已配置会计制度', source: '企业信息', boundary: '企业信息', updatedAt: '-' } },
+      { id: 'set-period', status: '待确认', voucher: '-', attachment: '账期', values: { name: '当前账期', scope: '当前账套', currentValue: '待选择账期', source: '账期管理', boundary: '账期管理', updatedAt: '-' } },
+      { id: 'set-output', status: '已通过', voucher: '-', attachment: '模板清单', values: { name: '固定输出模板', scope: '全局受控', currentValue: '5 套固定模板', source: '导出模板代码', boundary: '打印模板', updatedAt: '随应用版本发布' } },
     ],
-    notes: ['客户、供应商、其他往来、项目、部门、标签、资产类别可复用这套资料表格。'],
+    notes: ['设置总览仅聚合当前账套的配置边界；客户、供应商、项目和部门档案应在各自模块维护。', '固定输出模板随应用版本受控发布，不能在此页伪造可编辑的版式配置。'],
   },
   companyInfo: {
     keywordPlaceholder: '搜索企业名称、纳税人识别号、开户行、联系人',
@@ -5304,6 +5305,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLivePeriodManagementData = Boolean(isTauri && selectedCompanyId && kind === 'periodManagement')
   const usesLiveSettlementRuleData = Boolean(isTauri && selectedCompanyId && kind === 'settlementRules')
   const usesLiveCurrencyData = Boolean(isTauri && selectedCompanyId && kind === 'currencySettings')
+  const usesLiveSettingsOverviewData = Boolean(isTauri && selectedCompanyId && kind === 'settingsData')
   const usesLiveTemplateSettingsData = Boolean(isTauri && selectedCompanyId && ['commonDigests', 'voucherTemplateSettings'].includes(kind))
   const usesLiveReportFormulaData = Boolean(isTauri && selectedCompanyId && kind === 'reportFormulaSettings')
   const usesLiveMatchingRuleData = Boolean(isTauri && selectedCompanyId && ['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping', 'aiRuleTraining'].includes(kind))
@@ -6538,6 +6540,40 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
+    if (kind === 'settingsData' && usesLiveSettingsOverviewData) {
+      const settingsRows: ModuleRow[] = [
+        {
+          id: 'setting-company', status: selectedCompany?.is_active ? '启用' : '停用', voucher: '-', attachment: '企业资料',
+          values: { name: '账套主体', scope: '当前账套', currentValue: selectedCompany?.name || '未选择企业', source: selectedCompany?.tax_id || '待维护纳税人识别号', boundary: '企业信息', updatedAt: selectedCompany?.updated_at || '-' },
+        },
+        {
+          id: 'setting-system', status: selectedCompany?.accounting_system ? '启用' : '待确认', voucher: '-', attachment: '会计制度',
+          values: { name: '会计制度', scope: '当前账套', currentValue: selectedCompany?.accounting_system || '待维护会计制度', source: selectedCompany?.industry || '待维护行业', boundary: '企业信息', updatedAt: selectedCompany?.updated_at || '-' },
+        },
+        {
+          id: 'setting-period', status: currentPeriod ? '启用' : '待确认', voucher: '-', attachment: '账期',
+          values: { name: '当前账期', scope: '当前账套', currentValue: currentPeriodLabel, source: currentPeriod ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}` : '未选择账期', boundary: '账期管理', updatedAt: currentPeriod?.updated_at || '-' },
+        },
+        {
+          id: 'setting-output', status: '已通过', voucher: '-', attachment: '模板清单',
+          values: { name: '固定输出模板', scope: '全局受控', currentValue: `${fixedPrintTemplatePreviews.length} 套固定模板`, source: fixedPrintTemplatePreviews.map((template) => template.name).join('、'), boundary: '打印模板', updatedAt: '随应用版本发布' },
+        },
+      ]
+      const configured = settingsRows.filter((row) => row.status === '启用' || row.status === '已通过').length
+      const pending = settingsRows.filter((row) => row.status === '待确认').length
+      const settingsSummary: ModuleConfig['summary'] = [
+        { label: '配置范围', value: `${settingsRows.length} 项`, tone: 'blue' },
+        { label: '已配置', value: `${configured} 项`, tone: configured > 0 ? 'green' : 'gray' },
+        { label: '待补信息', value: `${pending} 项`, tone: pending > 0 ? 'amber' : 'gray' },
+        { label: '固定模板', value: `${fixedPrintTemplatePreviews.length} 套`, tone: 'gray' },
+      ]
+      return {
+        ...baseConfig,
+        rows: settingsRows,
+        summary: settingsSummary,
+      }
+    }
+
     if (kind === 'accountArchive' && (usesLiveCompanyBankAccountData || previewCompanyAccounts.length > 0)) {
       return {
         ...baseConfig,
@@ -6789,7 +6825,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind, title)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
@@ -7343,6 +7379,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'aiRuleTraining') {
       resetMatchingRuleDraft()
       setShowMatchingRuleDialog(true)
+      return
+    }
+    if (kind === 'settingsData') {
+      reviewFoundationConfiguration('account')
       return
     }
     if (kind === 'printTemplateSettings') {

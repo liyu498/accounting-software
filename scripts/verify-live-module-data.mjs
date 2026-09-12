@@ -1045,6 +1045,15 @@ const requiredAiTrainingRuleMappingSnippets = [
   ['AI training published summary', "label: '已发布'"],
 ]
 
+const requiredSettingsOverviewPageSnippets = [
+  ['settings overview live scope', "const usesLiveSettingsOverviewData = Boolean(isTauri && selectedCompanyId && kind === 'settingsData')"],
+  ['settings overview live mapping', "if (kind === 'settingsData' && usesLiveSettingsOverviewData)"],
+  ['settings overview company row', "name: '账套主体'"],
+  ['settings overview period row', "name: '当前账期'"],
+  ['settings overview output row', "name: '固定输出模板'"],
+  ['settings overview review action', "if (kind === 'settingsData') {\n      reviewFoundationConfiguration('account')"],
+]
+
 const requiredAssetCategoryCommandSnippets = [
   ['asset category list command', 'pub async fn get_asset_categories'],
   ['asset category create command', 'pub async fn create_asset_category'],
@@ -1588,6 +1597,7 @@ const errors = [
   ...verify(matchingRuleStoreSource, requiredMatchingRuleStoreSnippets, 'matching rule store'),
   ...verify(pageSource, requiredMatchingRulePageSnippets, 'matching rule module page'),
   ...verify(adapterSource, requiredAiTrainingRuleMappingSnippets, 'AI training rule mapping'),
+  ...verify(pageSource, requiredSettingsOverviewPageSnippets, 'settings overview module page'),
   ...verify(databaseSource, [['asset category schema', 'CREATE TABLE IF NOT EXISTS asset_categories']], 'database schema'),
   ...verify(assetCategoryCommandSource, requiredAssetCategoryCommandSnippets, 'asset category commands'),
   ...verify(assetCategoryStoreSource, requiredAssetCategoryStoreSnippets, 'asset category store'),
