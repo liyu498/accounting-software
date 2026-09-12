@@ -223,6 +223,20 @@ const requiredFoundationWorkflowSummarySnippets = [
   ['foundation workflow renders current summary', '按当前账套基础与规则台账实时汇总'],
 ]
 
+const requiredCoreWorkflowSummarySnippets = [
+  ['ledger workflow receives live summary', '<LedgerWorkflowPanel summary={config.summary}'],
+  ['financial statement workflow receives live summary', '<FinancialStatementWorkflowPanel summary={config.summary}'],
+  ['company info workflow receives live summary', '<CompanyInfoWorkflowPanel summary={config.summary}'],
+  ['initial balance workflow receives live summary', '<InitialBalanceWorkflowPanel summary={config.summary}'],
+  ['subject workflow receives live summary', '<SubjectSettingsWorkflowPanel summary={config.summary}'],
+  ['auxiliary archive workflow receives live summary', '<AuxiliaryArchiveWorkflowPanel summary={config.summary}'],
+  ['tax planning workflow receives live summary', '<TaxPlanningWorkflowPanel\n            summary={config.summary}'],
+  ['tax report workflow receives live summary', '<TaxReportWorkflowPanel summary={config.summary}'],
+  ['tax receipt workflow receives live summary', '<TaxReceiptWorkflowPanel summary={config.summary}'],
+  ['core workflow summary contract', "summary: ModuleConfig['summary']"],
+  ['core workflow renders current summary', '按当前账套账簿、报表与申报数据实时汇总'],
+]
+
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
@@ -1655,6 +1669,7 @@ const errors = [
   ...verify(pageSource, requiredInvoiceWorkflowSummarySnippets, 'invoice workflow panels'),
   ...verify(pageSource, requiredControlWorkflowSummarySnippets, 'control workflow panels'),
   ...verify(pageSource, requiredFoundationWorkflowSummarySnippets, 'foundation workflow panels'),
+  ...verify(pageSource, requiredCoreWorkflowSummarySnippets, 'core workflow panels'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

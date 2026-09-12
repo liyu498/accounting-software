@@ -11112,35 +11112,36 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         {kind === 'aiRuleTraining' && <AiRuleTrainingWorkflowPanel onReview={reviewAiRuleTraining} />}
 
         {['ledgerReport', 'trialBalanceReport', 'accountSummaryReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'multiColumnLedgerReport'].includes(kind) && (
-          <LedgerWorkflowPanel onReview={reviewLedgerReports} onRefresh={() => void handlePrimaryAction()} />
+          <LedgerWorkflowPanel summary={config.summary} onReview={reviewLedgerReports} onRefresh={() => void handlePrimaryAction()} />
         )}
 
         {['balanceSheetReport', 'incomeStatementReport', 'incomeQuarterReport', 'cashFlowReport', 'cashFlowQuarterReport', 'equityChangeReport', 'financialReport'].includes(kind) && (
-          <FinancialStatementWorkflowPanel onReview={reviewFinancialStatements} onRefresh={() => void handlePrimaryAction()} />
+          <FinancialStatementWorkflowPanel summary={config.summary} onReview={reviewFinancialStatements} onRefresh={() => void handlePrimaryAction()} />
         )}
 
-        {kind === 'companyInfo' && <CompanyInfoWorkflowPanel onEdit={openCompanyInfoEditor} onReview={reviewCompanyRegistration} />}
+        {kind === 'companyInfo' && <CompanyInfoWorkflowPanel summary={config.summary} onEdit={openCompanyInfoEditor} onReview={reviewCompanyRegistration} />}
 
-        {kind === 'initialBalance' && <InitialBalanceWorkflowPanel onEdit={openInitialBalanceEditor} onValidate={reviewInitialBalance} />}
+        {kind === 'initialBalance' && <InitialBalanceWorkflowPanel summary={config.summary} onEdit={openInitialBalanceEditor} onValidate={reviewInitialBalance} />}
 
-        {kind === 'subjectSettings' && <SubjectSettingsWorkflowPanel onReview={reviewSubjectSettings} />}
+        {kind === 'subjectSettings' && <SubjectSettingsWorkflowPanel summary={config.summary} onReview={reviewSubjectSettings} />}
 
         {['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive'].includes(kind) && (
-          <AuxiliaryArchiveWorkflowPanel onReview={reviewAuxiliaryArchives} />
+          <AuxiliaryArchiveWorkflowPanel summary={config.summary} onReview={reviewAuxiliaryArchives} />
         )}
 
         {(kind === 'taxInit' || kind === 'declarationCalendar') && (
           <TaxPlanningWorkflowPanel
+            summary={config.summary}
             onAdd={kind === 'taxInit' ? () => openTaxInitEditor() : () => void handlePrimaryAction()}
             onReview={reviewTaxTaskData}
           />
         )}
 
         {['taxReport', 'vatTaxReport', 'withholdingTaxReport', 'stampTaxReport', 'incomeTaxReport', 'socialSecurityTaxReport', 'financeTaxReport', 'nonTaxRevenueReport'].includes(kind) && (
-          <TaxReportWorkflowPanel onRun={() => void handlePrimaryAction()} onReview={reviewTaxTaskData} />
+          <TaxReportWorkflowPanel summary={config.summary} onRun={() => void handlePrimaryAction()} onReview={reviewTaxTaskData} />
         )}
 
-        {kind === 'declarationReceipt' && <TaxReceiptWorkflowPanel onOpen={openTaxReceiptWorkflow} onReview={reviewTaxTaskData} />}
+        {kind === 'declarationReceipt' && <TaxReceiptWorkflowPanel summary={config.summary} onOpen={openTaxReceiptWorkflow} onReview={reviewTaxTaskData} />}
 
         {kind === 'attachmentCenter' && (
           <AttachmentWorkflowPanel
@@ -13288,7 +13289,7 @@ function AiRuleTrainingWorkflowPanel({ onReview }: { onReview: () => void }) {
   )
 }
 
-function LedgerWorkflowPanel({ onReview, onRefresh }: { onReview: () => void; onRefresh: () => void }) {
+function LedgerWorkflowPanel({ onReview, onRefresh, summary }: { onReview: () => void; onRefresh: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账簿取数与凭证穿透">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13301,25 +13302,12 @@ function LedgerWorkflowPanel({ onReview, onRefresh }: { onReview: () => void; on
           <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核余额一致性" onClick={onReview} />
         </div>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['凭证基础', '82 张', '仅取已保存的本期凭证'],
-          ['科目差异', '1 项', '需核验借贷方向与余额'],
-          ['辅助差异', '2 项', '客户、供应商或项目待匹配'],
-          ['可穿透记录', '73 条', '支持回查凭证与来源单据'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('差异') ? '需穿透凭证、科目和业务来源后处理' : label.includes('待') ? '需要补齐辅助项或取数条件' : '按当前账套账簿、报表与申报数据实时汇总'} />
     </section>
   )
 }
 
-function FinancialStatementWorkflowPanel({ onReview, onRefresh }: { onReview: () => void; onRefresh: () => void }) {
+function FinancialStatementWorkflowPanel({ onReview, onRefresh, summary }: { onReview: () => void; onRefresh: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="财务报表取数与勾稽复核">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13332,25 +13320,12 @@ function FinancialStatementWorkflowPanel({ onReview, onRefresh }: { onReview: ()
           <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核勾稽关系" onClick={onReview} />
         </div>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['公式版本', '2026.05', '按当前会计准则与模板取数'],
-          ['重分类项目', '3 项', '应收应付和预收预付待确认'],
-          ['现金流未映射', '2 项', '必须补齐映射后再形成报送包'],
-          ['勾稽差异', '0 项', '当前快照可供导出和打印'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('差异') || label.includes('未映射') ? '需补齐映射并复核报表快照' : '按当前账套账簿、报表与申报数据实时汇总'} />
     </section>
   )
 }
 
-function CompanyInfoWorkflowPanel({ onEdit, onReview }: { onEdit: () => void; onReview: () => void }) {
+function CompanyInfoWorkflowPanel({ onEdit, onReview, summary }: { onEdit: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="企业税务资料与授权维护">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13363,25 +13338,12 @@ function CompanyInfoWorkflowPanel({ onEdit, onReview }: { onEdit: () => void; on
           <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核企业资料" onClick={onReview} />
         </div>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['企业主体', '已登记', '名称、税号和地区'],
-          ['会计制度', '小企业会计准则', '启用后需受变更控制'],
-          ['纳税人资格', '一般纳税人', '税种认定待复核'],
-          ['授权状态', '待确认', '税务与工商授权分开管理'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '税务与工商授权需独立复核' : '按当前账套账簿、报表与申报数据实时汇总'} />
     </section>
   )
 }
 
-function InitialBalanceWorkflowPanel({ onEdit, onValidate }: { onEdit: () => void; onValidate: () => void }) {
+function InitialBalanceWorkflowPanel({ onEdit, onValidate, summary }: { onEdit: () => void; onValidate: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="期初余额试算与启用控制">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13394,25 +13356,12 @@ function InitialBalanceWorkflowPanel({ onEdit, onValidate }: { onEdit: () => voi
           <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="执行试算平衡" onClick={onValidate} />
         </div>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['科目余额', '126 行', '总账期初基础数据'],
-          ['辅助余额', '24 行', '客户、供应商和项目明细'],
-          ['试算状态', '待确认', '借贷两端必须平衡'],
-          ['迁移差异', '1 项', '需回查历史账簿来源'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('差异') || label.includes('待') ? '试算平衡前需回查期初与迁移依据' : '按当前账套账簿、报表与申报数据实时汇总'} />
     </section>
   )
 }
 
-function SubjectSettingsWorkflowPanel({ onReview }: { onReview: () => void }) {
+function SubjectSettingsWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="科目核算口径与报表映射">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13422,25 +13371,12 @@ function SubjectSettingsWorkflowPanel({ onReview }: { onReview: () => void }) {
         </div>
         <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核科目口径" onClick={onReview} />
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['启用科目', '182 个', '含明细与末级科目'],
-          ['辅助核算', '36 个', '需关联基础档案类别'],
-          ['报表映射', '14 项', '公式版本可追溯'],
-          ['待审核变更', '2 项', '影响默认凭证与取数'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '变更影响默认凭证与报表取数，需先复核' : '按当前账套账簿、报表与申报数据实时汇总'} />
     </section>
   )
 }
 
-function AuxiliaryArchiveWorkflowPanel({ onReview }: { onReview: () => void }) {
+function AuxiliaryArchiveWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="辅助档案完整性与业务引用">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13450,25 +13386,12 @@ function AuxiliaryArchiveWorkflowPanel({ onReview }: { onReview: () => void }) {
         </div>
         <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核档案引用" onClick={onReview} />
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['可用档案', '148 条', '当前账套已启用记录'],
-          ['待补资料', '8 条', '税号、账户或默认科目缺失'],
-          ['业务引用', '96 次', '关联发票、流水或凭证'],
-          ['停用记录', '4 条', '保留历史引用但禁止新增'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '缺失资料须在业务流转前补齐' : label.includes('停用') ? '保留历史引用但禁止新增业务' : '按当前账套账簿、报表与申报数据实时汇总'} />
     </section>
   )
 }
 
-function TaxPlanningWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
+function TaxPlanningWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="申报认定与日历控制">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13481,25 +13404,12 @@ function TaxPlanningWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onRe
           <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核申报计划" onClick={onReview} />
         </div>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['本期申报事项', '12 项', '按税种和所属期建立'],
-          ['临近截止', '4 项', '需分派负责人并跟进'],
-          ['取数待确认', '3 项', '等待发票或报表校验'],
-          ['阻断风险', '1 项', '处理后才可进入申报包'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('截止') ? '需分派负责人并跟进' : label.includes('阻断') || label.includes('待') ? '处理后才可进入本地申报包' : '按当前账套账簿、报表与申报数据实时汇总'} />
     </section>
   )
 }
 
-function TaxReportWorkflowPanel({ onRun, onReview }: { onRun: () => void; onReview: () => void }) {
+function TaxReportWorkflowPanel({ onRun, onReview, summary }: { onRun: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="税务取数与申报包控制">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13512,25 +13422,12 @@ function TaxReportWorkflowPanel({ onRun, onReview }: { onRun: () => void; onRevi
           <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核取数差异" onClick={onReview} />
         </div>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['已校验税表', '8 张', '来源与公式快照可追溯'],
-          ['待确认申报包', '3 份', '须人工确认后归档'],
-          ['资料阻断', '2 项', '发票勾选或合同资料缺失'],
-          ['金额差异', '1 项', '需要回查账簿和业务台账'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('阻断') || label.includes('差异') ? '需要回查账簿和业务台账后处理' : label.includes('待') ? '仅生成本地待确认申报包，不直接对外提交' : '按当前账套账簿、报表与申报数据实时汇总'} />
     </section>
   )
 }
 
-function TaxReceiptWorkflowPanel({ onOpen, onReview }: { onOpen: () => void; onReview: () => void }) {
+function TaxReceiptWorkflowPanel({ onOpen, onReview, summary }: { onOpen: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="申报回执与缴款归档">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13543,20 +13440,7 @@ function TaxReceiptWorkflowPanel({ onOpen, onReview }: { onOpen: () => void; onR
           <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核归档完整性" onClick={onReview} />
         </div>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['已收回执', '5 项', '需关联回执 PDF 或截图'],
-          ['待缴款', '2 项', '保留缴款书与扣款状态'],
-          ['待归档附件', '1 项', '申报包与回执需成组留存'],
-          ['异常记录', '1 项', '提交失败需保留原因与重试记录'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '缴款书、扣款状态与附件需成组留存' : label.includes('异常') ? '失败原因与重试记录必须保留' : '按当前账套账簿、报表与申报数据实时汇总'} />
     </section>
   )
 }
