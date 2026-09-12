@@ -11100,16 +11100,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           />
         )}
 
-        {kind === 'aiRecognitionResults' && <AiRecognitionWorkflowPanel onReview={reviewAiRecognition} />}
+        {kind === 'aiRecognitionResults' && <AiRecognitionWorkflowPanel summary={config.summary} onReview={reviewAiRecognition} />}
 
         {kind === 'aiVoucherSuggestions' && (
           <AiVoucherSuggestionWorkflowPanel
+            summary={config.summary}
             onAdd={openAiVoucherSuggestionEditor}
             onConfirm={() => void handlePrimaryAction()}
           />
         )}
 
-        {kind === 'aiRuleTraining' && <AiRuleTrainingWorkflowPanel onReview={reviewAiRuleTraining} />}
+        {kind === 'aiRuleTraining' && <AiRuleTrainingWorkflowPanel summary={config.summary} onReview={reviewAiRuleTraining} />}
 
         {['ledgerReport', 'trialBalanceReport', 'accountSummaryReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'multiColumnLedgerReport'].includes(kind) && (
           <LedgerWorkflowPanel summary={config.summary} onReview={reviewLedgerReports} onRefresh={() => void handlePrimaryAction()} />
@@ -11206,11 +11207,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {['assetCategory', 'auxiliaryCategories', 'auxiliaryItems', 'tagArchive'].includes(kind) && <AuxiliaryFoundationWorkflowPanel summary={config.summary} onReview={() => reviewFoundationConfiguration('auxiliary')} />}
 
-        {kind === 'printTemplateSettings' && <PrintTemplateWorkflowPanel onPreview={openPrintTemplatePreview} onReview={() => reviewFoundationConfiguration('print')} />}
+        {kind === 'printTemplateSettings' && <PrintTemplateWorkflowPanel summary={config.summary} onPreview={openPrintTemplatePreview} onReview={() => reviewFoundationConfiguration('print')} />}
 
         {kind === 'periodManagement' && <PeriodManagementWorkflowPanel summary={config.summary} onReview={() => reviewFoundationConfiguration('period')} />}
 
-        {kind === 'settingsData' && <SettingsOverviewWorkflowPanel onReview={() => reviewFoundationConfiguration('account')} />}
+        {kind === 'settingsData' && <SettingsOverviewWorkflowPanel summary={config.summary} onReview={() => reviewFoundationConfiguration('account')} />}
 
         {kind === 'inputInvoice' && (
           <InputInvoiceWorkflowPanel
@@ -13202,7 +13203,7 @@ function AiJobWorkflowPanel({ onStart, onReview, summary }: { onStart: () => voi
   )
 }
 
-function AiRecognitionWorkflowPanel({ onReview }: { onReview: () => void }) {
+function AiRecognitionWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="识别字段复核与回链处理">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13212,25 +13213,12 @@ function AiRecognitionWorkflowPanel({ onReview }: { onReview: () => void }) {
         </div>
         <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="登记人工复核" onClick={onReview} />
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['自动通过', '196 条', '高置信度且档案已匹配'],
-          ['待复核字段', '39 条', '税率、金额或主体待确认'],
-          ['低置信度', '13 条', '影像或字段需人工修正'],
-          ['回链目标', '4 类', '发票、流水、单据、建议'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('异常') || label.includes('低') ? '影像或字段需人工修正' : label.includes('确认') ? '复核后回链到对应业务模块' : '按当前账套模块配置与运行记录汇总'} />
     </section>
   )
 }
 
-function AiVoucherSuggestionWorkflowPanel({ onAdd, onConfirm }: { onAdd: () => void; onConfirm: () => void }) {
+function AiVoucherSuggestionWorkflowPanel({ onAdd, onConfirm, summary }: { onAdd: () => void; onConfirm: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="凭证建议核验与草稿流转">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13243,25 +13231,12 @@ function AiVoucherSuggestionWorkflowPanel({ onAdd, onConfirm }: { onAdd: () => v
           <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="确认已勾选建议" onClick={onConfirm} />
         </div>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['可确认建议', '38 条', '来源和金额已完成校验'],
-          ['待修改', '12 条', '需补齐科目或摘要'],
-          ['高风险', '4 条', '金额不平或来源不完整'],
-          ['草稿流转', '16 条', '已进入凭证草稿人工复核'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('异常') || label.includes('风险') ? '金额或来源异常时不得自动入账' : label.includes('确认') ? '确认后仅进入凭证草稿人工复核' : '按当前账套模块配置与运行记录汇总'} />
     </section>
   )
 }
 
-function AiRuleTrainingWorkflowPanel({ onReview }: { onReview: () => void }) {
+function AiRuleTrainingWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="AI规则训练与版本审核">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13271,20 +13246,7 @@ function AiRuleTrainingWorkflowPanel({ onReview }: { onReview: () => void }) {
         </div>
         <ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核规则版本" onClick={onReview} />
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['已启用规则', '19 条', '仅用于生成候选建议'],
-          ['待审核版本', '7 条', '需核验样本和命中率'],
-          ['冲突规则', '2 条', '需要合并或禁用处理'],
-          ['训练样本', '256 条', '保留来源与人工修订记录'],
-        ].map(([label, value, detail]) => (
-          <div key={label} className="border border-slate-200 bg-white p-2.5">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-            <div className="mt-1 text-xs text-slate-500">{detail}</div>
-          </div>
-        ))}
-      </div>
+      <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') || label.includes('冲突') ? '需核验样本、命中率和生效范围' : '按当前账套模块配置与运行记录汇总'} />
     </section>
   )
 }
@@ -13641,16 +13603,16 @@ function AuxiliaryFoundationWorkflowPanel({ onReview, summary }: { onReview: () 
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="资产类别与辅助核算维度控制"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">资产类别与辅助核算维度控制</h2><p className="mt-1 text-xs text-slate-500">资产类别、辅助核算类别、辅助项目和业务标签决定折旧、凭证、账簿与报表的维度和取数范围。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核维度配置" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '配置变更需复核引用业务和生效范围' : label.includes('停用') ? '停用项不应影响历史凭证追溯' : '按当前账套基础与规则台账实时汇总'} /></section>
 }
 
-function PrintTemplateWorkflowPanel({ onPreview, onReview }: { onPreview: () => void; onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="打印模板版本与输出校验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">打印模板版本与输出校验</h2><p className="mt-1 text-xs text-slate-500">凭证、账簿、财务报表和税表输出按固定模板、A4 分页与中文字体生成；模板切换前应验证字段和分页。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="查看固定模板" onClick={onPreview} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核打印模板" onClick={onReview} /></div></div><WorkflowMetrics items={['固定模板|5 类|凭证、账簿、财报、税表、清单', '中文字体|已就绪|支持 PDF 与打印输出', '分页校验|A4|页码与表头保持一致', '待发布版本|1 个|需核验后启用']}/></section>
+function PrintTemplateWorkflowPanel({ onPreview, onReview, summary }: { onPreview: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="打印模板版本与输出校验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">打印模板版本与输出校验</h2><p className="mt-1 text-xs text-slate-500">凭证、账簿、财务报表和税表输出按固定模板、A4 分页与中文字体生成；模板切换前应验证字段和分页。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="查看固定模板" onClick={onPreview} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核打印模板" onClick={onReview} /></div></div><WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '模板发布前需核验字段、字体和分页' : '按当前账套模块配置与运行记录汇总'} /></section>
 }
 
 function PeriodManagementWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账期锁定与反结账审批"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账期锁定与反结账审批</h2><p className="mt-1 text-xs text-slate-500">账期状态、结账锁定、反结账申请和归档标记需有审批记录。已结账期间的凭证与报表变更必须经过受控流程。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核账期控制" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label.includes('锁定') ? '锁定账期禁止直接修改凭证和报表' : label.includes('待') ? '须完成结账前检查与审批确认' : '按当前账套基础与规则台账实时汇总'} /></section>
 }
 
-function SettingsOverviewWorkflowPanel({ onReview }: { onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账套设置导航与生效范围"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账套设置导航与生效范围</h2><p className="mt-1 text-xs text-slate-500">按企业资料、期初、基础档案、会计科目、规则模板、账期与审计归类管理。每项配置只作用于当前账套，并保留启用状态和变更记录。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核配置生效范围" onClick={onReview} /></div><WorkflowMetrics items={['企业与账期|2 类|主体、制度和启用期间', '基础档案|8 类|客户、供应商、项目和维度', '规则模板|6 类|匹配、凭证、报表和打印', '控制记录|4 类|授权、审计、备份和回收']}/></section>
+function SettingsOverviewWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账套设置导航与生效范围"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账套设置导航与生效范围</h2><p className="mt-1 text-xs text-slate-500">按企业资料、期初、基础档案、会计科目、规则模板、账期与审计归类管理。每项配置只作用于当前账套，并保留启用状态和变更记录。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核配置生效范围" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '需进入对应受控模块完成复核' : '按当前账套模块配置与运行记录汇总'} /></section>
 }
 
 function WorkflowMetrics({ items, summary, detailFor }: { items?: string[]; summary?: ModuleConfig['summary']; detailFor?: (label: string) => string }) {

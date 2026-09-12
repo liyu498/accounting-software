@@ -237,6 +237,16 @@ const requiredCoreWorkflowSummarySnippets = [
   ['core workflow renders current summary', '按当前账套账簿、报表与申报数据实时汇总'],
 ]
 
+const requiredRemainingWorkflowSummarySnippets = [
+  ['AI recognition workflow receives live summary', '<AiRecognitionWorkflowPanel summary={config.summary}'],
+  ['AI voucher suggestion workflow receives live summary', '<AiVoucherSuggestionWorkflowPanel\n            summary={config.summary}'],
+  ['AI rule training workflow receives live summary', '<AiRuleTrainingWorkflowPanel summary={config.summary}'],
+  ['print template workflow receives module summary', '<PrintTemplateWorkflowPanel summary={config.summary}'],
+  ['settings overview workflow receives module summary', '<SettingsOverviewWorkflowPanel summary={config.summary}'],
+  ['remaining workflow summary contract', "summary: ModuleConfig['summary']"],
+  ['remaining workflow renders current summary', '按当前账套模块配置与运行记录汇总'],
+]
+
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
@@ -1670,6 +1680,7 @@ const errors = [
   ...verify(pageSource, requiredControlWorkflowSummarySnippets, 'control workflow panels'),
   ...verify(pageSource, requiredFoundationWorkflowSummarySnippets, 'foundation workflow panels'),
   ...verify(pageSource, requiredCoreWorkflowSummarySnippets, 'core workflow panels'),
+  ...verify(pageSource, requiredRemainingWorkflowSummarySnippets, 'remaining workflow panels'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
