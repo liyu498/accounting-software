@@ -412,7 +412,7 @@ const requiredPageSnippets = [
   ['module import settings targets', "type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover' | 'companyAccount' | 'auxiliaryArchive' | 'businessTag' | 'currency' | 'matchingRule' | 'settlementRule' | 'commonDigest' | 'voucherTemplate' | 'assetCategory' | 'auxiliaryCategory' | 'auxiliaryItem' | 'initialBalance' | 'subject'"],
   ['module import committed status', "status === '已关联' || status === '已校验' || status === '已写入'"],
   ['module receipt expense and contract import scope', "if (kind === 'documentRegister' || kind === 'contractLedger' || kind === 'receipt' || kind === 'expenseReimbursement') return 'document'"],
-  ['module matching rule import scope', "if (kind === 'invoiceMatchingRules' || kind === 'billMatchingRules' || kind === 'cashFlowMapping') return 'matchingRule'"],
+  ['module matching rule import scope', "if (kind === 'invoiceMatchingRules' || kind === 'billMatchingRules' || kind === 'cashFlowMapping' || kind === 'aiRuleTraining') return 'matchingRule'"],
   ['matching rule preview mapping', 'mapLiveMatchingRuleRows(isTauri ? matchingRules : previewMatchingRules, matchingRuleScope)'],
   ['module settlement rule import scope', "if (kind === 'settlementRules') return 'settlementRule'"],
   ['settlement rule preview mapping', 'mapLiveSettlementRuleRows(isTauri ? settlementRules : previewSettlementRules)'],
@@ -1015,9 +1015,11 @@ const requiredMatchingRuleCommandSnippets = [
   ['matching rule create command', 'pub async fn create_matching_rule'],
   ['matching rule update command', 'pub async fn update_matching_rule'],
   ['matching rule delete command', 'pub async fn delete_matching_rule'],
+  ['AI training rule scope validation', '"ai_training"'],
 ]
 
 const requiredMatchingRuleStoreSnippets = [
+  ['AI training rule scope type', "| 'ai_training'"],
   ['matching rule fetch action', 'fetchMatchingRules: async'],
   ['matching rule create action', 'createMatchingRule: async'],
   ['matching rule update action', 'updateMatchingRule: async'],
@@ -1026,10 +1028,21 @@ const requiredMatchingRuleStoreSnippets = [
 
 const requiredMatchingRulePageSnippets = [
   ['matching rule store binding', "from '../../stores/matchingRuleStore'"],
-  ['matching rule live scope', "['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping']"],
+  ['matching rule live scope', "['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping', 'aiRuleTraining']"],
+  ['AI training rule scope binding', ": kind === 'aiRuleTraining' ? 'ai_training' : 'cash_flow'"],
+  ['AI training rule import target', "kind === 'aiRuleTraining') return 'matchingRule'"],
   ['matching rule row mapping', 'mapLiveMatchingRuleRows(isTauri ? matchingRules : previewMatchingRules, matchingRuleScope)'],
+  ['matching rule scoped summary', 'summarizeLiveMatchingRules(isTauri ? matchingRules : previewMatchingRules, matchingRuleScope)'],
   ['matching rule editor state', 'const [showMatchingRuleDialog, setShowMatchingRuleDialog] = useState(false)'],
   ['matching rule save binding', 'createMatchingRule({'],
+  ['AI training rule editor action', "kind === 'aiRuleTraining') {\n      resetMatchingRuleDraft()"],
+  ['AI training workflow add action', '<AiRuleTrainingWorkflowPanel summary={config.summary} onAdd={openMatchingRuleEditor}'],
+]
+
+const requiredAiTrainingRuleMappingSnippets = [
+  ['AI training rule row mapping', "scope === 'ai_training'"],
+  ['AI training rule summary', "if (scope === 'ai_training')"],
+  ['AI training published summary', "label: '已发布'"],
 ]
 
 const requiredAssetCategoryCommandSnippets = [
@@ -1574,6 +1587,7 @@ const errors = [
   ...verify(matchingRuleCommandSource, requiredMatchingRuleCommandSnippets, 'matching rule commands'),
   ...verify(matchingRuleStoreSource, requiredMatchingRuleStoreSnippets, 'matching rule store'),
   ...verify(pageSource, requiredMatchingRulePageSnippets, 'matching rule module page'),
+  ...verify(adapterSource, requiredAiTrainingRuleMappingSnippets, 'AI training rule mapping'),
   ...verify(databaseSource, [['asset category schema', 'CREATE TABLE IF NOT EXISTS asset_categories']], 'database schema'),
   ...verify(assetCategoryCommandSource, requiredAssetCategoryCommandSnippets, 'asset category commands'),
   ...verify(assetCategoryStoreSource, requiredAssetCategoryStoreSnippets, 'asset category store'),

@@ -25,7 +25,7 @@ import type { ReportItem, ReportTemplate } from '../stores/reportTemplateStore'
 import type { AdapterAuthorization, AutomationJob, OperationAuditLog, TaxDeclarationTask } from '../lib/api'
 import { auxiliaryArchiveDefinitions, parseAuxiliaryArchiveProfile, type AuxiliaryArchiveKind } from './auxiliaryArchiveProfile'
 
-export type LiveModuleStatus = '待处理' | '已匹配' | '已确认' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过'
+export type LiveModuleStatus = '待处理' | '已匹配' | '已确认' | '已生成凭证' | '待确认' | '异常' | '启用' | '停用' | '已通过' | '已发布' | '待复核'
 
 export interface LiveModuleRow {
   id: string
@@ -2226,7 +2226,7 @@ export function mapLiveMatchingRuleRows(rules: MatchingRule[], scope: MatchingRu
     .sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name))
     .map((rule) => ({
       id: `matching-rule-${rule.id}`,
-      status: rule.is_enabled === 1 ? '启用' : '停用',
+      status: scope === 'ai_training' ? (rule.is_enabled === 1 ? '已发布' : '待复核') : (rule.is_enabled === 1 ? '启用' : '停用'),
       voucher: rule.voucher_template_id || '未关联模板',
       attachment: rule.created_at,
       values: scope === 'cash_flow'
@@ -2238,17 +2238,30 @@ export function mapLiveMatchingRuleRows(rules: MatchingRule[], scope: MatchingRu
           }
         : scope === 'invoice'
           ? { name: rule.name, condition: rule.condition_text, template: rule.voucher_template_id || rule.action_text, subject: rule.target_account_code || '待维护', priority: String(rule.priority), hit: String(rule.hit_count) }
-          : { name: rule.name, condition: rule.condition_text, action: rule.action_text, subject: rule.target_account_code || '待维护', priority: String(rule.priority), hit: String(rule.hit_count) },
+          : scope === 'ai_training'
+            ? { name: rule.name, condition: rule.condition_text, action: rule.action_text, subject: rule.target_account_code || '待维护', priority: String(rule.priority), hit: String(rule.hit_count), effect: rule.is_enabled === 1 ? '已发布到建议队列' : '仅保留待复核' }
+            : { name: rule.name, condition: rule.condition_text, action: rule.action_text, subject: rule.target_account_code || '待维护', priority: String(rule.priority), hit: String(rule.hit_count) },
     }))
 }
 
-export function summarizeLiveMatchingRules(rules: MatchingRule[]): LiveSummaryItem[] {
-  const enabled = rules.filter((rule) => rule.is_enabled === 1).length
+export function summarizeLiveMatchingRules(rules: MatchingRule[], scope?: MatchingRuleScope): LiveSummaryItem[] {
+  const scopedRules = scope ? rules.filter((rule) => rule.rule_scope === scope) : rules
+  if (scope === 'ai_training') {
+    const published = scopedRules.filter((rule) => rule.is_enabled === 1).length
+    const pendingReview = scopedRules.length - published
+    return [
+      { label: '训练规则', value: `${scopedRules.length} 条`, tone: 'blue' },
+      { label: '已发布', value: `${published} 条`, tone: published > 0 ? 'green' : 'gray' },
+      { label: '待复核', value: `${pendingReview} 条`, tone: pendingReview > 0 ? 'amber' : 'gray' },
+      { label: '本期命中', value: `${scopedRules.reduce((total, rule) => total + rule.hit_count, 0)} 次`, tone: 'gray' },
+    ]
+  }
+  const enabled = scopedRules.filter((rule) => rule.is_enabled === 1).length
   return [
-    { label: '规则数量', value: `${rules.length} 条`, tone: 'blue' },
+    { label: '规则数量', value: `${scopedRules.length} 条`, tone: 'blue' },
     { label: '启用', value: `${enabled} 条`, tone: enabled > 0 ? 'green' : 'gray' },
-    { label: '待确认', value: `${rules.length - enabled} 条`, tone: rules.length - enabled > 0 ? 'amber' : 'gray' },
-    { label: '本期命中', value: `${rules.reduce((total, rule) => total + rule.hit_count, 0)} 次`, tone: 'gray' },
+    { label: '待确认', value: `${scopedRules.length - enabled} 条`, tone: scopedRules.length - enabled > 0 ? 'amber' : 'gray' },
+    { label: '本期命中', value: `${scopedRules.reduce((total, rule) => total + rule.hit_count, 0)} 次`, tone: 'gray' },
   ]
 }
 

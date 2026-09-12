@@ -33,7 +33,7 @@ pub struct MatchingRuleInput {
 }
 
 fn validate(input: &MatchingRuleInput) -> Result<(), String> {
-    if !["invoice", "bill", "cash_flow"].contains(&input.rule_scope.as_str()) {
+    if !["invoice", "bill", "cash_flow", "ai_training"].contains(&input.rule_scope.as_str()) {
         return Err("规则类型无效".to_string());
     }
     if input.name.trim().is_empty() || input.condition_text.trim().is_empty() || input.action_text.trim().is_empty() {

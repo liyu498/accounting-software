@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { invoke } from '../lib/tauri'
 
-export type MatchingRuleScope = 'invoice' | 'bill' | 'cash_flow'
+export type MatchingRuleScope = 'invoice' | 'bill' | 'cash_flow' | 'ai_training'
 
 export interface MatchingRule {
   id: string

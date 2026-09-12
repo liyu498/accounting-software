@@ -103,7 +103,7 @@ impl Database {
         .execute(pool)
         .await?;
 
-        // Invoice, bank bill, and cash-flow rules share one company-scoped rule registry.
+        // Invoice, bank bill, cash-flow, and AI training rules share one company-scoped rule registry.
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS matching_rules (
