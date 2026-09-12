@@ -823,7 +823,9 @@ const requiredInvoiceEditPageSnippets = [
 ]
 
 const requiredAppSnippets = [
-  ['AI root route uses live queue', "<Route path=\"/ai\" element={businessPage('aiJobQueue'"],
+  ['AI root route redirects to task queue', '<Route path="/ai" element={<Navigate to="/ai/jobs" replace />} />'],
+  ['AI rule route reflects persisted fields', "'维护 AI 建议规则、训练条件、目标动作、优先级、命中和人工复核状态。'"],
+  ['settings route reflects overview role', "'汇总当前账套的主体、会计制度、账期和固定输出模板配置。'"],
 ]
 
 const requiredShellSnippets = [

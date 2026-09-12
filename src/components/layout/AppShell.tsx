@@ -66,16 +66,16 @@ interface SidebarSection {
 
 const topLevelItems: SidebarItem[] = [
   { id: 'dashboard', label: '工作台', icon: <LayoutDashboard className="h-4 w-4" />, path: '/dashboard' },
-  { id: 'ai', label: 'AI做账工作台', icon: <Bot className="h-4 w-4" />, path: '/ai' },
   { id: 'notifications', label: '通知待办', icon: <FileCheck2 className="h-4 w-4" />, path: '/notifications' },
 ]
 
 const allSections: SidebarSection[] = [
   {
     id: 'ai-modules',
-    label: '规则与自动化',
+    label: 'AI自动化',
     icon: <Bot className="h-4 w-4" />,
     items: [
+      { id: 'ai-jobs', label: 'AI任务队列', icon: <Bot className="h-4 w-4" />, path: '/ai/jobs' },
       { id: 'ai-recognition', label: '识别结果', icon: <FileCheck2 className="h-4 w-4" />, path: '/ai/recognition' },
       { id: 'ai-suggestions', label: '凭证建议', icon: <FileText className="h-4 w-4" />, path: '/ai/suggestions' },
       { id: 'ai-training', label: '规则训练', icon: <Settings className="h-4 w-4" />, path: '/ai/rules' },
