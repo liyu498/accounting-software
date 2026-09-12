@@ -194,6 +194,20 @@ const requiredInvoiceWorkflowSummarySnippets = [
   ['invoice workflow renders current summary', '按当前账套发票与凭证台账实时汇总'],
 ]
 
+const requiredControlWorkflowSummarySnippets = [
+  ['notification workflow receives live summary', '<NotificationWorkflowPanel summary={config.summary}'],
+  ['notification workflow summary contract', "function NotificationWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['audit workflow receives live summary', '<AuditWorkflowPanel summary={config.summary}'],
+  ['audit workflow summary contract', "function AuditWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['voucher recycle workflow receives live summary', '<VoucherRecycleWorkflowPanel summary={config.summary}'],
+  ['voucher recycle workflow summary contract', "function VoucherRecycleWorkflowPanel({ onRestore, onReview, summary }: { onRestore: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['account transfer workflow receives live summary', '<AccountTransferWorkflowPanel summary={config.summary}'],
+  ['account transfer workflow summary contract', "function AccountTransferWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['special deduction workflow receives live summary', '<SpecialDeductionWorkflowPanel summary={config.summary}'],
+  ['special deduction workflow summary contract', "function SpecialDeductionWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
+  ['control workflow renders current summary', '按当前账套控制台账实时汇总'],
+]
+
 const requiredAdapterSnippets = [
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
@@ -1624,6 +1638,7 @@ const errors = [
   ...verify(pageSource, requiredPeopleWorkflowSummarySnippets, 'people workflow panels'),
   ...verify(pageSource, requiredOperationsWorkflowSummarySnippets, 'operations workflow panels'),
   ...verify(pageSource, requiredInvoiceWorkflowSummarySnippets, 'invoice workflow panels'),
+  ...verify(pageSource, requiredControlWorkflowSummarySnippets, 'control workflow panels'),
 ]
 
 const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length

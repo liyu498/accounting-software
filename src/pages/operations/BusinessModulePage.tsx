@@ -4699,11 +4699,12 @@ function mapLiveSpecialDeductionRows(specialDeductionRecords: SpecialDeductionRe
 function summarizeLiveSpecialDeductions(specialDeductionRecords: SpecialDeductionRecord[]): ModuleConfig['summary'] {
   const total = specialDeductionRecords.reduce((sum, record) => sum + record.monthlyAmount, 0)
   const pending = specialDeductionRecords.filter((record) => record.status !== '有效').length
+  const exceptions = specialDeductionRecords.filter((record) => record.status === '异常').length
   return [
     { label: '专项扣除', value: `${specialDeductionRecords.length} 条`, tone: 'blue' },
     { label: '月扣除额', value: payrollCurrency(total), tone: 'green' },
     { label: '待确认', value: `${pending} 条`, tone: pending > 0 ? 'amber' : 'gray' },
-    { label: '异常', value: '0 条', tone: 'gray' },
+    { label: '异常', value: `${exceptions} 条`, tone: exceptions > 0 ? 'red' : 'gray' },
   ]
 }
 
@@ -11180,13 +11181,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {['historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger'].includes(kind) && <HistoryMigrationWorkflowPanel onReview={() => reviewControlEvidence('history')} />}
 
-        {kind === 'notificationCenter' && <NotificationWorkflowPanel onAdd={openCompanyTodoEditor} onReview={() => reviewControlEvidence('notification')} />}
+        {kind === 'notificationCenter' && <NotificationWorkflowPanel summary={config.summary} onAdd={openCompanyTodoEditor} onReview={() => reviewControlEvidence('notification')} />}
 
         {kind === 'riskCheck' && <RiskWorkflowPanel onReview={() => reviewControlEvidence('risk')} />}
 
-        {kind === 'auditLog' && <AuditWorkflowPanel onReview={() => reviewControlEvidence('audit')} />}
+        {kind === 'auditLog' && <AuditWorkflowPanel summary={config.summary} onReview={() => reviewControlEvidence('audit')} />}
 
-        {kind === 'voucherRecycle' && <VoucherRecycleWorkflowPanel onRestore={() => void handlePrimaryAction()} onReview={() => reviewControlEvidence('recycle')} />}
+        {kind === 'voucherRecycle' && <VoucherRecycleWorkflowPanel summary={config.summary} onRestore={() => void handlePrimaryAction()} onReview={() => reviewControlEvidence('recycle')} />}
 
         {kind === 'outputInvoice' && <OutputInvoiceWorkflowPanel summary={config.summary} onAdd={() => void handlePrimaryAction()} onReview={() => reviewControlEvidence('risk')} />}
 
@@ -11196,9 +11197,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
         {kind === 'receipt' && <ReceiptWorkflowPanel summary={config.summary} onReview={() => reviewControlEvidence('risk')} />}
 
-        {kind === 'transfer' && <AccountTransferWorkflowPanel onAdd={openAccountTransferEditor} onReview={() => reviewControlEvidence('risk')} />}
+        {kind === 'transfer' && <AccountTransferWorkflowPanel summary={config.summary} onAdd={openAccountTransferEditor} onReview={() => reviewControlEvidence('risk')} />}
 
-        {kind === 'specialDeduction' && <SpecialDeductionWorkflowPanel onAdd={openSpecialDeductionEditor} onReview={() => reviewControlEvidence('risk')} />}
+        {kind === 'specialDeduction' && <SpecialDeductionWorkflowPanel summary={config.summary} onAdd={openSpecialDeductionEditor} onReview={() => reviewControlEvidence('risk')} />}
 
         {['accountArchive', 'currencySettings', 'unitSettings'].includes(kind) && <AccountFoundationWorkflowPanel onReview={() => reviewFoundationConfiguration('account')} />}
 
@@ -13725,16 +13726,16 @@ function RiskWorkflowPanel({ onReview }: { onReview: () => void }) {
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="风险检查与处置闭环"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">风险检查与处置闭环</h2><p className="mt-1 text-xs text-slate-500">凭证、发票、工资、报表、税表与结账前检查的风险项必须关联来源、责任人、处置动作和复核结果。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核风险处置" onClick={onReview} /></div><WorkflowMetrics items={['阻断风险|1 项|处理前不可结账', '高风险|4 项|需要负责人确认', '待补资料|8 项|关联发票、单据或人员', '已闭环|23 项|保留处置与复核记录']}/></section>
 }
 
-function AuditWorkflowPanel({ onReview }: { onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="操作审计追溯与高风险留痕"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">操作审计追溯与高风险留痕</h2><p className="mt-1 text-xs text-slate-500">审计日志覆盖导入导出、凭证、结账、申报和恢复操作，记录操作人、对象、账期、结果与风险级别。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核审计证据" onClick={onReview} /></div><WorkflowMetrics items={['本期日志|186 条|按模块和操作人追溯', '高风险操作|9 条|需保留审批或确认记录', '导出留痕|36 条|关联文件哈希和范围', '异常操作|2 条|保留失败原因和重试记录']}/></section>
+function AuditWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="操作审计追溯与高风险留痕"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">操作审计追溯与高风险留痕</h2><p className="mt-1 text-xs text-slate-500">审计日志覆盖导入导出、凭证、结账、申报和恢复操作，记录操作人、对象、账期、结果与风险级别。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核审计证据" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label === '高风险' ? '需保留审批或人工确认记录' : label === '需复核' ? '处理前须回查操作对象与账期' : '按当前账套控制台账实时汇总'} /></section>
 }
 
-function VoucherRecycleWorkflowPanel({ onRestore, onReview }: { onRestore: () => void; onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="删除凭证恢复与销毁控制"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">删除凭证恢复与销毁控制</h2><p className="mt-1 text-xs text-slate-500">删除凭证在回收期内可恢复；彻底删除须人工确认并记录原凭证、操作人、时间和关联附件处理情况。</p></div><div className="flex flex-wrap gap-1.5"><ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="恢复已勾选凭证" onClick={onRestore} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核回收记录" onClick={onReview} /></div></div><WorkflowMetrics items={['待恢复凭证|6 张|可回到草稿继续复核', '到期清理|2 张|需确认保留期限', '关联附件|8 份|恢复时保持引用关系', '审计记录|14 条|删除与恢复均可追溯']}/></section>
+function VoucherRecycleWorkflowPanel({ onRestore, onReview, summary }: { onRestore: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="删除凭证恢复与销毁控制"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">删除凭证恢复与销毁控制</h2><p className="mt-1 text-xs text-slate-500">删除凭证在回收期内可恢复；彻底删除须人工确认并记录原凭证、操作人、时间和关联附件处理情况。</p></div><div className="flex flex-wrap gap-1.5"><ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="恢复已勾选凭证" onClick={onRestore} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核回收记录" onClick={onReview} /></div></div><WorkflowMetrics summary={summary} detailFor={(label) => label === '待复核' ? '删除时间或关联附件需人工核验' : label === '异常' ? '异常记录不得直接清理' : '按当前账套控制台账实时汇总'} /></section>
 }
 
-function NotificationWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="待办分派与截止跟踪"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">待办分派与截止跟踪</h2><p className="mt-1 text-xs text-slate-500">待办仅归属当前账套与账期，记录资料补传、AI确认、凭证异常、报表重算和申报截止事项；不发送短信或外部消息。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增待办" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核待办分派" onClick={onReview} /></div></div><WorkflowMetrics items={['处理范围|当前账套|不混入机构级协同', '完成留痕|操作人和时间|保留本地审计依据', '风险待办|阻断和逾期|优先回到原模块处理', '外部动作|不执行|短信、邮件与税局操作均不触发']}/></section>
+function NotificationWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="待办分派与截止跟踪"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">待办分派与截止跟踪</h2><p className="mt-1 text-xs text-slate-500">待办仅归属当前账套与账期，记录资料补传、AI确认、凭证异常、报表重算和申报截止事项；不发送短信或外部消息。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增待办" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核待办分派" onClick={onReview} /></div></div><WorkflowMetrics summary={summary} detailFor={(label) => label === '阻断' ? '优先回到原模块处理并留存处理记录' : label === '进行中' ? '需确认负责人、截止日和处置动作' : '按当前账套控制台账实时汇总'} /></section>
 }
 
 function OutputInvoiceWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
@@ -13753,12 +13754,12 @@ function ReceiptWorkflowPanel({ onReview, summary }: { onReview: () => void; sum
   return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="票据到期与背书用途核验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">票据到期与背书用途核验</h2><p className="mt-1 text-xs text-slate-500">商业汇票、收据和其他票据按出票方、到期日、背书、贴现和附件管理，到期风险与凭证处理需同步复核。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核到期票据" onClick={onReview} /></div><WorkflowMetrics summary={summary} detailFor={(label) => label === '待确认' ? '需确认到期、背书或贴现用途' : label === '异常' ? '影像缺失或票面信息异常不可归档' : '按当前账套发票与凭证台账实时汇总'} /></section>
 }
 
-function AccountTransferWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账户资金调拨与手续费核验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账户资金调拨与手续费核验</h2><p className="mt-1 text-xs text-slate-500">账户间转账须核验转出转入账户、流水号、金额、手续费和对应凭证，避免重复入账或资金方向错误。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增账户转账" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核调拨差异" onClick={onReview} /></div></div><WorkflowMetrics items={['本期调拨|12 笔|账户与流水已关联', '手续费|3 笔|需确认费用科目', '待生成凭证|4 笔|等待人工确认', '金额差异|1 项|不得自动结转']}/></section>
+function AccountTransferWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="账户资金调拨与手续费核验"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">账户资金调拨与手续费核验</h2><p className="mt-1 text-xs text-slate-500">账户间转账须核验转出转入账户、流水号、金额、手续费和对应凭证，避免重复入账或资金方向错误。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增账户转账" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核调拨差异" onClick={onReview} /></div></div><WorkflowMetrics summary={summary} detailFor={(label) => label === '待确认' ? '需确认流水号、手续费和会计凭证' : label === '异常' ? '金额或账户方向异常不得自动结转' : '按当前账套控制台账实时汇总'} /></section>
 }
 
-function SpecialDeductionWorkflowPanel({ onAdd, onReview }: { onAdd: () => void; onReview: () => void }) {
-  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="专项附加扣除确认与个税取数"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">专项附加扣除确认与个税取数</h2><p className="mt-1 text-xs text-slate-500">专项附加扣除按人员、类型、起止月份和资料来源维护；个税取数前需核验资格、金额和期间有效性。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增专项扣除" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核个税取数" onClick={onReview} /></div></div><WorkflowMetrics items={['已登记扣除|26 条|关联人员与资料来源', '本期待确认|6 条|需核验起止月份', '个税影响|42 人|工资表取数前校验', '资料异常|1 条|不进入申报确认']}/></section>
+function SpecialDeductionWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
+  return <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="专项附加扣除确认与个税取数"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">专项附加扣除确认与个税取数</h2><p className="mt-1 text-xs text-slate-500">专项附加扣除按人员、类型、起止月份和资料来源维护；个税取数前需核验资格、金额和期间有效性。</p></div><div className="flex gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增专项扣除" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核个税取数" onClick={onReview} /></div></div><WorkflowMetrics summary={summary} detailFor={(label) => label === '待确认' ? '需核验人员资格、起止月份和证明资料' : label === '异常' ? '异常资料不进入个税申报确认' : '按当前账套控制台账实时汇总'} /></section>
 }
 
 function AccountFoundationWorkflowPanel({ onReview }: { onReview: () => void }) {
