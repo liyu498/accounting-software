@@ -147,7 +147,7 @@ export function Dashboard() {
       { label: 'AI任务队列', value: `${automationJobs.length} 项`, sub: `待确认 ${pendingAutomationJobs.length} 项`, icon: Bot, path: '/ai/jobs' },
       { label: '税务申报', value: `${taxTasks.length} 项`, sub: `待确认 ${pendingTaxTasks.length} 项 / 风险 ${taxTasks.reduce((total, task) => total + task.riskCount, 0)} 项`, icon: FileBarChart, path: '/tax/workspace' },
     ]
-  }, [bankTransactions, inputInvoices, outputInvoices, pendingAutomationJobs.length, pendingTaxTasks.length, pendingVouchers.length, taxTasks, usesLiveDashboardData, vouchers.length])
+  }, [automationJobs.length, bankTransactions, inputInvoices, outputInvoices, pendingAutomationJobs.length, pendingTaxTasks.length, pendingVouchers.length, taxTasks, usesLiveDashboardData, vouchers.length])
 
   const todoRows = useMemo<DashboardTodo[]>(() => {
     if (!usesLiveDashboardData) return browserTodoRows
