@@ -569,6 +569,7 @@ const requiredTaxWorkspaceSnippets = [
 ]
 
 const requiredWelcomeSnippets = [
+  ['welcome native empty state avoids demo accounts', 'const allRows = realRows.length > 0 || isTauri ? realRows : demoCompanies'],
   ['welcome account metrics use derived records', 'const summaryMetrics = useMemo<SummaryMetric[]>(() => {'],
   ['welcome active account metric', "label: '启用账套'"],
   ['welcome taxpayer metric', "label: '一般纳税人'"],

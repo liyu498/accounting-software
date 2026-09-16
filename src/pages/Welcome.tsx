@@ -470,7 +470,7 @@ export function Welcome() {
     [companies],
   )
 
-  const allRows = realRows.length > 0 ? realRows : demoCompanies
+  const allRows = realRows.length > 0 || isTauri ? realRows : demoCompanies
   const rows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     return allRows.filter((row) => {
