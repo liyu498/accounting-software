@@ -1767,6 +1767,10 @@ if (agencyPrintButtonCount !== 1) {
   errors.push(`agency module page: expected one print toolbar button, found ${agencyPrintButtonCount}`)
 }
 
+if (welcomeSource.includes('<button type="button" className="h-9 text-sm font-medium text-[#1f65a7]">新增人员</button>')) {
+  errors.push('welcome page: unbound company-creation person button must not be rendered')
+}
+
 if (errors.length > 0) {
   console.error('Live data adapter verification failed:')
   for (const error of errors) console.error(`- ${error}`)

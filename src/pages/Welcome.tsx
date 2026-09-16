@@ -1239,9 +1239,8 @@ export function Welcome() {
 
               <FormSection title="税务登录信息">
                 <FormRow label="人员" required>
-                  <div className="grid grid-cols-[1fr_auto] gap-3">
+                  <div>
                     <Select value={newCompany.taxLoginPerson} onChange={(value) => setNewCompany({ ...newCompany, taxLoginPerson: value })} options={['', '法人', '财务负责人', '办税员']} labels={{ '': '---请选择人员---' }} />
-                    <button type="button" className="h-9 text-sm font-medium text-[#1f65a7]">新增人员</button>
                   </div>
                 </FormRow>
                 <FormRow label="登录身份">
