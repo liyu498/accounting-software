@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Ban,
   Building2,
-  CircleAlert,
   CloudDownload,
   Download,
   FileCheck2,
@@ -482,14 +481,22 @@ export function Welcome() {
     })
   }, [allRows, searchQuery, statusFilter])
 
-  const summaryMetrics: SummaryMetric[] = [
-    { label: '客户数', value: allRows.length, icon: Building2 },
-    { label: '待收票', value: 18, icon: ReceiptText },
-    { label: '待做账', value: 27, icon: FileText },
-    { label: '待申报', value: 12, icon: FileCheck2 },
-    { label: '风险项', value: 15, icon: CircleAlert },
-    { label: '自动化任务', value: 36, icon: ShieldCheck },
-  ]
+  const summaryMetrics = useMemo<SummaryMetric[]>(() => {
+    const activeAccounts = allRows.filter((row) => row.status !== '停用').length
+    const generalTaxpayers = allRows.filter((row) => row.taxType.includes('一般纳税人')).length
+    const smallTaxpayers = allRows.filter((row) => row.taxType.includes('小规模')).length
+    const pendingCollection = allRows.filter((row) => row.collectStatus.includes('待采集')).length
+    const pendingMemos = Object.values(companyMemos).filter((memo) => memo.content.trim().length > 0).length
+
+    return [
+      { label: '客户数', value: allRows.length, icon: Building2 },
+      { label: '启用账套', value: activeAccounts, icon: ShieldCheck },
+      { label: '一般纳税人', value: generalTaxpayers, icon: FileCheck2 },
+      { label: '小规模纳税人', value: smallTaxpayers, icon: ReceiptText },
+      { label: '待采集', value: pendingCollection, icon: CloudDownload },
+      { label: '待办备忘', value: pendingMemos, icon: FileText },
+    ]
+  }, [allRows, companyMemos])
 
   const recordWelcomeAudit = (action: string, object: string, level: '普通' | '中' | '高' = '普通', result: '成功' | '待审批' | '失败' = '成功') => {
     const status = result === '失败' ? '异常' : result === '待审批' ? '待确认' : '已通过'
@@ -954,6 +961,7 @@ export function Welcome() {
               <div>
                 <h1 className="text-lg font-semibold">机构级批量工作</h1>
                 <p className="text-xs text-slate-500">这些功能面向全部客户账套，处理合同、批量申报、统计和自动化。</p>
+                {!isTauri && <p className="mt-1 text-xs text-amber-700">浏览器预览数据：企业、采集和备忘指标基于本机演示记录计算。</p>}
               </div>
               <span className="inline-flex w-fit rounded bg-[#eef6ff] px-2 py-1 text-xs font-medium text-[#1f65a7]">不进入单公司账套</span>
             </div>

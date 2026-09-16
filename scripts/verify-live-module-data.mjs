@@ -569,6 +569,12 @@ const requiredTaxWorkspaceSnippets = [
 ]
 
 const requiredWelcomeSnippets = [
+  ['welcome account metrics use derived records', 'const summaryMetrics = useMemo<SummaryMetric[]>(() => {'],
+  ['welcome active account metric', "label: '启用账套'"],
+  ['welcome taxpayer metric', "label: '一般纳税人'"],
+  ['welcome collection metric', "label: '待采集'"],
+  ['welcome memo metric', "label: '待办备忘'"],
+  ['welcome browser preview disclosure', '浏览器预览数据：企业、采集和备忘指标基于本机演示记录计算'],
   ['company creation deep link', "new URLSearchParams(location.search).get('createCompany') === '1'"],
   ['company form metadata persistence', 'enterprise_type: newCompany.enterpriseType'],
   ['company service period persistence', 'service_start: newCompany.serviceStart'],
