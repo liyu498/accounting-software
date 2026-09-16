@@ -1047,6 +1047,16 @@ const requiredAiTrainingRuleMappingSnippets = [
   ['AI training published summary', "label: '已发布'"],
 ]
 
+const requiredAiTrainingReviewSnippets = [
+  ['AI training rules start pending review', "isEnabled: matchingRuleScope !== 'ai_training'"],
+  ['AI training imports start pending review', "isEnabled: ruleScope === 'ai_training' ? false"],
+  ['AI training publish action', 'const publishSelectedAiTrainingRules = async () => {'],
+  ['AI training publish confirmation', '确认完成复核并发布'],
+  ['AI training publish audit', "writeModuleAudit('复核并发布AI训练规则'"],
+  ['AI training workflow publish control', 'onPublish={publishSelectedAiTrainingRules}'],
+  ['AI training editor review notice', '新训练规则保存后进入待复核'],
+]
+
 const requiredSettingsOverviewPageSnippets = [
   ['settings overview live scope', "const usesLiveSettingsOverviewData = Boolean(isTauri && selectedCompanyId && kind === 'settingsData')"],
   ['settings overview live mapping', "if (kind === 'settingsData' && usesLiveSettingsOverviewData)"],
@@ -1607,6 +1617,7 @@ const errors = [
   ...verify(matchingRuleStoreSource, requiredMatchingRuleStoreSnippets, 'matching rule store'),
   ...verify(pageSource, requiredMatchingRulePageSnippets, 'matching rule module page'),
   ...verify(adapterSource, requiredAiTrainingRuleMappingSnippets, 'AI training rule mapping'),
+  ...verify(pageSource, requiredAiTrainingReviewSnippets, 'AI training review controls'),
   ...verify(pageSource, requiredSettingsOverviewPageSnippets, 'settings overview module page'),
   ...verify(pageSource, requiredFixedPrintTemplateSnippets, 'fixed print template module page'),
   ...verify(databaseSource, [['asset category schema', 'CREATE TABLE IF NOT EXISTS asset_categories']], 'database schema'),

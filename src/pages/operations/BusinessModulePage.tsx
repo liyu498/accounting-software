@@ -8265,11 +8265,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const resetMatchingRuleDraft = () => {
     setEditingMatchingRuleId(null)
-    setMatchingRuleDraft({ name: '', conditionText: '', actionText: matchingRuleScope === 'cash_flow' ? '现金流入' : matchingRuleScope === 'ai_training' ? '生成待确认 AI 建议' : '生成待确认凭证', targetAccountCode: '', voucherTemplateId: '', priority: '50', isEnabled: true })
+    setMatchingRuleDraft({ name: '', conditionText: '', actionText: matchingRuleScope === 'cash_flow' ? '现金流入' : matchingRuleScope === 'ai_training' ? '生成待确认 AI 建议' : '生成待确认凭证', targetAccountCode: '', voucherTemplateId: '', priority: '50', isEnabled: matchingRuleScope !== 'ai_training' })
   }
 
   const handleSaveMatchingRule = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const isNewAiTrainingRule = matchingRuleScope === 'ai_training' && !editingMatchingRuleId
+    const isEnabled = isNewAiTrainingRule ? false : matchingRuleDraft.isEnabled
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const rule = {
@@ -8282,7 +8284,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         target_account_code: matchingRuleDraft.targetAccountCode.trim() || null,
         voucher_template_id: matchingRuleDraft.voucherTemplateId.trim() || null,
         priority: Number(matchingRuleDraft.priority || 0),
-        is_enabled: matchingRuleDraft.isEnabled ? 1 : 0,
+        is_enabled: isEnabled ? 1 : 0,
         hit_count: 0,
         created_at: timestamp,
         updated_at: timestamp,
@@ -8297,8 +8299,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           : [...items, rule]
         return [...next].sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name, 'zh-CN'))
       })
-      writeModuleAudit(editingMatchingRuleId ? '编辑自动匹配规则' : '新增自动匹配规则', `${rule.rule_scope}｜${rule.name}`, '高', '成功')
-      setOperationNotice(`自动匹配规则已保存到当前预览：${rule.name}。该规则仅生成建议或待确认动作，不会自动生成已审核凭证或提交税务。`)
+      const action = matchingRuleScope === 'ai_training' ? (editingMatchingRuleId ? '编辑AI训练规则' : '新增AI训练规则') : (editingMatchingRuleId ? '编辑自动匹配规则' : '新增自动匹配规则')
+      writeModuleAudit(action, `${rule.rule_scope}｜${rule.name}`, '高', '成功')
+      setOperationNotice(matchingRuleScope === 'ai_training'
+        ? `AI 训练规则已保存到当前预览：${rule.name}。${isNewAiTrainingRule ? '新规则已进入待复核队列，需勾选后确认发布。' : '已发布状态保持不变。'}`
+        : `自动匹配规则已保存到当前预览：${rule.name}。该规则仅生成建议或待确认动作，不会自动生成已审核凭证或提交税务。`)
       resetMatchingRuleDraft()
       setShowMatchingRuleDialog(false)
       return
@@ -8310,11 +8315,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         name: matchingRuleDraft.name.trim(), conditionText: matchingRuleDraft.conditionText.trim(), actionText: matchingRuleDraft.actionText.trim(),
         targetAccountCode: matchingRuleDraft.targetAccountCode.trim() || undefined,
         voucherTemplateId: matchingRuleDraft.voucherTemplateId.trim() || undefined,
-        priority: Number(matchingRuleDraft.priority || 0), isEnabled: matchingRuleDraft.isEnabled,
+        priority: Number(matchingRuleDraft.priority || 0), isEnabled,
       }
       const rule = editingMatchingRuleId ? await updateMatchingRule(editingMatchingRuleId, input) : await createMatchingRule({ ...input })
-      writeModuleAudit(editingMatchingRuleId ? '编辑自动匹配规则' : '新增自动匹配规则', `${rule.rule_scope}｜${rule.name}`, '高', '成功')
-      setOperationNotice(`规则“${rule.name}”已保存。自动处理仅生成建议或待确认结果，不会自动提交税务或生成已审核凭证。`)
+      const action = matchingRuleScope === 'ai_training' ? (editingMatchingRuleId ? '编辑AI训练规则' : '新增AI训练规则') : (editingMatchingRuleId ? '编辑自动匹配规则' : '新增自动匹配规则')
+      writeModuleAudit(action, `${rule.rule_scope}｜${rule.name}`, '高', '成功')
+      setOperationNotice(matchingRuleScope === 'ai_training'
+        ? `AI 训练规则“${rule.name}”已保存。${isNewAiTrainingRule ? '新规则已进入待复核队列，需勾选后确认发布。' : '已发布状态保持不变。'}`
+        : `规则“${rule.name}”已保存。自动处理仅生成建议或待确认结果，不会自动提交税务或生成已审核凭证。`)
       resetMatchingRuleDraft(); setShowMatchingRuleDialog(false)
     } catch (error) { setOperationNotice(`保存自动匹配规则失败：${String(error)}`) }
   }
@@ -9833,7 +9841,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           const conditionText = importRowValue(importCommitDraft.headers, row, ['匹配条件', '训练条件/样本来源', '训练条件', '样本来源', '条件', '摘要/对方户名', '关键词'])
           const actionText = importRowValue(importCommitDraft.headers, row, ['处理动作', '建议动作', '目标动作', '生成动作', '现金流量项目', '凭证模板'])
           if (!name || !conditionText || !actionText) throw new Error('匹配规则名称、条件或动作不完整')
-          await createMatchingRule({ companyId: selectedCompanyId, ruleScope, name, conditionText, actionText, targetAccountCode: importRowValue(importCommitDraft.headers, row, ['目标科目', '关联科目', '科目/税率', '项目编码']) || undefined, priority: importAmount(importRowValue(importCommitDraft.headers, row, ['优先级', '顺序'])) || 50, isEnabled: importRowValue(importCommitDraft.headers, row, ['状态']) !== '停用' })
+          await createMatchingRule({ companyId: selectedCompanyId, ruleScope, name, conditionText, actionText, targetAccountCode: importRowValue(importCommitDraft.headers, row, ['目标科目', '关联科目', '科目/税率', '项目编码']) || undefined, priority: importAmount(importRowValue(importCommitDraft.headers, row, ['优先级', '顺序'])) || 50, isEnabled: ruleScope === 'ai_training' ? false : importRowValue(importCommitDraft.headers, row, ['状态']) !== '停用' })
         } else if (importCommitDraft.target === 'settlementRule') {
           const name = importRowValue(importCommitDraft.headers, row, ['规则名称', '结转类型', '名称'])
           const rawRuleType = importRowValue(importCommitDraft.headers, row, ['结转类型', '规则类型'])
@@ -10830,9 +10838,44 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setShowAiVoucherSuggestionDialog(true)
   }
 
-  const reviewAiRuleTraining = () => {
-    writeModuleAudit('复核AI训练规则', `${currentPeriodLabel}｜规则版本与样本`, '中', '成功')
-    setOperationNotice('已建立训练规则复核记录。规则只能生成候选建议，启用前须确认样本来源、命中率、版本和影响范围。')
+  const publishSelectedAiTrainingRules = async () => {
+    if (kind !== 'aiRuleTraining') return
+    const selectedRules = (isTauri ? matchingRules : previewMatchingRules).filter((rule) => (
+      rule.rule_scope === 'ai_training'
+      && rule.is_enabled !== 1
+      && selectedRowIds.has(`matching-rule-${rule.id}`)
+    ))
+    if (selectedRules.length === 0) {
+      setOperationNotice('请先勾选至少一条待复核的 AI 训练规则。已发布规则无需重复发布。')
+      return
+    }
+    if (!window.confirm(`确认完成复核并发布 ${selectedRules.length} 条训练规则吗？发布后仅进入待确认 AI 建议队列，不会自动生成已审核凭证或提交税务。`)) return
+    try {
+      if (isTauri) {
+        if (!selectedCompanyId) return
+        await Promise.all(selectedRules.map((rule) => updateMatchingRule(rule.id, {
+          companyId: selectedCompanyId,
+          ruleScope: 'ai_training',
+          name: rule.name,
+          conditionText: rule.condition_text,
+          actionText: rule.action_text,
+          targetAccountCode: rule.target_account_code || undefined,
+          voucherTemplateId: rule.voucher_template_id || undefined,
+          priority: rule.priority,
+          isEnabled: true,
+        })))
+      } else {
+        const publishedIds = new Set(selectedRules.map((rule) => rule.id))
+        setPreviewMatchingRules((items) => items.map((rule) => publishedIds.has(rule.id)
+          ? { ...rule, is_enabled: 1, updated_at: new Date().toISOString() }
+          : rule))
+      }
+      setSelectedRowIds(new Set())
+      writeModuleAudit('复核并发布AI训练规则', `${selectedRules.length} 条｜${currentPeriodLabel}`, '高', '成功')
+      setOperationNotice(`已完成 ${selectedRules.length} 条训练规则复核并发布。规则只进入待确认 AI 建议队列，不会自动生成已审核凭证或提交税务。`)
+    } catch (error) {
+      setOperationNotice(`发布 AI 训练规则失败：${String(error)}`)
+    }
   }
 
   const reviewLedgerReports = () => {
@@ -11172,7 +11215,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           />
         )}
 
-        {kind === 'aiRuleTraining' && <AiRuleTrainingWorkflowPanel summary={config.summary} onAdd={openMatchingRuleEditor} onReview={reviewAiRuleTraining} />}
+        {kind === 'aiRuleTraining' && <AiRuleTrainingWorkflowPanel summary={config.summary} onAdd={openMatchingRuleEditor} onPublish={publishSelectedAiTrainingRules} />}
 
         {['ledgerReport', 'trialBalanceReport', 'accountSummaryReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'multiColumnLedgerReport'].includes(kind) && (
           <LedgerWorkflowPanel summary={config.summary} onReview={reviewLedgerReports} onRefresh={() => void handlePrimaryAction()} />
@@ -12250,7 +12293,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">{matchingRuleScope === 'ai_training' ? '建议动作' : '处理动作'} *<input required value={matchingRuleDraft.actionText} onChange={(event) => setMatchingRuleDraft((draft) => ({ ...draft, actionText: event.target.value }))} placeholder={matchingRuleScope === 'cash_flow' ? '如：经营活动现金流入' : matchingRuleScope === 'ai_training' ? '如：生成待确认收入凭证建议' : '如：生成待确认凭证建议'} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
               <label className="grid gap-1 text-xs text-slate-600">{matchingRuleScope === 'ai_training' ? '目标科目' : '目标科目/现金流编码'}<input value={matchingRuleDraft.targetAccountCode} onChange={(event) => setMatchingRuleDraft((draft) => ({ ...draft, targetAccountCode: event.target.value }))} placeholder={matchingRuleScope === 'ai_training' ? '如：6001 主营业务收入' : '如：1002/1122 或 CF-01'} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
               <label className="grid gap-1 text-xs text-slate-600">凭证模板（可选）<input value={matchingRuleDraft.voucherTemplateId} onChange={(event) => setMatchingRuleDraft((draft) => ({ ...draft, voucherTemplateId: event.target.value }))} placeholder="模板 ID 或名称" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
-              <label className="inline-flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={matchingRuleDraft.isEnabled} onChange={(event) => setMatchingRuleDraft((draft) => ({ ...draft, isEnabled: event.target.checked }))} />{matchingRuleScope === 'ai_training' ? '复核后立即发布' : '立即启用'}</label>
+              {matchingRuleScope === 'ai_training' ? (
+                <p className="text-xs leading-5 text-amber-700 sm:col-span-2">新训练规则保存后进入待复核；勾选规则后使用“复核并发布勾选规则”完成确认。已发布规则编辑时保持当前发布状态。</p>
+              ) : (
+                <label className="inline-flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={matchingRuleDraft.isEnabled} onChange={(event) => setMatchingRuleDraft((draft) => ({ ...draft, isEnabled: event.target.checked }))} />立即启用</label>
+              )}
             </div>
             <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3"><div>{editingMatchingRuleId && <button type="button" onClick={() => void handleDeleteMatchingRule()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700">删除规则</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowMatchingRuleDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存规则</button></div></div>
           </form>
@@ -13298,7 +13345,7 @@ function AiVoucherSuggestionWorkflowPanel({ onAdd, onConfirm, summary }: { onAdd
   )
 }
 
-function AiRuleTrainingWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
+function AiRuleTrainingWorkflowPanel({ onAdd, onPublish, summary }: { onAdd: () => void; onPublish: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="AI规则训练与版本审核">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13306,7 +13353,7 @@ function AiRuleTrainingWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () =
           <h2 className="text-sm font-semibold text-slate-900">AI规则训练与版本审核</h2>
           <p className="mt-1 text-xs text-slate-500">训练规则按样本条件、建议动作、目标科目、优先级、命中记录和发布状态留存；未经复核的规则不能参与自动建议。</p>
         </div>
-        <div className="flex flex-wrap gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增训练规则" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核规则发布" onClick={onReview} /></div>
+        <div className="flex flex-wrap gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增训练规则" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核并发布勾选规则" onClick={onPublish} /></div>
       </div>
       <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '需核验训练条件、目标动作和发布范围' : label.includes('命中') ? '基于当前账套规则执行记录汇总' : '按当前账套训练规则台账汇总'} />
     </section>
