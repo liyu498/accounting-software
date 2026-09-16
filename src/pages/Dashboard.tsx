@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { recordAuditLog } from '../lib/exportJobs'
-import { automationApi, type AutomationJob, type TaxDeclarationTask } from '../lib/api'
+import { automationApi, bankTransactionApi, type AutomationJob, type BankTransaction, type TaxDeclarationTask } from '../lib/api'
 import { isTauri } from '../lib/tauri'
 import { useCompanyStore } from '../stores/companyStore'
 import { useInvoiceStore } from '../stores/invoiceStore'
@@ -90,6 +90,7 @@ export function Dashboard() {
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
   const [taxTasks, setTaxTasks] = useState<TaxDeclarationTask[]>([])
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
+  const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])
   const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
   const invoices = useInvoiceStore((state) => state.invoices)
   const fetchInvoices = useInvoiceStore((state) => state.fetchInvoices)
@@ -111,14 +112,16 @@ export function Dashboard() {
       return
     }
 
-    const [taxResult, jobsResult] = await Promise.all([
+    const [taxResult, jobsResult, bankResult] = await Promise.all([
       automationApi.getTaxDeclarationTasks({ companyId: selectedCompanyId, period: currentPeriodLabel }),
       automationApi.getAutomationJobs({ companyId: selectedCompanyId, period: currentPeriodLabel }),
+      bankTransactionApi.getBankTransactions({ companyId: selectedCompanyId, period: currentPeriodLabel }),
       fetchInvoices({ company_id: selectedCompanyId, period_id: currentPeriodId }),
       queryVouchers({ company_id: selectedCompanyId, period_id: currentPeriodId, page: 1, page_size: 100 }),
     ])
     setTaxTasks(taxResult.success ? taxResult.data ?? [] : [])
     setAutomationJobs(jobsResult.success ? jobsResult.data ?? [] : [])
+    setBankTransactions(bankResult.success ? bankResult.data ?? [] : [])
   }, [currentPeriodId, currentPeriodLabel, fetchInvoices, fetchPeriods, queryVouchers, selectedCompanyId])
 
   useEffect(() => {
@@ -139,12 +142,12 @@ export function Dashboard() {
     return [
       { label: '销项发票', value: `${outputInvoices.length} 张`, sub: `已匹配 ${outputInvoices.filter((invoice) => invoice.voucher_id || invoice.status === 'matched').length} 张`, icon: ReceiptText, path: '/invoices/output' },
       { label: '进项发票', value: `${inputInvoices.length} 张`, sub: `未匹配 ${inputInvoices.filter((invoice) => !invoice.voucher_id && invoice.status !== 'matched').length} 张`, icon: FileCheck2, path: '/invoices/input' },
-      { label: '银行账单', value: `${automationJobs.filter((job) => job.jobType === 'bank_collection').length} 项`, sub: `待处理 ${automationJobs.filter((job) => job.jobType === 'bank_collection' && automationNeedsReview(job)).length} 项`, icon: Banknote, path: '/bills' },
+      { label: '银行账单', value: `${bankTransactions.length} 笔`, sub: `待处理 ${bankTransactions.filter((transaction) => transaction.status !== '已确认' && transaction.status !== '已生成凭证').length} 笔`, icon: Banknote, path: '/bills' },
       { label: '会计凭证', value: `${vouchers.length} 张`, sub: `待审核 ${pendingVouchers.length} 张`, icon: FileText, path: '/vouchers' },
       { label: 'AI任务队列', value: `${automationJobs.length} 项`, sub: `待确认 ${pendingAutomationJobs.length} 项`, icon: Bot, path: '/ai/jobs' },
       { label: '税务申报', value: `${taxTasks.length} 项`, sub: `待确认 ${pendingTaxTasks.length} 项 / 风险 ${taxTasks.reduce((total, task) => total + task.riskCount, 0)} 项`, icon: FileBarChart, path: '/tax/workspace' },
     ]
-  }, [automationJobs, inputInvoices, outputInvoices, pendingAutomationJobs.length, pendingTaxTasks.length, pendingVouchers.length, taxTasks, usesLiveDashboardData, vouchers.length])
+  }, [bankTransactions, inputInvoices, outputInvoices, pendingAutomationJobs.length, pendingTaxTasks.length, pendingVouchers.length, taxTasks, usesLiveDashboardData, vouchers.length])
 
   const todoRows = useMemo<DashboardTodo[]>(() => {
     if (!usesLiveDashboardData) return browserTodoRows
