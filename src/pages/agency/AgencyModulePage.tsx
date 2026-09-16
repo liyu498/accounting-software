@@ -816,6 +816,9 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [isLoadingRows, setIsLoadingRows] = useState(false)
   const [activeTab, setActiveTab] = useState(config.tabs[0])
   const [query, setQuery] = useState('')
+  const [showAgencyFilterDialog, setShowAgencyFilterDialog] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('全部')
+  const [statusFilterDraft, setStatusFilterDraft] = useState('全部')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
@@ -904,11 +907,18 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     [agencyOverview, kind, pageConfig, remoteRows]
   )
   const usesAgencyPreviewRows = Boolean(!isTauri && remoteRows === null && kind !== 'downloadCenter' && pageConfig.rows.length > 0)
+  const availableStatuses = useMemo(
+    () => ['全部', ...Array.from(new Set(rows.map((row) => row.status).filter(Boolean)))],
+    [rows],
+  )
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((row) => Object.values(row.values).some((value) => value.toLowerCase().includes(q)))
-  }, [rows, query])
+    return rows.filter((row) => {
+      const matchesStatusFilter = statusFilter === '全部' || row.status === statusFilter
+      const matchesQuery = !q || Object.values(row.values).some((value) => value.toLowerCase().includes(q))
+      return matchesStatusFilter && matchesQuery
+    })
+  }, [rows, query, statusFilter])
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize))
   const pageStart = filteredRows.length === 0 ? 0 : (page - 1) * pageSize + 1
   const pageEnd = Math.min(page * pageSize, filteredRows.length)
@@ -916,7 +926,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
 
   useEffect(() => {
     setPage(1)
-  }, [kind, activeTab, query, pageSize])
+  }, [kind, activeTab, query, statusFilter, pageSize])
 
   useEffect(() => {
     setActiveTab(config.tabs[0])
@@ -1008,6 +1018,18 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       detail: `${status}｜${activeTab}/${query.trim() || '全部'}`,
       operator: 'admin',
     })
+  }
+
+  const openAgencyFilterDialog = () => {
+    setStatusFilterDraft(statusFilter)
+    setShowAgencyFilterDialog(true)
+  }
+
+  const applyAgencyStatusFilter = () => {
+    setStatusFilter(statusFilterDraft)
+    setShowAgencyFilterDialog(false)
+    writeAgencyAudit('机构列表筛选', `${pageConfig.title}-${statusFilterDraft}`)
+    setOperationNotice(statusFilterDraft === '全部' ? '已清除机构状态筛选。' : `已按“${statusFilterDraft}”筛选当前列表。`)
   }
 
   const rowObjectLabel = (row: AgencyRow) => {
@@ -1693,6 +1715,34 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   return (
     <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
       <input ref={importFileRef} type="file" multiple accept=".xlsx,.csv,.pdf,.ofd,.zip,.jpg,.jpeg,.png" className="hidden" onChange={(event) => void handleAgencyImportFiles(event)} />
+      {showAgencyFilterDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="机构筛选条件">
+          <div className="w-full max-w-md border border-slate-300 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">机构筛选条件</h2>
+                <p className="mt-1 text-xs text-slate-500">按当前模块、账期和视图内已有记录状态筛选，不修改任何客户账套数据。</p>
+              </div>
+              <button type="button" onClick={() => setShowAgencyFilterDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
+            </div>
+            <div className="p-4">
+              <label className="space-y-1 text-xs text-slate-600">
+                <span>记录状态</span>
+                <select value={statusFilterDraft} onChange={(event) => setStatusFilterDraft(event.target.value)} className="h-9 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  {availableStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="flex justify-between gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setStatusFilterDraft('全部')} className="h-8 text-xs text-[#1f65a7] hover:underline">重置</button>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowAgencyFilterDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+                <button type="button" onClick={applyAgencyStatusFilter} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">应用筛选</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {showContractDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
           <form onSubmit={handleCreateContract} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
@@ -2152,7 +2202,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
               className="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-2 text-xs outline-none focus:border-[#1f65a7] sm:w-80"
             />
           </div>
-          <ToolButton icon={<Filter className="h-3.5 w-3.5" />} label="筛选" />
+          <ToolButton
+            icon={<Filter className="h-3.5 w-3.5" />}
+            label={statusFilter === '全部' ? '筛选' : `筛选：${statusFilter}`}
+            onClick={openAgencyFilterDialog}
+          />
           <span className="ml-auto text-xs text-slate-500">当前视图: {activeTab} · 显示 {pageStart}-{pageEnd} / {filteredRows.length} 条</span>
         </div>
 
