@@ -1070,6 +1070,8 @@ const requiredDashboardBankDataSnippets = [
   ['dashboard bank transaction API', 'bankTransactionApi.getBankTransactions'],
   ['dashboard bank transaction state', 'const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])'],
   ['dashboard bank card uses records', 'value: `${bankTransactions.length} 笔`'],
+  ['dashboard bank risk', '笔银行流水尚未匹配或生成凭证'],
+  ['dashboard bank todo', "module: '银行账单'"],
 ]
 
 const requiredFixedPrintTemplateSnippets = [

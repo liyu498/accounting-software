@@ -136,6 +136,7 @@ export function Dashboard() {
   const pendingAutomationJobs = useMemo(() => automationJobs.filter(automationNeedsReview), [automationJobs])
   const completedAutomationJobs = useMemo(() => automationJobs.filter(automationIsCompleted), [automationJobs])
   const pendingTaxTasks = useMemo(() => taxTasks.filter((task) => taxTaskStatus(task) !== '已确认'), [taxTasks])
+  const pendingBankTransactions = useMemo(() => bankTransactions.filter((transaction) => transaction.status !== '已确认' && transaction.status !== '已生成凭证'), [bankTransactions])
 
   const statusCards = useMemo<DashboardCard[]>(() => {
     if (!usesLiveDashboardData) return browserStatusCards
@@ -154,11 +155,12 @@ export function Dashboard() {
     const rows: DashboardTodo[] = []
     const pendingInputs = inputInvoices.filter((invoice) => !invoice.voucher_id && invoice.status !== 'matched').length
     if (pendingInputs > 0) rows.push({ module: '进项发票', text: `${pendingInputs} 张进项发票尚未匹配凭证`, due: '本期', path: '/invoices/input' })
+    if (pendingBankTransactions.length > 0) rows.push({ module: '银行账单', text: `${pendingBankTransactions.length} 笔银行流水尚未匹配或生成凭证`, due: '本期', path: '/bills' })
     if (pendingAutomationJobs.length > 0) rows.push({ module: 'AI自动化', text: `${pendingAutomationJobs.length} 项本地 AI 任务等待人工确认`, due: '本期', path: '/ai/jobs' })
     if (pendingVouchers.length > 0) rows.push({ module: '会计凭证', text: `${pendingVouchers.length} 张凭证尚未审核或过账`, due: '结账前', path: '/vouchers' })
     if (pendingTaxTasks.length > 0) rows.push({ module: '税务申报', text: `${pendingTaxTasks.length} 项税务任务尚未确认`, due: '本期', path: '/tax/workspace' })
     return rows
-  }, [inputInvoices, pendingAutomationJobs.length, pendingTaxTasks.length, pendingVouchers.length, usesLiveDashboardData])
+  }, [inputInvoices, pendingAutomationJobs.length, pendingBankTransactions.length, pendingTaxTasks.length, pendingVouchers.length, usesLiveDashboardData])
 
   const progress = useMemo<DashboardProgress[]>(() => {
     if (!usesLiveDashboardData) return browserProgress
@@ -191,11 +193,12 @@ export function Dashboard() {
     if (unbalancedVouchers.length > 0) rows.push({ tone: 'red', icon: AlertTriangle, text: `${unbalancedVouchers.length} 张凭证借贷不平，阻断结账。` })
     const unmatchedInputs = inputInvoices.filter((invoice) => !invoice.voucher_id && invoice.status !== 'matched').length
     if (unmatchedInputs > 0) rows.push({ tone: 'amber', icon: ClipboardList, text: `${unmatchedInputs} 张进项发票尚未匹配凭证。` })
+    if (pendingBankTransactions.length > 0) rows.push({ tone: 'amber', icon: ClipboardList, text: `${pendingBankTransactions.length} 笔银行流水尚未匹配或生成凭证。` })
     const taxRisk = taxTasks.reduce((total, task) => total + task.riskCount, 0)
     if (taxRisk > 0) rows.push({ tone: 'amber', icon: ClipboardList, text: `${taxRisk} 项税务任务需要人工复核。` })
     if (rows.length === 0) rows.push({ tone: 'green', icon: CheckCircle2, text: invoices.length + vouchers.length + taxTasks.length + automationJobs.length > 0 ? '当前已落库数据未发现阻断风险。' : '当前账期尚无已落库的风险检查数据。' })
     return rows
-  }, [automationJobs.length, inputInvoices, invoices.length, taxTasks, unbalancedVouchers.length, usesLiveDashboardData, vouchers.length])
+  }, [automationJobs.length, inputInvoices, invoices.length, pendingBankTransactions.length, taxTasks, unbalancedVouchers.length, usesLiveDashboardData, vouchers.length])
 
   const handleRefreshProgress = () => {
     recordAuditLog({
