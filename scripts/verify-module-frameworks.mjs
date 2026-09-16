@@ -76,6 +76,8 @@ const errors = [
   ...(businessSource.includes('支持导出和打印') ? ['business list headers must not use one generic export/print hint'] : []),
   ...(!businessSource.includes('getModuleListMeta') ? ['business list metadata must be derived per module domain'] : []),
   ...(!businessSource.includes('AI 队列与建议处理清单') ? ['AI modules must have their own list context'] : []),
+  ...(!businessSource.includes("kind === 'contractLedger' ? ['业务合同', '采购合同', '销售合同', '技术合同']") ? ['contract editor must use contract-specific business types'] : []),
+  ...(!businessSource.includes("{kind === 'contractLedger' && <>") ? ['stamp-tax fields must be limited to the contract editor'] : []),
   ...(!businessSource.includes('AI任务执行与确认清单') || !businessSource.includes('OCR识别字段复核清单') || !businessSource.includes('AI凭证建议确认清单') || !businessSource.includes('AI规则训练与发布清单') ? ['AI list pages must describe each processing domain independently'] : []),
   ...(!businessSource.includes('资料采集与批次核验清单') ? ['collection modules must have their own list context'] : []),
   ...(!businessSource.includes('账套配置与控制清单') ? ['account controls must have their own list context'] : []),
