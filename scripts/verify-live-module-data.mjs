@@ -569,6 +569,11 @@ const requiredTaxWorkspaceSnippets = [
 ]
 
 const requiredWelcomeSnippets = [
+  ['welcome account filter state', "const [accountFilters, setAccountFilters] = useState({"],
+  ['welcome account region mapper', "region: [company.province, company.city, company.district].filter(Boolean).join('') || '-'"],
+  ['welcome account filter rows', 'const filterableAccountFields = ['],
+  ['welcome account filter export scope', 'const activeAccountFilterScope = useMemo(() => {'],
+  ['welcome account filter export binding', "scope: activeAccountFilterScope,"],
   ['welcome native empty state avoids demo accounts', 'const allRows = realRows.length > 0 || isTauri ? realRows : demoCompanies'],
   ['welcome account metrics use derived records', 'const summaryMetrics = useMemo<SummaryMetric[]>(() => {'],
   ['welcome active account metric', "label: '启用账套'"],

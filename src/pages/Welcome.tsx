@@ -37,6 +37,7 @@ interface AccountRow {
   code: string
   name: string
   taxId: string
+  region: string
   enterpriseType: string
   taxType: string
   collectStatus: string
@@ -84,6 +85,7 @@ const demoCompanies: AccountRow[] = [
     code: '01460',
     name: '科旋电气（上海）有限公司',
     taxId: '91310115MA1K3****X',
+    region: '上海市普陀区',
     enterpriseType: '私营有限责任公司',
     taxType: '一般纳税人',
     collectStatus: '采集成功 2026-06-26 18:09:49',
@@ -106,6 +108,7 @@ const demoCompanies: AccountRow[] = [
     code: '02018',
     name: '上海云启科技有限公司',
     taxId: '91310113MA1G****2Q',
+    region: '上海市宝山区',
     enterpriseType: '私营有限责任公司',
     taxType: '小规模纳税人',
     collectStatus: '采集警告 2026-06-26 18:00:10',
@@ -128,6 +131,7 @@ const demoCompanies: AccountRow[] = [
     code: '03009',
     name: '杭州辰光贸易有限公司',
     taxId: '91330106MA2H****8P',
+    region: '浙江省杭州市',
     enterpriseType: '内资企业',
     taxType: '一般纳税人',
     collectStatus: '采集失败 2026-06-26 17:54:16',
@@ -396,6 +400,16 @@ export function Welcome() {
   const { companies, selectCompany, fetchCompanies, createCompany, updateCompany, deactivateCompany, deleteCompany } = useCompanyStore()
   const { fetchPeriods, fetchVoucherWords } = usePeriodStore()
   const [searchQuery, setSearchQuery] = useState('')
+  const [accountFilters, setAccountFilters] = useState({
+    region: '',
+    code: '',
+    taxId: '',
+    enterpriseType: '',
+    taxType: '',
+    collectStatus: '',
+    accountant: '',
+    period: '',
+  })
   const [companyMemos, setCompanyMemos] = useState<Record<string, CompanyMemo>>(() => isTauri ? {} : loadCompanyMemos())
   const [memoCompany, setMemoCompany] = useState<AccountRow | null>(null)
   const [memoDraft, setMemoDraft] = useState({ content: '', reminderDate: '' })
@@ -448,6 +462,7 @@ export function Welcome() {
         code: company.code,
         name: company.name,
         taxId: company.tax_id || '',
+        region: [company.province, company.city, company.district].filter(Boolean).join('') || '-',
         enterpriseType: company.enterprise_type || '未设置',
         taxType: company.tax_type === 'general' ? '一般纳税人' : '小规模纳税人',
         collectStatus: '待采集',
@@ -476,10 +491,39 @@ export function Welcome() {
     return allRows.filter((row) => {
       const statusMatch = statusFilter === 'disabled' ? row.status === '停用' : row.status !== '停用'
       if (!statusMatch) return false
-      if (!q) return true
-      return [row.name, row.code, row.taxId, row.taxType, row.taxOffice, row.accountant].some((value) => value.toLowerCase().includes(q))
+      const filterableAccountFields = [
+        [accountFilters.region, row.region],
+        [accountFilters.code, row.code],
+        [accountFilters.taxId, row.taxId],
+        [accountFilters.enterpriseType, row.enterpriseType],
+        [accountFilters.taxType, row.taxType],
+        [accountFilters.collectStatus, row.collectStatus],
+        [accountFilters.accountant, row.accountant],
+        [accountFilters.period, row.period],
+      ]
+      const advancedFiltersMatch = filterableAccountFields.every(([filterValue, rowValue]) => (
+        !filterValue.trim() || rowValue.toLowerCase().includes(filterValue.trim().toLowerCase())
+      ))
+      if (!advancedFiltersMatch) return false
+      return !q || [row.name, row.code, row.taxId, row.taxType, row.taxOffice, row.accountant].some((value) => value.toLowerCase().includes(q))
     })
-  }, [allRows, searchQuery, statusFilter])
+  }, [accountFilters, allRows, searchQuery, statusFilter])
+
+  const activeAccountFilterScope = useMemo(() => {
+    const filters = [
+      `账套状态=${statusFilter === 'normal' ? '正常' : '停用'}`,
+      searchQuery.trim() && `企业名称=${searchQuery.trim()}`,
+      accountFilters.region.trim() && `地区=${accountFilters.region.trim()}`,
+      accountFilters.code.trim() && `企业编码=${accountFilters.code.trim()}`,
+      accountFilters.taxId.trim() && `纳税人识别号=${accountFilters.taxId.trim()}`,
+      accountFilters.enterpriseType.trim() && `企业类型=${accountFilters.enterpriseType.trim()}`,
+      accountFilters.taxType.trim() && `纳税人资格=${accountFilters.taxType.trim()}`,
+      accountFilters.collectStatus.trim() && `采集状态=${accountFilters.collectStatus.trim()}`,
+      accountFilters.accountant.trim() && `主办会计=${accountFilters.accountant.trim()}`,
+      accountFilters.period.trim() && `账期=${accountFilters.period.trim()}`,
+    ].filter(Boolean)
+    return filters.join('；')
+  }, [accountFilters, searchQuery, statusFilter])
 
   const summaryMetrics = useMemo<SummaryMetric[]>(() => {
     const activeAccounts = allRows.filter((row) => row.status !== '停用').length
@@ -507,7 +551,7 @@ export function Welcome() {
       level,
       result,
       status,
-      voucher: `${statusFilter}/${searchQuery.trim() || '全部'}`,
+      voucher: activeAccountFilterScope,
       attachment: '操作快照',
     })
     if (!isTauri) return
@@ -518,7 +562,7 @@ export function Welcome() {
       objectRef: `机构账套｜${object}`,
       riskLevel: level,
       result,
-      detail: `${status}｜${statusFilter}/${searchQuery.trim() || '全部'}`,
+      detail: `${status}｜${activeAccountFilterScope}`,
       operator: 'admin',
     })
   }
@@ -748,7 +792,7 @@ export function Welcome() {
     const fileName = `账套管理-客户企业档案-${statusFilter}-${exportedAt.replace(/[\\/:\s]/g, '')}.xlsx`
     const sheetRows = [
       ['账套管理-客户企业档案'],
-      ['机构', 'AI 代理记账', '状态筛选', statusFilter === 'normal' ? '正常' : '停用', '筛选关键字', searchQuery.trim() || '全部'],
+      ['机构', 'AI 代理记账', '筛选条件', activeAccountFilterScope],
       ['导出时间', exportedAt, '记录数', `${rows.length}`, '导出人', 'admin'],
       [],
       ['企业标签', '编码', '企业名称', '纳税人识别号', '企业类型', '纳税人资格', '采集状态', '信用等级', '客户导入时间', '主办会计', '服务期限', '部门主管', '账期', '主管税务机关', '状态'],
@@ -798,7 +842,7 @@ export function Welcome() {
       fileName,
       moduleName: '机构-账套管理',
       format: 'Excel',
-      scope: `${statusFilter}/${searchQuery.trim() || '全部'}`,
+      scope: activeAccountFilterScope,
       templateKind: 'agency',
       rowCount: rows.length,
     })
@@ -1003,18 +1047,16 @@ export function Welcome() {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 text-xs md:grid-cols-3 xl:grid-cols-6">
-                <FilterField label="地区" value="全部" />
+              <div className="mt-4 grid gap-3 text-xs md:grid-cols-3 xl:grid-cols-5">
+                <FilterField label="地区" value={accountFilters.region} onChange={(value) => setAccountFilters((filters) => ({ ...filters, region: value }))} placeholder="省/市/区" />
                 <FilterField label="企业名称" value={searchQuery} onChange={setSearchQuery} placeholder="搜索企业名称" />
-                <FilterField label="企业编码" placeholder="全部" />
-                <FilterField label="纳税人识别号" placeholder="全部" />
-                <FilterField label="企业类型" value="全部" />
-                <FilterField label="纳税人资格" value="全部" />
-                <FilterField label="采集状态" value="全部" />
-                <FilterField label="角色" value="全部" />
-                <FilterField label="人员" value="全部" />
-                <FilterField label="账期" placeholder="2026-05" />
-                <FilterField label="登录人员" value="全部" />
+                <FilterField label="企业编码" value={accountFilters.code} onChange={(value) => setAccountFilters((filters) => ({ ...filters, code: value }))} placeholder="输入编码" />
+                <FilterField label="纳税人识别号" value={accountFilters.taxId} onChange={(value) => setAccountFilters((filters) => ({ ...filters, taxId: value }))} placeholder="输入税号" />
+                <FilterField label="企业类型" value={accountFilters.enterpriseType} onChange={(value) => setAccountFilters((filters) => ({ ...filters, enterpriseType: value }))} placeholder="输入企业类型" />
+                <FilterField label="纳税人资格" value={accountFilters.taxType} onChange={(value) => setAccountFilters((filters) => ({ ...filters, taxType: value }))} placeholder="一般/小规模" />
+                <FilterField label="采集状态" value={accountFilters.collectStatus} onChange={(value) => setAccountFilters((filters) => ({ ...filters, collectStatus: value }))} placeholder="待采集/成功" />
+                <FilterField label="主办会计" value={accountFilters.accountant} onChange={(value) => setAccountFilters((filters) => ({ ...filters, accountant: value }))} placeholder="输入人员" />
+                <FilterField label="账期" value={accountFilters.period} onChange={(value) => setAccountFilters((filters) => ({ ...filters, period: value }))} placeholder="2026-05" />
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
