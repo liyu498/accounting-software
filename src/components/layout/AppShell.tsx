@@ -13,7 +13,6 @@ import {
   CheckSquare,
   ChevronDown,
   Coins,
-  Download,
   FileBarChart,
   FileCheck2,
   FileSpreadsheet,
@@ -404,10 +403,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </>
               )}
             </div>
-            <Link to="/downloads" className="hidden h-8 items-center gap-1 rounded px-2 font-medium text-white hover:bg-white/10 md:inline-flex">
-              <Download className="h-4 w-4" />
-              下载中心
-            </Link>
             <div className="relative hidden sm:block">
               <button
                 type="button"

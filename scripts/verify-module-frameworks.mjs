@@ -67,6 +67,7 @@ const errors = [
   ...(!appSource.includes(accountRedirectRoute) ? ['agency accounts route must redirect to the home account-management workspace'] : []),
   ...(shellSource.includes('>\n              短信\n') ? ['SMS shortcut must not be rendered in the account shell'] : []),
   ...(shellSource.includes('handleSmsAction') ? ['SMS shell action must be removed'] : []),
+  ...(shellSource.includes('to="/downloads"') ? ['duplicate download-center shortcut must not be rendered in the account header'] : []),
   ...(shellSource.includes("label: 'AI做账工作台'") ? ['duplicate AI accounting workbench entry must be removed from navigation'] : []),
   ...(!shellSource.includes("label: 'AI自动化'") ? ['AI automation navigation must be grouped under one heading'] : []),
   ...(!shellSource.includes("path: '/ai/jobs'") ? ['AI task queue must be the sole navigation entry for AI processing'] : []),
