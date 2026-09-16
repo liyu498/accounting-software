@@ -9073,7 +9073,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       writeModuleAudit(editingDocumentRecordId ? '编辑登记单据' : '新增登记单据', result.data.documentCode, '中', '成功')
       setOperationNotice(editingDocumentRecordId ? `已更新 ${result.data.documentCode}，需重新审核后才可生成凭证。` : `已新增 ${result.data.documentCode}，等待审核和凭证生成确认。`)
       setEditingDocumentRecordId(null)
-      setDocumentRecordDraft({ businessDate: '', documentCode: '', businessType: '费用报销', partner: '', amount: '', owner: '', attachmentStatus: '待补附件', stampTaxItem: '', stampTaxRate: '' })
+      setDocumentRecordDraft({ businessDate: '', documentCode: '', businessType: documentBusinessType(kind), partner: '', amount: '', owner: '', attachmentStatus: '待补附件', stampTaxItem: '', stampTaxRate: '' })
       setShowDocumentRecordDialog(false)
     } catch (error) { setOperationNotice(`${editingDocumentRecordId ? '编辑' : '新增'}登记单据失败：${String(error)}`) }
   }
