@@ -903,6 +903,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     },
     [agencyOverview, kind, pageConfig, remoteRows]
   )
+  const usesAgencyPreviewRows = Boolean(!isTauri && remoteRows === null && kind !== 'downloadCenter' && pageConfig.rows.length > 0)
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return rows
@@ -2092,6 +2093,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           <div className="min-w-0">
             <h1 className="text-base font-semibold">{pageConfig.title}</h1>
             <p className="text-xs text-slate-500">{pageConfig.description}</p>
+            {usesAgencyPreviewRows && <p className="mt-1 text-xs text-amber-700">浏览器预览数据：列表与汇总来自本机示例记录，不会写入客户账套。</p>}
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolButton icon={<RefreshCw className={cn('h-3.5 w-3.5', isLoadingRows && 'animate-spin')} />} label={toolbarMeta.refreshLabel} onClick={handleRefresh} />

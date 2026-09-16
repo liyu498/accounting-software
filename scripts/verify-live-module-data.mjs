@@ -743,6 +743,8 @@ const requiredAgencyBatchTaskCommandSnippets = [
 ]
 
 const requiredAgencyBatchTaskPageSnippets = [
+  ['agency preview row state', "const usesAgencyPreviewRows = Boolean(!isTauri && remoteRows === null && kind !== 'downloadCenter' && pageConfig.rows.length > 0)"],
+  ['agency preview row disclosure', '浏览器预览数据：列表与汇总来自本机示例记录，不会写入客户账套。'],
   ['agency batch task selection dialog', '选择批量预检任务'],
   ['agency batch task selection state', 'selectedBatchTaskTypes'],
   ['agency batch task selected API call', 'taskTypes: selectedBatchTaskTypes'],
