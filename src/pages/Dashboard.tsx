@@ -49,7 +49,7 @@ const browserStatusCards: DashboardCard[] = [
   { label: '进项发票', value: '72', sub: '待确认 18 / 可抵扣 4.28万', icon: FileCheck2, path: '/invoices/input' },
   { label: '银行账单', value: '96', sub: '待生成凭证 21', icon: Banknote, path: '/bills' },
   { label: '会计凭证', value: '82', sub: '待审核 9 / 已审核 73', icon: FileText, path: '/vouchers' },
-  { label: 'AI任务', value: '19', sub: '待确认草稿 12', icon: Bot, path: '/ai' },
+  { label: 'AI任务队列', value: '19', sub: '待确认草稿 12', icon: Bot, path: '/ai/jobs' },
   { label: '税务申报', value: '5', sub: '待确认 3 / 风险 1', icon: FileBarChart, path: '/tax/workspace' },
 ]
 
@@ -141,7 +141,7 @@ export function Dashboard() {
       { label: '进项发票', value: `${inputInvoices.length} 张`, sub: `未匹配 ${inputInvoices.filter((invoice) => !invoice.voucher_id && invoice.status !== 'matched').length} 张`, icon: FileCheck2, path: '/invoices/input' },
       { label: '银行账单', value: `${automationJobs.filter((job) => job.jobType === 'bank_collection').length} 项`, sub: `待处理 ${automationJobs.filter((job) => job.jobType === 'bank_collection' && automationNeedsReview(job)).length} 项`, icon: Banknote, path: '/bills' },
       { label: '会计凭证', value: `${vouchers.length} 张`, sub: `待审核 ${pendingVouchers.length} 张`, icon: FileText, path: '/vouchers' },
-      { label: 'AI任务', value: `${automationJobs.length} 项`, sub: `待确认 ${pendingAutomationJobs.length} 项`, icon: Bot, path: '/ai' },
+      { label: 'AI任务队列', value: `${automationJobs.length} 项`, sub: `待确认 ${pendingAutomationJobs.length} 项`, icon: Bot, path: '/ai/jobs' },
       { label: '税务申报', value: `${taxTasks.length} 项`, sub: `待确认 ${pendingTaxTasks.length} 项 / 风险 ${taxTasks.reduce((total, task) => total + task.riskCount, 0)} 项`, icon: FileBarChart, path: '/tax/workspace' },
     ]
   }, [automationJobs, inputInvoices, outputInvoices, pendingAutomationJobs.length, pendingTaxTasks.length, pendingVouchers.length, taxTasks, usesLiveDashboardData, vouchers.length])
@@ -151,7 +151,7 @@ export function Dashboard() {
     const rows: DashboardTodo[] = []
     const pendingInputs = inputInvoices.filter((invoice) => !invoice.voucher_id && invoice.status !== 'matched').length
     if (pendingInputs > 0) rows.push({ module: '进项发票', text: `${pendingInputs} 张进项发票尚未匹配凭证`, due: '本期', path: '/invoices/input' })
-    if (pendingAutomationJobs.length > 0) rows.push({ module: 'AI做账', text: `${pendingAutomationJobs.length} 项本地 AI 任务等待人工确认`, due: '本期', path: '/ai' })
+    if (pendingAutomationJobs.length > 0) rows.push({ module: 'AI自动化', text: `${pendingAutomationJobs.length} 项本地 AI 任务等待人工确认`, due: '本期', path: '/ai/jobs' })
     if (pendingVouchers.length > 0) rows.push({ module: '会计凭证', text: `${pendingVouchers.length} 张凭证尚未审核或过账`, due: '结账前', path: '/vouchers' })
     if (pendingTaxTasks.length > 0) rows.push({ module: '税务申报', text: `${pendingTaxTasks.length} 项税务任务尚未确认`, due: '本期', path: '/tax/workspace' })
     return rows
@@ -219,9 +219,9 @@ export function Dashboard() {
           <p className="mt-1 text-sm text-slate-500">{headline}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/ai" className="inline-flex h-9 items-center gap-2 rounded border border-[#1f65a7] bg-white px-3 text-sm font-medium text-[#1f65a7] hover:bg-[#eef6ff]">
+          <Link to="/ai/jobs" className="inline-flex h-9 items-center gap-2 rounded border border-[#1f65a7] bg-white px-3 text-sm font-medium text-[#1f65a7] hover:bg-[#eef6ff]">
             <Bot className="h-4 w-4" />
-            AI做账
+            AI任务队列
           </Link>
           <Link to="/tax/workspace" className="inline-flex h-9 items-center gap-2 rounded bg-[#1f65a7] px-3 text-sm font-medium text-white hover:bg-[#174f82]">
             <FileCheck2 className="h-4 w-4" />

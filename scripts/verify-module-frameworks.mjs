@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 
 const appSource = readFileSync('src/App.tsx', 'utf8')
 const shellSource = readFileSync('src/components/layout/AppShell.tsx', 'utf8')
+const dashboardSource = readFileSync('src/pages/Dashboard.tsx', 'utf8')
 const businessSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', 'utf8')
 const roleManagerSource = readFileSync('src/pages/settings/RoleManager.tsx', 'utf8')
 const agencyNavSource = readFileSync('src/pages/agency/agencyNav.tsx', 'utf8')
@@ -71,6 +72,8 @@ const errors = [
   ...(shellSource.includes("label: 'AI做账工作台'") ? ['duplicate AI accounting workbench entry must be removed from navigation'] : []),
   ...(!shellSource.includes("label: 'AI自动化'") ? ['AI automation navigation must be grouped under one heading'] : []),
   ...(!shellSource.includes("path: '/ai/jobs'") ? ['AI task queue must be the sole navigation entry for AI processing'] : []),
+  ...(dashboardSource.includes("path: '/ai'") || dashboardSource.includes('to="/ai"') ? ['dashboard AI entry must link directly to the AI task queue'] : []),
+  ...(!dashboardSource.includes('AI任务队列') ? ['dashboard must name the AI task queue consistently'] : []),
   ...(!appSource.includes('<Route path="/ai" element={<Navigate to="/ai/jobs" replace />} />') ? ['legacy AI root route must redirect to the AI task queue'] : []),
   ...(!shellSource.includes('z-[80]') ? ['theme menu must render above the account header overlay'] : []),
   ...(businessSource.includes('支持导出和打印') ? ['business list headers must not use one generic export/print hint'] : []),
