@@ -17,10 +17,25 @@ const unionBlock = businessSource.match(/type ModuleKind =([\s\S]*?)\n\ninterfac
 const unionKinds = unique([...unionBlock.matchAll(/'([^']+)'/g)].map((match) => match[1]))
 const configBlock = businessSource.match(/const moduleConfigs: Record<ModuleKind, ModuleConfig> = \{([\s\S]*?)\n\}/)?.[1] ?? ''
 const configKinds = unique([...configBlock.matchAll(/^  ([A-Za-z0-9]+): \{\n    keywordPlaceholder:/gm)].map((match) => match[1]))
+const businessPresentationEntries = [...configBlock.matchAll(/^  ([A-Za-z0-9]+): \{\n    keywordPlaceholder: '([^']+)',\n    primaryAction: '([^']+)'/gm)]
+  .map((match) => ({ kind: match[1], signature: `${match[2]} / ${match[3]}` }))
 const agencyUnionBlock = agencySource.match(/export type AgencyModuleKind =([\s\S]*?)\n\ninterface/)?.[1] ?? ''
 const agencyUnionKinds = unique([...agencyUnionBlock.matchAll(/'([^']+)'/g)].map((match) => match[1]))
 const agencyConfigBlock = agencySource.match(/const configs: Record<AgencyModuleKind, AgencyConfig> = \{([\s\S]*?)\n\}/)?.[1] ?? ''
 const agencyConfigKinds = unique([...agencyConfigBlock.matchAll(/^  ([A-Za-z0-9]+): \{\n    title:/gm)].map((match) => match[1]))
+const agencyPresentationEntries = [...agencyConfigBlock.matchAll(/^  ([A-Za-z0-9]+): \{\n    title: '([^']+)',\n    description: '([^']+)',/gm)]
+  .map((match) => ({ kind: match[1], signature: `${match[2]} / ${match[3]}` }))
+
+function duplicatePresentationKinds(entries) {
+  const kindsBySignature = new Map()
+  for (const entry of entries) {
+    kindsBySignature.set(entry.signature, [...(kindsBySignature.get(entry.signature) ?? []), entry.kind])
+  }
+  return [...kindsBySignature.values()].filter((kinds) => kinds.length > 1)
+}
+
+const duplicateBusinessPresentations = duplicatePresentationKinds(businessPresentationEntries)
+const duplicateAgencyPresentations = duplicatePresentationKinds(agencyPresentationEntries)
 
 const routePaths = unique([...appSource.matchAll(/<Route\s+path="([^"]+)"/g)].map((match) => match[1])).filter((path) => path !== '*')
 const shellPaths = unique([...shellSource.matchAll(/path: '([^']+)'/g)].map((match) => match[1]))
@@ -42,10 +57,12 @@ const summary = {
   businessRoutes: routeKinds.length,
   moduleKindUnion: unionKinds.length,
   moduleConfigs: configKinds.length,
+  uniqueBusinessPresentations: businessPresentationEntries.length - duplicateBusinessPresentations.reduce((total, kinds) => total + kinds.length - 1, 0),
   shellNavPaths: shellPaths.length,
   agencyRoutes: agencyRouteKinds.length,
   agencyModuleKindUnion: agencyUnionKinds.length,
   agencyModuleConfigs: agencyConfigKinds.length,
+  uniqueAgencyPresentations: agencyPresentationEntries.length - duplicateAgencyPresentations.reduce((total, kinds) => total + kinds.length - 1, 0),
   agencyNavPaths: agencyNavPaths.length,
   appRoutes: routePaths.length,
 }
@@ -55,10 +72,12 @@ const errors = [
   ...missingConfig.map((kind) => `businessPage kind '${kind}' is missing from moduleConfigs`),
   ...unusedUnion.map((kind) => `ModuleKind '${kind}' is not used by any business route`),
   ...unusedConfig.map((kind) => `moduleConfigs kind '${kind}' is not used by any business route`),
+  ...duplicateBusinessPresentations.map((kinds) => `business modules share the same presentation signature: ${kinds.join(', ')}`),
   ...navWithoutRoute.map((path) => `sidebar path '${path}' has no matching <Route>`),
   ...missingAgencyUnion.map((kind) => `agencyPage kind '${kind}' is missing from AgencyModuleKind`),
   ...missingAgencyConfig.map((kind) => `agencyPage kind '${kind}' is missing from agency configs`),
   ...unusedAgencyUnion.map((kind) => `AgencyModuleKind '${kind}' is not used by any agency route`),
+  ...duplicateAgencyPresentations.map((kinds) => `agency modules share the same presentation signature: ${kinds.join(', ')}`),
   ...agencyNavWithoutRoute.map((path) => `agency nav path '${path}' has no matching <Route>`),
   ...(agencyRouteKinds.includes('accountManagement') ? ['duplicate agency account-management page is still routed'] : []),
   ...(agencyUnionKinds.includes('accountManagement') ? ['duplicate accountManagement kind is still declared'] : []),
