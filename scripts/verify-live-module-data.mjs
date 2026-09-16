@@ -319,6 +319,13 @@ const requiredAdapterSnippets = [
 ]
 
 const requiredPageSnippets = [
+  ['module advanced filter state', 'const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)'],
+  ['module advanced filter row binding', 'const matchesAdvancedFilters ='],
+  ['module advanced filter dialog', '高级筛选条件'],
+  ['module column settings state', 'const [showModuleColumnSettings, setShowModuleColumnSettings] = useState(false)'],
+  ['module column settings persistence', 'function loadModuleColumnSettings('],
+  ['module visible column binding', 'const visibleColumns = useMemo(() =>'],
+  ['module column settings dialog', '列表列设置'],
   ['live invoice store import', "from '../../stores/invoiceStore'"],
   ['live voucher store import', "from '../../stores/voucherStore'"],
   ['selected company integration', 'selectedCompanyId'],

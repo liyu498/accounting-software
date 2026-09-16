@@ -3671,6 +3671,38 @@ function hasWorkspaceReference(value?: string) {
   return Boolean(value && !['-', '无', '未生成', '待生成', '缺失'].includes(value.trim()))
 }
 
+interface ModuleColumnSettings {
+  visibleKeys: string[]
+}
+
+function moduleColumnSettingsStorageKey(kind: ModuleKind, companyId: string) {
+  return `accounting-module-columns-v1:${companyId}:${kind}`
+}
+
+function loadModuleColumnSettings(kind: ModuleKind, companyId: string, columns: ModuleColumn[]): ModuleColumnSettings {
+  const fallback = { visibleKeys: columns.map((column) => column.key) }
+  if (typeof window === 'undefined') return fallback
+  try {
+    const raw = window.localStorage.getItem(moduleColumnSettingsStorageKey(kind, companyId))
+    if (!raw) return fallback
+    const parsed = JSON.parse(raw) as Partial<ModuleColumnSettings>
+    const validKeys = new Set(columns.map((column) => column.key))
+    const visibleKeys = (parsed.visibleKeys || []).filter((key) => validKeys.has(key))
+    return { visibleKeys: visibleKeys.length > 0 ? visibleKeys : fallback.visibleKeys }
+  } catch {
+    return fallback
+  }
+}
+
+function saveModuleColumnSettings(kind: ModuleKind, companyId: string, settings: ModuleColumnSettings) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(moduleColumnSettingsStorageKey(kind, companyId), JSON.stringify(settings))
+}
+
+function hasPendingAttachment(value?: string) {
+  return !hasWorkspaceReference(value) || /待补|缺失|未上传|待上传/.test(value || '')
+}
+
 function filterRowsByWorkspaceTab(kind: ModuleKind, tab: string, rows: ModuleRow[]) {
   if (/(日志|变更记录|审计证据)/.test(tab)) return rows
 
@@ -6856,6 +6888,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [activeTab, setActiveTab] = useState(() => getModuleTabs(kind)[0])
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set())
   const [showRulesLogDialog, setShowRulesLogDialog] = useState(false)
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [advancedFilters, setAdvancedFilters] = useState({ voucher: '全部', attachment: '全部' })
+  const [advancedFiltersDraft, setAdvancedFiltersDraft] = useState({ voucher: '全部', attachment: '全部' })
+  const columnSettingsCompanyId = selectedCompanyId || 'browser-preview'
+  const [showModuleColumnSettings, setShowModuleColumnSettings] = useState(false)
+  const [moduleColumnSettings, setModuleColumnSettings] = useState<ModuleColumnSettings>(() => loadModuleColumnSettings(kind, columnSettingsCompanyId, config.columns))
+  const [moduleColumnSettingsDraft, setModuleColumnSettingsDraft] = useState<ModuleColumnSettings>(() => loadModuleColumnSettings(kind, columnSettingsCompanyId, config.columns))
   const [detailRow, setDetailRow] = useState<ModuleRow | null>(null)
   const importFileRef = useRef<HTMLInputElement>(null)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
@@ -6864,16 +6903,33 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setActiveTab(getModuleTabs(kind)[0])
   }, [kind])
 
+  const moduleColumnKeys = config.columns.map((column) => column.key).join('|')
+
+  useEffect(() => {
+    const settings = loadModuleColumnSettings(kind, columnSettingsCompanyId, config.columns)
+    setModuleColumnSettings(settings)
+    setModuleColumnSettingsDraft(settings)
+  }, [columnSettingsCompanyId, config.columns, kind, moduleColumnKeys])
+
+  const visibleColumns = useMemo(() => {
+    const columns = config.columns.filter((column) => moduleColumnSettings.visibleKeys.includes(column.key))
+    return columns.length > 0 ? columns : config.columns
+  }, [config.columns, moduleColumnSettings.visibleKeys])
+
   const filteredRows = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
     return filterRowsByWorkspaceTab(kind, activeTab, config.rows).filter((row) => {
       const matchesStatus = status === '全部' || row.status === status || (status === '未匹配' && row.status === '待处理')
       const matchesBusinessTag = businessTagFilter === '全部' || row.values.tags?.split(' / ').includes(businessTagFilter)
-      if (!matchesStatus || !matchesBusinessTag) return false
+      const matchesAdvancedFilters = (
+        (advancedFilters.voucher === '全部' || (advancedFilters.voucher === '已关联' ? hasWorkspaceReference(row.voucher) : !hasWorkspaceReference(row.voucher)))
+        && (advancedFilters.attachment === '全部' || (advancedFilters.attachment === '附件齐全' ? !hasPendingAttachment(row.attachment) : hasPendingAttachment(row.attachment)))
+      )
+      if (!matchesStatus || !matchesBusinessTag || !matchesAdvancedFilters) return false
       if (!normalized) return true
       return Object.values(row.values).some((value) => value.toLowerCase().includes(normalized)) || row.id.toLowerCase().includes(normalized)
     })
-  }, [activeTab, businessTagFilter, config.rows, keyword, kind, status])
+  }, [activeTab, advancedFilters, businessTagFilter, config.rows, keyword, kind, status])
 
   const supportsBusinessTagFilter = ['outputInvoice', 'inputInvoice', 'voucher', 'billList', 'bankStatement'].includes(kind)
 
@@ -6885,13 +6941,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   useEffect(() => {
     setPage(1)
     setSelectedRowIds(new Set())
-  }, [kind, keyword, status, pageSize])
+  }, [advancedFilters, businessTagFilter, kind, keyword, pageSize, status])
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages)
   }, [page, totalPages])
 
-  const auditScope = `${status}/${keyword.trim() || '全部'}`
+  const advancedFilterScope = [
+    advancedFilters.voucher !== '全部' && `凭证=${advancedFilters.voucher}`,
+    advancedFilters.attachment !== '全部' && `附件=${advancedFilters.attachment}`,
+  ].filter(Boolean).join('；')
+  const auditScope = [status, keyword.trim() || '全部', businessTagFilter !== '全部' ? `标签=${businessTagFilter}` : '', advancedFilterScope].filter(Boolean).join('/')
   const supportsFileImport = /导入|采集|上传/.test(config.importLabel)
   const primaryActionHandlesImport = /导入|采集|上传/.test(config.primaryAction)
   const exportPeriodLabel = currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel
@@ -6955,6 +7015,39 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         setOperationAuditLogs((logs) => [response.data!, ...logs])
       }
     })
+  }
+
+  const openAdvancedFilterDialog = () => {
+    setAdvancedFiltersDraft(advancedFilters)
+    setShowAdvancedFilters(true)
+  }
+
+  const applyAdvancedFilters = () => {
+    setAdvancedFilters(advancedFiltersDraft)
+    setShowAdvancedFilters(false)
+    writeModuleAudit('应用高级筛选', `${title}-${advancedFiltersDraft.voucher}/${advancedFiltersDraft.attachment}`)
+    setOperationNotice(`已应用高级筛选：凭证${advancedFiltersDraft.voucher}，附件${advancedFiltersDraft.attachment}。`)
+  }
+
+  const openModuleColumnSettings = () => {
+    setModuleColumnSettingsDraft(moduleColumnSettings)
+    setShowModuleColumnSettings(true)
+  }
+
+  const saveCurrentModuleColumnSettings = () => {
+    if (moduleColumnSettingsDraft.visibleKeys.length === 0) {
+      setOperationNotice('请至少保留一列业务字段。')
+      return
+    }
+    try {
+      saveModuleColumnSettings(kind, columnSettingsCompanyId, moduleColumnSettingsDraft)
+      setModuleColumnSettings(moduleColumnSettingsDraft)
+      setShowModuleColumnSettings(false)
+      writeModuleAudit('保存列表列设置', `${title}-${moduleColumnSettingsDraft.visibleKeys.length}列`)
+      setOperationNotice(`列表列设置已保存：显示 ${moduleColumnSettingsDraft.visibleKeys.length} 个业务字段。`)
+    } catch (error) {
+      setOperationNotice(`保存列表列设置失败：${String(error)}`)
+    }
   }
 
   const handleImportAction = () => {
@@ -11534,19 +11627,94 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 ))}
               </select>
             )}
-            <button className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">
+            <button type="button" onClick={openAdvancedFilterDialog} className={cn('inline-flex h-8 items-center gap-1 rounded border bg-white px-2.5 text-xs hover:border-[#1f65a7] hover:text-[#1f65a7]', advancedFilterScope ? 'border-[#1f65a7] text-[#1f65a7]' : 'border-slate-300 text-slate-700')}>
               <Filter className="h-3.5 w-3.5" />
               高级筛选
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-1">
             <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="规则与日志" onClick={() => setShowRulesLogDialog(true)} />
-            <ToolbarButton icon={<Columns3 className="h-3.5 w-3.5" />} label="列设置" />
+            <ToolbarButton icon={<Columns3 className="h-3.5 w-3.5" />} label="列设置" onClick={openModuleColumnSettings} />
           </div>
         </div>
       </div>
 
       {showRulesLogDialog && <RulesLogDialog notes={config.notes} logs={visibleRuleLogs} usesLiveData={usesLiveRuleLogData} onClose={() => setShowRulesLogDialog(false)} />}
+
+      {showAdvancedFilters && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="高级筛选条件">
+          <section className="w-full max-w-md border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">高级筛选条件</h2>
+                <p className="mt-0.5 text-xs text-slate-500">按当前模块的凭证关联和附件完整性筛选，不修改原始业务数据。</p>
+              </div>
+              <button type="button" onClick={() => setShowAdvancedFilters(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid gap-3 p-4 text-xs text-slate-600 sm:grid-cols-2">
+              <label className="grid gap-1">关联凭证
+                <select value={advancedFiltersDraft.voucher} onChange={(event) => setAdvancedFiltersDraft((filters) => ({ ...filters, voucher: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  {['全部', '已关联', '未关联'].map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1">附件状态
+                <select value={advancedFiltersDraft.attachment} onChange={(event) => setAdvancedFiltersDraft((filters) => ({ ...filters, attachment: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+                  {['全部', '附件齐全', '待补附件'].map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="flex justify-between border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setAdvancedFiltersDraft({ voucher: '全部', attachment: '全部' })} className="h-8 border border-slate-300 px-3 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">重置</button>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowAdvancedFilters(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+                <button type="button" onClick={applyAdvancedFilters} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">应用筛选</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showModuleColumnSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="列表列设置">
+          <section className="flex max-h-[min(720px,calc(100vh-2rem))] w-full max-w-lg flex-col border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">列表列设置</h2>
+                <p className="mt-0.5 text-xs text-slate-500">仅保存当前账套、当前模块的本机显示偏好，不改变导出字段或其他用户视图。</p>
+              </div>
+              <button type="button" onClick={() => setShowModuleColumnSettings(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="min-h-0 overflow-y-auto p-4">
+              <div className="grid gap-2 text-xs text-slate-700 sm:grid-cols-2">
+                {config.columns.map((column) => {
+                  const checked = moduleColumnSettingsDraft.visibleKeys.includes(column.key)
+                  return (
+                    <label key={column.key} className="flex items-center gap-2 border border-slate-200 px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => setModuleColumnSettingsDraft((settings) => ({
+                          visibleKeys: event.target.checked
+                            ? [...settings.visibleKeys, column.key]
+                            : settings.visibleKeys.filter((key) => key !== column.key),
+                        }))}
+                      />
+                      <span>{column.label}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="flex justify-between border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setModuleColumnSettingsDraft({ visibleKeys: config.columns.map((column) => column.key) })} className="h-8 border border-slate-300 px-3 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]">显示全部</button>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowModuleColumnSettings(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+                <button type="button" onClick={saveCurrentModuleColumnSettings} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存设置</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
 
       <div className="min-w-0 pt-3">
         <section className="min-w-0 border border-slate-200 bg-white">
@@ -11570,7 +11738,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                       })}
                     />
                   </th>
-                  {config.columns.map((column) => (
+                  {visibleColumns.map((column) => (
                     <th key={column.key} className={cn('whitespace-nowrap border-b border-slate-200 px-2 py-2', column.align === 'right' && 'text-right', column.align === 'center' && 'text-center')}>
                       {column.label}
                     </th>
@@ -11603,7 +11771,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                         })}
                       />
                     </td>
-                    {config.columns.map((column) => (
+                    {visibleColumns.map((column) => (
                       <td key={column.key} className={cn('whitespace-nowrap border-b border-slate-100 px-2 py-2 text-slate-700', column.align === 'right' && 'text-right font-mono tabular-nums', column.align === 'center' && 'text-center')}>
                         {row.values[column.key]}
                       </td>
@@ -11633,7 +11801,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <tfoot className="bg-[#f8fafc]">
                 <tr>
                   <td className="px-2 py-2" />
-                  <td className="px-2 py-2 font-semibold" colSpan={Math.max(config.columns.length, 1)}>合计/小计</td>
+                  <td className="px-2 py-2 font-semibold" colSpan={Math.max(visibleColumns.length, 1)}>合计/小计</td>
                   <td className="px-2 py-2 text-right text-xs text-slate-500" colSpan={2 + Number(tableMeta.showVoucher) + Number(tableMeta.showAttachment)}>当前页 {pagedRows.length} 条，筛选结果 {filteredRows.length} 条</td>
                 </tr>
               </tfoot>
