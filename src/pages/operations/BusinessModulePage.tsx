@@ -5651,6 +5651,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [importValidationJob, setImportValidationJob] = useState<LocalImportJob | null>(null)
   const [importCommitDraft, setImportCommitDraft] = useState<LocalImportCommitDraft | null>(null)
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
+  const [previewAiQueueJobs, setPreviewAiQueueJobs] = useState<AutomationJob[]>([
+    { id: 'AI-20260626-001', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'voucher_suggestion', sourceModule: '销项发票', sourceId: null, sourceFile: '销项发票批次0526', suggestionNo: null, debitSubject: null, creditSubject: null, suggestionAmount: null, generatedVoucherId: null, generatedVoucherNumber: null, status: 'waiting_confirmation', confidence: 0.92, resultSummary: '凭证建议已生成，待人工确认分录。', riskLevel: 'normal', reviewer: '王会计', createdBy: '王会计', createdAt: '2026-06-26 09:12', updatedAt: '2026-06-26 09:12' },
+    { id: 'AI-20260626-002', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'bank_classification', sourceModule: '银行流水', sourceId: null, sourceFile: 'BANK-0526-01', suggestionNo: null, debitSubject: null, creditSubject: null, suggestionAmount: null, generatedVoucherId: 'preview-voucher-0051', generatedVoucherNumber: '记-0051', status: 'completed', confidence: 0.96, resultSummary: '流水分类完成，已保留处理日志。', riskLevel: 'normal', reviewer: '李会计', createdBy: '李会计', createdAt: '2026-06-26 10:03', updatedAt: '2026-06-26 10:03' },
+    { id: 'AI-20260626-003', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'document_ocr', sourceModule: '单据登记', sourceId: null, sourceFile: '费用报销图片', suggestionNo: null, debitSubject: null, creditSubject: null, suggestionAmount: null, generatedVoucherId: null, generatedVoucherNumber: null, status: 'failed', confidence: 0.41, resultSummary: '影像模糊，无法完成字段识别。', riskLevel: 'warning', reviewer: '赵会计', createdBy: '赵会计', createdAt: '2026-06-26 10:48', updatedAt: '2026-06-26 10:48' },
+  ])
   const [showAiJobDialog, setShowAiJobDialog] = useState(false)
   const [aiJobDraft, setAiJobDraft] = useState({ jobType: 'invoice_recognition', sourceModule: '发票', sourceId: '', sourceFile: '', summary: '', riskLevel: 'normal' })
   const [prefilledAiSuggestionId, setPrefilledAiSuggestionId] = useState<string | null>(null)
@@ -6298,6 +6303,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodId, fetchAuxiliaryBalance, kind, selectedAuxiliaryCategoryId, selectedCompanyId, usesLiveLedgerDetailData])
 
   const config = useMemo(() => {
+    if (kind === 'aiJobQueue' && !isTauri) {
+      const jobs = [...automationJobs, ...previewAiQueueJobs]
+      return {
+        ...baseConfig,
+        rows: mapLiveAutomationJobRows(jobs, 'queue'),
+        summary: summarizeLiveAutomationJobs(jobs, 'queue'),
+      }
+    }
+
     if (kind === 'aiRecognitionResults' && !isTauri) {
       const rows = baseConfig.rows.map((row) => previewReviewedAiRecognitionIds.has(row.id)
         ? { ...row, status: '已通过' as const, values: { ...row.values, matched: '人工已确认', risk: '人工复核通过', reviewer: 'admin' } }
@@ -6956,7 +6970,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewConfirmedAiSuggestionIds, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewReviewedAiRecognitionIds, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewConfirmedAiSuggestionIds, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewReviewedAiRecognitionIds, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
   const tableMeta = getModuleTableMeta(kind)
@@ -7286,6 +7300,38 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (isTauri && (!selectedCompanyId || currentPeriodLabel === '当前账期')) {
       setOperationNotice('请先选择账套和账期，再创建 AI 处理任务。')
+      return
+    }
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const job: AutomationJob = {
+        id: `AI-PREVIEW-${Date.now()}`,
+        companyId: 'browser-preview',
+        companyName: null,
+        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+        jobType: aiJobDraft.jobType,
+        sourceModule: aiJobDraft.sourceModule.trim(),
+        sourceId: aiJobDraft.sourceId.trim() || null,
+        sourceFile: aiJobDraft.sourceFile.trim() || null,
+        suggestionNo: null,
+        debitSubject: null,
+        creditSubject: null,
+        suggestionAmount: null,
+        generatedVoucherId: null,
+        generatedVoucherNumber: null,
+        status: 'queued',
+        confidence: null,
+        resultSummary: aiJobDraft.summary.trim() || '等待读取来源资料并生成待确认结果。',
+        riskLevel: aiJobDraft.riskLevel,
+        reviewer: null,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }
+      setPreviewAiQueueJobs((jobs) => [job, ...jobs])
+      setShowAiJobDialog(false)
+      writeModuleAudit('新建AI处理任务', `${job.jobType}｜${job.sourceModule}｜浏览器预览`, '中', '成功')
+      setOperationNotice('AI 处理任务已加入本地预览队列。请从行内启动处理并进入人工复核；不会自动生成或入账凭证。')
       return
     }
     const result = await automationApi.createAutomationJob({
@@ -10188,6 +10234,41 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
       return
     }
+    if (kind === 'aiJobQueue' && !isTauri) {
+      const jobId = row.id.replace('automation-queue-', '')
+      const job = [...automationJobs, ...previewAiQueueJobs].find((item) => item.id === jobId)
+      if (!job) {
+        setOperationNotice('未找到该预览任务，请刷新队列后重试。')
+        return
+      }
+      if (row.status === '待处理') {
+        if (!await requestBusinessRiskConfirmation('启动 AI 预览任务', `确认启动 ${job.id} 吗？任务只会进入本地人工复核队列，不会自动生成凭证、写入账套或调用外部系统。`, '确认启动')) return
+        const timestamp = new Date().toISOString()
+        setPreviewAiQueueJobs((jobs) => jobs.map((item) => item.id === job.id ? { ...item, status: 'waiting_confirmation', reviewer: 'admin', updatedAt: timestamp } : item))
+        setAutomationJobs((jobs) => jobs.map((item) => item.id === job.id ? { ...item, status: 'waiting_confirmation', reviewer: 'admin', updatedAt: timestamp } : item))
+        writeModuleAudit('启动AI预览任务', `${job.id}｜${job.sourceModule}`, '中', '成功')
+        setOperationNotice(`${job.id} 已进入人工复核队列。请核验来源、字段和风险后再进入后续模块。`)
+        return
+      }
+      if (row.status === '待确认') {
+        if (job.jobType === 'voucher_suggestion') {
+          navigate('/ai/suggestions')
+          return
+        }
+        if (job.jobType === 'invoice_recognition' || job.jobType === 'document_ocr') {
+          navigate('/ai/recognition')
+          return
+        }
+        setOperationNotice(`${job.id} 等待人工复核。请根据来源模块 ${job.sourceModule} 核验分类结果和来源资料。`)
+        return
+      }
+      if (row.status === '异常') {
+        setOperationNotice(`${job.id} 处理异常：${job.resultSummary || '未记录失败原因'}。请补充来源资料后重新创建任务。`)
+        return
+      }
+      setOperationNotice(`${job.id} 已完成：${job.resultSummary || '结果已保留在本地日志中'}。不会自动创建或入账凭证。`)
+      return
+    }
     if (kind === 'aiRecognitionResults' && !isTauri) {
       if (row.status === '已通过') {
         setOperationNotice('该识别结果已完成人工复核，可回到目标业务模块继续核验来源资料。')
@@ -11947,7 +12028,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
                         <button type="button" disabled={isCompanyTodoRow && row.status === '已通过'} onClick={() => isCompanyTodoRow ? void completeCompanyTodo(row.id) : kind === 'printTemplateSettings' ? openPrintTemplatePreview() : handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline disabled:cursor-not-allowed disabled:text-slate-400">
-                          {isCompanyTodoRow ? row.status === '已通过' ? '已完成' : '完成待办' : kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiRecognitionResults' ? row.status === '已通过' ? '已复核' : row.status === '异常' ? '查看问题' : '复核' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                          {isCompanyTodoRow ? row.status === '已通过' ? '已完成' : '完成待办' : kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiJobQueue' ? row.status === '待处理' ? '启动处理' : row.status === '待确认' ? '进入复核' : row.status === '异常' ? '查看异常' : '查看结果' : kind === 'aiRecognitionResults' ? row.status === '已通过' ? '已复核' : row.status === '异常' ? '查看问题' : '复核' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
                       {canGenerateVoucherFromModule(kind) && !(isLocalRegistryModule && !isLocalRegistryRow) && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">

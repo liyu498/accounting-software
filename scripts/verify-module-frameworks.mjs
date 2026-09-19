@@ -165,6 +165,7 @@ const errors = [
   ...(!businessSource.includes('setPreviewInvoiceMatchCandidates') ? ['invoice voucher matching preview must persist a local manual association'] : []),
   ...(!businessSource.includes('confirmPreviewAiVoucherSuggestions') ? ['AI voucher suggestion preview must persist manual confirmations'] : []),
   ...(!businessSource.includes('setPreviewReviewedAiRecognitionIds') ? ['AI recognition preview must persist manual reviews'] : []),
+  ...(!businessSource.includes('setPreviewAiQueueJobs') ? ['AI task queue preview must persist task lifecycle changes'] : []),
   ...(!businessSource.includes('工资核算与凭证准备') ? ['payroll must render a dedicated payroll workflow'] : []),
   ...(!businessSource.includes('社保公积金核对流程') ? ['social security must render a dedicated reconciliation workflow'] : []),
   ...(!businessSource.includes('资金流水匹配处理') ? ['banking modules must render a dedicated matching workflow'] : []),
