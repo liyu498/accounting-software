@@ -235,7 +235,7 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     title: '数据统计',
     description: '汇总本地服务合同、收费、客户协同和交付工单数据，供机构负责人查看经营与交付状态。',
     tabs: ['经营概览', '合同与收费', '协同与交付'],
-    primaryAction: '刷新统计',
+    primaryAction: '统计口径',
     keywordPlaceholder: '搜索统计指标、数据来源',
     summary: [
       { label: '服务中合同', value: '0 份', tone: 'blue' },
@@ -816,6 +816,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [isLoadingRows, setIsLoadingRows] = useState(false)
   const [activeTab, setActiveTab] = useState(config.tabs[0])
   const [query, setQuery] = useState('')
+  const [showDataStatsScopeDialog, setShowDataStatsScopeDialog] = useState(false)
   const [showAgencyFilterDialog, setShowAgencyFilterDialog] = useState(false)
   const [statusFilter, setStatusFilter] = useState('全部')
   const [statusFilterDraft, setStatusFilterDraft] = useState('全部')
@@ -1377,9 +1378,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     }
 
     if (kind === 'dataStats') {
-      writeAgencyAudit('刷新统计', `${pageConfig.title}-${activeTab}`)
-      void loadRemoteRows()
-      setOperationNotice('正在重新读取本地服务合同、收费、协同和交付工单汇总。')
+      writeAgencyAudit('查看统计口径', `${pageConfig.title}-${activeTab}`)
+      setShowDataStatsScopeDialog(true)
       return
     }
 
@@ -1715,6 +1715,33 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   return (
     <div className="h-full min-w-0 bg-[#f3f6fa] text-slate-900">
       <input ref={importFileRef} type="file" multiple accept=".xlsx,.csv,.pdf,.ofd,.zip,.jpg,.jpeg,.png" className="hidden" onChange={(event) => void handleAgencyImportFiles(event)} />
+      {showDataStatsScopeDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="统计口径与范围">
+          <div className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">统计口径与范围</h2>
+                <p className="mt-1 text-xs text-slate-500">当前账期 {agencyPeriodLabel}，视图“{activeTab}”。仅统计本地已保存的机构服务与交付记录。</p>
+              </div>
+              <button type="button" onClick={() => setShowDataStatsScopeDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              {summary.map((item) => (
+                <div key={item.label} className="border border-slate-200 px-3 py-2">
+                  <div className="text-xs text-slate-500">{item.label}</div>
+                  <div className={cn('mt-1 text-lg font-semibold tabular-nums', toneClass(item.tone))}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+              {config.queue.map((item, index) => <p key={item}>{index + 1}. {item}</p>)}
+            </div>
+            <div className="flex justify-end border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowDataStatsScopeDialog(false)} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">确认</button>
+            </div>
+          </div>
+        </div>
+      )}
       {showAgencyFilterDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="机构筛选条件">
           <div className="w-full max-w-md border border-slate-300 bg-white shadow-xl">

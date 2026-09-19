@@ -755,6 +755,8 @@ const requiredAgencyBatchTaskCommandSnippets = [
 ]
 
 const requiredAgencyBatchTaskPageSnippets = [
+  ['agency statistics scope dialog state', 'const [showDataStatsScopeDialog, setShowDataStatsScopeDialog] = useState(false)'],
+  ['agency statistics scope dialog', '统计口径与范围'],
   ['agency status filter state', "const [showAgencyFilterDialog, setShowAgencyFilterDialog] = useState(false)"],
   ['agency status filter row binding', 'const matchesStatusFilter ='],
   ['agency status filter dialog', '机构筛选条件'],
