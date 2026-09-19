@@ -1816,6 +1816,20 @@ if (pageSource.includes('window.confirm')) {
   errors.push('business module page: native confirmation dialogs must use the in-app risk confirmation panel')
 }
 
+for (const requiredRoleDeletionSnippet of [
+  'const [pendingRoleDeletion, setPendingRoleDeletion] = useState<RoleWithPermissions | null>(null)',
+  'aria-label="确认删除角色权限"',
+  '删除角色后，已分配成员需要重新授权。',
+]) {
+  if (!roleManagerSource.includes(requiredRoleDeletionSnippet)) {
+    errors.push(`role manager: missing role deletion confirmation boundary: ${requiredRoleDeletionSnippet}`)
+  }
+}
+
+if (roleManagerSource.includes('confirm(')) {
+  errors.push('role manager: native confirmation dialogs must use the in-app role deletion panel')
+}
+
 if (errors.length > 0) {
   console.error('Live data adapter verification failed:')
   for (const error of errors) console.error(`- ${error}`)

@@ -133,6 +133,7 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
   const [notice, setNotice] = useState<string | null>(null)
   const [scopeUser, setScopeUser] = useState<UserWithRole | null>(null)
   const [scopeCompanyIds, setScopeCompanyIds] = useState<Set<string>>(new Set())
+  const [pendingRoleDeletion, setPendingRoleDeletion] = useState<RoleWithPermissions | null>(null)
 
   const writePermissionAudit = (action: string, object: string, detail: string) => {
     if (!isTauri) return
@@ -274,8 +275,15 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
     }
   }
 
-  const deleteRole = async (role: RoleWithPermissions) => {
-    if (role.role.is_system === 1 || !confirm(`确定删除“${role.role.name}”吗？已分配成员将需要重新授权。`)) return
+  const deleteRole = (role: RoleWithPermissions) => {
+    if (role.role.is_system === 1) return
+    setPendingRoleDeletion(role)
+  }
+
+  const confirmRoleDeletion = async () => {
+    const role = pendingRoleDeletion
+    if (!role) return
+    setPendingRoleDeletion(null)
     if (!isTauri) {
       setRoles((current) => current.filter((item) => item.role.id !== role.role.id))
       setUsers((current) => current.map((user) => user.role_id === role.role.id ? { ...user, role_id: null, role_name: null } : user))
@@ -445,6 +453,7 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
 
       {isEditorOpen && <RoleEditor isEditing={Boolean(selectedRole)} name={roleName} code={roleCode} description={roleDescription} permissions={permissionDraft} onName={setRoleName} onCode={setRoleCode} onDescription={setRoleDescription} onToggle={togglePermission} onCancel={closeEditor} onSave={saveRole} />}
       {scopeUser && <UserCompanyScopeEditor user={scopeUser} companies={scopeCompanies} companyIds={scopeCompanyIds} onToggle={toggleCompanyScope} onToggleAll={toggleAllCompanyScopes} onCancel={closeCompanyScopeEditor} onSave={saveCompanyScope} />}
+      {pendingRoleDeletion && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4" role="dialog" aria-modal="true" aria-label="确认删除角色权限"><section className="w-full max-w-md border border-slate-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"><div className="border-b border-slate-200 px-4 py-3 dark:border-neutral-700"><h2 className="text-sm font-semibold">确认删除角色权限</h2><p className="mt-1 text-xs text-slate-600 dark:text-neutral-300">确认删除“{pendingRoleDeletion.role.name}”吗？删除角色后，已分配成员需要重新授权。</p></div><div className="px-4 py-3 text-xs text-slate-500 dark:text-neutral-400">该操作仅变更本机机构权限配置，不会修改客户账套数据或向外部系统发送请求。</div><div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-neutral-700"><button type="button" onClick={() => setPendingRoleDeletion(null)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800">取消</button><button type="button" onClick={() => void confirmRoleDeletion()} className="h-8 bg-red-600 px-3 text-xs font-medium text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-500">删除角色</button></div></section></div>}
     </div>
   )
 }
