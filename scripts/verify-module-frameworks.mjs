@@ -107,6 +107,7 @@ const errors = [
   ...(!businessSource.includes('const moduleDetailTitle = `${moduleListMeta.title.replace(/清单$/, \'\')}明细`') ? ['detail dialogs must derive their title from dedicated module metadata'] : []),
   ...(businessSource.includes("return { title: moduleDetailTitle, boundary: '查看只读取当前账套和账期下的本地字段。查看不会触发外部采集、凭证入账或税局提交。' }") ? ['detail dialog fallback must retain the module-specific review context'] : []),
   ...(!businessSource.includes('getModuleTableMeta') ? ['business table columns must be derived per module domain'] : []),
+  ...(!businessSource.includes('const metadata: Record<ModuleKind, ModuleTableMeta>') ? ['business table metadata must directly cover every module kind'] : []),
   ...(!businessSource.includes('会计凭证') ? ['invoice tables must label their voucher relation'] : []),
   ...(!businessSource.includes('资料附件') ? ['personnel tables must label their document relation'] : []),
   ...(!businessSource.includes('申报包') ? ['tax tables must label their declaration relation'] : []),

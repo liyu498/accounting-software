@@ -3502,58 +3502,107 @@ function getModuleDetailMeta(kind: ModuleKind): ModuleDetailMeta {
 }
 
 function getModuleTableMeta(kind: ModuleKind): ModuleTableMeta {
-  const defaultMeta: ModuleTableMeta = { statusLabel: '处理状态', voucherLabel: '关联凭证', attachmentLabel: '附件', showVoucher: true, showAttachment: true }
-  if (kind === 'settingsData') return { statusLabel: '生效状态', voucherLabel: '关联控制', attachmentLabel: '配置依据', showVoucher: false, showAttachment: false }
-  if (isHistoryMigrationKind(kind)) {
-    return { statusLabel: '迁移校验', voucherLabel: '历史凭证', attachmentLabel: '来源文件', showVoucher: kind !== 'historyBalance' && kind !== 'historyGeneralLedger', showAttachment: true }
+  const metadata: Record<ModuleKind, ModuleTableMeta> = {
+    attachmentCenter: { statusLabel: '归档状态', voucherLabel: '关联凭证', attachmentLabel: '文件类型', showVoucher: true, showAttachment: true },
+    importCenter: { statusLabel: '写入状态', voucherLabel: '目标草稿', attachmentLabel: '导入文件', showVoucher: true, showAttachment: true },
+    exportCenter: { statusLabel: '生成状态', voucherLabel: '输出范围', attachmentLabel: '输出文件', showVoucher: false, showAttachment: true },
+    aiJobQueue: { statusLabel: '任务确认', voucherLabel: '凭证草稿', attachmentLabel: '输入资料', showVoucher: true, showAttachment: true },
+    aiRecognitionResults: { statusLabel: '识别复核', voucherLabel: '后续草稿', attachmentLabel: '识别影像', showVoucher: true, showAttachment: true },
+    aiVoucherSuggestions: { statusLabel: '人工确认', voucherLabel: '建议凭证', attachmentLabel: '来源附件', showVoucher: true, showAttachment: true },
+    aiRuleTraining: { statusLabel: '发布审批', voucherLabel: '适用凭证', attachmentLabel: '训练样本', showVoucher: true, showAttachment: true },
+    notificationCenter: { statusLabel: '待办状态', voucherLabel: '关联事项', attachmentLabel: '处理依据', showVoucher: true, showAttachment: true },
+    contractLedger: { statusLabel: '履约状态', voucherLabel: '合同凭证', attachmentLabel: '合同附件', showVoucher: true, showAttachment: true },
+    outputInvoice: { statusLabel: '开票状态', voucherLabel: '会计凭证', attachmentLabel: '发票影像', showVoucher: true, showAttachment: true },
+    inputInvoice: { statusLabel: '认证/抵扣状态', voucherLabel: '会计凭证', attachmentLabel: '发票影像', showVoucher: true, showAttachment: true },
+    billList: { statusLabel: '流水状态', voucherLabel: '匹配凭证', attachmentLabel: '银行回单', showVoucher: true, showAttachment: true },
+    bankStatement: { statusLabel: '导入状态', voucherLabel: '匹配凭证', attachmentLabel: '银行回单', showVoucher: true, showAttachment: true },
+    receipt: { statusLabel: '票据入账状态', voucherLabel: '入账凭证', attachmentLabel: '票据影像', showVoucher: true, showAttachment: true },
+    documentRegister: { statusLabel: '审核/入账状态', voucherLabel: '入账凭证', attachmentLabel: '原始单据', showVoucher: true, showAttachment: true },
+    expenseReimbursement: { statusLabel: '报销审批状态', voucherLabel: '费用凭证', attachmentLabel: '报销票据', showVoucher: true, showAttachment: true },
+    purchaseManagement: { statusLabel: '采购履约状态', voucherLabel: '采购凭证', attachmentLabel: '采购单据', showVoucher: true, showAttachment: true },
+    salesManagement: { statusLabel: '销售履约状态', voucherLabel: '收入凭证', attachmentLabel: '销售单据', showVoucher: true, showAttachment: true },
+    voucher: { statusLabel: '审核状态', voucherLabel: '凭证字号', attachmentLabel: '原始附件', showVoucher: false, showAttachment: true },
+    voucherCreate: { statusLabel: '草稿状态', voucherLabel: '凭证字号', attachmentLabel: '原始附件', showVoucher: false, showAttachment: true },
+    voucherEdit: { statusLabel: '编辑状态', voucherLabel: '凭证字号', attachmentLabel: '原始附件', showVoucher: false, showAttachment: true },
+    voucherDetail: { statusLabel: '记账状态', voucherLabel: '凭证字号', attachmentLabel: '原始附件', showVoucher: false, showAttachment: true },
+    transfer: { statusLabel: '转账核对', voucherLabel: '会计凭证', attachmentLabel: '转账回单', showVoucher: true, showAttachment: true },
+    employee: { statusLabel: '人员状态', voucherLabel: '薪酬关联', attachmentLabel: '人员资料', showVoucher: false, showAttachment: true },
+    payroll: { statusLabel: '薪酬确认', voucherLabel: '工资凭证', attachmentLabel: '工资明细', showVoucher: true, showAttachment: true },
+    socialSecurity: { statusLabel: '缴费核对', voucherLabel: '社保凭证', attachmentLabel: '缴费资料', showVoucher: true, showAttachment: true },
+    specialDeduction: { statusLabel: '扣除校验', voucherLabel: '个税凭证', attachmentLabel: '证明材料', showVoucher: true, showAttachment: true },
+    depreciation: { statusLabel: '计提状态', voucherLabel: '折旧凭证', attachmentLabel: '资产依据', showVoucher: true, showAttachment: true },
+    inventorySettings: { statusLabel: '档案状态', voucherLabel: '默认科目', attachmentLabel: '存货资料', showVoucher: false, showAttachment: true },
+    inventoryMovement: { statusLabel: '收发核算状态', voucherLabel: '成本凭证', attachmentLabel: '出入库单', showVoucher: true, showAttachment: true },
+    costCarryover: { statusLabel: '结转状态', voucherLabel: '结转凭证', attachmentLabel: '成本依据', showVoucher: true, showAttachment: true },
+    unitSettings: { statusLabel: '启用状态', voucherLabel: '存货关联', attachmentLabel: '换算依据', showVoucher: false, showAttachment: false },
+    bankReconciliation: { statusLabel: '对账结论', voucherLabel: '调整凭证', attachmentLabel: '银行回单', showVoucher: true, showAttachment: true },
+    receivableSettlement: { statusLabel: '应收核销状态', voucherLabel: '收入凭证', attachmentLabel: '回款回单', showVoucher: true, showAttachment: true },
+    payableSettlement: { statusLabel: '应付核销状态', voucherLabel: '成本凭证', attachmentLabel: '付款回单', showVoucher: true, showAttachment: true },
+    receivablePayableAging: { statusLabel: '账龄风险', voucherLabel: '最近凭证', attachmentLabel: '催收依据', showVoucher: true, showAttachment: true },
+    invoiceVoucherMatching: { statusLabel: '匹配结论', voucherLabel: '目标凭证', attachmentLabel: '源票据', showVoucher: true, showAttachment: true },
+    riskCheck: { statusLabel: '风险处置', voucherLabel: '修复凭证', attachmentLabel: '检查依据', showVoucher: true, showAttachment: true },
+    closingTasks: { statusLabel: '执行状态', voucherLabel: '结转凭证', attachmentLabel: '取数快照', showVoucher: true, showAttachment: true },
+    ledgerReport: { statusLabel: '账簿取数状态', voucherLabel: '凭证穿透', attachmentLabel: '账簿附件', showVoucher: false, showAttachment: false },
+    trialBalanceReport: { statusLabel: '试算状态', voucherLabel: '凭证穿透', attachmentLabel: '取数快照', showVoucher: false, showAttachment: false },
+    accountSummaryReport: { statusLabel: '汇总状态', voucherLabel: '凭证汇总', attachmentLabel: '汇总依据', showVoucher: false, showAttachment: false },
+    generalLedgerReport: { statusLabel: '总账取数状态', voucherLabel: '凭证穿透', attachmentLabel: '总账附件', showVoucher: false, showAttachment: false },
+    subsidiaryLedgerReport: { statusLabel: '明细取数状态', voucherLabel: '凭证穿透', attachmentLabel: '明细附件', showVoucher: false, showAttachment: false },
+    auxiliaryLedgerReport: { statusLabel: '辅助核算状态', voucherLabel: '凭证穿透', attachmentLabel: '辅助依据', showVoucher: false, showAttachment: false },
+    auxiliaryBalanceReport: { statusLabel: '辅助余额状态', voucherLabel: '凭证穿透', attachmentLabel: '余额依据', showVoucher: false, showAttachment: false },
+    multiColumnLedgerReport: { statusLabel: '栏目取数状态', voucherLabel: '凭证穿透', attachmentLabel: '栏目依据', showVoucher: false, showAttachment: false },
+    financialReport: { statusLabel: '报表取数状态', voucherLabel: '凭证穿透', attachmentLabel: '报表附件', showVoucher: false, showAttachment: false },
+    balanceSheetReport: { statusLabel: '勾稽状态', voucherLabel: '取数凭证', attachmentLabel: '资产负债附件', showVoucher: false, showAttachment: false },
+    incomeStatementReport: { statusLabel: '公式校验状态', voucherLabel: '取数凭证', attachmentLabel: '利润表附件', showVoucher: false, showAttachment: false },
+    incomeQuarterReport: { statusLabel: '季度校验状态', voucherLabel: '取数凭证', attachmentLabel: '季度附件', showVoucher: false, showAttachment: false },
+    cashFlowReport: { statusLabel: '现金流校验状态', voucherLabel: '凭证穿透', attachmentLabel: '现金流附件', showVoucher: false, showAttachment: false },
+    cashFlowQuarterReport: { statusLabel: '季度现金流状态', voucherLabel: '凭证穿透', attachmentLabel: '季度附件', showVoucher: false, showAttachment: false },
+    equityChangeReport: { statusLabel: '权益勾稽状态', voucherLabel: '取数凭证', attachmentLabel: '权益附件', showVoucher: false, showAttachment: false },
+    taxReport: { statusLabel: '申报状态', voucherLabel: '申报包', attachmentLabel: '回执附件', showVoucher: true, showAttachment: true },
+    vatTaxReport: { statusLabel: '增值税申报状态', voucherLabel: '申报包', attachmentLabel: '进销项依据', showVoucher: true, showAttachment: true },
+    withholdingTaxReport: { statusLabel: '扣缴申报状态', voucherLabel: '申报包', attachmentLabel: '人员扣缴资料', showVoucher: true, showAttachment: true },
+    stampTaxReport: { statusLabel: '印花税申报状态', voucherLabel: '申报包', attachmentLabel: '应税凭证', showVoucher: true, showAttachment: true },
+    incomeTaxReport: { statusLabel: '所得税申报状态', voucherLabel: '申报包', attachmentLabel: '纳税调整资料', showVoucher: true, showAttachment: true },
+    socialSecurityTaxReport: { statusLabel: '社保费申报状态', voucherLabel: '申报包', attachmentLabel: '缴费资料', showVoucher: true, showAttachment: true },
+    financeTaxReport: { statusLabel: '财报报送状态', voucherLabel: '报送包', attachmentLabel: '财务报表', showVoucher: true, showAttachment: true },
+    nonTaxRevenueReport: { statusLabel: '非税申报状态', voucherLabel: '申报包', attachmentLabel: '征收依据', showVoucher: true, showAttachment: true },
+    declarationCalendar: { statusLabel: '待办状态', voucherLabel: '申报包', attachmentLabel: '提醒依据', showVoucher: true, showAttachment: true },
+    settingsData: { statusLabel: '生效状态', voucherLabel: '关联控制', attachmentLabel: '配置依据', showVoucher: false, showAttachment: false },
+    companyInfo: { statusLabel: '资料状态', voucherLabel: '账套关联', attachmentLabel: '登记资料', showVoucher: false, showAttachment: false },
+    initialBalance: { statusLabel: '试算状态', voucherLabel: '迁移凭证', attachmentLabel: '期初依据', showVoucher: false, showAttachment: false },
+    historyVoucher: { statusLabel: '迁移校验', voucherLabel: '历史凭证', attachmentLabel: '来源文件', showVoucher: true, showAttachment: true },
+    historyBalance: { statusLabel: '迁移校验', voucherLabel: '历史余额', attachmentLabel: '来源文件', showVoucher: false, showAttachment: true },
+    historyGeneralLedger: { statusLabel: '迁移校验', voucherLabel: '历史总账', attachmentLabel: '来源文件', showVoucher: false, showAttachment: true },
+    historySubsidiaryLedger: { statusLabel: '迁移校验', voucherLabel: '历史明细账', attachmentLabel: '来源文件', showVoucher: true, showAttachment: true },
+    taxInit: { statusLabel: '启用状态', voucherLabel: '申报范围', attachmentLabel: '认定资料', showVoucher: false, showAttachment: false },
+    accountArchive: { statusLabel: '账户状态', voucherLabel: '默认科目', attachmentLabel: '开户资料', showVoucher: false, showAttachment: false },
+    customerArchive: { statusLabel: '客户状态', voucherLabel: '应收科目', attachmentLabel: '客户资料', showVoucher: false, showAttachment: false },
+    supplierArchive: { statusLabel: '供应商状态', voucherLabel: '应付科目', attachmentLabel: '供应商资料', showVoucher: false, showAttachment: false },
+    otherContactArchive: { statusLabel: '往来状态', voucherLabel: '往来科目', attachmentLabel: '往来资料', showVoucher: false, showAttachment: false },
+    projectArchive: { statusLabel: '项目状态', voucherLabel: '项目科目', attachmentLabel: '立项资料', showVoucher: false, showAttachment: false },
+    departmentArchive: { statusLabel: '部门状态', voucherLabel: '费用科目', attachmentLabel: '部门资料', showVoucher: false, showAttachment: false },
+    tagArchive: { statusLabel: '标签状态', voucherLabel: '业务引用', attachmentLabel: '标签依据', showVoucher: false, showAttachment: false },
+    subjectSettings: { statusLabel: '科目状态', voucherLabel: '报表映射', attachmentLabel: '科目依据', showVoucher: false, showAttachment: false },
+    assetCategory: { statusLabel: '类别状态', voucherLabel: '折旧科目', attachmentLabel: '类别资料', showVoucher: false, showAttachment: false },
+    invoiceMatchingRules: { statusLabel: '规则发布状态', voucherLabel: '目标凭证', attachmentLabel: '规则样本', showVoucher: false, showAttachment: false },
+    billMatchingRules: { statusLabel: '规则发布状态', voucherLabel: '目标凭证', attachmentLabel: '流水样本', showVoucher: false, showAttachment: false },
+    settlementRules: { statusLabel: '规则发布状态', voucherLabel: '结转凭证', attachmentLabel: '取数依据', showVoucher: false, showAttachment: false },
+    auxiliaryCategories: { statusLabel: '类别状态', voucherLabel: '适用科目', attachmentLabel: '类别资料', showVoucher: false, showAttachment: false },
+    auxiliaryItems: { statusLabel: '项目状态', voucherLabel: '默认科目', attachmentLabel: '项目资料', showVoucher: false, showAttachment: false },
+    commonDigests: { statusLabel: '摘要状态', voucherLabel: '凭证引用', attachmentLabel: '维护记录', showVoucher: false, showAttachment: false },
+    voucherTemplateSettings: { statusLabel: '模板发布状态', voucherLabel: '适用凭证', attachmentLabel: '模板依据', showVoucher: false, showAttachment: false },
+    reportFormulaSettings: { statusLabel: '公式发布状态', voucherLabel: '取数凭证', attachmentLabel: '公式依据', showVoucher: false, showAttachment: false },
+    cashFlowMapping: { statusLabel: '映射发布状态', voucherLabel: '关联凭证', attachmentLabel: '映射依据', showVoucher: false, showAttachment: false },
+    currencySettings: { statusLabel: '币别状态', voucherLabel: '换算科目', attachmentLabel: '汇率依据', showVoucher: false, showAttachment: false },
+    printTemplateSettings: { statusLabel: '模板状态', voucherLabel: '输出范围', attachmentLabel: '版式依据', showVoucher: false, showAttachment: false },
+    taxAdapterSettings: { statusLabel: '授权状态', voucherLabel: '申报范围', attachmentLabel: '授权材料', showVoucher: false, showAttachment: false },
+    bankAdapterSettings: { statusLabel: '授权状态', voucherLabel: '对账范围', attachmentLabel: '授权材料', showVoucher: false, showAttachment: false },
+    periodManagement: { statusLabel: '结账状态', voucherLabel: '结转凭证', attachmentLabel: '锁定依据', showVoucher: false, showAttachment: false },
+    auditLog: { statusLabel: '审计结果', voucherLabel: '操作凭证', attachmentLabel: '留痕证据', showVoucher: false, showAttachment: false },
+    backupRestore: { statusLabel: '备份校验状态', voucherLabel: '恢复范围', attachmentLabel: '备份文件', showVoucher: false, showAttachment: false },
+    voucherRecycle: { statusLabel: '恢复审批状态', voucherLabel: '原始凭证', attachmentLabel: '删除依据', showVoucher: false, showAttachment: false },
+    declarationReceipt: { statusLabel: '回执归档状态', voucherLabel: '申报包', attachmentLabel: '缴款回执', showVoucher: true, showAttachment: true },
   }
-  if (['outputInvoice', 'inputInvoice', 'invoiceSelection', 'invoiceVoucherMatching'].includes(kind)) {
-    return { statusLabel: '业务状态', voucherLabel: '会计凭证', attachmentLabel: '发票影像', showVoucher: true, showAttachment: true }
-  }
-  if (['employee', 'payroll', 'socialSecurity', 'specialDeduction'].includes(kind)) {
-    return { statusLabel: '资料状态', voucherLabel: '工资凭证', attachmentLabel: '资料附件', showVoucher: kind !== 'employee', showAttachment: true }
-  }
-  if (['receipt', 'documentRegister', 'expenseReimbursement'].includes(kind)) {
-    return { statusLabel: '审批/入账状态', voucherLabel: '入账凭证', attachmentLabel: '原始票据', showVoucher: true, showAttachment: true }
-  }
-  if (['purchaseManagement', 'salesManagement'].includes(kind)) {
-    return { statusLabel: '履约状态', voucherLabel: '业务凭证', attachmentLabel: '订单/单据', showVoucher: true, showAttachment: true }
-  }
-  if (kind === 'voucher' || kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
-    return { statusLabel: '审核状态', voucherLabel: '凭证字号', attachmentLabel: '原始附件', showVoucher: false, showAttachment: true }
-  }
-  if (kind === 'invoiceVoucherMatching') {
-    return { statusLabel: '匹配结论', voucherLabel: '目标凭证', attachmentLabel: '源票据', showVoucher: true, showAttachment: true }
-  }
-  if (kind === 'riskCheck') {
-    return { statusLabel: '风险处置', voucherLabel: '修复凭证', attachmentLabel: '检查依据', showVoucher: true, showAttachment: true }
-  }
-  if (kind === 'closingTasks') {
-    return { statusLabel: '执行状态', voucherLabel: '结转凭证', attachmentLabel: '取数快照', showVoucher: true, showAttachment: true }
-  }
-  if (kind === 'attachmentCenter') return { statusLabel: '归档状态', voucherLabel: '关联凭证', attachmentLabel: '文件类型', showVoucher: true, showAttachment: true }
-  if (kind === 'importCenter') return { statusLabel: '写入状态', voucherLabel: '目标草稿', attachmentLabel: '导入文件', showVoucher: true, showAttachment: true }
-  if (kind === 'exportCenter') return { statusLabel: '生成状态', voucherLabel: '输出范围', attachmentLabel: '输出文件', showVoucher: false, showAttachment: true }
-  if (kind === 'notificationCenter') return { statusLabel: '待办状态', voucherLabel: '关联事项', attachmentLabel: '处理依据', showVoucher: true, showAttachment: true }
-  if (['depreciation', 'inventorySettings', 'inventoryMovement', 'costCarryover'].includes(kind)) {
-    return { statusLabel: '核算状态', voucherLabel: '计提/结转凭证', attachmentLabel: '核算依据', showVoucher: kind !== 'inventorySettings', showAttachment: true }
-  }
-  if (['billList', 'bankStatement', 'bankReconciliation', 'transfer', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind)) {
-    return { statusLabel: '核对状态', voucherLabel: '关联凭证', attachmentLabel: '回单/附件', showVoucher: true, showAttachment: true }
-  }
-  if (kind === 'taxInit' || kind === 'taxReport' || kind === 'declarationCalendar' || kind === 'declarationReceipt' || kind.endsWith('TaxReport') || kind === 'nonTaxRevenueReport') {
-    return { statusLabel: '申报状态', voucherLabel: '申报包', attachmentLabel: '回执/附件', showVoucher: true, showAttachment: true }
-  }
-  if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) {
-    return { statusLabel: '人工确认', voucherLabel: '凭证草稿', attachmentLabel: '来源附件', showVoucher: true, showAttachment: true }
-  }
-  if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') {
-    return { statusLabel: '取数状态', voucherLabel: '凭证穿透', attachmentLabel: '报表附件', showVoucher: false, showAttachment: false }
-  }
-  if (kind.includes('Archive') || kind.includes('Settings') || kind.includes('Rules') || ['settingsData', 'companyInfo', 'initialBalance', 'subjectSettings', 'taxInit', 'unitSettings', 'periodManagement', 'auditLog', 'backupRestore', 'voucherRecycle'].includes(kind)) {
-    return { statusLabel: '配置状态', voucherLabel: '关联凭证', attachmentLabel: '支持材料', showVoucher: false, showAttachment: false }
-  }
-  return defaultMeta
+  return metadata[kind]
 }
 
 function getModuleTabs(kind: ModuleKind) {
