@@ -5590,6 +5590,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     { id: 'preview-period-2026-04', company_id: 'preview-company', period_year: 2026, period_month: 4, start_date: '2026-04-01', end_date: '2026-04-30', status: 'closed', closed_at: '2026-05-05T09:30:00.000Z', closed_by: 'admin', created_at: '2026-04-01T00:00:00.000Z', updated_at: '2026-05-05T09:30:00.000Z' },
     { id: 'preview-period-2026-05', company_id: 'preview-company', period_year: 2026, period_month: 5, start_date: '2026-05-01', end_date: '2026-05-31', status: 'open', closed_at: null, closed_by: null, created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' },
   ])
+  const [previewInvoiceMatchCandidates, setPreviewInvoiceMatchCandidates] = useState<Array<Pick<Invoice, 'id' | 'invoice_no' | 'total_amount' | 'voucher_id'>>>([
+    { id: 'preview-match-invoice-001', invoice_no: '031002400128', total_amount: 18300, voucher_id: null },
+    { id: 'preview-match-invoice-002', invoice_no: '031002400139', total_amount: 9800, voucher_id: null },
+  ])
+  const [previewVoucherMatchCandidates] = useState<Array<Pick<Voucher, 'id' | 'voucher_number' | 'total_debit' | 'summary' | 'status'>>>([
+    { id: 'preview-match-voucher-001', voucher_number: '记-0063', total_debit: 18000, summary: '采购原材料', status: 'draft' },
+    { id: 'preview-match-voucher-002', voucher_number: '记-0068', total_debit: 9800, summary: '技术服务费', status: 'draft' },
+  ])
+  const invoiceMatchCandidates = isTauri ? invoices : previewInvoiceMatchCandidates
+  const voucherMatchCandidates = isTauri ? vouchers : previewVoucherMatchCandidates
   const effectiveAssetCategories = isTauri ? assetCategories : previewAssetCategories
   const effectiveBusinessTags = isTauri ? businessTags : previewBusinessTags
   const effectiveAdapterAuthorizations = isTauri ? adapterAuthorizations : previewAdapterAuthorizations
@@ -7632,10 +7642,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       reviewControlEvidence('recycle')
       return
     }
-    if (kind === 'invoiceVoucherMatching' && isTauri && selectedCompanyId) {
-      setSelectedMatchInvoiceId((current) => current || invoices.find((invoice) => !invoice.voucher_id)?.id || '')
-      setSelectedMatchVoucherId((current) => current || vouchers[0]?.id || '')
-      setShowInvoiceVoucherMatchDialog(true)
+    if (kind === 'invoiceVoucherMatching') {
+      openInvoiceVoucherMatching()
       return
     }
     if (kind === 'voucher') {
@@ -7971,14 +7979,28 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleMatchInvoiceToVoucher = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!selectedCompanyId || !selectedMatchInvoiceId || !selectedMatchVoucherId) {
+    if (!selectedMatchInvoiceId || !selectedMatchVoucherId) {
       setOperationNotice('请选择需要关联的发票和凭证。')
       return
     }
+    const invoice = invoiceMatchCandidates.find((item) => item.id === selectedMatchInvoiceId)
+    const voucher = voucherMatchCandidates.find((item) => item.id === selectedMatchVoucherId)
+    if (!invoice || !voucher) {
+      setOperationNotice('匹配候选记录已变化，请重新选择发票和凭证。')
+      return
+    }
+    if (!isTauri) {
+      setPreviewInvoiceMatchCandidates((items) => items.map((item) => item.id === invoice.id ? { ...item, voucher_id: voucher.id } : item))
+      writeModuleAudit('人工匹配发票与凭证', `${invoice.invoice_no}｜${voucher.voucher_number}`, '中', '成功')
+      setShowInvoiceVoucherMatchDialog(false)
+      setSelectedMatchInvoiceId('')
+      setSelectedMatchVoucherId('')
+      setOperationNotice(`当前预览已关联发票 ${invoice.invoice_no} 与凭证 ${voucher.voucher_number}；金额差异仍保留待人工复核，不会生成或入账凭证。`)
+      return
+    }
+    if (!selectedCompanyId) return
     try {
       await matchInvoiceToVoucher(selectedMatchInvoiceId, selectedMatchVoucherId, selectedCompanyId)
-      const invoice = invoices.find((item) => item.id === selectedMatchInvoiceId)
-      const voucher = vouchers.find((item) => item.id === selectedMatchVoucherId)
       writeModuleAudit('人工匹配发票与凭证', `${invoice?.invoice_no || selectedMatchInvoiceId}｜${voucher?.voucher_number || selectedMatchVoucherId}`, '中', '成功')
       setShowInvoiceVoucherMatchDialog(false)
       setOperationNotice(`已关联发票 ${invoice?.invoice_no || ''} 与凭证 ${voucher?.voucher_number || ''}；金额差异仍需人工复核。`)
@@ -11172,8 +11194,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openInvoiceVoucherMatching = () => {
-    setSelectedMatchInvoiceId((current) => current || invoices.find((invoice) => !invoice.voucher_id)?.id || '')
-    setSelectedMatchVoucherId((current) => current || vouchers[0]?.id || '')
+    setSelectedMatchInvoiceId((current) => current || invoiceMatchCandidates.find((invoice) => !invoice.voucher_id)?.id || '')
+    setSelectedMatchVoucherId((current) => current || voucherMatchCandidates[0]?.id || '')
     setShowInvoiceVoucherMatchDialog(true)
   }
 
@@ -12089,14 +12111,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 发票
                 <select required value={selectedMatchInvoiceId} onChange={(event) => setSelectedMatchInvoiceId(event.target.value)} className="h-8 border border-slate-300 bg-white px-2 text-sm text-slate-900">
                   <option value="">请选择发票</option>
-                  {invoices.filter((invoice) => !invoice.voucher_id || invoice.id === selectedMatchInvoiceId).map((invoice) => <option key={invoice.id} value={invoice.id}>{invoice.invoice_no} | ¥{invoice.total_amount.toFixed(2)}</option>)}
+                  {invoiceMatchCandidates.filter((invoice) => !invoice.voucher_id || invoice.id === selectedMatchInvoiceId).map((invoice) => <option key={invoice.id} value={invoice.id}>{invoice.invoice_no} | ¥{invoice.total_amount.toFixed(2)}</option>)}
                 </select>
               </label>
               <label className="grid gap-1 text-xs text-slate-600">
                 凭证
                 <select required value={selectedMatchVoucherId} onChange={(event) => setSelectedMatchVoucherId(event.target.value)} className="h-8 border border-slate-300 bg-white px-2 text-sm text-slate-900">
                   <option value="">请选择凭证</option>
-                  {vouchers.filter((voucher) => voucher.status !== 'reversed').map((voucher) => <option key={voucher.id} value={voucher.id}>{voucher.voucher_number} | ¥{voucher.total_debit.toFixed(2)} | {voucher.summary || '无摘要'}</option>)}
+                  {voucherMatchCandidates.filter((voucher) => voucher.status !== 'reversed').map((voucher) => <option key={voucher.id} value={voucher.id}>{voucher.voucher_number} | ¥{voucher.total_debit.toFixed(2)} | {voucher.summary || '无摘要'}</option>)}
                 </select>
               </label>
             </div>
