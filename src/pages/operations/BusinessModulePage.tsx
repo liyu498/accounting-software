@@ -5560,6 +5560,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [companyAccountDraft, setCompanyAccountDraft] = useState({ accountName: '', accountType: '银行账户', bankName: '', accountNumber: '', subjectCode: '1002 银行存款', openingBalance: '0', attachmentNote: '', status: '启用' as '启用' | '停用' })
   const [showCompanyInfoDialog, setShowCompanyInfoDialog] = useState(false)
   const [companyInfoDraft, setCompanyInfoDraft] = useState({ code: '', name: '', taxId: '', taxpayerType: 'general', province: '', city: '', district: '', accountingSystem: 'small_enterprise', enableYear: String(new Date().getFullYear()), enableMonth: String(new Date().getMonth() + 1), serviceStart: '', serviceEnd: '', industry: '', enterpriseType: '私营有限责任公司' })
+  const [previewCompanyInfo, setPreviewCompanyInfo] = useState<typeof companyInfoDraft | null>(null)
   const [showSubjectDialog, setShowSubjectDialog] = useState(false)
   const [editingSubjectCode, setEditingSubjectCode] = useState<string | null>(null)
   const [subjectDraft, setSubjectDraft] = useState({ code: '', name: '', accountType: '资产类', normalBalance: 'debit', level: '1', parentCode: '', isDetail: true, hasQuantity: false, defaultUnit: '', hasAuxiliary: false })
@@ -8783,20 +8784,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const openCompanyInfoEditor = () => {
     const company = selectedCompany
     setCompanyInfoDraft({
-      code: company?.code || '20258497',
-      name: company?.name || '科旋电气（上海）有限公司',
-      taxId: company?.tax_id || '91310115MA1K3****X',
-      taxpayerType: company?.tax_type || 'general',
-      province: company?.province || '上海市',
-      city: company?.city || '上海市',
-      district: company?.district || '浦东新区',
-      accountingSystem: company?.accounting_system || 'small_enterprise',
-      enableYear: String(company?.enable_year || new Date().getFullYear()),
-      enableMonth: String(company?.enable_month || new Date().getMonth() + 1),
-      serviceStart: company?.service_start || '',
-      serviceEnd: company?.service_end || '',
-      industry: company?.industry || '',
-      enterpriseType: company?.enterprise_type || '私营有限责任公司',
+      ...(previewCompanyInfo || {
+        code: company?.code || '20258497', name: company?.name || '科旋电气（上海）有限公司', taxId: company?.tax_id || '91310115MA1K3****X', taxpayerType: company?.tax_type || 'general', province: company?.province || '上海市', city: company?.city || '上海市', district: company?.district || '浦东新区', accountingSystem: company?.accounting_system || 'small_enterprise', enableYear: String(company?.enable_year || new Date().getFullYear()), enableMonth: String(company?.enable_month || new Date().getMonth() + 1), serviceStart: company?.service_start || '', serviceEnd: company?.service_end || '', industry: company?.industry || '', enterpriseType: company?.enterprise_type || '私营有限责任公司',
+      }),
     })
     setShowCompanyInfoDialog(true)
   }
@@ -8808,6 +8798,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (!isTauri) {
+      setPreviewCompanyInfo({ ...companyInfoDraft })
       writeModuleAudit('预览企业资料保存', `${companyInfoDraft.code}｜${companyInfoDraft.name}`, '高', '成功')
       setOperationNotice('浏览器预览已完成企业资料校验；桌面端保存会写入当前账套，不会保存税局、个税或工商密码。')
       setShowCompanyInfoDialog(false)
