@@ -1812,6 +1812,10 @@ for (const requiredBusinessRiskConfirmationSnippet of [
   }
 }
 
+if (pageSource.includes('window.confirm')) {
+  errors.push('business module page: native confirmation dialogs must use the in-app risk confirmation panel')
+}
+
 if (errors.length > 0) {
   console.error('Live data adapter verification failed:')
   for (const error of errors) console.error(`- ${error}`)

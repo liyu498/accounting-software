@@ -8068,7 +8068,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleDeleteSettlementRule = async () => {
     if (!isTauri && editingSettlementRuleId) {
       const rule = previewSettlementRules.find((item) => item.id === editingSettlementRuleId)
-      if (!window.confirm(`确认删除结转规则“${rule?.name || ''}”吗？`)) return
+      if (!await requestBusinessRiskConfirmation('确认删除结转规则', `确认删除结转规则“${rule?.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
       setPreviewSettlementRules((items) => items.filter((item) => item.id !== editingSettlementRuleId))
       writeModuleAudit('删除结转规则', rule?.name || editingSettlementRuleId, '高', '成功')
       setOperationNotice(`已从当前预览删除结转规则“${rule?.name || ''}”。`)
@@ -8078,7 +8078,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (!selectedCompanyId || !editingSettlementRuleId) return
     const rule = settlementRules.find((item) => item.id === editingSettlementRuleId)
-    if (!window.confirm(`确认删除结转规则“${rule?.name || ''}”吗？`)) return
+    if (!await requestBusinessRiskConfirmation('确认删除结转规则', `确认删除结转规则“${rule?.name || ''}”吗？不会影响已经生成的历史凭证。`, '删除')) return
     try {
       await deleteSettlementRule(editingSettlementRuleId, selectedCompanyId)
       writeModuleAudit('删除结转规则', rule?.name || editingSettlementRuleId, '高', '成功')
@@ -8130,7 +8130,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleDeleteCurrency = async () => {
     if (!selectedCompanyId || !editingCurrencyId) return
     const currency = currencies.find((item) => item.id === editingCurrencyId)
-    if (!window.confirm(`确认删除币别 ${currency?.code || ''} 吗？`)) return
+    if (!await requestBusinessRiskConfirmation('确认删除币别', `确认删除币别 ${currency?.code || ''} 吗？已存在的历史业务不会变更。`, '删除')) return
     try {
       await deleteCurrency(editingCurrencyId, selectedCompanyId)
       writeModuleAudit('删除币别', currency?.code || editingCurrencyId, '高', '成功')
@@ -8176,7 +8176,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleDeleteCommonDigest = async () => {
     if (!selectedCompanyId || !editingCommonDigestId) return
     const digest = commonDigests.find((item) => item.id === editingCommonDigestId)
-    if (!window.confirm(`确认删除常用摘要“${digest?.content || ''}”吗？`)) return
+    if (!await requestBusinessRiskConfirmation('确认删除常用摘要', `确认删除常用摘要“${digest?.content || ''}”吗？不会影响历史凭证。`, '删除')) return
     try {
       await deleteCommonDigest(editingCommonDigestId, selectedCompanyId)
       writeModuleAudit('删除常用摘要', digest?.content || editingCommonDigestId, '高', '成功')
@@ -8235,7 +8235,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleDeleteVoucherTemplate = async () => {
     if (!selectedCompanyId || !editingVoucherTemplateId) return
     const template = voucherTemplates.find((item) => item.template.id === editingVoucherTemplateId)
-    if (!window.confirm(`确认删除凭证模板“${template?.template.name || ''}”吗？`)) return
+    if (!await requestBusinessRiskConfirmation('确认删除凭证模板', `确认删除凭证模板“${template?.template.name || ''}”吗？不会影响历史凭证。`, '删除')) return
     try {
       await deleteVoucherTemplate(editingVoucherTemplateId, selectedCompanyId)
       writeModuleAudit('删除凭证模板', template?.template.name || editingVoucherTemplateId, '高', '成功')
@@ -8352,7 +8352,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     const item = reportItems.find((current) => current.id === editingReportFormulaId)
     const template = item ? reportTemplates.find((current) => current.id === item.template_id) : undefined
     const impact = template?.is_system === 1 ? '该标准报表模板会影响所有账套的后续取数。确认已完成复核后保存吗？' : '确认保存当前账套报表模板公式吗？'
-    if (!window.confirm(impact)) return
+    if (!await requestBusinessRiskConfirmation('确认保存报表公式', impact, '确认保存')) return
     try {
       const result = await updateReportItem({
         id: editingReportFormulaId,
@@ -8438,7 +8438,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleDeleteMatchingRule = async () => {
     if (!isTauri && editingMatchingRuleId) {
       const rule = previewMatchingRules.find((item) => item.id === editingMatchingRuleId)
-      if (!window.confirm(`确认删除规则“${rule?.name || ''}”吗？`)) return
+      if (!await requestBusinessRiskConfirmation('确认删除自动匹配规则', `确认删除规则“${rule?.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
       setPreviewMatchingRules((items) => items.filter((item) => item.id !== editingMatchingRuleId))
       writeModuleAudit('删除自动匹配规则', rule?.name || editingMatchingRuleId, '高', '成功')
       setOperationNotice(`已从当前预览删除自动匹配规则“${rule?.name || ''}”。`)
@@ -8448,7 +8448,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (!selectedCompanyId || !editingMatchingRuleId) return
     const rule = matchingRules.find((item) => item.id === editingMatchingRuleId)
-    if (!rule || !window.confirm(`确认删除规则“${rule.name}”吗？`)) return
+    if (!rule) return
+    if (!await requestBusinessRiskConfirmation('确认删除自动匹配规则', `确认删除规则“${rule.name}”吗？已生成的建议和历史凭证不会变更。`, '删除')) return
     try { await deleteMatchingRule(rule.id, selectedCompanyId); writeModuleAudit('删除自动匹配规则', `${rule.rule_scope}｜${rule.name}`, '高', '成功'); setOperationNotice(`规则“${rule.name}”已删除。`); resetMatchingRuleDraft(); setShowMatchingRuleDialog(false) }
     catch (error) { setOperationNotice(`删除自动匹配规则失败：${String(error)}`) }
   }
@@ -8512,7 +8513,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleDeleteAssetCategory = async () => {
     if (!isTauri && editingAssetCategoryId) {
       const category = previewAssetCategories.find((item) => item.id === editingAssetCategoryId)
-      if (!window.confirm(`确认删除资产类别“${category?.name || ''}”吗？`)) return
+      if (!await requestBusinessRiskConfirmation('确认删除资产类别', `确认删除资产类别“${category?.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
       setPreviewAssetCategories((items) => items.filter((item) => item.id !== editingAssetCategoryId))
       writeModuleAudit('删除资产类别', category ? `${category.code}｜${category.name}` : editingAssetCategoryId, '高', '成功')
       setOperationNotice(`已从当前预览删除资产类别“${category?.name || ''}”。`)
@@ -8522,7 +8523,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (!selectedCompanyId || !editingAssetCategoryId) return
     const category = assetCategories.find((item) => item.id === editingAssetCategoryId)
-    if (!category || !window.confirm(`确认删除资产类别“${category.name}”吗？`)) return
+    if (!category) return
+    if (!await requestBusinessRiskConfirmation('确认删除资产类别', `确认删除资产类别“${category.name}”吗？已有资产引用时系统会阻止删除。`, '删除')) return
     try { await deleteAssetCategory(category.id, selectedCompanyId); writeModuleAudit('删除资产类别', `${category.code}｜${category.name}`, '高', '成功'); setOperationNotice(`资产类别“${category.name}”已删除。`); resetAssetCategoryDraft(); setShowAssetCategoryDialog(false) }
     catch (error) { setOperationNotice(`删除资产类别失败：${String(error)}`) }
   }
@@ -8582,7 +8584,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleDeleteBusinessTag = async () => {
     if (!isTauri && editingBusinessTagId) {
       const tag = previewBusinessTags.find((item) => item.id === editingBusinessTagId)
-      if (!window.confirm(`确认删除标签“${tag?.name || ''}”吗？`)) return
+      if (!await requestBusinessRiskConfirmation('确认删除业务标签', `确认删除标签“${tag?.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
       setPreviewBusinessTags((items) => items.filter((item) => item.id !== editingBusinessTagId))
       writeModuleAudit('删除业务标签', tag ? `${tag.color_name}｜${tag.name}` : editingBusinessTagId, '高', '成功')
       setOperationNotice(`已从当前预览删除业务标签“${tag?.name || ''}”。`)
@@ -8592,7 +8594,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (!selectedCompanyId || !editingBusinessTagId) return
     const tag = businessTags.find((item) => item.id === editingBusinessTagId)
-    if (!tag || !window.confirm(`确认删除标签“${tag.name}”吗？`)) return
+    if (!tag) return
+    if (!await requestBusinessRiskConfirmation('确认删除业务标签', `确认删除标签“${tag.name}”吗？已关联的历史业务不会变更。`, '删除')) return
     try { await deleteBusinessTag(tag.id, selectedCompanyId); writeModuleAudit('删除业务标签', `${tag.color_name}｜${tag.name}`, '高', '成功'); setOperationNotice(`标签“${tag.name}”已删除。`); resetBusinessTagDraft(); setShowBusinessTagDialog(false) }
     catch (error) { setOperationNotice(`删除业务标签失败：${String(error)}`) }
   }
@@ -8727,7 +8730,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteSubject = async () => {
     if (!editingSubjectCode || !selectedCompanyId || !isTauri) return
-    if (!window.confirm(`确认删除科目 ${editingSubjectCode} 吗？有下级科目或历史业务引用时将无法删除。`)) return
+    if (!await requestBusinessRiskConfirmation('确认删除会计科目', `确认删除科目 ${editingSubjectCode} 吗？有下级科目或历史业务引用时系统将阻止删除。`, '删除')) return
     try {
       await deleteAccount(editingSubjectCode, selectedCompanyId)
       writeModuleAudit('删除会计科目', editingSubjectCode, '高', '成功')
@@ -8856,7 +8859,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleDeleteAuxiliaryArchive = async () => {
     if (!editingAuxiliaryArchiveItemId || !selectedCompanyId || !isTauri || !isLiveAuxiliaryArchiveKind(kind)) return
     const title = auxiliaryArchiveDefinitions[kind].title
-    if (!window.confirm(`确认删除${title}档案“${auxiliaryArchiveDraft.name}”吗？已有业务引用时系统会阻止删除。`)) return
+    if (!await requestBusinessRiskConfirmation(`确认删除${title}档案`, `确认删除${title}档案“${auxiliaryArchiveDraft.name}”吗？已有业务引用时系统会阻止删除。`, '删除')) return
     try {
       await deleteAuxiliaryItem(editingAuxiliaryArchiveItemId, selectedCompanyId)
       writeModuleAudit(`删除${title}`, auxiliaryArchiveDraft.name, '高', '成功')
@@ -8900,7 +8903,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleDeleteCompanyAccount = async () => {
     if (!selectedCompanyId || !editingCompanyAccountId) return
     const account = companyAccounts.find((item) => item.id === editingCompanyAccountId)
-    if (!account || !window.confirm(`确认删除账户“${account.account_name}”吗？`)) return
+    if (!account) return
+    if (!await requestBusinessRiskConfirmation('确认删除账户档案', `确认删除账户“${account.account_name}”吗？已关联的历史业务不会变更。`, '删除')) return
     try { await deleteCompanyAccount(account.id, selectedCompanyId); writeModuleAudit('删除账户档案', `${account.account_name}｜${account.account_number}`, '高', '成功'); setOperationNotice(`账户“${account.account_name}”已删除。`); resetCompanyAccountDraft(); setShowCompanyAccountDialog(false) }
     catch (error) { setOperationNotice(`删除账户档案失败：${String(error)}`) }
   }
@@ -8950,7 +8954,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice('系统预置辅助核算类别不能删除。')
       return
     }
-    if (!window.confirm(`确认删除辅助核算类别“${category.name}”吗？类别下存在项目或关联科目时会被阻止。`)) return
+    if (!await requestBusinessRiskConfirmation('确认删除辅助核算类别', `确认删除辅助核算类别“${category.name}”吗？类别下存在项目或关联科目时系统会阻止删除。`, '删除')) return
     try {
       await deleteAuxiliaryCategory(category.id, selectedCompanyId)
       writeModuleAudit('删除辅助核算类别', `${category.code}｜${category.name}`, '高', '成功')
@@ -9004,7 +9008,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!selectedCompanyId || !editingAuxiliaryItemId) return
     const item = auxiliaryItems.find((current) => current.id === editingAuxiliaryItemId)
     if (!item) return
-    if (!window.confirm(`确认删除辅助核算项目“${item.name}”吗？已经用于凭证的项目不能删除。`)) return
+    if (!await requestBusinessRiskConfirmation('确认删除辅助核算项目', `确认删除辅助核算项目“${item.name}”吗？已经用于凭证的项目不能删除。`, '删除')) return
     try {
       await deleteAuxiliaryItem(item.id, selectedCompanyId)
       writeModuleAudit('删除辅助核算项目', `${item.code}｜${item.name}`, '高', '成功')
@@ -9021,7 +9025,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     const item = auxiliaryItems.find((current) => current.id === editingAuxiliaryItemId)
     if (!item) return
     const action = item.is_enabled === 1 ? '停用' : '启用'
-    if (!window.confirm(`确认${action}辅助核算项目“${item.name}”吗？`)) return
+    if (!await requestBusinessRiskConfirmation(`确认${action}辅助核算项目`, `确认${action}辅助核算项目“${item.name}”吗？${action}后将影响后续档案和凭证选择。`, `确认${action}`)) return
     try {
       await toggleAuxiliaryItem(item.id, selectedCompanyId)
       writeModuleAudit(`${action}辅助核算项目`, `${item.code}｜${item.name}`, '中', '成功')
@@ -9543,7 +9547,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice(`${task.taxType}存在未处理风险或未通过校验，不能确认。`)
       return
     }
-    if (!window.confirm(`确认 ${task.taxType}（${task.period}）的本地申报事项吗？此操作仅记录人工确认，不会向税局提交。`)) return
+    if (!await requestBusinessRiskConfirmation('确认本地申报事项', `确认 ${task.taxType}（${task.period}）的本地申报事项吗？此操作仅记录人工确认，不会向税局提交或触发扣款。`, '确认本地事项')) return
     const result = await automationApi.confirmTaxDeclarationTask({ id: task.id, companyId: selectedCompanyId, confirmedBy: 'admin' })
     if (!result.success || !result.data) {
       setOperationNotice(`确认申报事项失败：${result.error || '未知错误'}`)
@@ -10118,7 +10122,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {
-      if (!window.confirm(`确认恢复凭证 ${row.voucher} 吗？`)) return
+      if (!await requestBusinessRiskConfirmation('确认恢复凭证', `确认恢复凭证 ${row.voucher} 吗？恢复后仍需人工复核、审核和记账。`, '确认恢复')) return
       try {
         await restoreVoucher(row.id, selectedCompanyId)
         setDeletedVouchers((items) => items.filter((item) => item.id !== row.id))
@@ -10447,7 +10451,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       ? localAttachmentRecords.some((item) => item.id === row.id)
       : kind === 'importCenter' && localImportJobs.some((item) => item.id === row.id)
     if ((kind === 'attachmentCenter' || kind === 'importCenter') && isLocalFileRegistryRow) {
-      if (!window.confirm(`确认撤销 ${row.values.file || row.values.name || row.id} 的本机登记吗？不会删除原始文件或影响已入账数据。`)) return
+      if (!await requestBusinessRiskConfirmation('确认撤销本机登记', `确认撤销 ${row.values.file || row.values.name || row.id} 的本机登记吗？不会删除原始文件或影响已入账数据。`, '确认撤销')) return
       const removed = kind === 'attachmentCenter'
         ? removeLocalAttachment(row.id)
         : removeLocalImportJob(row.id)
@@ -10480,7 +10484,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {
-      if (!window.confirm(`确认彻底删除凭证 ${row.voucher} 吗？此操作不可恢复。`)) return
+      if (!await requestBusinessRiskConfirmation('确认彻底删除凭证', `确认彻底删除凭证 ${row.voucher} 吗？此操作不可恢复，且不会向外部系统发送指令。`, '彻底删除')) return
       try {
         await permanentDeleteVoucher(row.id, selectedCompanyId)
         setDeletedVouchers((items) => items.filter((item) => item.id !== row.id))
@@ -10736,7 +10740,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteVoucher = async () => {
     if (!selectedCompanyId || !loadedVoucher) return
-    if (!window.confirm(`确认将凭证 ${loadedVoucher.voucher_number} 移入回收站吗？`)) return
+    if (!await requestBusinessRiskConfirmation('确认移入凭证回收站', `确认将凭证 ${loadedVoucher.voucher_number} 移入回收站吗？可在回收站人工恢复。`, '移入回收站')) return
     try {
       await deleteVoucher(loadedVoucher.id, selectedCompanyId)
       writeModuleAudit('删除凭证', loadedVoucher.voucher_number, '高', '成功')
@@ -10957,7 +10961,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice('请先勾选至少一条待复核的 AI 训练规则。已发布规则无需重复发布。')
       return
     }
-    if (!window.confirm(`确认完成复核并发布 ${selectedRules.length} 条训练规则吗？发布后仅进入待确认 AI 建议队列，不会自动生成已审核凭证或提交税务。`)) return
+    if (!await requestBusinessRiskConfirmation('确认发布 AI 训练规则', `确认完成复核并发布 ${selectedRules.length} 条训练规则吗？发布后仅进入待确认 AI 建议队列，不会自动生成已审核凭证、提交税务或发起外部操作。`, '确认发布')) return
     try {
       if (isTauri) {
         if (!selectedCompanyId) return
