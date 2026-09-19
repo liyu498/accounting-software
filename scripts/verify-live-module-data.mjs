@@ -1830,6 +1830,17 @@ if (roleManagerSource.includes('confirm(')) {
   errors.push('role manager: native confirmation dialogs must use the in-app role deletion panel')
 }
 
+const moduleConfigStart = pageSource.indexOf('const moduleConfigs')
+const moduleListMetaStart = pageSource.indexOf('function getModuleListMeta')
+const moduleDetailMetaStart = pageSource.indexOf('function getModuleDetailMeta')
+const configuredModuleKinds = [...pageSource.slice(moduleConfigStart, moduleListMetaStart).matchAll(/^  ([A-Za-z][A-Za-z0-9]*): \{/gm)].map((match) => match[1])
+const metadataBlock = pageSource.slice(moduleListMetaStart, pageSource.indexOf('if (metadata[kind])', moduleListMetaStart))
+const directModuleMetadataKinds = [...metadataBlock.matchAll(/^    ([A-Za-z][A-Za-z0-9]*): \{/gm)].map((match) => match[1])
+const missingModuleMetadata = configuredModuleKinds.filter((kind) => !directModuleMetadataKinds.includes(kind))
+if (moduleConfigStart === -1 || moduleListMetaStart === -1 || moduleDetailMetaStart === -1 || missingModuleMetadata.length > 0) {
+  errors.push(`business module page: every module needs dedicated list metadata; missing: ${missingModuleMetadata.join(', ') || 'metadata section'}`)
+}
+
 if (errors.length > 0) {
   console.error('Live data adapter verification failed:')
   for (const error of errors) console.error(`- ${error}`)
