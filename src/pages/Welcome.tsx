@@ -394,7 +394,7 @@ export function Welcome() {
   const navigate = useNavigate()
   const location = useLocation()
   const warningToast = useWarningToast()
-  const { companies, selectCompany, fetchCompanies, createCompany, updateCompany, deactivateCompany, deleteCompany } = useCompanyStore()
+  const { companies, selectCompany, fetchCompanies, createCompany, updateCompany, deactivateCompany } = useCompanyStore()
   const { fetchPeriods, fetchVoucherWords } = usePeriodStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [accountFilters, setAccountFilters] = useState({
@@ -416,6 +416,7 @@ export function Welcome() {
   const [newCompany, setNewCompany] = useState<CompanyForm>(emptyCompanyForm)
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
+  const [pendingRiskAction, setPendingRiskAction] = useState<{ action: 'deactivate' | 'delete'; ids: string[]; label: string } | null>(null)
   const companyImportRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -644,7 +645,32 @@ export function Welcome() {
     await handleSelectCompany(company.id, true)
   }
 
-  const handleBatchDeactivate = async () => {
+  function requestCompanyRiskAction(action: 'deactivate' | 'delete', ids: string[], label: string) {
+    if (ids.length === 0) return
+    setPendingRiskAction({ action, ids, label })
+  }
+
+  const confirmCompanyRiskAction = async () => {
+    if (!pendingRiskAction) return
+
+    if (pendingRiskAction.action === 'delete') {
+      recordWelcomeAudit('提交批量删除审批', pendingRiskAction.label, '高', '待审批')
+      setOperationNotice(`${pendingRiskAction.label} 的删除申请已提交审批；审批通过前不会删除任何账套数据。`)
+      warningToast('删除申请已提交审批，当前不会删除账套数据')
+      setSelectedRows(new Set())
+      setPendingRiskAction(null)
+      return
+    }
+
+    await Promise.all(pendingRiskAction.ids.map((id) => deactivateCompany(id)))
+    recordWelcomeAudit('确认停用账套', pendingRiskAction.label, '高')
+    setOperationNotice(`${pendingRiskAction.label} 已停用；可在“停用”筛选中查看。`)
+    warningToast('账套已停用')
+    setSelectedRows(new Set())
+    setPendingRiskAction(null)
+  }
+
+  const handleBatchDeactivate = () => {
     const ids = Array.from(selectedRows)
     if (ids.length === 0) {
       warningToast('请先勾选需要停用的账套')
@@ -656,12 +682,10 @@ export function Welcome() {
       warningToast('演示数据不可停用，真实账套会调用停用接口')
       return
     }
-    await Promise.all(realIds.map((id) => deactivateCompany(id)))
-    recordWelcomeAudit('批量停用', `${realIds.length} 户真实账套`, '高')
-    setSelectedRows(new Set())
+    requestCompanyRiskAction('deactivate', realIds, `${realIds.length} 户真实账套`)
   }
 
-  const handleBatchDelete = async () => {
+  const handleBatchDelete = () => {
     const ids = Array.from(selectedRows)
     if (ids.length === 0) {
       warningToast('请先勾选需要删除的账套')
@@ -673,9 +697,7 @@ export function Welcome() {
       warningToast('演示数据不可删除，真实账套会进入回收站')
       return
     }
-    await Promise.all(realIds.map((id) => deleteCompany(id)))
-    recordWelcomeAudit('批量删除', `${realIds.length} 户真实账套`, '高')
-    setSelectedRows(new Set())
+    requestCompanyRiskAction('delete', realIds, `${realIds.length} 户真实账套`)
   }
 
   const handleCollect = async (company?: AccountRow) => {
@@ -892,20 +914,22 @@ export function Welcome() {
   }
 
   const handleDeleteCompany = (company: AccountRow) => {
-    recordWelcomeAudit('删除企业申请', `${company.code}-${company.name}`, '高', '待审批')
-    setOperationNotice(`${company.name} 的删除动作已进入高风险待审批；当前不会直接删除账套数据。`)
-    warningToast('删除属于高风险操作，已记录到审计日志并等待审批')
+    if (!company.real) {
+      recordWelcomeAudit('删除企业申请', `${company.code}-${company.name}`, '高', '待审批')
+      setOperationNotice(`${company.name} 是浏览器演示账套，删除申请仅作本地审计留痕。`)
+      warningToast('演示账套不可删除，已记录删除申请')
+      return
+    }
+    requestCompanyRiskAction('delete', [company.id], `${company.code}-${company.name}`)
   }
 
-  const handleDeactivateCompany = async (company: AccountRow) => {
+  const handleDeactivateCompany = (company: AccountRow) => {
     if (!company.real) {
       recordWelcomeAudit('停用企业申请', `${company.code}-${company.name}`, '高', '待审批')
       warningToast('演示账套不可停用，已记录停用申请')
       return
     }
-    await deactivateCompany(company.id)
-    recordWelcomeAudit('停用企业', `${company.code}-${company.name}`, '高')
-    warningToast('账套已停用')
+    requestCompanyRiskAction('deactivate', [company.id], `${company.code}-${company.name}`)
   }
 
   const handleMemoCompany = (company: AccountRow) => {
@@ -1147,6 +1171,34 @@ export function Welcome() {
           </div>
         </section>
       </main>
+
+      {pendingRiskAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-label="确认高风险账套操作">
+          <div className="w-full max-w-md rounded border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-950">
+            <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                {pendingRiskAction.action === 'delete' ? '提交删除审批' : '确认停用账套'}
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                {pendingRiskAction.action === 'delete'
+                  ? '删除属于高风险操作。确认后仅提交本地审批申请，审批通过前不会删除任何账套数据。'
+                  : '停用后账套将不再出现在正常列表中，可在停用账套中查看。'}
+              </p>
+            </div>
+            <div className="px-5 py-4">
+              <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
+                操作对象：{pendingRiskAction.label}
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-slate-200 px-5 py-4 dark:border-slate-700">
+              <Button variant="secondary" onClick={() => setPendingRiskAction(null)}>取消</Button>
+              <Button onClick={() => { void confirmCompanyRiskAction() }}>
+                {pendingRiskAction.action === 'delete' ? '提交删除审批' : '确认停用'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {memoCompany && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">

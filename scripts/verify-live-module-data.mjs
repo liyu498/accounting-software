@@ -1779,6 +1779,17 @@ for (const sensitiveCompanyAuthorizationField of ['taxLoginPassword', 'individua
   }
 }
 
+for (const requiredRiskActionSnippet of [
+  "const [pendingRiskAction, setPendingRiskAction] = useState<{ action: 'deactivate' | 'delete'; ids: string[]; label: string } | null>(null)",
+  'function requestCompanyRiskAction(',
+  "if (pendingRiskAction.action === 'delete') {",
+  'aria-label="确认高风险账套操作"',
+]) {
+  if (!welcomeSource.includes(requiredRiskActionSnippet)) {
+    errors.push(`welcome page: missing account risk-action guard: ${requiredRiskActionSnippet}`)
+  }
+}
+
 if (errors.length > 0) {
   console.error('Live data adapter verification failed:')
   for (const error of errors) console.error(`- ${error}`)
