@@ -10711,7 +10711,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       navigate('/vouchers/new')
       return
     }
+    const readOnlyReviewKinds: ModuleKind[] = [
+      'exportCenter', 'receivablePayableAging', 'riskCheck', 'closingTasks',
+      'ledgerReport', 'trialBalanceReport', 'accountSummaryReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'multiColumnLedgerReport',
+      'financialReport', 'balanceSheetReport', 'incomeStatementReport', 'incomeQuarterReport', 'cashFlowReport', 'cashFlowQuarterReport', 'equityChangeReport',
+      'taxReport', 'vatTaxReport', 'withholdingTaxReport', 'stampTaxReport', 'incomeTaxReport', 'socialSecurityTaxReport', 'financeTaxReport', 'nonTaxRevenueReport',
+      'declarationCalendar', 'settingsData', 'companyInfo', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger', 'auditLog',
+    ]
     const object = rowObjectLabel(row)
+    if (readOnlyReviewKinds.includes(kind)) {
+      writeModuleAudit('查看核验明细', `${title}-${object}`, row.status === '异常' ? '高' : '中', row.status === '异常' ? '待审批' : '成功')
+      setOperationNotice(`已打开 ${object} 的核验上下文。报表、税表和配置清单只支持查看、核验与回链处理；请回到来源业务模块维护数据或生成凭证。`)
+      return
+    }
     const level = row.status === '异常' || isHighRiskAction ? '高' : '中'
     const result = row.status === '异常' || isHighRiskAction ? '待审批' : '成功'
     writeModuleAudit('生成凭证草稿', `${title}-${object}`, level, result)
