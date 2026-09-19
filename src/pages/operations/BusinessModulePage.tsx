@@ -3772,6 +3772,7 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
     { label: '当前记录', value: `${rows.length} 条`, tone: 'blue' },
     { label: '待人工处理', value: `${pendingRows} 条`, tone: pendingRows > 0 ? 'amber' : 'green' },
   ]
+  const moduleReviewHint = getModuleListMeta(kind).hint
 
   if (kind === 'outputInvoice' && tab === '开票汇总') {
     return {
@@ -3863,28 +3864,28 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
   if (['customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'accountArchive', 'assetCategory', 'auxiliaryCategories', 'auxiliaryItems'].includes(kind)) {
     return {
       title: '基础档案使用范围',
-      description: '档案编码、启停、默认科目和业务引用分别留痕。删除或停用前需要检查凭证、单据和辅助核算的历史引用。',
+      description: `${moduleReviewHint} 档案编码、启停、默认科目和业务引用分别留痕。删除或停用前需要检查凭证、单据和辅助核算的历史引用。`,
       metrics: [...commonMetrics, { label: '支持材料', value: `${attachmentRows} 条`, tone: 'green' }],
     }
   }
   if (['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping', 'settlementRules', 'voucherTemplateSettings', 'reportFormulaSettings', 'currencySettings', 'commonDigests'].includes(kind)) {
     return {
       title: '规则与口径生效范围',
-      description: '规则、模板、摘要和汇率只影响后续匹配、凭证建议或取数口径。发布前应人工复核版本和适用范围，历史数据不会被自动重算或覆盖。',
+      description: `${moduleReviewHint} 规则、模板、摘要和汇率只影响后续匹配、凭证建议或取数口径。发布前应人工复核版本和适用范围，历史数据不会被自动重算或覆盖。`,
       metrics: [...commonMetrics, { label: '待复核规则', value: `${pendingRows} 条`, tone: pendingRows > 0 ? 'amber' : 'green' }],
     }
   }
   if (kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') {
     return {
       title: '外部授权边界',
-      description: '此处仅维护授权渠道、范围、状态和审计证据。不会保存明文密码、模拟税局提交或发起银行付款，外部动作必须经授权适配器和人工确认。',
+      description: `${moduleReviewHint} 此处仅维护授权渠道、范围、状态和审计证据。不会保存明文密码、模拟税局提交或发起银行付款，外部动作必须经授权适配器和人工确认。`,
       metrics: [...commonMetrics, { label: '授权证据', value: `${attachmentRows} 条`, tone: 'green' }],
     }
   }
   if (['employee', 'payroll', 'socialSecurity', 'specialDeduction'].includes(kind)) {
     return {
       title: '人员与薪税资料范围',
-      description: '人员档案、工资、社保和专项扣除按当前账期关联复核；缺少证照、工资项或缴费依据的记录不会进入凭证和申报取数。',
+      description: `${moduleReviewHint} 人员档案、工资、社保和专项扣除按当前账期关联复核；缺少证照、工资项或缴费依据的记录不会进入凭证和申报取数。`,
       metrics: [...commonMetrics, { label: '资料附件齐备', value: `${attachmentRows} 条`, tone: 'green' }],
     }
   }
@@ -3932,7 +3933,7 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
   if (['billList', 'bankStatement', 'bankReconciliation', 'transfer', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind)) {
     return {
       title: '资金与往来核对范围',
-      description: '流水、回单、往来余额和核销结果仅生成待确认建议；金额差异和未达项需由经办人复核后才能影响凭证或结账。',
+      description: `${moduleReviewHint} 流水、回单、往来余额和核销结果仅生成待确认建议；金额差异和未达项需由经办人复核后才能影响凭证或结账。`,
       metrics: [...commonMetrics, { label: '已关联凭证', value: `${voucherRows} 条`, tone: 'green' }],
     }
   }
@@ -3960,7 +3961,7 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
   if (kind === 'taxInit' || kind === 'taxReport' || kind === 'declarationCalendar' || kind === 'declarationReceipt' || kind.endsWith('TaxReport') || kind === 'nonTaxRevenueReport') {
     return {
       title: '申报包与回执边界',
-      description: '取数快照、校验结果、申报包和缴款回执分别留痕。系统只生成本地待确认材料，不会自动向税务机关提交或发起扣款。',
+      description: `${moduleReviewHint} 取数快照、校验结果、申报包和缴款回执分别留痕。系统只生成本地待确认材料，不会自动向税务机关提交或发起扣款。`,
       metrics: [...commonMetrics, { label: '已归档回执', value: `${attachmentRows} 条`, tone: 'green' }],
     }
   }
@@ -4009,13 +4010,13 @@ function getWorkspaceTabContext(kind: ModuleKind, tab: string, rows: ModuleRow[]
   if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') {
     return {
       title: '账表取数与勾稽范围',
-      description: '本工作区展示账簿穿透、报表取数和勾稽校验范围；报表导出前仍需复核公式版本、重分类和凭证追溯结果。',
+      description: `${moduleReviewHint} 本工作区展示账簿穿透、报表取数和勾稽校验范围；报表导出前仍需复核公式版本、重分类和凭证追溯结果。`,
       metrics: [...commonMetrics, { label: '可穿透记录', value: `${voucherRows} 条`, tone: 'green' }],
     }
   }
   return {
     title: `${tab}处理范围`,
-    description: '当前页签按筛选条件展示已关联业务记录；涉及数据写入、外部同步或高风险操作时仍须经过规则校验和人工确认。',
+    description: `${moduleReviewHint} 当前页签按筛选条件展示已关联业务记录；涉及数据写入、外部同步或高风险操作时仍须经过规则校验和人工确认。`,
     metrics: [...commonMetrics, { label: '关联附件', value: `${attachmentRows} 条`, tone: 'green' }],
   }
 }
@@ -11248,7 +11249,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const listWorkspaceTitle = activeTab === workspaceTabs[0] ? listMeta.title : `${activeTab} · ${title}`
   const listWorkspaceHint = activeTab === workspaceTabs[0]
     ? listMeta.hint
-    : `当前工作区聚焦${activeTab}，可按筛选条件查看当前账期已关联的业务记录。`
+    : `${listMeta.hint} 当前工作区聚焦${activeTab}，可按筛选条件查看当前账期已关联的业务记录。`
   const workspaceContext = activeTab === workspaceTabs[0]
     ? null
     : getWorkspaceTabContext(kind, activeTab, filteredRows)

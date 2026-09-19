@@ -124,6 +124,8 @@ const errors = [
   ...(!businessSource.includes('附件、影像或回单') ? ['attachment workspace tabs must filter related records'] : []),
   ...(!businessSource.includes('凭证、申报包或草稿') ? ['voucher workspace tabs must filter related records'] : []),
   ...(!businessSource.includes('getWorkspaceTabContext') ? ['workspace tabs must provide domain-specific context'] : []),
+  ...(!businessSource.includes('const moduleReviewHint = getModuleListMeta(kind).hint') ? ['workspace context fallbacks must retain the dedicated module review hint'] : []),
+  ...(!businessSource.includes('`${listMeta.hint} 当前工作区聚焦${activeTab}') ? ['secondary workspace tabs must retain the dedicated module review hint'] : []),
   ...(!businessSource.includes('开票汇总取数') ? ['invoice summary tabs must show invoice-specific context'] : []),
   ...(!businessSource.includes('申报包与回执边界') ? ['tax workspace tabs must show declaration-specific context'] : []),
   ...(!businessSource.includes('AI任务执行范围') || !businessSource.includes('凭证建议确认范围') ? ['AI workspace tabs must show review-specific context'] : []),
