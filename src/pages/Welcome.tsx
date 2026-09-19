@@ -172,10 +172,7 @@ const emptyCompanyForm = {
   taxLoginIdentity: '',
   taxLoginMethod: '',
   taxLoginAccount: '',
-  taxLoginPassword: '',
-  individualVerifyMethod: '申报密码登录',
-  individualTaxPassword: '',
-  businessContactId: '',
+  individualVerifyMethod: '待确认',
   businessContactPhone: '',
   businessContactEmail: '',
 }
@@ -343,7 +340,7 @@ function buildCompanyAuthorizationInputs(companyId: string, company: CompanyForm
     })
   }
 
-  if (company.individualTaxPassword || company.individualVerifyMethod !== '申报密码登录') {
+  if (company.individualVerifyMethod !== '待确认') {
     inputs.push({
       companyId,
       adapterType: 'individual_tax',
@@ -357,7 +354,7 @@ function buildCompanyAuthorizationInputs(companyId: string, company: CompanyForm
     })
   }
 
-  if ([company.businessContactId, company.businessContactPhone, company.businessContactEmail].some(Boolean)) {
+  if ([company.businessContactPhone, company.businessContactEmail].some(Boolean)) {
     inputs.push({
       companyId,
       adapterType: 'industrial_commercial',
@@ -1237,43 +1234,34 @@ export function Welcome() {
                 </FormRow>
               </FormSection>
 
-              <FormSection title="税务登录信息">
+              <FormSection title="税务授权信息">
                 <FormRow label="人员" required>
                   <div>
                     <Select value={newCompany.taxLoginPerson} onChange={(value) => setNewCompany({ ...newCompany, taxLoginPerson: value })} options={['', '法人', '财务负责人', '办税员']} labels={{ '': '---请选择人员---' }} />
                   </div>
                 </FormRow>
-                <FormRow label="登录身份">
+                <FormRow label="授权身份">
                   <Select value={newCompany.taxLoginIdentity} onChange={(value) => setNewCompany({ ...newCompany, taxLoginIdentity: value })} options={['', '法人', '财务负责人', '办税员', '代理记账人员']} labels={{ '': '--请选择--' }} />
                 </FormRow>
-                <FormRow label="登录方式" required>
-                  <Select value={newCompany.taxLoginMethod} onChange={(value) => setNewCompany({ ...newCompany, taxLoginMethod: value })} options={['', '电子税务局账号密码', '办税人手机号验证码', '代理记账登录']} labels={{ '': '---请选择登录方式---' }} />
+                <FormRow label="授权方式" required>
+                  <Select value={newCompany.taxLoginMethod} onChange={(value) => setNewCompany({ ...newCompany, taxLoginMethod: value })} options={['', '电子税务局授权', '办税人员授权', '代理记账授权']} labels={{ '': '---请选择授权方式---' }} />
                 </FormRow>
-                <FormRow label="登录账号">
+                <FormRow label="账号标识（脱敏）">
                   <TextInput value={newCompany.taxLoginAccount} onChange={(value) => setNewCompany({ ...newCompany, taxLoginAccount: value })} />
                 </FormRow>
-                <FormRow label="登录密码">
-                  <TextInput type="password" value={newCompany.taxLoginPassword} onChange={(value) => setNewCompany({ ...newCompany, taxLoginPassword: value })} />
+              </FormSection>
+
+              <FormSection title="个税授权方式">
+                <FormRow label="授权状态" required>
+                  <Select value={newCompany.individualVerifyMethod} onChange={(value) => setNewCompany({ ...newCompany, individualVerifyMethod: value })} options={['待确认', '自然人电子税务局授权', '办税人员授权']} />
                 </FormRow>
               </FormSection>
 
-              <FormSection title="个税验证方式">
-                <FormRow label="验证方式" required>
-                  <Select value={newCompany.individualVerifyMethod} onChange={(value) => setNewCompany({ ...newCompany, individualVerifyMethod: value })} options={['申报密码登录', '自然人电子税务局账号', '办税人短信验证']} />
-                </FormRow>
-                <FormRow label="个税申报密码" required>
-                  <TextInput type="password" value={newCompany.individualTaxPassword} onChange={(value) => setNewCompany({ ...newCompany, individualTaxPassword: value })} />
-                </FormRow>
-              </FormSection>
-
-              <FormSection title="工商系统登录信息">
-                <FormRow label="工商联络员身份证号码">
-                  <TextInput value={newCompany.businessContactId} onChange={(value) => setNewCompany({ ...newCompany, businessContactId: value })} />
-                </FormRow>
-                <FormRow label="工商联络员手机号码">
+              <FormSection title="工商授权联系人">
+                <FormRow label="联系人手机号码（脱敏）">
                   <TextInput value={newCompany.businessContactPhone} onChange={(value) => setNewCompany({ ...newCompany, businessContactPhone: value })} />
                 </FormRow>
-                <FormRow label="工商联络员邮箱">
+                <FormRow label="联系人邮箱">
                   <TextInput value={newCompany.businessContactEmail} onChange={(value) => setNewCompany({ ...newCompany, businessContactEmail: value })} />
                 </FormRow>
               </FormSection>
