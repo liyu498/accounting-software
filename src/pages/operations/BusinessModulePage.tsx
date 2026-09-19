@@ -5463,6 +5463,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [localBackups, setLocalBackups] = useState<LocalBackupSnapshot[]>([])
   const [backupValidations, setBackupValidations] = useState<Record<string, LocalBackupVerification>>({})
   const [companyTodos, setCompanyTodos] = useState<CompanyTodo[]>([])
+  const [previewCompanyTodos, setPreviewCompanyTodos] = useState<CompanyTodo[]>([
+    { id: 'preview-todo-001', companyId: 'browser-preview', companyName: '科旋电气', period: '2026-05', title: '客户补传银行回单', sourceModule: '附件资料', priority: 'high', owner: '王会计', dueDate: '2026-06-26', relatedEntry: null, evidence: '资料', note: '等待客户补传', status: 'open', completedAt: null, completedBy: null, createdAt: '2026-06-26T09:00:00Z', updatedAt: '2026-06-26T09:00:00Z' },
+    { id: 'preview-todo-002', companyId: 'browser-preview', companyName: '科旋电气', period: '2026-05', title: '增值税申报包确认', sourceModule: '税务申报', priority: 'high', owner: '李会计', dueDate: '2026-06-30', relatedEntry: '申报包', evidence: '风险项', note: '待人工确认', status: 'review', completedAt: null, completedBy: null, createdAt: '2026-06-26T09:10:00Z', updatedAt: '2026-06-26T09:10:00Z' },
+    { id: 'preview-todo-003', companyId: 'browser-preview', companyName: '科旋电气', period: '2026-05', title: '凭证借贷不平', sourceModule: '风险检查', priority: 'blocking', owner: '赵会计', dueDate: '2026-06-25', relatedEntry: '记-0062', evidence: '检查结果', note: '需回到凭证模块修复', status: 'blocked', completedAt: null, completedBy: null, createdAt: '2026-06-26T09:20:00Z', updatedAt: '2026-06-26T09:20:00Z' },
+  ])
   const [showCompanyTodoDialog, setShowCompanyTodoDialog] = useState(false)
   const [companyTodoDraft, setCompanyTodoDraft] = useState({ title: '', sourceModule: '资料采集', priority: 'normal' as CompanyTodo['priority'], owner: '', dueDate: '', relatedEntry: '', evidence: '', note: '' })
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -6303,6 +6308,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodId, fetchAuxiliaryBalance, kind, selectedAuxiliaryCategoryId, selectedCompanyId, usesLiveLedgerDetailData])
 
   const config = useMemo(() => {
+    if (kind === 'notificationCenter' && !isTauri) {
+      return { ...baseConfig, rows: mapLiveCompanyTodoRows(previewCompanyTodos, '科旋电气'), summary: summarizeLiveCompanyTodos(previewCompanyTodos) }
+    }
     if (kind === 'aiJobQueue' && !isTauri) {
       const jobs = [...automationJobs, ...previewAiQueueJobs]
       return {
@@ -6970,7 +6978,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewConfirmedAiSuggestionIds, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewReviewedAiRecognitionIds, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCompanyTodos, previewConfirmedAiSuggestionIds, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewReviewedAiRecognitionIds, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
   const tableMeta = getModuleTableMeta(kind)
@@ -7555,6 +7563,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice('请先选择账套，再新建待办。')
       return
     }
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const todo: CompanyTodo = { id: `preview-todo-${Date.now()}`, companyId: 'browser-preview', companyName: '科旋电气', period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, title: companyTodoDraft.title.trim(), sourceModule: companyTodoDraft.sourceModule.trim(), priority: companyTodoDraft.priority, owner: companyTodoDraft.owner.trim() || null, dueDate: companyTodoDraft.dueDate || null, relatedEntry: companyTodoDraft.relatedEntry.trim() || null, evidence: companyTodoDraft.evidence.trim() || null, note: companyTodoDraft.note.trim() || null, status: 'open', completedAt: null, completedBy: null, createdAt: timestamp, updatedAt: timestamp }
+      setPreviewCompanyTodos((todos) => [todo, ...todos])
+      setShowCompanyTodoDialog(false)
+      writeModuleAudit('新增账套待办', `${todo.period}｜${todo.title}｜浏览器预览`, todo.priority === 'blocking' ? '高' : '中', '成功')
+      setOperationNotice('待办已保存到本地预览；不会发送短信、邮件或触发外部动作。')
+      return
+    }
     const result = await companyTodoApi.create({
       companyId: selectedCompanyId || 'browser-preview',
       period: currentPeriodLabel === '当前账期' ? undefined : currentPeriodLabel,
@@ -7578,6 +7595,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const completeCompanyTodo = async (todoId: string) => {
+    if (!isTauri) {
+      const todo = previewCompanyTodos.find((item) => item.id === todoId)
+      if (!todo || todo.status === 'completed') return
+      const timestamp = new Date().toISOString()
+      setPreviewCompanyTodos((todos) => todos.map((item) => item.id === todoId ? { ...item, status: 'completed', completedAt: timestamp, completedBy: 'admin', updatedAt: timestamp } : item))
+      writeModuleAudit('完成账套待办', `${todo.period || '当前账期'}｜${todo.title}｜浏览器预览`, '中', '成功')
+      setOperationNotice('待办已标记完成并保留处理时间和操作人；原始业务仍需在对应模块核验。')
+      return
+    }
     const todo = companyTodos.find((item) => item.id === todoId)
     if (todo?.status === 'completed') return
     if (!selectedCompanyId && isTauri) {
@@ -12008,7 +12034,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     ? localAttachmentRecords.some((item) => item.id === row.id)
                     : kind === 'importCenter' && localImportJobs.some((item) => item.id === row.id)
                   const isLocalRegistryModule = kind === 'attachmentCenter' || kind === 'importCenter'
-                  const isCompanyTodoRow = kind === 'notificationCenter' && companyTodos.some((item) => item.id === row.id)
+                  const isCompanyTodoRow = kind === 'notificationCenter' && (isTauri ? companyTodos : previewCompanyTodos).some((item) => item.id === row.id)
                   return (
                   <tr key={row.id} className="hover:bg-[#f8fbff]">
                     <td className="border-b border-slate-100 px-2 py-2">
