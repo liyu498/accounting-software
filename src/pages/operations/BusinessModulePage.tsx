@@ -3453,52 +3453,53 @@ function getModuleListMeta(kind: ModuleKind): ModuleListMeta {
 function getModuleDetailMeta(kind: ModuleKind): ModuleDetailMeta {
   const moduleListMeta = getModuleListMeta(kind)
   const moduleDetailTitle = `${moduleListMeta.title.replace(/清单$/, '')}明细`
+  const withModuleReview = (boundary: string) => `${moduleListMeta.hint} ${boundary}`
   if (kind === 'settingsData') {
-    return { title: moduleDetailTitle, boundary: '查看只读取当前账套的会计制度、账期、输出和权限控制配置；修改已结账账期、授权范围或历史数据必须进入对应受控模块。' }
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取当前账套的会计制度、账期、输出和权限控制配置；修改已结账账期、授权范围或历史数据必须进入对应受控模块。') }
   }
   if (isHistoryMigrationKind(kind)) {
-    return { title: moduleDetailTitle, boundary: '查看只读取所选历史账期、原始导入批次、科目映射和校验结果；迁移写入必须由人工选择目标账期，并不会覆盖当前账期。' }
-  }
-  if (['outputInvoice', 'inputInvoice', 'invoiceSelection', 'invoiceVoucherMatching'].includes(kind)) {
-    return { title: moduleDetailTitle, boundary: '查看只读取当前账套的发票字段、认证或匹配状态和凭证关联；不会采集票池、修改认证勾选或触发开票。' }
-  }
-  if (['employee', 'payroll', 'socialSecurity', 'specialDeduction'].includes(kind)) {
-    return { title: moduleDetailTitle, boundary: '查看只读取当前账套人员、薪酬和申报资料；证件与联系方式按脱敏规则展示，不会发放工资或提交社保、个税数据。' }
-  }
-  if (['receipt', 'documentRegister', 'expenseReimbursement'].includes(kind)) {
-    return { title: moduleDetailTitle, boundary: '查看只读取当前账套的票据、原始单据、报销审批与付款准备信息；不会替代审批、发起付款或直接生成正式凭证。' }
-  }
-  if (['purchaseManagement', 'salesManagement'].includes(kind)) {
-    return { title: moduleDetailTitle, boundary: '查看只读取当前账套采购或销售订单、收发货、发票和收付款关联；实际履约、开票和收付款仍需由经办人员确认。' }
-  }
-  if (kind === 'voucher' || kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
-    return { title: moduleDetailTitle, boundary: '查看只读取当前账套凭证、分录、附件和审核状态；过账、反审核、删除和反结账均需在受控操作中留痕确认。' }
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取所选历史账期、原始导入批次、科目映射和校验结果；迁移写入必须由人工选择目标账期，并不会覆盖当前账期。') }
   }
   if (kind === 'invoiceVoucherMatching') {
-    return { title: moduleDetailTitle, boundary: '查看只读取票据来源、匹配规则、金额差异和凭证关联；自动匹配仅提供候选结果，确认或解除匹配均需人工留痕。' }
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取票据来源、匹配规则、金额差异和凭证关联；自动匹配仅提供候选结果，确认或解除匹配均需人工留痕。') }
+  }
+  if (['outputInvoice', 'inputInvoice', 'invoiceSelection'].includes(kind)) {
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取当前账套的发票字段、认证或匹配状态和凭证关联；不会采集票池、修改认证勾选或触发开票。') }
+  }
+  if (['employee', 'payroll', 'socialSecurity', 'specialDeduction'].includes(kind)) {
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取当前账套人员、薪酬和申报资料；证件与联系方式按脱敏规则展示，不会发放工资或提交社保、个税数据。') }
+  }
+  if (['receipt', 'documentRegister', 'expenseReimbursement'].includes(kind)) {
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取当前账套的票据、原始单据、报销审批与付款准备信息；不会替代审批、发起付款或直接生成正式凭证。') }
+  }
+  if (['purchaseManagement', 'salesManagement'].includes(kind)) {
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取当前账套采购或销售订单、收发货、发票和收付款关联；实际履约、开票和收付款仍需由经办人员确认。') }
+  }
+  if (kind === 'voucher' || kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取当前账套凭证、分录、附件和审核状态；过账、反审核、删除和反结账均需在受控操作中留痕确认。') }
   }
   if (kind === 'riskCheck' || kind === 'closingTasks') {
-    return { title: moduleDetailTitle, boundary: '查看只读取检查规则、取数快照、阻断原因、结转任务和复核记录；不会绕过审批直接修复风险或锁定账期。' }
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取检查规则、取数快照、阻断原因、结转任务和复核记录；不会绕过审批直接修复风险或锁定账期。') }
   }
   if (['attachmentCenter', 'importCenter', 'exportCenter', 'notificationCenter'].includes(kind)) {
-    return { title: moduleDetailTitle, boundary: '查看只读取本地文件、导入导出批次和待办记录；不会上传第三方、覆盖业务数据或发送外部通知。' }
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取本地文件、导入导出批次和待办记录；不会上传第三方、覆盖业务数据或发送外部通知。') }
   }
   if (['depreciation', 'inventorySettings', 'inventoryMovement', 'costCarryover'].includes(kind)) {
-    return { title: moduleDetailTitle, boundary: '查看只读取资产、存货、出入库与成本结转依据；计提、出入库和月末结转必须先完成来源单据与会计口径复核。' }
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取资产、存货、出入库与成本结转依据；计提、出入库和月末结转必须先完成来源单据与会计口径复核。') }
   }
   if (['billList', 'bankStatement', 'bankReconciliation', 'transfer', 'receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind)) {
-    return { title: moduleDetailTitle, boundary: '查看只读取当前账套的流水、核销、对账和账龄记录；不会连接银行、发起付款或变更核销结果。' }
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取当前账套的流水、核销、对账和账龄记录；不会连接银行、发起付款或变更核销结果。') }
   }
   if (kind === 'taxInit' || kind === 'taxReport' || kind === 'declarationCalendar' || kind === 'declarationReceipt' || kind.endsWith('TaxReport') || kind === 'nonTaxRevenueReport') {
-    return { title: moduleDetailTitle, boundary: '查看只读取当前账套税种认定、取数快照、校验状态和回执附件；不会登录税局、提交申报或发起扣款。' }
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取当前账套税种认定、取数快照、校验状态和回执附件；不会登录税局、提交申报或发起扣款。') }
   }
   if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) {
-    return { title: moduleDetailTitle, boundary: '查看只读取 AI 任务来源、识别结果、置信度、规则版本和人工确认记录；不会自动写入凭证或执行外部操作。' }
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取 AI 任务来源、识别结果、置信度、规则版本和人工确认记录；不会自动写入凭证或执行外部操作。') }
   }
   if (kind.includes('Archive') || kind.includes('Settings') || ['companyInfo', 'initialBalance', 'subjectSettings', 'unitSettings', 'periodManagement'].includes(kind)) {
-    return { title: moduleDetailTitle, boundary: '查看只读取当前账套的基础档案、会计口径与启用控制；不会改变配置生效范围或历史账期数据。' }
+    return { title: moduleDetailTitle, boundary: withModuleReview('查看只读取当前账套的基础档案、会计口径与启用控制；不会改变配置生效范围或历史账期数据。') }
   }
-  return { title: moduleDetailTitle, boundary: `${moduleListMeta.hint} 查看操作仅读取当前账套和账期下的本地数据，不会触发外部采集、凭证入账或税局提交。` }
+  return { title: moduleDetailTitle, boundary: withModuleReview('查看操作仅读取当前账套和账期下的本地数据，不会触发外部采集、凭证入账或税局提交。') }
 }
 
 function getModuleTableMeta(kind: ModuleKind): ModuleTableMeta {

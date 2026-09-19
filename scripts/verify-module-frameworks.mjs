@@ -105,6 +105,8 @@ const errors = [
   ...(!businessSource.includes('AI任务执行与确认清单') || !businessSource.includes('OCR识别字段复核清单') || !businessSource.includes('AI凭证建议确认清单') || !businessSource.includes('AI规则训练与发布清单') ? ['AI list pages must describe each processing domain independently'] : []),
   ...(!businessSource.includes('getModuleDetailMeta') ? ['business detail dialogs must be derived per module domain'] : []),
   ...(!businessSource.includes('const moduleDetailTitle = `${moduleListMeta.title.replace(/清单$/, \'\')}明细`') ? ['detail dialogs must derive their title from dedicated module metadata'] : []),
+  ...(!businessSource.includes('const withModuleReview = (boundary: string) => `${moduleListMeta.hint} ${boundary}`') ? ['detail dialogs must prepend the dedicated module review context'] : []),
+  ...(!/if \(kind === 'invoiceVoucherMatching'\) \{[\s\S]*?if \(\['outputInvoice', 'inputInvoice', 'invoiceSelection'\]\.includes\(kind\)\)/.test(businessSource) ? ['invoice matching details must retain their own control boundary'] : []),
   ...(businessSource.includes("return { title: moduleDetailTitle, boundary: '查看只读取当前账套和账期下的本地字段。查看不会触发外部采集、凭证入账或税局提交。' }") ? ['detail dialog fallback must retain the module-specific review context'] : []),
   ...(!businessSource.includes('getModuleTableMeta') ? ['business table columns must be derived per module domain'] : []),
   ...(!businessSource.includes('const metadata: Record<ModuleKind, ModuleTableMeta>') ? ['business table metadata must directly cover every module kind'] : []),
