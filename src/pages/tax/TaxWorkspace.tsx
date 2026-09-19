@@ -408,6 +408,7 @@ export function TaxWorkspace() {
   const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
   const [backendAdapterStatus, setBackendAdapterStatus] = useState('未配置')
   const [selectedDeclarationIds, setSelectedDeclarationIds] = useState<Set<string>>(new Set())
+  const [pendingDeclarationConfirmation, setPendingDeclarationConfirmation] = useState<{ rows: DeclarationRow[]; action: string } | null>(null)
   const [activeTab, setActiveTab] = useState('申报清单')
   const [searchTerm, setSearchTerm] = useState('')
   const [declarationStatusFilter, setDeclarationStatusFilter] = useState('全部')
@@ -617,7 +618,15 @@ export function TaxWorkspace() {
     setOperationNotice(`风险检查已记录：${blockerCount} 条阻断、${reviewCount} 条需复核，阻断项处理前不能提交。`)
   }
 
-  const confirmDeclaration = async (targetRows = currentRows, action = '确认申报') => {
+  function requestDeclarationConfirmation(rows: DeclarationRow[], action: string) {
+    if (rows.length === 0) {
+      setOperationNotice('当前账套尚无待确认申报任务；未向电子税务局提交，也未写入示例数据。')
+      return
+    }
+    setPendingDeclarationConfirmation({ rows, action })
+  }
+
+  const confirmDeclaration = async (targetRows: DeclarationRow[], action: string) => {
     if (targetRows.length === 0) {
       setOperationNotice('当前账套尚无待确认申报任务；未向电子税务局提交，也未写入示例数据。')
       return
@@ -681,8 +690,7 @@ export function TaxWorkspace() {
       setOperationNotice('请先勾选需要确认的申报事项。')
       return
     }
-    if (!window.confirm(`确认将已勾选的 ${selectedDeclarationRows.length} 个税种写入本地申报确认吗？不会向税局提交或发起扣款。`)) return
-    await confirmDeclaration(selectedDeclarationRows, '批量确认申报')
+    requestDeclarationConfirmation(selectedDeclarationRows, '批量确认申报')
   }
 
   const importInitialization = () => {
@@ -1145,7 +1153,7 @@ export function TaxWorkspace() {
             <span className="mx-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">本地任务 {backendTaskCount} · 审计 {backendAuditCount} · adapter {backendAdapterStatus}</span>
             <button
               type="button"
-              onClick={() => void confirmDeclaration()}
+              onClick={() => requestDeclarationConfirmation(currentRows, '确认申报')}
               className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]"
             >
               <Play className="h-3.5 w-3.5" />
@@ -1216,6 +1224,29 @@ export function TaxWorkspace() {
       {showRulesLog && <TaxRulesLogPanel riskRows={visibleRiskRows} logs={visibleRuleLogs} onRiskLink={handleRiskLink} />}
 
       <input ref={taxInitializationInputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={handleTaxInitializationFile} />
+
+      {pendingDeclarationConfirmation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-label="确认本地申报事项">
+          <section className="w-full max-w-lg border border-slate-300 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-950">
+            <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">确认本地申报事项</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                将 {pendingDeclarationConfirmation.rows.length} 个税种标记为本地人工确认。不会向电子税务局提交申报或发起扣款。
+              </p>
+            </div>
+            <div className="space-y-2 px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
+              <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 leading-5 text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
+                确认前会重新校验风险、资料和取数状态；存在阻断项时仅写入待审批审计记录，不会完成本地确认。
+              </div>
+              <div>操作范围：{pendingDeclarationConfirmation.rows.map((row) => row.category).join('、')}</div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-slate-700">
+              <button type="button" onClick={() => setPendingDeclarationConfirmation(null)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700 dark:border-slate-600 dark:text-slate-200">取消</button>
+              <button type="button" onClick={() => { void confirmDeclaration(pendingDeclarationConfirmation.rows, pendingDeclarationConfirmation.action).finally(() => setPendingDeclarationConfirmation(null)) }} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">确认本地申报</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {showColumnSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="申报清单列设置">

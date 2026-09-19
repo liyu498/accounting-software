@@ -555,8 +555,8 @@ const requiredTaxWorkspaceSnippets = [
   ['tax workspace pdf export audit', "action: '导出申报包 PDF'"],
   ['tax workspace print export audit', "action: '打印申报包'"],
   ['tax workspace selection state', 'const [selectedDeclarationIds, setSelectedDeclarationIds] = useState<Set<string>>(new Set())'],
-  ['tax workspace bulk confirmation action', "await confirmDeclaration(selectedDeclarationRows, '批量确认申报')"],
-  ['tax workspace confirmation boundary', '不会向税局提交或发起扣款'],
+  ['tax workspace bulk confirmation action', "requestDeclarationConfirmation(selectedDeclarationRows, '批量确认申报')"],
+  ['tax workspace confirmation boundary', '不会向电子税务局提交申报或发起扣款。'],
   ['tax workspace detail editor state', 'const [showDeclarationDetailDialog, setShowDeclarationDetailDialog] = useState(false)'],
   ['tax workspace detail save binding', 'const saveDeclarationDetail = async'],
   ['tax workspace detail local boundary', '保存仅更新本地取数和校验状态'],
@@ -1787,6 +1787,17 @@ for (const requiredRiskActionSnippet of [
 ]) {
   if (!welcomeSource.includes(requiredRiskActionSnippet)) {
     errors.push(`welcome page: missing account risk-action guard: ${requiredRiskActionSnippet}`)
+  }
+}
+
+for (const requiredTaxConfirmationSnippet of [
+  "const [pendingDeclarationConfirmation, setPendingDeclarationConfirmation] = useState<{ rows: DeclarationRow[]; action: string } | null>(null)",
+  'function requestDeclarationConfirmation(',
+  'aria-label="确认本地申报事项"',
+  '不会向电子税务局提交申报或发起扣款。',
+]) {
+  if (!taxWorkspaceSource.includes(requiredTaxConfirmationSnippet)) {
+    errors.push(`tax workspace: missing local declaration confirmation: ${requiredTaxConfirmationSnippet}`)
   }
 }
 
