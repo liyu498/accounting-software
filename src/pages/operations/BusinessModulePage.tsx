@@ -3169,14 +3169,8 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   },
 }
 
-function getModuleListMeta(kind: ModuleKind, title: string): ModuleListMeta {
-  const defaultMeta: ModuleListMeta = {
-    title: `${title}清单`,
-    hint: '按当前账期、筛选条件和处理状态查看业务记录。',
-    exportHint: '导出按当前筛选、列顺序和金额格式生成；打印沿用当前清单口径。',
-  }
-
-  const metadata: Partial<Record<ModuleKind, ModuleListMeta>> = {
+function getModuleListMeta(kind: ModuleKind): ModuleListMeta {
+  const metadata: Record<ModuleKind, ModuleListMeta> = {
     outputInvoice: {
       title: '销项开票与收款清单',
       hint: '核验开票来源、购方、税率、金额税额、异常票和凭证生成状态。',
@@ -3453,73 +3447,7 @@ function getModuleListMeta(kind: ModuleKind, title: string): ModuleListMeta {
     voucherRecycle: { title: '凭证回收与恢复清单', hint: '跟踪已删除凭证、删除原因、恢复状态、彻底删除审批和审计记录。', exportHint: '导出保留凭证号、删除人、删除时间、原因、恢复与审批状态。' },
   }
 
-  if (metadata[kind]) return metadata[kind]
-
-  const archiveListMeta: Partial<Record<ModuleKind, ModuleListMeta>> = {
-    settingsData: { title: '账套设置与启用控制清单', hint: '集中查看当前账套的会计制度、账期、打印、权限和自动化基础开关。', exportHint: '导出保留设置项、生效范围、变更人、变更时间和审计说明。' },
-    accountArchive: { title: '银行及现金账户档案清单', hint: '维护开户行、账户性质、默认科目、期初余额和流水导入范围。', exportHint: '导出保留账户信息、默认科目、期初口径、启停状态和支持材料。' },
-    customerArchive: { title: '客户往来与辅助核算清单', hint: '维护客户编码、税号、默认应收科目、信用口径和业务引用。', exportHint: '导出保留客户资料、默认科目、信用等级、启停状态和业务引用。' },
-    supplierArchive: { title: '供应商往来与采购核算清单', hint: '维护供应商编码、税号、默认应付科目、采购结算和进项票关联。', exportHint: '导出保留供应商资料、默认科目、结算条件、启停状态和业务引用。' },
-    otherContactArchive: { title: '其他往来单位档案清单', hint: '维护员工、股东、关联方及其他往来单位的辅助核算和默认科目。', exportHint: '导出保留往来单位、分类、默认科目、启停状态和业务引用。' },
-    projectArchive: { title: '项目辅助核算清单', hint: '维护项目编码、所属客户、收入成本归集范围、负责人和启停状态。', exportHint: '导出保留项目资料、客户关联、归集口径、负责人和业务引用。' },
-    departmentArchive: { title: '部门费用归集清单', hint: '维护部门层级、成本费用归集、人员关联和默认核算口径。', exportHint: '导出保留部门资料、上级部门、归集口径、负责人和业务引用。' },
-    tagArchive: { title: '业务标签与筛选口径清单', hint: '维护标签分类、适用业务、筛选口径和启停记录，不改变原始业务数据。', exportHint: '导出保留标签名称、适用模块、生效范围、启停状态和变更记录。' },
-    assetCategory: { title: '资产类别与折旧参数清单', hint: '维护资产类别、折旧年限、残值率、计提科目和适用资产范围。', exportHint: '导出保留资产类别、折旧参数、默认科目、启停状态和支持材料。' },
-    auxiliaryCategories: { title: '辅助核算类别清单', hint: '维护辅助核算类别、适用科目、项目数量和启停控制。', exportHint: '导出保留辅助类别、适用科目、启停状态和变更记录。' },
-    auxiliaryItems: { title: '辅助核算项目清单', hint: '维护各辅助类别下的项目资料、默认科目和业务引用。', exportHint: '导出保留辅助项目、所属类别、默认科目、启停状态和业务引用。' },
-  }
-  if (archiveListMeta[kind]) return archiveListMeta[kind]!
-
-  if (['aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'aiRuleTraining'].includes(kind)) {
-    return {
-      title: 'AI 队列与建议处理清单',
-      hint: '按任务来源、识别置信度、人工复核、规则版本和凭证草稿状态处理自动化建议。',
-      exportHint: '导出保留来源附件、模型或规则版本、置信度、人工确认人和草稿去向。',
-    }
-  }
-  if (['attachmentCenter', 'importCenter', 'exportCenter'].includes(kind)) {
-    return {
-      title: '资料采集与批次核验清单',
-      hint: '按文件来源、解析批次、字段映射、关联单据、归档状态和异常原因处理资料。',
-      exportHint: '导出保留文件哈希、批次编号、解析结果、关联对象、操作人和归档时间。',
-    }
-  }
-  if (['settingsData', 'periodManagement', 'auditLog', 'backupRestore', 'voucherRecycle', 'notificationCenter'].includes(kind)) {
-    return {
-      title: '账套配置与控制清单',
-      hint: '按账期、权限、审计记录、备份快照、回收凭证和待办事项复核账套控制状态。',
-      exportHint: '导出保留配置范围、审批或审计记录、操作人、时间和恢复或归档状态。',
-    }
-  }
-  if (['taxInit', 'vatTaxReport', 'withholdingTaxReport', 'stampTaxReport', 'incomeTaxReport', 'socialSecurityTaxReport', 'financeTaxReport', 'nonTaxRevenueReport'].includes(kind)) {
-    return {
-      title: '税务申报与缴款处理清单',
-      hint: '按税种、所属期、取数来源、校验结果、申报节点、缴款状态和回执附件处理本期事项。',
-      exportHint: '导出包含税种、申报表、计税依据、校验记录、缴款信息、回执号和责任人。',
-    }
-  }
-  if (kind.includes('Ledger') || kind.includes('Balance') || kind.includes('Report') || kind === 'ledgerReport' || kind === 'financialReport') {
-    return {
-      title: `${title}取数清单`,
-      hint: '按科目、期间、期初期末、取数公式和数据来源复核报表口径。',
-      exportHint: '导出以当前报表口径、账期、取数列和金额格式生成。',
-    }
-  }
-  if (kind.includes('Settings') || kind.includes('Archive') || kind === 'companyInfo' || kind === 'taxInit' || kind === 'unitSettings') {
-    return {
-      title: `${title}维护清单`,
-      hint: '维护当前账套的基础资料、启用状态、关联规则和生效范围。',
-      exportHint: '导出保留档案编码、名称、启用状态、关联说明和维护时间。',
-    }
-  }
-  if (kind.includes('Rules') || kind === 'cashFlowMapping' || kind === 'printTemplateSettings') {
-    return {
-      title: `${title}规则清单`,
-      hint: '按适用范围、优先级、取数或匹配条件、模板和启用状态维护规则。',
-      exportHint: '导出包含规则条件、适用范围、模板、优先级和启用状态。',
-    }
-  }
-  return defaultMeta
+  return metadata[kind]
 }
 
 function getModuleDetailMeta(kind: ModuleKind, title: string): ModuleDetailMeta {
@@ -6932,7 +6860,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }),
     }
   }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
-  const listMeta = getModuleListMeta(kind, title)
+  const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind, title)
   const tableMeta = getModuleTableMeta(kind)
   const workspaceTabs = getModuleTabs(kind)
