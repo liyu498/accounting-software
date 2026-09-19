@@ -5561,6 +5561,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showCompanyInfoDialog, setShowCompanyInfoDialog] = useState(false)
   const [companyInfoDraft, setCompanyInfoDraft] = useState({ code: '', name: '', taxId: '', taxpayerType: 'general', province: '', city: '', district: '', accountingSystem: 'small_enterprise', enableYear: String(new Date().getFullYear()), enableMonth: String(new Date().getMonth() + 1), serviceStart: '', serviceEnd: '', industry: '', enterpriseType: '私营有限责任公司' })
   const [previewCompanyInfo, setPreviewCompanyInfo] = useState<typeof companyInfoDraft | null>(null)
+  const [previewSubjects, setPreviewSubjects] = useState<Array<typeof accounts[number]>>([])
   const [showSubjectDialog, setShowSubjectDialog] = useState(false)
   const [editingSubjectCode, setEditingSubjectCode] = useState<string | null>(null)
   const [subjectDraft, setSubjectDraft] = useState({ code: '', name: '', accountType: '资产类', normalBalance: 'debit', level: '1', parentCode: '', isDetail: true, hasQuantity: false, defaultUnit: '', hasAuxiliary: false })
@@ -6309,6 +6310,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodId, fetchAuxiliaryBalance, kind, selectedAuxiliaryCategoryId, selectedCompanyId, usesLiveLedgerDetailData])
 
   const config = useMemo(() => {
+    if (kind === 'subjectSettings' && !isTauri && previewSubjects.length > 0) {
+      return { ...baseConfig, rows: mapLiveSubjectRows(previewSubjects), summary: summarizeLiveSubjects(previewSubjects) }
+    }
     if (kind === 'notificationCenter' && !isTauri) {
       return { ...baseConfig, rows: mapLiveCompanyTodoRows(previewCompanyTodos, '科旋电气'), summary: summarizeLiveCompanyTodos(previewCompanyTodos) }
     }
@@ -8861,8 +8865,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (!isTauri) {
+      const account = { code: subjectDraft.code.trim(), company_id: 'browser-preview', name: subjectDraft.name.trim(), account_type: subjectDraft.accountType, normal_balance: subjectDraft.normalBalance, level: Number(subjectDraft.level || 1), parent_code: subjectDraft.parentCode.trim() || null, is_detail: subjectDraft.isDetail ? 1 : 0, is_enabled: 1, has_quantity: subjectDraft.hasQuantity ? 1 : 0, default_unit: subjectDraft.hasQuantity ? subjectDraft.defaultUnit.trim() || null : null, has_auxiliary: subjectDraft.hasAuxiliary ? 1 : 0 }
+      setPreviewSubjects((subjects) => [...subjects.filter((item) => item.code !== account.code), account])
       writeModuleAudit(editingSubjectCode ? '预览编辑会计科目' : '预览新增会计科目', `${subjectDraft.code}｜${subjectDraft.name}`, '中', '成功')
-      setOperationNotice('浏览器预览已完成科目校验；桌面端保存会写入当前账套的科目表。')
+      setOperationNotice(`浏览器预览已保存会计科目：${account.code}｜${account.name}。`)
       setShowSubjectDialog(false)
       return
     }
