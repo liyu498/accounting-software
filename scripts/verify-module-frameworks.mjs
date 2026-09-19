@@ -8,6 +8,7 @@ const roleManagerSource = readFileSync('src/pages/settings/RoleManager.tsx', 'ut
 const agencyNavSource = readFileSync('src/pages/agency/agencyNav.tsx', 'utf8')
 const agencySource = readFileSync('src/pages/agency/AgencyModulePage.tsx', 'utf8')
 const pdfExportSource = readFileSync('src/lib/pdfExport.ts', 'utf8')
+const liveRowsSource = readFileSync('src/lib/liveModuleRows.ts', 'utf8')
 
 const unique = (values) => [...new Set(values)]
 
@@ -300,6 +301,8 @@ const errors = [
   ...(!businessSource.includes('{canGenerateVoucherFromModule(kind) &&') ? ['control and report rows must not render generic voucher generation actions'] : []),
   ...(!businessSource.includes('openCompanyInfoEditor') ? ['company information must provide an account-level editor'] : []),
   ...(!businessSource.includes('handleSaveCompanyInfo') ? ['company information changes must use a dedicated save workflow'] : []),
+  ...(!businessSource.includes('buildPreviewCompanyInfo') ? ['company information preview must render saved profile data in its workspace'] : []),
+  ...(!liveRowsSource.includes('formatCompanyTaxType') || !liveRowsSource.includes('formatAccountingSystem') ? ['company information lists must display business labels instead of raw profile codes'] : []),
   ...(!businessSource.includes('updateCompany(selectedCompanyId') ? ['company information must persist through the selected account update command'] : []),
   ...(!businessSource.includes('不在企业资料页存储密码') ? ['company information must keep external credential storage outside the profile editor'] : []),
   ...(!businessSource.includes('openSubjectEditor') ? ['subject settings must provide a dedicated account-code editor'] : []),

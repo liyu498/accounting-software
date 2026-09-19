@@ -49,6 +49,20 @@ function currency(value: number) {
   }).format(value)
 }
 
+function formatCompanyTaxType(value: string | null | undefined) {
+  if (value === 'general') return '一般纳税人'
+  if (value === 'small') return '小规模纳税人'
+  return value || '待设置'
+}
+
+function formatAccountingSystem(value: string | null | undefined) {
+  if (value === 'small_enterprise') return '小企业会计准则'
+  if (value === 'enterprise') return '企业会计准则'
+  if (value === 'non_profit') return '民间非营利组织会计制度'
+  if (value === 'government') return '政府会计制度'
+  return value || '待设置'
+}
+
 function invoiceStatus(invoice: Invoice): LiveModuleStatus {
   if (invoice.voucher_id) return '已生成凭证'
   if (invoice.status === 'matched' || invoice.status === 'confirmed') return '已匹配'
@@ -1961,8 +1975,8 @@ export function mapLiveCompanyInfoRows(company: Company | undefined): LiveModule
   const rows = [
     ['企业名称', company.name, '企业档案'],
     ['纳税人识别号', company.tax_id || '待补充', '企业档案'],
-    ['纳税人资格', company.tax_type || '待设置', '税务初始化'],
-    ['会计制度', company.accounting_system || '待设置', '账套设置'],
+    ['纳税人资格', formatCompanyTaxType(company.tax_type), '税务初始化'],
+    ['会计制度', formatAccountingSystem(company.accounting_system), '账套设置'],
     ['所属地区', [company.province, company.city].filter(Boolean).join(' ') || '待设置', '企业档案'],
     ['会计行业', company.industry || '待设置', '账套设置'],
     ['启用期间', enabledAt, '账套设置'],
