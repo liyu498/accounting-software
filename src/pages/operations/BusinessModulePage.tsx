@@ -3451,7 +3451,8 @@ function getModuleListMeta(kind: ModuleKind): ModuleListMeta {
 }
 
 function getModuleDetailMeta(kind: ModuleKind): ModuleDetailMeta {
-  const moduleDetailTitle = `${getModuleListMeta(kind).title.replace(/清单$/, '')}明细`
+  const moduleListMeta = getModuleListMeta(kind)
+  const moduleDetailTitle = `${moduleListMeta.title.replace(/清单$/, '')}明细`
   if (kind === 'settingsData') {
     return { title: moduleDetailTitle, boundary: '查看只读取当前账套的会计制度、账期、输出和权限控制配置；修改已结账账期、授权范围或历史数据必须进入对应受控模块。' }
   }
@@ -3497,7 +3498,7 @@ function getModuleDetailMeta(kind: ModuleKind): ModuleDetailMeta {
   if (kind.includes('Archive') || kind.includes('Settings') || ['companyInfo', 'initialBalance', 'subjectSettings', 'unitSettings', 'periodManagement'].includes(kind)) {
     return { title: moduleDetailTitle, boundary: '查看只读取当前账套的基础档案、会计口径与启用控制；不会改变配置生效范围或历史账期数据。' }
   }
-  return { title: moduleDetailTitle, boundary: '查看只读取当前账套和账期下的本地字段。查看不会触发外部采集、凭证入账或税局提交。' }
+  return { title: moduleDetailTitle, boundary: `${moduleListMeta.hint} 查看操作仅读取当前账套和账期下的本地数据，不会触发外部采集、凭证入账或税局提交。` }
 }
 
 function getModuleTableMeta(kind: ModuleKind): ModuleTableMeta {
