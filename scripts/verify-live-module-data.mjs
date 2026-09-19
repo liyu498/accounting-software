@@ -1801,6 +1801,17 @@ for (const requiredTaxConfirmationSnippet of [
   }
 }
 
+for (const requiredBusinessRiskConfirmationSnippet of [
+  "const [pendingBusinessRiskConfirmation, setPendingBusinessRiskConfirmation] = useState<{ title: string; description: string; confirmLabel: string } | null>(null)",
+  'function requestBusinessRiskConfirmation(',
+  'aria-label="确认高风险业务操作"',
+  'await requestBusinessRiskConfirmation(',
+]) {
+  if (!pageSource.includes(requiredBusinessRiskConfirmationSnippet)) {
+    errors.push(`business module page: missing risk confirmation boundary: ${requiredBusinessRiskConfirmationSnippet}`)
+  }
+}
+
 if (errors.length > 0) {
   console.error('Live data adapter verification failed:')
   for (const error of errors) console.error(`- ${error}`)

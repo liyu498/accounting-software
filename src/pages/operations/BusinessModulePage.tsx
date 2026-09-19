@@ -5609,6 +5609,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [prefilledAiSuggestionId, setPrefilledAiSuggestionId] = useState<string | null>(null)
   const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)
   const [aiVoucherSuggestionDraft, setAiVoucherSuggestionDraft] = useState({ suggestionNo: '', sourceModule: '', sourceId: '', sourceFile: '', summary: '', debitSubject: '', creditSubject: '', amount: '', confidence: '90', riskLevel: 'normal' })
+  const [pendingBusinessRiskConfirmation, setPendingBusinessRiskConfirmation] = useState<{ title: string; description: string; confirmLabel: string } | null>(null)
+  const businessRiskConfirmationResolver = useRef<((confirmed: boolean) => void) | null>(null)
   const [selectedLedgerAccountCode, setSelectedLedgerAccountCode] = useState('')
   const [selectedAuxiliaryCategoryId, setSelectedAuxiliaryCategoryId] = useState('')
   const [selectedAuxiliaryItemId, setSelectedAuxiliaryItemId] = useState('')
@@ -7229,6 +7231,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('AI 处理任务已进入待执行队列。识别结果、分类和凭证建议均须人工确认，不会自动生成或入账凭证。')
   }
 
+  function requestBusinessRiskConfirmation(title: string, description: string, confirmLabel: string) {
+    return new Promise<boolean>((resolve) => {
+      businessRiskConfirmationResolver.current = resolve
+      setPendingBusinessRiskConfirmation({ title, description, confirmLabel })
+    })
+  }
+
+  const resolveBusinessRiskConfirmation = (confirmed: boolean) => {
+    businessRiskConfirmationResolver.current?.(confirmed)
+    businessRiskConfirmationResolver.current = null
+    setPendingBusinessRiskConfirmation(null)
+  }
+
   const confirmAiVoucherSuggestions = async (rowIds: string[]) => {
     if (!selectedCompanyId) return
     const jobs = rowIds
@@ -7240,7 +7255,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice('请先勾选待确认的 AI 凭证建议。')
       return
     }
-    if (!window.confirm(`确认 ${jobs.length} 条 AI 凭证建议吗？确认后仅进入凭证草稿复核队列，不会自动生成或入账凭证。`)) return
+    if (!await requestBusinessRiskConfirmation('确认 AI 凭证建议', `确认 ${jobs.length} 条 AI 凭证建议后，仅进入凭证草稿复核队列，不会自动生成或入账凭证。`, '确认进入复核队列')) return
 
     const reviewer = 'admin'
     const results = await Promise.all(jobs.map(async (job) => {
@@ -7566,7 +7581,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         setOperationNotice('请先勾选需要恢复的凭证。')
         return
       }
-      if (!window.confirm(`确认恢复已勾选的 ${selectedIds.length} 张凭证吗？`)) return
+      if (!await requestBusinessRiskConfirmation('确认恢复凭证', `确认恢复已勾选的 ${selectedIds.length} 张凭证吗？恢复后仍需按凭证状态重新审核。`, '确认恢复')) return
       try {
         await Promise.all(selectedIds.map((id) => restoreVoucher(id, selectedCompanyId)))
         setDeletedVouchers((items) => items.filter((item) => !selectedIds.includes(item.id)))
@@ -7731,7 +7746,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return
       }
       const label = `${period.period_year}-${String(period.period_month).padStart(2, '0')}`
-      if (!window.confirm(`确认结账账期 ${label} 吗？结账后账期将锁定。`)) return
+      if (!await requestBusinessRiskConfirmation('确认结账账期', `确认结账账期 ${label} 吗？结账后账期将锁定。`, '确认结账')) return
       const timestamp = new Date().toISOString()
       setPreviewPeriods((items) => items.map((item) => item.id === period.id ? { ...item, status: 'closed', closed_at: timestamp, closed_by: 'admin', updated_at: timestamp } : item))
       writeModuleAudit('执行结账', `${label}｜当前预览账期`, '高', '成功')
@@ -7748,7 +7763,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         setOperationNotice(`账期 ${currentPeriodLabel} 已结账并锁定。`)
         return
       }
-      if (!window.confirm(`确认结账账期 ${currentPeriodLabel} 吗？结账后账期将锁定。`)) return
+      if (!await requestBusinessRiskConfirmation('确认结账账期', `确认结账账期 ${currentPeriodLabel} 吗？结账后账期将锁定。`, '确认结账')) return
       try {
         await closePeriod(currentPeriodId, 'admin')
         writeModuleAudit('执行结账', `${currentPeriodLabel}｜账期管理`, '高', '成功')
@@ -7818,7 +7833,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice(action === 'approve' ? '请勾选草稿状态的凭证后批量审核。' : '请勾选已审核的凭证后批量反审核。')
       return
     }
-    if (!window.confirm(`确认${action === 'approve' ? '审核' : '反审核'} ${selectedIds.length} 张已勾选凭证吗？`)) return
+    if (!await requestBusinessRiskConfirmation(action === 'approve' ? '确认批量审核凭证' : '确认批量反审核凭证', `确认${action === 'approve' ? '审核' : '反审核'} ${selectedIds.length} 张已勾选凭证吗？操作会保留审计记录。`, `确认${action === 'approve' ? '审核' : '反审核'}`)) return
     try {
       if (action === 'approve') {
         await batchApprove(selectedIds, 'admin', selectedCompanyId)
@@ -11841,6 +11856,23 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
         </section>
       </div>
+      {pendingBusinessRiskConfirmation && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-label="确认高风险业务操作">
+          <section className="w-full max-w-lg border border-slate-300 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-950">
+            <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{pendingBusinessRiskConfirmation.title}</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">{pendingBusinessRiskConfirmation.description}</p>
+            </div>
+            <div className="px-4 py-3 text-xs leading-5 text-slate-600 dark:text-slate-300">
+              确认后将执行本机账套操作并写入审计日志；不会自动向税局、银行或其他外部系统提交数据。
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-slate-700">
+              <button type="button" onClick={() => resolveBusinessRiskConfirmation(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700 dark:border-slate-600 dark:text-slate-200">取消</button>
+              <button type="button" onClick={() => resolveBusinessRiskConfirmation(true)} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{pendingBusinessRiskConfirmation.confirmLabel}</button>
+            </div>
+          </section>
+        </div>
+      )}
       {detailRow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={detailMeta.title}>
           <div className="max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto border border-slate-300 bg-white shadow-xl">
