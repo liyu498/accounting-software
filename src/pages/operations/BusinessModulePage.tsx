@@ -498,6 +498,56 @@ function importAmount(value: string) {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+type PreviewInitialBalanceRow = {
+  accountCode: string
+  accountName: string
+  accountType: string
+  isDetail: boolean
+  openingDebit: number
+  openingCredit: number
+  sourceNote: string
+}
+
+const previewInitialBalanceSeed: PreviewInitialBalanceRow[] = [
+  { accountCode: '1002', accountName: '银行存款', accountType: '资产类', isDetail: true, openingDebit: 220000, openingCredit: 0, sourceNote: '期初导入表' },
+  { accountCode: '1122', accountName: '应收账款', accountType: '资产类', isDetail: true, openingDebit: 410000, openingCredit: 0, sourceNote: '期初导入表' },
+  { accountCode: '2202', accountName: '应付账款', accountType: '负债类', isDetail: true, openingDebit: 0, openingCredit: 268000, sourceNote: '期初导入表' },
+  { accountCode: '4001', accountName: '实收资本', accountType: '所有者权益类', isDetail: true, openingDebit: 0, openingCredit: 362000, sourceNote: '期初导入表' },
+]
+
+function buildPreviewInitialBalanceTrial(rows: PreviewInitialBalanceRow[]): TrialBalanceResult {
+  const roundMoney = (value: number) => Math.round(value * 100) / 100
+  const items = rows.map((row) => ({
+    account_code: row.accountCode,
+    account_name: row.accountName,
+    account_type: row.accountType,
+    account_level: 1,
+    is_detail: row.isDetail,
+    opening_debit: roundMoney(row.openingDebit),
+    opening_credit: roundMoney(row.openingCredit),
+    period_debit: 0,
+    period_credit: 0,
+    cumulative_debit: 0,
+    cumulative_credit: 0,
+    closing_debit: roundMoney(row.openingDebit),
+    closing_credit: roundMoney(row.openingCredit),
+  }))
+  const totalOpeningDebit = roundMoney(items.reduce((total, item) => total + item.opening_debit, 0))
+  const totalOpeningCredit = roundMoney(items.reduce((total, item) => total + item.opening_credit, 0))
+  return {
+    items,
+    total_opening_debit: totalOpeningDebit,
+    total_opening_credit: totalOpeningCredit,
+    total_period_debit: 0,
+    total_period_credit: 0,
+    total_cumulative_debit: totalOpeningDebit,
+    total_cumulative_credit: totalOpeningCredit,
+    total_closing_debit: totalOpeningDebit,
+    total_closing_credit: totalOpeningCredit,
+    is_balanced: Math.abs(totalOpeningDebit - totalOpeningCredit) < 0.005,
+  }
+}
+
 const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   attachmentCenter: {
     keywordPlaceholder: '搜索附件名称、来源模块、关联单据、上传人',
@@ -5567,6 +5617,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [subjectDraft, setSubjectDraft] = useState({ code: '', name: '', accountType: '资产类', normalBalance: 'debit', level: '1', parentCode: '', isDetail: true, hasQuantity: false, defaultUnit: '', hasAuxiliary: false })
   const [showInitialBalanceDialog, setShowInitialBalanceDialog] = useState(false)
   const [initialBalanceDraft, setInitialBalanceDraft] = useState({ accountCode: '', openingDebit: '', openingCredit: '', sourceNote: '' })
+  const [previewInitialBalanceRows, setPreviewInitialBalanceRows] = useState(() => previewInitialBalanceSeed.map((row) => ({ ...row })))
   const [showAuxiliaryArchiveDialog, setShowAuxiliaryArchiveDialog] = useState(false)
   const [editingAuxiliaryArchiveItemId, setEditingAuxiliaryArchiveItemId] = useState<string | null>(null)
   const [auxiliaryArchiveDraft, setAuxiliaryArchiveDraft] = useState({ code: '', name: '', taxNo: '', bank: '', subject: '', contract: '', alias: '', taxRate: '', contactType: '', idNo: '', owner: '', start: '', budget: '', parent: '', people: '', remark: '' })
@@ -6310,6 +6361,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodId, fetchAuxiliaryBalance, kind, selectedAuxiliaryCategoryId, selectedCompanyId, usesLiveLedgerDetailData])
 
   const config = useMemo(() => {
+    if (kind === 'initialBalance' && !isTauri) {
+      const initialBalance = buildPreviewInitialBalanceTrial(previewInitialBalanceRows)
+      return {
+        ...baseConfig,
+        rows: mapLiveInitialBalanceRows(initialBalance),
+        summary: summarizeLiveInitialBalance(initialBalance),
+      }
+    }
     if (kind === 'subjectSettings' && !isTauri && previewSubjects.length > 0) {
       return { ...baseConfig, rows: mapLiveSubjectRows(previewSubjects), summary: summarizeLiveSubjects(previewSubjects) }
     }
@@ -6983,7 +7042,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCompanyTodos, previewConfirmedAiSuggestionIds, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewReviewedAiRecognitionIds, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCompanyTodos, previewConfirmedAiSuggestionIds, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewReviewedAiRecognitionIds, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
   const tableMeta = getModuleTableMeta(kind)
@@ -7631,8 +7690,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'initialBalance' && !isTauri) {
-      writeModuleAudit('执行试算平衡', `${currentPeriodLabel}｜预览期初余额`, '高', '待审批')
-      setOperationNotice('浏览器预览已登记试算平衡操作；桌面端会校验当前账期全部借贷期初余额，平衡后仍需人工确认建账。')
+      const result = buildPreviewInitialBalanceTrial(previewInitialBalanceRows)
+      const difference = Math.abs(result.total_opening_debit - result.total_opening_credit)
+      writeModuleAudit('执行预览试算平衡', `${currentPeriodLabel}｜${result.items.length} 个科目｜借 ${result.total_opening_debit.toFixed(2)}｜贷 ${result.total_opening_credit.toFixed(2)}｜差异 ${difference.toFixed(2)}`, result.is_balanced ? '中' : '高', result.is_balanced ? '成功' : '待审批')
+      setOperationNotice(result.is_balanced
+        ? `浏览器预览试算平衡通过：${result.items.length} 个科目，借贷期初均为 ¥${result.total_opening_debit.toFixed(2)}。仍需在桌面端人工确认启用账套。`
+        : `浏览器预览试算未通过：期初借方 ¥${result.total_opening_debit.toFixed(2)}，贷方 ¥${result.total_opening_credit.toFixed(2)}，差异 ¥${difference.toFixed(2)}。请修正后再启用账套。`)
       return
     }
     if (isLiveAuxiliaryArchiveKind(kind)) {
@@ -8917,11 +8980,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openInitialBalanceEditor = (row?: ModuleRow) => {
+    const previewRow = !isTauri && row ? previewInitialBalanceRows.find((item) => item.accountCode === row.values.code) : undefined
     setInitialBalanceDraft({
       accountCode: row?.values.code || '',
       openingDebit: row ? String(importAmount(row.values.debit || '')) : '',
       openingCredit: row ? String(importAmount(row.values.credit || '')) : '',
-      sourceNote: row?.attachment && row.attachment !== '-' ? row.attachment : '',
+      sourceNote: previewRow?.sourceNote || (row?.attachment && row.attachment !== '-' ? row.attachment : ''),
     })
     setShowInitialBalanceDialog(true)
   }
@@ -8936,8 +9000,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (!isTauri) {
-      writeModuleAudit('预览登记期初余额', `${accountCode}｜借 ${openingDebit.toFixed(2)}｜贷 ${openingCredit.toFixed(2)}${initialBalanceDraft.sourceNote.trim() ? `｜来源：${initialBalanceDraft.sourceNote.trim()}` : ''}`, '高', '成功')
-      setOperationNotice('浏览器预览已校验期初余额；桌面端保存会覆盖当前账期同一科目的期初行，随后可执行试算平衡。')
+      const existingRow = previewInitialBalanceRows.find((row) => row.accountCode === accountCode)
+      const account = accounts.find((item) => item.code === accountCode)
+      const sourceRow = config.rows.find((row) => row.values.code === accountCode)
+      const previewRow: PreviewInitialBalanceRow = {
+        accountCode,
+        accountName: account?.name || existingRow?.accountName || sourceRow?.values.name || accountCode,
+        accountType: account?.account_type || existingRow?.accountType || '会计科目',
+        isDetail: account ? account.is_detail !== 0 : existingRow?.isDetail ?? true,
+        openingDebit,
+        openingCredit,
+        sourceNote: initialBalanceDraft.sourceNote.trim(),
+      }
+      setPreviewInitialBalanceRows((rows) => [...rows.filter((row) => row.accountCode !== accountCode), previewRow])
+      writeModuleAudit(existingRow ? '预览更新期初余额' : '预览登记期初余额', `${accountCode}｜借 ${openingDebit.toFixed(2)}｜贷 ${openingCredit.toFixed(2)}${previewRow.sourceNote ? `｜来源：${previewRow.sourceNote}` : ''}`, '高', '成功')
+      setOperationNotice(`浏览器预览已${existingRow ? '更新' : '登记'} ${previewRow.accountName} 的期初余额，并写入本地余额清单；请执行试算平衡后人工确认启用账套。`)
       setShowInitialBalanceDialog(false)
       return
     }

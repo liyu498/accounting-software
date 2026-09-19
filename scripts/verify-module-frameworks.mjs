@@ -233,6 +233,8 @@ const errors = [
   ...(!businessSource.includes('期初余额试算与启用控制') ? ['initial balance must render a dedicated balance workflow'] : []),
   ...(!businessSource.includes('openInitialBalanceEditor') ? ['initial balance must provide a dedicated balance editor'] : []),
   ...(!businessSource.includes('handleSaveInitialBalance') ? ['initial balance must persist account opening balances'] : []),
+  ...(!businessSource.includes('setPreviewInitialBalanceRows') ? ['initial balance preview must retain locally saved balance rows'] : []),
+  ...(!businessSource.includes('buildPreviewInitialBalanceTrial') ? ['initial balance preview must calculate trial balance from its local balance rows'] : []),
   ...(!businessSource.includes('期初余额不会自动生成凭证') ? ['initial balance editor must state the posting boundary'] : []),
   ...(!businessSource.includes('const runLedgerCalculation') ? ['ledger report primary actions must use the dedicated calculation workflow'] : []),
   ...(!businessSource.includes('const runFinancialStatementCalculation') ? ['financial statement primary actions must use the dedicated calculation workflow'] : []),
