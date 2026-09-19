@@ -5598,6 +5598,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     { id: 'preview-match-voucher-001', voucher_number: '记-0063', total_debit: 18000, summary: '采购原材料', status: 'draft' },
     { id: 'preview-match-voucher-002', voucher_number: '记-0068', total_debit: 9800, summary: '技术服务费', status: 'draft' },
   ])
+  const [previewConfirmedAiSuggestionIds, setPreviewConfirmedAiSuggestionIds] = useState<Set<string>>(new Set())
   const invoiceMatchCandidates = isTauri ? invoices : previewInvoiceMatchCandidates
   const voucherMatchCandidates = isTauri ? vouchers : previewVoucherMatchCandidates
   const effectiveAssetCategories = isTauri ? assetCategories : previewAssetCategories
@@ -6296,6 +6297,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodId, fetchAuxiliaryBalance, kind, selectedAuxiliaryCategoryId, selectedCompanyId, usesLiveLedgerDetailData])
 
   const config = useMemo(() => {
+    if (kind === 'aiVoucherSuggestions' && !isTauri) {
+      const rows = baseConfig.rows.map((row) => previewConfirmedAiSuggestionIds.has(row.id)
+        ? { ...row, status: '已确认' as const, values: { ...row.values, risk: '低风险已确认' } }
+        : row)
+      return {
+        ...baseConfig,
+        rows,
+        summary: baseConfig.summary.map((item) => {
+          if (item.label === '可确认') return { ...item, value: `${rows.filter((row) => row.status === '待确认').length} 条` }
+          if (item.label === '待修改') return { ...item, label: '已确认', tone: 'green' as const, value: `${rows.filter((row) => row.status === '已确认').length} 条` }
+          return item
+        }),
+      }
+    }
+
     if (kind === 'auditLog') {
       if (usesLiveOperationAuditData) {
         return {
@@ -6922,7 +6938,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewConfirmedAiSuggestionIds, previewCurrencies, previewMatchingRules, previewPeriods, previewReportItems, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
   const tableMeta = getModuleTableMeta(kind)
@@ -7289,6 +7305,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setPendingBusinessRiskConfirmation(null)
   }
 
+  const confirmPreviewAiVoucherSuggestions = async (rowIds: string[]) => {
+    const pendingRows = config.rows.filter((row) => rowIds.includes(row.id) && row.status === '待确认')
+    if (pendingRows.length === 0) {
+      setOperationNotice('请先勾选待确认的 AI 凭证建议。')
+      return
+    }
+    if (!await requestBusinessRiskConfirmation('确认 AI 凭证建议', `确认 ${pendingRows.length} 条 AI 凭证建议后，仅进入凭证草稿复核队列，不会自动生成或入账凭证。`, '确认进入复核队列')) return
+    setPreviewConfirmedAiSuggestionIds((ids) => new Set([...ids, ...pendingRows.map((row) => row.id)]))
+    setSelectedRowIds(new Set())
+    writeModuleAudit('确认AI凭证建议', `${pendingRows.length} 条｜浏览器预览`, '中', '成功')
+    setOperationNotice(`已确认 ${pendingRows.length} 条建议，已进入凭证草稿复核队列；不会自动生成或入账凭证。`)
+  }
+
   const confirmAiVoucherSuggestions = async (rowIds: string[]) => {
     if (!selectedCompanyId) return
     const jobs = rowIds
@@ -7616,8 +7645,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       runTaxDataCollection()
       return
     }
-    if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData && selectedCompanyId) {
-      await confirmAiVoucherSuggestions([...selectedRowIds])
+    if (kind === 'aiVoucherSuggestions') {
+      if (usesLiveAutomationJobData && selectedCompanyId) {
+        await confirmAiVoucherSuggestions([...selectedRowIds])
+      } else {
+        await confirmPreviewAiVoucherSuggestions([...selectedRowIds])
+      }
       return
     }
     if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {
@@ -10137,13 +10170,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
       return
     }
-    if (kind === 'aiVoucherSuggestions' && usesLiveAutomationJobData && selectedCompanyId) {
+    if (kind === 'aiVoucherSuggestions') {
       if (row.status === '已生成凭证') {
         openLinkedAiSuggestionVoucher(row)
         return
       }
       if (row.status === '已确认') {
         setOperationNotice('该 AI 凭证建议已确认，请进入凭证草稿继续人工核验和保存。')
+        return
+      }
+      if (!isTauri) {
+        await confirmPreviewAiVoucherSuggestions([row.id])
+        return
+      }
+      if (!usesLiveAutomationJobData || !selectedCompanyId) {
+        setOperationNotice('当前账套的 AI 建议记录尚未加载，请刷新后重试。')
         return
       }
       const suggestionJobId = row.id.replace('automation-suggestion-', '')
