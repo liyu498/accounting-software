@@ -1773,7 +1773,7 @@ if (welcomeSource.includes('<button type="button" className="h-9 text-sm font-me
   errors.push('welcome page: unbound company-creation person button must not be rendered')
 }
 
-for (const sensitiveCompanyAuthorizationField of ['taxLoginPassword', 'individualTaxPassword', '办税人短信验证', '工商联络员身份证号码']) {
+for (const sensitiveCompanyAuthorizationField of ['taxLoginPassword', 'individualTaxPassword', '电子税务局账号密码', '办税人手机号验证码', '代理记账登录', '工商联络员身份证号码']) {
   if (welcomeSource.includes(sensitiveCompanyAuthorizationField)) {
     errors.push(`welcome page: sensitive authorization field must not be collected: ${sensitiveCompanyAuthorizationField}`)
   }

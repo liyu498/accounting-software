@@ -382,7 +382,7 @@ function parseTaxAuthorizationIdentity(value: string | null) {
   const [person = '', identity = '', method = ''] = value?.split(' / ') ?? []
   const persons = ['法人', '财务负责人', '办税员']
   const identities = ['法人', '财务负责人', '办税员', '代理记账人员']
-  const methods = ['电子税务局账号密码', '办税人手机号验证码', '代理记账登录']
+  const methods = ['电子税务局授权', '办税人员授权', '代理记账授权']
   return {
     taxLoginPerson: persons.includes(person) ? person : '',
     taxLoginIdentity: identities.includes(identity) ? identity : '',
@@ -811,7 +811,7 @@ export function Welcome() {
         company.status,
       ]),
       [],
-      ['制表说明', '账套管理按当前筛选导出，采集、登录税务局、删除和停用等高风险动作仅记录审计，不自动提交外部系统。'],
+      ['制表说明', '账套管理按当前筛选导出，采集、税务授权校验、删除和停用等高风险动作仅记录审计，不自动提交外部系统。'],
     ]
     await exportRowsToXlsx({
       sheetRows,
@@ -954,10 +954,10 @@ export function Welcome() {
     setMemoDraft({ content: '', reminderDate: '' })
   }
 
-  const handleTaxLogin = (company: AccountRow) => {
-    recordWelcomeAudit('登录税务局申请', `${company.code}-${company.name}`, '高', '待审批')
-    setOperationNotice(`${company.name} 的税务局登录已进入授权检查；当前不会打开或提交任何真实外部系统。`)
-    warningToast('登录税务局需要先校验授权和办税人信息，当前仅记录申请')
+  const handleTaxAuthorizationCheck = (company: AccountRow) => {
+    recordWelcomeAudit('税务授权校验申请', `${company.code}-${company.name}`, '高', '待审批')
+    setOperationNotice(`${company.name} 的税务授权已进入本地校验队列；当前不会打开或提交任何真实外部系统。`)
+    warningToast('税务授权校验需要确认授权范围和办税人信息，当前仅记录申请')
   }
 
   const allChecked = rows.length > 0 && rows.every((row) => selectedRows.has(row.id))
@@ -1136,7 +1136,7 @@ export function Welcome() {
                           <button type="button" onClick={() => handleDeactivateCompany(company)}>停用</button>
                           <button type="button" onClick={() => handleMemoCompany(company)}>备忘录</button>
                           <button type="button" onClick={() => handleSelectCompany(company.id, company.real)}>进入账套</button>
-                          <button type="button" onClick={() => handleTaxLogin(company)}>登录税务局</button>
+                          <button type="button" onClick={() => handleTaxAuthorizationCheck(company)}>校验税务授权</button>
                         </div>
                       </td>
                     </tr>
