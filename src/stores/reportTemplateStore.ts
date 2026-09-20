@@ -29,6 +29,7 @@ interface ReportTemplateState {
   isLoading: boolean
   error: string | null
   fetchReportTemplateWorkspace(companyId: string): Promise<void>
+  createReportItem(input: { companyId: string; templateId: string; itemCode: string; itemName: string; itemLevel: number; sortOrder: number; isTotal: number; formula: string }): Promise<ReportItem>
   updateReportItem(input: { id: string; companyId: string; itemName: string; formula: string; sortOrder: number; isTotal: number }): Promise<ReportItem>
 }
 
@@ -52,6 +53,21 @@ export const useReportTemplateStore = create<ReportTemplateState>((set) => ({
     } catch (error) {
       set({ error: String(error), isLoading: false })
     }
+  },
+
+  createReportItem: async (input) => {
+    const item = await invoke<ReportItem>('create_report_item', {
+      companyId: input.companyId,
+      templateId: input.templateId,
+      itemCode: input.itemCode,
+      itemName: input.itemName,
+      itemLevel: input.itemLevel,
+      sortOrder: input.sortOrder,
+      isTotal: input.isTotal,
+      formula: input.formula,
+    })
+    set((state) => ({ reportItems: [...state.reportItems, item] }))
+    return item
   },
 
   updateReportItem: async (input) => {

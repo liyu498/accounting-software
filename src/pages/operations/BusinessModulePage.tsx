@@ -134,6 +134,7 @@ import { useAuxiliaryStore, type AuxiliaryBalanceRow, type AuxiliaryCategory, ty
 import { useInvoiceStore, type Invoice } from '../../stores/invoiceStore'
 import {
   usePeriodStore,
+  type AccountingPeriod,
   type BalanceSheetResult,
   type CashFlowResult,
   type GeneralLedgerItem,
@@ -145,7 +146,7 @@ import { useVoucherStore, type Voucher } from '../../stores/voucherStore'
 import { useSettlementRuleStore, type SettlementRule } from '../../stores/settlementRuleStore'
 import { useCurrencyStore, type Currency } from '../../stores/currencyStore'
 import { useTemplateStore, type CommonDigest, type TemplateEntry, type VoucherTemplateType, type VoucherTemplateWithEntries } from '../../stores/templateStore'
-import { useReportTemplateStore } from '../../stores/reportTemplateStore'
+import { useReportTemplateStore, type ReportItem, type ReportTemplate } from '../../stores/reportTemplateStore'
 import { useMatchingRuleStore, type MatchingRule, type MatchingRuleScope } from '../../stores/matchingRuleStore'
 import { useAssetCategoryStore, type AssetCategory } from '../../stores/assetCategoryStore'
 import { useBusinessTagStore, type BusinessTag } from '../../stores/businessTagStore'
@@ -760,6 +761,24 @@ const previewAdapterAuthorizationSeed: AdapterAuthorization[] = [
   { id: 'preview-bank-adapter-cmb', companyId: 'preview-company', companyName: '当前预览账套', adapterType: 'bank', adapterCode: '招商银行账单导入', region: '上海', authStatus: 'pending', accountMask: '6214********8801', loginIdentity: '财务管理员', capabilityScope: '账单文件导入、人工上传回单', lastCheckedAt: null, expiresAt: null, riskMessage: '等待企业完成渠道授权，禁止自动提交或发起支付。', createdAt: '2026-06-01 09:20', updatedAt: '2026-06-26 09:45' },
 ]
 
+const previewReportTemplateSeed: ReportTemplate[] = [
+  { id: 'preview-balance-sheet', template_code: 'BALANCE_SHEET', template_name: '资产负债表', report_type: 'balance_sheet', is_system: 1, created_at: null },
+  { id: 'preview-income-statement', template_code: 'INCOME_STATEMENT', template_name: '利润表', report_type: 'income_statement', is_system: 1, created_at: null },
+  { id: 'preview-cash-flow', template_code: 'CASH_FLOW', template_name: '现金流量表', report_type: 'cash_flow', is_system: 1, created_at: null },
+]
+
+const previewReportItemSeed: ReportItem[] = [
+  { id: 'preview-report-item-assets', template_id: 'preview-balance-sheet', item_code: '100', item_name: '货币资金', parent_id: null, item_level: 1, sort_order: 100, is_total: 0, formula: '1001+1002+1012', is_enabled: 1 },
+  { id: 'preview-report-item-liability', template_id: 'preview-balance-sheet', item_code: '200', item_name: '负债合计', parent_id: null, item_level: 1, sort_order: 200, is_total: 1, formula: '负债类科目期末余额', is_enabled: 1 },
+  { id: 'preview-report-item-revenue', template_id: 'preview-income-statement', item_code: '010', item_name: '营业收入', parent_id: null, item_level: 1, sort_order: 10, is_total: 0, formula: '6001+6051', is_enabled: 1 },
+  { id: 'preview-report-item-cash', template_id: 'preview-cash-flow', item_code: '001', item_name: '销售商品、提供劳务收到的现金', parent_id: null, item_level: 1, sort_order: 10, is_total: 0, formula: '经营活动现金流入', is_enabled: 1 },
+]
+
+const previewPeriodSeed: AccountingPeriod[] = [
+  { id: 'preview-period-2026-04', company_id: 'preview-company', period_year: 2026, period_month: 4, start_date: '2026-04-01', end_date: '2026-04-30', status: 'closed', closed_at: '2026-05-05T09:30:00.000Z', closed_by: 'admin', created_at: '2026-04-01T00:00:00.000Z', updated_at: '2026-05-05T09:30:00.000Z' },
+  { id: 'preview-period-2026-05', company_id: 'preview-company', period_year: 2026, period_month: 5, start_date: '2026-05-01', end_date: '2026-05-31', status: 'open', closed_at: null, closed_by: null, created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' },
+]
+
 const previewCompanyAccountSeed: CompanyAccount[] = [
   { id: 'preview-company-account-icbc', company_id: 'browser-preview', account_name: '工行基本户', account_type: '银行账户', bank_name: '工商银行上海分行', account_number: '6222********0198', subject_code: '1002 银行存款', opening_balance: 466380, attachment_note: '开户许可证', status: '启用', created_at: '2026-06-01 09:00', updated_at: '2026-06-26 09:00' },
   { id: 'preview-company-account-cmb', company_id: 'browser-preview', account_name: '招行一般户', account_type: '银行账户', bank_name: '招商银行上海分行', account_number: '6214********8801', subject_code: '1002 银行存款', opening_balance: 82600, attachment_note: '网银截图', status: '启用', created_at: '2026-06-01 09:10', updated_at: '2026-06-26 09:10' },
@@ -1065,6 +1084,56 @@ function savePreviewAdapterAuthorizations(adapters: AdapterAuthorization[]) {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewAdapterAuthorizationStorageKey(), JSON.stringify(adapters))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewReportFormulaStorageKey() {
+  return 'accounting-preview-report-formulas-v1'
+}
+
+function loadPreviewReportItems(): ReportItem[] {
+  const fallback = () => previewReportItemSeed.map((item) => ({ ...item }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewReportFormulaStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((item) => typeof item?.id === 'string' && typeof item.template_id === 'string' && typeof item.item_code === 'string' && typeof item.item_name === 'string' && Number.isFinite(item.item_level) && Number.isFinite(item.sort_order) && typeof item.is_total === 'number' && typeof item.is_enabled === 'number')) return fallback()
+    return parsed as ReportItem[]
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewReportItems(items: ReportItem[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewReportFormulaStorageKey(), JSON.stringify(items))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewPeriodStorageKey() {
+  return 'accounting-preview-periods-v1'
+}
+
+function loadPreviewPeriods(): AccountingPeriod[] {
+  const fallback = () => previewPeriodSeed.map((period) => ({ ...period }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewPeriodStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((period) => typeof period?.id === 'string' && Number.isFinite(period.period_year) && Number.isFinite(period.period_month) && typeof period.status === 'string' && typeof period.start_date === 'string' && typeof period.end_date === 'string')) return fallback()
+    return parsed as AccountingPeriod[]
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewPeriods(periods: AccountingPeriod[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewPeriodStorageKey(), JSON.stringify(periods))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -6016,6 +6085,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const voucherWords = usePeriodStore((state) => state.voucherWords)
   const fetchVoucherWords = usePeriodStore((state) => state.fetchVoucherWords)
   const closePeriod = usePeriodStore((state) => state.closePeriod)
+  const reopenPeriod = usePeriodStore((state) => state.reopenPeriod)
   const fetchTrialBalance = usePeriodStore((state) => state.fetchTrialBalance)
   const getGeneralLedger = usePeriodStore((state) => state.getGeneralLedger)
   const getSubsidiaryLedger = usePeriodStore((state) => state.getSubsidiaryLedger)
@@ -6086,6 +6156,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const reportTemplates = useReportTemplateStore((state) => state.reportTemplates)
   const reportItems = useReportTemplateStore((state) => state.reportItems)
   const fetchReportTemplateWorkspace = useReportTemplateStore((state) => state.fetchReportTemplateWorkspace)
+  const createReportItem = useReportTemplateStore((state) => state.createReportItem)
   const updateReportItem = useReportTemplateStore((state) => state.updateReportItem)
   const matchingRules = useMatchingRuleStore((state) => state.rules)
   const fetchMatchingRules = useMatchingRuleStore((state) => state.fetchMatchingRules)
@@ -6286,7 +6357,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [adapterAuthorizationDraft, setAdapterAuthorizationDraft] = useState({ adapterCode: '', region: '', authStatus: 'pending', accountMask: '', loginIdentity: '', capabilityScope: '', expiresAt: '', riskMessage: '' })
   const [showReportFormulaDialog, setShowReportFormulaDialog] = useState(false)
   const [editingReportFormulaId, setEditingReportFormulaId] = useState<string | null>(null)
-  const [reportFormulaDraft, setReportFormulaDraft] = useState({ itemName: '', formula: '', sortOrder: '0', isTotal: false })
+  const [reportFormulaDraft, setReportFormulaDraft] = useState({ templateId: '', itemCode: '', itemName: '', formula: '', sortOrder: '0', isTotal: false })
   const [showMatchingRuleDialog, setShowMatchingRuleDialog] = useState(false)
   const [showPrintTemplatePreviewDialog, setShowPrintTemplatePreviewDialog] = useState(false)
   const [editingMatchingRuleId, setEditingMatchingRuleId] = useState<string | null>(null)
@@ -6414,21 +6485,23 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return nextAdapters
     })
   }
-  const [previewReportTemplates] = useState<typeof reportTemplates>([
-    { id: 'preview-balance-sheet', template_code: 'BALANCE_SHEET', template_name: '资产负债表', report_type: 'balance_sheet', is_system: 1, created_at: null },
-    { id: 'preview-income-statement', template_code: 'INCOME_STATEMENT', template_name: '利润表', report_type: 'income_statement', is_system: 1, created_at: null },
-    { id: 'preview-cash-flow', template_code: 'CASH_FLOW', template_name: '现金流量表', report_type: 'cash_flow', is_system: 1, created_at: null },
-  ])
-  const [previewReportItems, setPreviewReportItems] = useState<typeof reportItems>([
-    { id: 'preview-report-item-assets', template_id: 'preview-balance-sheet', item_code: '100', item_name: '货币资金', parent_id: null, item_level: 1, sort_order: 100, is_total: 0, formula: '1001+1002+1012', is_enabled: 1 },
-    { id: 'preview-report-item-liability', template_id: 'preview-balance-sheet', item_code: '200', item_name: '负债合计', parent_id: null, item_level: 1, sort_order: 200, is_total: 1, formula: '负债类科目期末余额', is_enabled: 1 },
-    { id: 'preview-report-item-revenue', template_id: 'preview-income-statement', item_code: '010', item_name: '营业收入', parent_id: null, item_level: 1, sort_order: 10, is_total: 0, formula: '6001+6051', is_enabled: 1 },
-    { id: 'preview-report-item-cash', template_id: 'preview-cash-flow', item_code: '001', item_name: '销售商品、提供劳务收到的现金', parent_id: null, item_level: 1, sort_order: 10, is_total: 0, formula: '经营活动现金流入', is_enabled: 1 },
-  ])
-  const [previewPeriods, setPreviewPeriods] = useState<typeof periods>([
-    { id: 'preview-period-2026-04', company_id: 'preview-company', period_year: 2026, period_month: 4, start_date: '2026-04-01', end_date: '2026-04-30', status: 'closed', closed_at: '2026-05-05T09:30:00.000Z', closed_by: 'admin', created_at: '2026-04-01T00:00:00.000Z', updated_at: '2026-05-05T09:30:00.000Z' },
-    { id: 'preview-period-2026-05', company_id: 'preview-company', period_year: 2026, period_month: 5, start_date: '2026-05-01', end_date: '2026-05-31', status: 'open', closed_at: null, closed_by: null, created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' },
-  ])
+  const [previewReportTemplates] = useState<ReportTemplate[]>(() => previewReportTemplateSeed.map((template) => ({ ...template })))
+  const [previewReportItems, setPreviewReportItems] = useState<ReportItem[]>(loadPreviewReportItems)
+  const updatePreviewReportItems = (update: (items: ReportItem[]) => ReportItem[]) => {
+    setPreviewReportItems((items) => {
+      const nextItems = update(items)
+      savePreviewReportItems(nextItems)
+      return nextItems
+    })
+  }
+  const [previewPeriods, setPreviewPeriods] = useState<AccountingPeriod[]>(loadPreviewPeriods)
+  const updatePreviewPeriods = (update: (periods: AccountingPeriod[]) => AccountingPeriod[]) => {
+    setPreviewPeriods((periods) => {
+      const nextPeriods = update(periods)
+      savePreviewPeriods(nextPeriods)
+      return nextPeriods
+    })
+  }
   const [previewInvoiceMatchCandidates, setPreviewInvoiceMatchCandidates] = useState<Array<Pick<Invoice, 'id' | 'invoice_no' | 'total_amount' | 'voucher_id'>>>([
     { id: 'preview-match-invoice-001', invoice_no: '031002400128', total_amount: 18300, voucher_id: null },
     { id: 'preview-match-invoice-002', invoice_no: '031002400139', total_amount: 9800, voucher_id: null },
@@ -8889,7 +8962,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const label = `${period.period_year}-${String(period.period_month).padStart(2, '0')}`
       if (!await requestBusinessRiskConfirmation('确认结账账期', `确认结账账期 ${label} 吗？结账后账期将锁定。`, '确认结账')) return
       const timestamp = new Date().toISOString()
-      setPreviewPeriods((items) => items.map((item) => item.id === period.id ? { ...item, status: 'closed', closed_at: timestamp, closed_by: 'admin', updated_at: timestamp } : item))
+      updatePreviewPeriods((items) => items.map((item) => item.id === period.id ? { ...item, status: 'closed', closed_at: timestamp, closed_by: 'admin', updated_at: timestamp } : item))
       writeModuleAudit('执行结账', `${label}｜当前预览账期`, '高', '成功')
       setOperationNotice(`当前预览账期已结账并锁定：${label}。桌面端结账还会校验凭证、申报和审批阻断项。`)
       return
@@ -9512,51 +9585,72 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveReportFormula = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const templateId = reportFormulaDraft.templateId
+    const itemCode = reportFormulaDraft.itemCode.trim()
+    const itemName = reportFormulaDraft.itemName.trim()
+    const formula = reportFormulaDraft.formula.trim()
+    const sortOrder = Number(reportFormulaDraft.sortOrder || 0)
+    const isTotal = reportFormulaDraft.isTotal ? 1 : 0
+    const templates = isTauri ? reportTemplates : previewReportTemplates
+    const template = templates.find((current) => current.id === templateId)
+    if (!template || !itemCode || !itemName || !formula) {
+      setOperationNotice('请填写报表模板、行号、项目名称和取数公式。')
+      return
+    }
     if (!isTauri) {
-      if (!editingReportFormulaId) return
-      const item = previewReportItems.find((current) => current.id === editingReportFormulaId)
-      const template = item ? previewReportTemplates.find((current) => current.id === item.template_id) : undefined
-      if (!item || !template) {
-        setOperationNotice('未找到当前预览的报表公式项目。')
-        return
+      if (editingReportFormulaId) {
+        const item = previewReportItems.find((current) => current.id === editingReportFormulaId)
+        if (!item) {
+          setOperationNotice('未找到当前预览的报表公式项目。')
+          return
+        }
+        updatePreviewReportItems((items) => items.map((current) => current.id === item.id ? {
+          ...current,
+          item_name: itemName,
+          formula,
+          sort_order: sortOrder,
+          is_total: isTotal,
+        } : current))
+        writeModuleAudit('编辑报表公式', `${template.template_name}｜${item.item_code}`, '高', '成功')
+        setOperationNotice(`报表公式已保存到当前预览：${template.template_name}｜${itemName}。请重算报表并人工复核取数结果。`)
+      } else {
+        if (previewReportItems.some((item) => item.template_id === templateId && item.item_code === itemCode)) {
+          setOperationNotice(`报表模板 ${template.template_name} 已存在行号 ${itemCode}，请调整后重试。`)
+          return
+        }
+        const item: ReportItem = {
+          id: `preview-report-item-${Date.now()}`,
+          template_id: templateId,
+          item_code: itemCode,
+          item_name: itemName,
+          parent_id: null,
+          item_level: 1,
+          sort_order: sortOrder,
+          is_total: isTotal,
+          formula,
+          is_enabled: 1,
+        }
+        updatePreviewReportItems((items) => [...items, item])
+        writeModuleAudit('新增报表公式', `${template.template_name}｜${itemCode}`, '高', '成功')
+        setOperationNotice(`报表公式已新增到当前预览：${template.template_name}｜${itemName}。请重算报表并人工复核取数结果。`)
       }
-      if (!reportFormulaDraft.itemName.trim() || !reportFormulaDraft.formula.trim()) {
-        setOperationNotice('请填写报表项目和取数公式。')
-        return
-      }
-      setPreviewReportItems((items) => items.map((current) => current.id === item.id ? {
-        ...current,
-        item_name: reportFormulaDraft.itemName.trim(),
-        formula: reportFormulaDraft.formula.trim(),
-        sort_order: Number(reportFormulaDraft.sortOrder || 0),
-        is_total: reportFormulaDraft.isTotal ? 1 : 0,
-      } : current))
-      writeModuleAudit('编辑报表公式', `${template.template_name}｜${item.item_code}`, '高', '成功')
-      setOperationNotice(`报表公式已保存到当前预览：${template.template_name}｜${reportFormulaDraft.itemName.trim()}。请重算报表并人工复核取数结果。`)
       setEditingReportFormulaId(null)
       setShowReportFormulaDialog(false)
       return
     }
-    if (!selectedCompanyId || !editingReportFormulaId) return
-    const item = reportItems.find((current) => current.id === editingReportFormulaId)
-    const template = item ? reportTemplates.find((current) => current.id === item.template_id) : undefined
-    const impact = template?.is_system === 1 ? '该标准报表模板会影响所有账套的后续取数。确认已完成复核后保存吗？' : '确认保存当前账套报表模板公式吗？'
+    if (!selectedCompanyId) return
+    const impact = template.is_system === 1 ? '该标准报表模板会影响所有账套的后续取数。确认已完成复核后保存吗？' : '确认保存当前账套报表模板公式吗？'
     if (!await requestBusinessRiskConfirmation('确认保存报表公式', impact, '确认保存')) return
     try {
-      const result = await updateReportItem({
-        id: editingReportFormulaId,
-        companyId: selectedCompanyId,
-        itemName: reportFormulaDraft.itemName.trim(),
-        formula: reportFormulaDraft.formula.trim(),
-        sortOrder: Number(reportFormulaDraft.sortOrder || 0),
-        isTotal: reportFormulaDraft.isTotal ? 1 : 0,
-      })
-      writeModuleAudit('编辑报表公式', `${template?.template_name || '报表'}｜${result.item_code}`, '高', '成功')
-      setOperationNotice(`已更新 ${result.item_name} 的取数公式；请重算报表并人工复核取数结果。`)
+      const result = editingReportFormulaId
+        ? await updateReportItem({ id: editingReportFormulaId, companyId: selectedCompanyId, itemName, formula, sortOrder, isTotal })
+        : await createReportItem({ companyId: selectedCompanyId, templateId, itemCode, itemName, itemLevel: 1, sortOrder, isTotal, formula })
+      writeModuleAudit(editingReportFormulaId ? '编辑报表公式' : '新增报表公式', `${template.template_name}｜${result.item_code}`, '高', '成功')
+      setOperationNotice(`${editingReportFormulaId ? '已更新' : '已新增'} ${result.item_name} 的取数公式；请重算报表并人工复核取数结果。`)
       setEditingReportFormulaId(null)
       setShowReportFormulaDialog(false)
     } catch (error) {
-      setOperationNotice(`更新报表公式失败：${String(error)}`)
+      setOperationNotice(`${editingReportFormulaId ? '更新' : '新增'}报表公式失败：${String(error)}`)
     }
   }
 
@@ -11349,6 +11443,34 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       openInitialBalanceEditor(row)
       return
     }
+    if (kind === 'periodManagement') {
+      const period = effectivePeriods.find((item) => `period-${item.id}` === row.id)
+      if (!period) {
+        setOperationNotice('未找到当前账期，请刷新后重试。')
+        return
+      }
+      const label = `${period.period_year}-${String(period.period_month).padStart(2, '0')}`
+      if (period.status !== 'closed') {
+        setOperationNotice(`账期 ${label} 仍处于开放状态。请先完成凭证、报表、税表和结转检查，再执行结账。`)
+        return
+      }
+      if (!await requestBusinessRiskConfirmation('确认反结账账期', `确认申请反结账 ${label} 吗？账期恢复开放后仍需重新核验凭证、报表、税表和结转结果。`, '确认反结账')) return
+      const timestamp = new Date().toISOString()
+      if (!isTauri) {
+        updatePreviewPeriods((items) => items.map((item) => item.id === period.id ? { ...item, status: 'open', closed_at: null, closed_by: null, updated_at: timestamp } : item))
+        writeModuleAudit('申请反结账', `${label}｜当前预览账期`, '高', '成功')
+        setOperationNotice(`当前预览账期已恢复开放：${label}。请重新执行结账前检查，系统不会自动修改凭证、报表或税表。`)
+        return
+      }
+      try {
+        await reopenPeriod(period.id)
+        writeModuleAudit('申请反结账', `${label}｜账期管理`, '高', '成功')
+        setOperationNotice(`账期 ${label} 已恢复开放。请重新执行结账前检查，再继续修改凭证或重算报表。`)
+      } catch (error) {
+        setOperationNotice(`申请反结账失败：${String(error)}`)
+      }
+      return
+    }
     if (isLiveAuxiliaryArchiveKind(kind)) {
       const itemId = row.id.replace('auxiliary-', '')
       openAuxiliaryArchiveEditor((isTauri ? auxiliaryItems : previewAuxiliaryItems).find((item) => item.id === itemId), row)
@@ -11700,7 +11822,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return
       }
       setEditingReportFormulaId(item.id)
-      setReportFormulaDraft({ itemName: item.item_name, formula: item.formula || '', sortOrder: String(item.sort_order), isTotal: item.is_total === 1 })
+      setReportFormulaDraft({ templateId: item.template_id, itemCode: item.item_code, itemName: item.item_name, formula: item.formula || '', sortOrder: String(item.sort_order), isTotal: item.is_total === 1 })
       setShowReportFormulaDialog(true)
       return
     }
@@ -12636,7 +12758,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'aiVoucherSuggestions' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增建议" onClick={openAiVoucherSuggestionEditor} />}
             {kind === 'employee' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增人员" onClick={openEmployeeEditor} />}
             {kind === 'payroll' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={openPayrollEditor} />}
-            {kind === 'reportFormulaSettings' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增公式" onClick={() => { setEditingReportFormulaId(null); setReportFormulaDraft({ itemName: '', formula: '', sortOrder: '0', isTotal: false }); setShowReportFormulaDialog(true) }} />}
+            {kind === 'reportFormulaSettings' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增公式" onClick={() => { setEditingReportFormulaId(null); setReportFormulaDraft({ templateId: effectiveReportTemplates[0]?.id || '', itemCode: '', itemName: '', formula: '', sortOrder: '0', isTotal: false }); setShowReportFormulaDialog(true) }} />}
             {kind === 'socialSecurity' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={openSocialSecurityEditor} />}
             {kind === 'specialDeduction' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={openSpecialDeductionEditor} />}
             {(kind === 'billList' || kind === 'bankStatement') && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={openBankTransactionEditor} />}
@@ -13205,7 +13327,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
                         <button type="button" disabled={isCompanyTodoRow && row.status === '已通过'} onClick={() => isCompanyTodoRow ? void completeCompanyTodo(row.id) : kind === 'printTemplateSettings' ? openPrintTemplatePreview() : handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline disabled:cursor-not-allowed disabled:text-slate-400">
-                          {isCompanyTodoRow ? row.status === '已通过' ? '已完成' : '完成待办' : kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiJobQueue' ? row.status === '待处理' ? '启动处理' : row.status === '待确认' ? '进入复核' : row.status === '异常' ? '查看异常' : '查看结果' : kind === 'aiRecognitionResults' ? row.status === '已通过' ? '已复核' : row.status === '异常' ? '查看问题' : '复核' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                          {isCompanyTodoRow ? row.status === '已通过' ? '已完成' : '完成待办' : kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiJobQueue' ? row.status === '待处理' ? '启动处理' : row.status === '待确认' ? '进入复核' : row.status === '异常' ? '查看异常' : '查看结果' : kind === 'aiRecognitionResults' ? row.status === '已通过' ? '已复核' : row.status === '异常' ? '查看问题' : '复核' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'periodManagement' ? row.status === '已通过' ? '申请反结账' : '查看检查' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
                       {canGenerateVoucherFromModule(kind) && !(isLocalRegistryModule && !isLocalRegistryRow) && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
@@ -13936,8 +14058,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       {showReportFormulaDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="编辑报表公式">
           <form onSubmit={handleSaveReportFormula} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
-            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">编辑报表公式</h2><p className="mt-0.5 text-xs text-amber-700">标准模板修改会影响后续报表取数，保存前必须完成公式和重算结果复核。</p></div><button type="button" onClick={() => setShowReportFormulaDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingReportFormulaId ? '编辑报表公式' : '新增报表公式'}</h2><p className="mt-0.5 text-xs text-amber-700">标准模板修改会影响后续报表取数，保存前必须完成公式和重算结果复核。</p></div><button type="button" onClick={() => setShowReportFormulaDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-slate-600">报表模板 *<select required disabled={Boolean(editingReportFormulaId)} value={reportFormulaDraft.templateId} onChange={(event) => setReportFormulaDraft((draft) => ({ ...draft, templateId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7] disabled:bg-slate-100 disabled:text-slate-500">{effectiveReportTemplates.map((template) => <option key={template.id} value={template.id}>{template.template_name}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600">行号 *<input required disabled={Boolean(editingReportFormulaId)} value={reportFormulaDraft.itemCode} onChange={(event) => setReportFormulaDraft((draft) => ({ ...draft, itemCode: event.target.value }))} placeholder="如：101" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7] disabled:bg-slate-100 disabled:text-slate-500" /></label>
               <label className="grid gap-1 text-xs text-slate-600">报表项目 *<input required value={reportFormulaDraft.itemName} onChange={(event) => setReportFormulaDraft((draft) => ({ ...draft, itemName: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
               <label className="grid gap-1 text-xs text-slate-600">显示顺序<input required type="number" min="0" step="1" value={reportFormulaDraft.sortOrder} onChange={(event) => setReportFormulaDraft((draft) => ({ ...draft, sortOrder: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">取数公式/科目 *<textarea required rows={4} value={reportFormulaDraft.formula} onChange={(event) => setReportFormulaDraft((draft) => ({ ...draft, formula: event.target.value }))} placeholder="如：1001+1002+1012" className="resize-y rounded border border-slate-300 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
