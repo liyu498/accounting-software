@@ -635,6 +635,12 @@ const previewAiQueueJobSeed: AutomationJob[] = [
   },
 ]
 
+const previewCompanyTodoSeed: CompanyTodo[] = [
+  { id: 'preview-todo-001', companyId: 'browser-preview', companyName: '科旋电气', period: '2026-05', title: '客户补传银行回单', sourceModule: '附件资料', priority: 'high', owner: '王会计', dueDate: '2026-06-26', relatedEntry: null, evidence: '资料', note: '等待客户补传', status: 'open', completedAt: null, completedBy: null, createdAt: '2026-06-26T09:00:00Z', updatedAt: '2026-06-26T09:00:00Z' },
+  { id: 'preview-todo-002', companyId: 'browser-preview', companyName: '科旋电气', period: '2026-05', title: '增值税申报包确认', sourceModule: '税务申报', priority: 'high', owner: '李会计', dueDate: '2026-06-30', relatedEntry: '申报包', evidence: '风险项', note: '待人工确认', status: 'review', completedAt: null, completedBy: null, createdAt: '2026-06-26T09:10:00Z', updatedAt: '2026-06-26T09:10:00Z' },
+  { id: 'preview-todo-003', companyId: 'browser-preview', companyName: '科旋电气', period: '2026-05', title: '凭证借贷不平', sourceModule: '风险检查', priority: 'blocking', owner: '赵会计', dueDate: '2026-06-25', relatedEntry: '记-0062', evidence: '检查结果', note: '需回到凭证模块修复', status: 'blocked', completedAt: null, completedBy: null, createdAt: '2026-06-26T09:20:00Z', updatedAt: '2026-06-26T09:20:00Z' },
+]
+
 const previewMatchingRuleSeed: MatchingRule[] = [
   { id: 'preview-matching-invoice-001', company_id: 'preview-company', rule_scope: 'invoice', name: '销售商品', condition_text: '销项商品名称包含控制器', action_text: '生成待确认销售凭证建议', target_account_code: '主营业务收入 13%', voucher_template_id: '借应收 贷收入/销项税', priority: 90, is_enabled: 1, hit_count: 42, created_at: '2026-06-26 09:00', updated_at: '2026-06-26 09:00' },
   { id: 'preview-matching-invoice-002', company_id: 'preview-company', rule_scope: 'invoice', name: '技术服务收入', condition_text: '销项税率为 6%', action_text: '生成待确认服务收入凭证建议', target_account_code: '主营业务收入 6%', voucher_template_id: '借应收 贷服务收入/销项税', priority: 80, is_enabled: 1, hit_count: 18, created_at: '2026-06-26 09:05', updated_at: '2026-06-26 09:05' },
@@ -652,6 +658,36 @@ const previewMatchingRuleSeed: MatchingRule[] = [
 
 function previewAiQueueJobStorageKey() {
   return 'accounting-preview-ai-queue-jobs-v1'
+}
+
+function previewCompanyTodoStorageKey() {
+  return 'accounting-preview-company-todos-v1'
+}
+
+function mergePreviewCompanyTodoSeed(todos: CompanyTodo[]) {
+  const knownIds = new Set(todos.map((todo) => todo.id))
+  return [...todos, ...previewCompanyTodoSeed.filter((todo) => !knownIds.has(todo.id)).map((todo) => ({ ...todo }))]
+}
+
+function loadPreviewCompanyTodos(): CompanyTodo[] {
+  const fallback = () => previewCompanyTodoSeed.map((todo) => ({ ...todo }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewCompanyTodoStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((todo) => typeof todo?.id === 'string' && typeof todo.title === 'string' && typeof todo.status === 'string')) return fallback()
+    return mergePreviewCompanyTodoSeed(parsed as CompanyTodo[])
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewCompanyTodos(todos: CompanyTodo[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewCompanyTodoStorageKey(), JSON.stringify(todos))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
 }
 
 function previewMatchingRuleStorageKey() {
@@ -5733,11 +5769,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [localBackups, setLocalBackups] = useState<LocalBackupSnapshot[]>([])
   const [backupValidations, setBackupValidations] = useState<Record<string, LocalBackupVerification>>({})
   const [companyTodos, setCompanyTodos] = useState<CompanyTodo[]>([])
-  const [previewCompanyTodos, setPreviewCompanyTodos] = useState<CompanyTodo[]>([
-    { id: 'preview-todo-001', companyId: 'browser-preview', companyName: '科旋电气', period: '2026-05', title: '客户补传银行回单', sourceModule: '附件资料', priority: 'high', owner: '王会计', dueDate: '2026-06-26', relatedEntry: null, evidence: '资料', note: '等待客户补传', status: 'open', completedAt: null, completedBy: null, createdAt: '2026-06-26T09:00:00Z', updatedAt: '2026-06-26T09:00:00Z' },
-    { id: 'preview-todo-002', companyId: 'browser-preview', companyName: '科旋电气', period: '2026-05', title: '增值税申报包确认', sourceModule: '税务申报', priority: 'high', owner: '李会计', dueDate: '2026-06-30', relatedEntry: '申报包', evidence: '风险项', note: '待人工确认', status: 'review', completedAt: null, completedBy: null, createdAt: '2026-06-26T09:10:00Z', updatedAt: '2026-06-26T09:10:00Z' },
-    { id: 'preview-todo-003', companyId: 'browser-preview', companyName: '科旋电气', period: '2026-05', title: '凭证借贷不平', sourceModule: '风险检查', priority: 'blocking', owner: '赵会计', dueDate: '2026-06-25', relatedEntry: '记-0062', evidence: '检查结果', note: '需回到凭证模块修复', status: 'blocked', completedAt: null, completedBy: null, createdAt: '2026-06-26T09:20:00Z', updatedAt: '2026-06-26T09:20:00Z' },
-  ])
+  const [previewCompanyTodos, setPreviewCompanyTodos] = useState<CompanyTodo[]>(loadPreviewCompanyTodos)
+  const updatePreviewCompanyTodos = (update: (todos: CompanyTodo[]) => CompanyTodo[]) => {
+    setPreviewCompanyTodos((todos) => {
+      const nextTodos = update(todos)
+      savePreviewCompanyTodos(nextTodos)
+      return nextTodos
+    })
+  }
   const [showCompanyTodoDialog, setShowCompanyTodoDialog] = useState(false)
   const [companyTodoDraft, setCompanyTodoDraft] = useState({ title: '', sourceModule: '资料采集', priority: 'normal' as CompanyTodo['priority'], owner: '', dueDate: '', relatedEntry: '', evidence: '', note: '' })
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -7983,7 +8022,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const todo: CompanyTodo = { id: `preview-todo-${Date.now()}`, companyId: 'browser-preview', companyName: '科旋电气', period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, title: companyTodoDraft.title.trim(), sourceModule: companyTodoDraft.sourceModule.trim(), priority: companyTodoDraft.priority, owner: companyTodoDraft.owner.trim() || null, dueDate: companyTodoDraft.dueDate || null, relatedEntry: companyTodoDraft.relatedEntry.trim() || null, evidence: companyTodoDraft.evidence.trim() || null, note: companyTodoDraft.note.trim() || null, status: 'open', completedAt: null, completedBy: null, createdAt: timestamp, updatedAt: timestamp }
-      setPreviewCompanyTodos((todos) => [todo, ...todos])
+      updatePreviewCompanyTodos((todos) => [todo, ...todos])
       setShowCompanyTodoDialog(false)
       writeModuleAudit('新增账套待办', `${todo.period}｜${todo.title}｜浏览器预览`, todo.priority === 'blocking' ? '高' : '中', '成功')
       setOperationNotice('待办已保存到本地预览；不会发送短信、邮件或触发外部动作。')
@@ -8016,8 +8055,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const todo = previewCompanyTodos.find((item) => item.id === todoId)
       if (!todo || todo.status === 'completed') return
       const timestamp = new Date().toISOString()
-      setPreviewCompanyTodos((todos) => todos.map((item) => item.id === todoId ? { ...item, status: 'completed', completedAt: timestamp, completedBy: 'admin', updatedAt: timestamp } : item))
-      writeModuleAudit('完成账套待办', `${todo.period || '当前账期'}｜${todo.title}｜浏览器预览`, '中', '成功')
+      updatePreviewCompanyTodos((todos) => todos.map((item) => item.id === todoId ? { ...item, status: 'completed', completedAt: timestamp, completedBy: 'admin', updatedAt: timestamp } : item))
+      writeModuleAudit('预览完成账套待办', `${todo.period || '当前账期'}｜${todo.title}`, '中', '成功')
       setOperationNotice('待办已标记完成并保留处理时间和操作人；原始业务仍需在对应模块核验。')
       return
     }
