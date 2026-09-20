@@ -608,8 +608,8 @@ const previewAiQueueJobSeed: AutomationJob[] = [
   },
   {
     id: 'AI-20260626-003', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'document_ocr',
-    sourceModule: '单据登记', sourceId: null, sourceFile: '费用报销图片', suggestionNo: null, debitSubject: null, creditSubject: null, suggestionAmount: null,
-    generatedVoucherId: null, generatedVoucherNumber: null, status: 'failed', confidence: 0.41, resultSummary: '影像模糊，无法完成字段识别。', riskLevel: 'warning', reviewer: '赵会计', createdBy: '赵会计', createdAt: '2026-06-26 10:48', updatedAt: '2026-06-26 10:48',
+    sourceModule: '费用报销', sourceId: '费用报销单', sourceFile: 'expense_blur.jpg', suggestionNo: null, debitSubject: null, creditSubject: null, suggestionAmount: null,
+    generatedVoucherId: null, generatedVoucherNumber: null, status: 'failed', confidence: 0.43, resultSummary: '金额/日期字段识别失败，影像模糊。', riskLevel: 'warning', reviewer: '待处理', createdBy: '赵会计', createdAt: '2026-06-26 10:48', updatedAt: '2026-06-26 10:48',
   },
   {
     id: 'AI-20260626-004', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'voucher_suggestion',
@@ -623,10 +623,25 @@ const previewAiQueueJobSeed: AutomationJob[] = [
     debitSubject: '1002 银行存款', creditSubject: '1122 应收账款', suggestionAmount: 18300, generatedVoucherId: null, generatedVoucherNumber: null,
     status: 'confirmed', confidence: 0.96, resultSummary: '客户回款已人工确认，等待凭证草稿复核。', riskLevel: 'normal', reviewer: 'admin', createdBy: '王会计', createdAt: '2026-06-26 11:20', updatedAt: '2026-06-26 11:25',
   },
+  {
+    id: 'AI-20260626-006', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'invoice_recognition',
+    sourceModule: '销项发票', sourceId: '310026000118', sourceFile: '310026000118.pdf', suggestionNo: null, debitSubject: null, creditSubject: null, suggestionAmount: null,
+    generatedVoucherId: null, generatedVoucherNumber: null, status: 'completed', confidence: 0.98, resultSummary: '购方、税率和金额字段已识别，客户档案匹配完成。', riskLevel: 'normal', reviewer: '系统', createdBy: '系统', createdAt: '2026-06-26 11:32', updatedAt: '2026-06-26 11:33',
+  },
+  {
+    id: 'AI-20260626-007', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'invoice_recognition',
+    sourceModule: '进项发票', sourceId: '310026000221', sourceFile: 'input_0221.ofd', suggestionNo: null, debitSubject: null, creditSubject: null, suggestionAmount: null,
+    generatedVoucherId: null, generatedVoucherNumber: null, status: 'waiting_confirmation', confidence: 0.84, resultSummary: '供应商和税额字段已识别，税率需要人工复核。', riskLevel: 'warning', reviewer: '李会计', createdBy: '李会计', createdAt: '2026-06-26 11:38', updatedAt: '2026-06-26 11:38',
+  },
 ]
 
 function previewAiQueueJobStorageKey() {
   return 'accounting-preview-ai-queue-jobs-v1'
+}
+
+function mergePreviewAiQueueJobSeed(jobs: AutomationJob[]) {
+  const knownIds = new Set(jobs.map((job) => job.id))
+  return [...jobs, ...previewAiQueueJobSeed.filter((job) => !knownIds.has(job.id)).map((job) => ({ ...job }))]
 }
 
 function loadPreviewAiQueueJobs(): AutomationJob[] {
@@ -635,7 +650,7 @@ function loadPreviewAiQueueJobs(): AutomationJob[] {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewAiQueueJobStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((job) => typeof job?.id === 'string' && typeof job.jobType === 'string' && typeof job.status === 'string')) return fallback()
-    return parsed as AutomationJob[]
+    return mergePreviewAiQueueJobSeed(parsed as AutomationJob[])
   } catch {
     return fallback()
   }
@@ -6564,19 +6579,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
 
     if (kind === 'aiRecognitionResults' && !isTauri) {
-      const rows = baseConfig.rows.map((row) => previewReviewedAiRecognitionIds.has(row.id)
-        ? { ...row, status: '已通过' as const, values: { ...row.values, matched: '人工已确认', risk: '人工复核通过', reviewer: 'admin' } }
-        : row)
+      const jobs = [...automationJobs, ...previewAiQueueJobs]
       return {
         ...baseConfig,
-        rows,
-        summary: baseConfig.summary.map((item) => {
-          if (item.label === '识别结果') return { ...item, value: `${rows.length} 条` }
-          if (item.label === '自动通过') return { ...item, value: `${rows.filter((row) => row.status === '已通过').length} 条` }
-          if (item.label === '待复核') return { ...item, value: `${rows.filter((row) => row.status === '待确认').length} 条` }
-          if (item.label === '异常字段') return { ...item, value: `${rows.filter((row) => row.status === '异常').length} 条` }
-          return item
-        }),
+        rows: mapLiveAutomationJobRows(jobs, 'recognition'),
+        summary: summarizeLiveAutomationJobs(jobs, 'recognition'),
       }
     }
 
@@ -11579,9 +11586,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return
       }
       if (!await requestBusinessRiskConfirmation('确认 AI 识别复核', `确认 ${pendingRows.length} 条 AI 识别结果后，将更新本地预览的档案匹配、风险提示和复核人；不会写入账套、生成凭证或调用外部系统。`, '确认复核')) return
-      setPreviewReviewedAiRecognitionIds((ids) => new Set([...ids, ...pendingRows.map((row) => row.id)]))
+      const timestamp = new Date().toISOString()
+      const reviewedIds = new Set(pendingRows.map((row) => row.id.replace('automation-recognition-', '')))
+      updatePreviewAiQueueJobs((jobs) => jobs.map((job) => reviewedIds.has(job.id)
+        ? { ...job, status: 'completed', reviewer: 'admin', resultSummary: `${job.resultSummary || '未记录识别字段'}｜admin 已人工复核，档案匹配通过。`, updatedAt: timestamp }
+        : job))
       setSelectedRowIds(new Set())
-      writeModuleAudit('确认AI识别复核', `${pendingRows.length} 条｜浏览器预览`, '中', '成功')
+      writeModuleAudit('预览确认AI识别复核', `${pendingRows.length} 条`, '中', '成功')
       setOperationNotice(`已复核 ${pendingRows.length} 条识别结果，已更新档案匹配与风险提示；不会自动写入账套或生成凭证。`)
       return
     }

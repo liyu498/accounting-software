@@ -825,7 +825,8 @@ function automationNext(status: LiveModuleStatus) {
 
 export function mapLiveAutomationJobRows(jobs: AutomationJob[], view: 'queue' | 'recognition' | 'suggestion'): LiveModuleRow[] {
   const suggestionJobs = jobs.filter((job) => job.jobType === 'voucher_suggestion')
-  const visibleJobs = view === 'suggestion' ? suggestionJobs : jobs
+  const recognitionJobs = jobs.filter((job) => ['document_ocr', 'invoice_recognition'].includes(job.jobType))
+  const visibleJobs = view === 'suggestion' ? suggestionJobs : view === 'recognition' ? recognitionJobs : jobs
 
   return [...visibleJobs]
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
@@ -843,7 +844,7 @@ export function mapLiveAutomationJobRows(jobs: AutomationJob[], view: 'queue' | 
         return {
           ...shared,
           values: {
-            object: job.sourceId || job.jobType,
+            object: [job.sourceModule, job.sourceId].filter(Boolean).join(' ') || job.jobType,
             file: sourceFile,
             fields: job.resultSummary || '未记录识别字段',
             matched: status === '已通过' ? '已复核' : status === '异常' ? '匹配异常' : '待复核',
@@ -889,7 +890,8 @@ export function mapLiveAutomationJobRows(jobs: AutomationJob[], view: 'queue' | 
 
 export function summarizeLiveAutomationJobs(jobs: AutomationJob[], view: 'queue' | 'recognition' | 'suggestion'): LiveSummaryItem[] {
   const suggestionJobs = jobs.filter((job) => job.jobType === 'voucher_suggestion')
-  const visibleJobs = view === 'suggestion' ? suggestionJobs : jobs
+  const recognitionJobs = jobs.filter((job) => ['document_ocr', 'invoice_recognition'].includes(job.jobType))
+  const visibleJobs = view === 'suggestion' ? suggestionJobs : view === 'recognition' ? recognitionJobs : jobs
   const statusForView = view === 'suggestion' ? automationSuggestionStatus : automationJobStatus
   const riskJobs = visibleJobs.filter((job) => ['high', 'critical'].includes(job.riskLevel.toLowerCase()) || statusForView(job) === '异常').length
   const completed = visibleJobs.filter((job) => statusForView(job) === (view === 'suggestion' ? '已生成凭证' : '已通过')).length
