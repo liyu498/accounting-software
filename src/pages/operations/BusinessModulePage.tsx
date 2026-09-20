@@ -11592,6 +11592,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const runDeclarationPlanning = () => {
+    if (!isTauri) {
+      const timestamp = new Date().toLocaleString('zh-CN')
+      const planCount = effectiveTaxDeclarationTasks.filter((task) => task.declarationStatus === 'draft').length
+      if (planCount === 0) {
+        setOperationNotice('当前预览没有待生成计划的申报事项；已生成计划、已确认或已归档的任务请在对应清单中继续人工复核。')
+        return
+      }
+      updatePreviewTaxDeclarationTasks((tasks) => tasks.map((task) => task.declarationStatus === 'draft'
+        ? { ...task, declarationStatus: 'planned', updatedAt: timestamp }
+        : task))
+      writeModuleAudit('预览生成申报计划', `${currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel}｜${planCount} 项待办`, '高', '成功')
+      setOperationNotice(`已为当前预览生成 ${planCount} 项本地申报计划；计划仅整理税种、所属期与复核节点，不会向税务机关提交申报或发起扣款。`)
+      return
+    }
     writeModuleAudit('生成申报计划', `${currentPeriodLabel}｜税种认定与截止日`, '高', '待审批')
     setOperationNotice('已生成当前账期本地申报计划复核记录。计划依据税种认定、所属期和截止日整理，不会自动向税务机关提交申报或发起扣款。')
   }
