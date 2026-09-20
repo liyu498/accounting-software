@@ -556,6 +556,34 @@ function buildPreviewCompanyInfo(draft: PreviewCompanyInfo): Company {
   }
 }
 
+function previewCompanyInfoStorageKey() {
+  return 'accounting-preview-company-info-v1'
+}
+
+function loadPreviewCompanyInfo(): PreviewCompanyInfo | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewCompanyInfoStorageKey()) || 'null')
+    if (!parsed || typeof parsed.code !== 'string' || typeof parsed.name !== 'string' || typeof parsed.taxId !== 'string') return null
+    return parsed as PreviewCompanyInfo
+  } catch {
+    return null
+  }
+}
+
+function savePreviewCompanyInfo(company: PreviewCompanyInfo | null) {
+  if (typeof window === 'undefined') return
+  try {
+    if (company) {
+      window.localStorage.setItem(previewCompanyInfoStorageKey(), JSON.stringify(company))
+    } else {
+      window.localStorage.removeItem(previewCompanyInfoStorageKey())
+    }
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
 const previewInitialBalanceSeed: PreviewInitialBalanceRow[] = [
   { accountCode: '1002', accountName: '银行存款', accountType: '资产类', isDetail: true, openingDebit: 220000, openingCredit: 0, sourceNote: '期初导入表' },
   { accountCode: '1122', accountName: '应收账款', accountType: '资产类', isDetail: true, openingDebit: 410000, openingCredit: 0, sourceNote: '期初导入表' },
@@ -5765,6 +5793,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const needsLiveAssetCategories = Boolean(isTauri && selectedCompanyId && ['assetCategory', 'depreciation'].includes(kind))
   const usesLiveBusinessTagData = Boolean(isTauri && selectedCompanyId && kind === 'tagArchive')
   const needsLiveBusinessTags = Boolean(isTauri && selectedCompanyId && ['tagArchive', 'outputInvoice', 'inputInvoice', 'voucher', 'voucherCreate', 'voucherEdit', 'voucherDetail', 'billList', 'bankStatement'].includes(kind))
+  const isMatchingRuleWorkspace = ['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping', 'aiRuleTraining'].includes(kind)
   const matchingRuleScope: MatchingRuleScope = kind === 'invoiceMatchingRules' ? 'invoice' : kind === 'billMatchingRules' ? 'bill' : kind === 'aiRuleTraining' ? 'ai_training' : 'cash_flow'
   const usesLiveAdapterAuthorizationData = Boolean(isTauri && selectedCompanyId && ['taxAdapterSettings', 'bankAdapterSettings', 'taxInit'].includes(kind))
   const usesLiveOperationAuditData = Boolean(isTauri && selectedCompanyId && kind === 'auditLog')
@@ -5930,7 +5959,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [companyAccountDraft, setCompanyAccountDraft] = useState({ accountName: '', accountType: '银行账户', bankName: '', accountNumber: '', subjectCode: '1002 银行存款', openingBalance: '0', attachmentNote: '', status: '启用' as '启用' | '停用' })
   const [showCompanyInfoDialog, setShowCompanyInfoDialog] = useState(false)
   const [companyInfoDraft, setCompanyInfoDraft] = useState<PreviewCompanyInfo>({ code: '', name: '', taxId: '', taxpayerType: 'general', province: '', city: '', district: '', accountingSystem: 'small_enterprise', enableYear: String(new Date().getFullYear()), enableMonth: String(new Date().getMonth() + 1), serviceStart: '', serviceEnd: '', industry: '', enterpriseType: '私营有限责任公司' })
-  const [previewCompanyInfo, setPreviewCompanyInfo] = useState<PreviewCompanyInfo | null>(null)
+  const [previewCompanyInfo, setPreviewCompanyInfo] = useState<PreviewCompanyInfo | null>(loadPreviewCompanyInfo)
+  const updatePreviewCompanyInfo = (company: PreviewCompanyInfo | null) => {
+    savePreviewCompanyInfo(company)
+    setPreviewCompanyInfo(company)
+  }
   const [previewSubjects, setPreviewSubjects] = useState<AccountCode[]>(loadPreviewSubjects)
   const updatePreviewSubjects = (update: (subjects: AccountCode[]) => AccountCode[]) => {
     setPreviewSubjects((subjects) => {
@@ -7287,7 +7320,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (usesLiveMatchingRuleData || previewMatchingRules.some((rule) => rule.rule_scope === matchingRuleScope)) {
+    if (isMatchingRuleWorkspace && (usesLiveMatchingRuleData || previewMatchingRules.some((rule) => rule.rule_scope === matchingRuleScope))) {
       return {
         ...baseConfig,
         rows: mapLiveMatchingRuleRows(isTauri ? matchingRules : previewMatchingRules, matchingRuleScope),
@@ -9332,7 +9365,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (!isTauri) {
-      setPreviewCompanyInfo({ ...companyInfoDraft })
+      updatePreviewCompanyInfo({ ...companyInfoDraft })
       writeModuleAudit('预览企业资料保存', `${companyInfoDraft.code}｜${companyInfoDraft.name}`, '高', '成功')
       setOperationNotice('浏览器预览已完成企业资料校验；桌面端保存会写入当前账套，不会保存税局、个税或工商密码。')
       setShowCompanyInfoDialog(false)
