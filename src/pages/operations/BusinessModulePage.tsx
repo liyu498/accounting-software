@@ -9995,7 +9995,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const confirmTaxTaskFromRow = async (row: ModuleRow) => {
-    if (!selectedCompanyId) return
     const task = taxTaskForRow(row)
     if (!task) {
       setOperationNotice('未找到当前账套的申报事项，请刷新后重试。')
@@ -10010,6 +10009,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (!await requestBusinessRiskConfirmation('确认本地申报事项', `确认 ${task.taxType}（${task.period}）的本地申报事项吗？此操作仅记录人工确认，不会向税局提交或触发扣款。`, '确认本地事项')) return
+    if (!isTauri) {
+      const timestamp = new Date().toLocaleString('zh-CN')
+      const updatedTask: TaxDeclarationTask = {
+        ...task,
+        declarationStatus: 'confirmed',
+        confirmedBy: 'admin',
+        confirmedAt: timestamp,
+        updatedAt: timestamp,
+      }
+      updatePreviewTaxDeclarationTasks((tasks) => tasks.map((item) => item.id === updatedTask.id ? updatedTask : item))
+      writeModuleAudit('确认预览申报事项', `${updatedTask.taxType}｜${updatedTask.period}`, '高', '成功')
+      setOperationNotice(`${updatedTask.taxType}已完成当前预览的人工确认；不会向税局提交、发起扣款或收取外部回执。`)
+      return
+    }
+    if (!selectedCompanyId) return
     const result = await automationApi.confirmTaxDeclarationTask({ id: task.id, companyId: selectedCompanyId, confirmedBy: 'admin' })
     if (!result.success || !result.data) {
       setOperationNotice(`确认申报事项失败：${result.error || '未知错误'}`)
@@ -10634,7 +10648,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       openTaxInitEditor(task)
       return
     }
-    if (isLocalTaxTaskKind && isTauri && selectedCompanyId) {
+    if (isLocalTaxTaskKind) {
       await confirmTaxTaskFromRow(row)
       return
     }

@@ -268,6 +268,7 @@ const errors = [
   ...(!businessSource.includes('effectiveTaxDeclarationTasks') ? ['tax declaration workspaces must render shared preview task data'] : []),
   ...(!businessSource.includes('预览归档回执缴款台账') ? ['tax receipt preview must retain local archive entries'] : []),
   ...(!businessSource.includes('previewTaxDeclarationTaskStorageKey') ? ['tax declaration preview tasks must survive navigation between related workspaces'] : []),
+  ...(!businessSource.includes('确认预览申报事项') ? ['tax declaration preview must support a local confirmation workflow'] : []),
   ...(!businessSource.includes('附件来源与归档完整性') ? ['attachment center must render a dedicated archive workflow'] : []),
   ...(!businessSource.includes('导入批次解析与字段映射') ? ['import center must render a dedicated mapping workflow'] : []),
   ...(!businessSource.includes('导出文件留痕与下载控制') ? ['export center must render a dedicated download workflow'] : []),
