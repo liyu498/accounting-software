@@ -143,8 +143,8 @@ import {
 } from '../../stores/periodStore'
 import { useVoucherStore, type Voucher } from '../../stores/voucherStore'
 import { useSettlementRuleStore } from '../../stores/settlementRuleStore'
-import { useCurrencyStore } from '../../stores/currencyStore'
-import { useTemplateStore, type TemplateEntry } from '../../stores/templateStore'
+import { useCurrencyStore, type Currency } from '../../stores/currencyStore'
+import { useTemplateStore, type CommonDigest, type TemplateEntry } from '../../stores/templateStore'
 import { useReportTemplateStore } from '../../stores/reportTemplateStore'
 import { useMatchingRuleStore, type MatchingRule, type MatchingRuleScope } from '../../stores/matchingRuleStore'
 import { useAssetCategoryStore } from '../../stores/assetCategoryStore'
@@ -690,6 +690,18 @@ const previewSubjectSeed: AccountCode[] = [
   { code: '2221', company_id: 'browser-preview', name: '应交税费', account_type: '负债类', normal_balance: 'credit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
 ]
 
+const previewCurrencySeed: Currency[] = [
+  { id: 'preview-currency-cny', company_id: 'browser-preview', code: 'CNY', name: '人民币', exchange_rate: 1, is_base: 1 },
+  { id: 'preview-currency-usd', company_id: 'browser-preview', code: 'USD', name: '美元', exchange_rate: 7.1832, is_base: 0 },
+  { id: 'preview-currency-eur', company_id: 'browser-preview', code: 'EUR', name: '欧元', exchange_rate: 7.775, is_base: 0 },
+]
+
+const previewCommonDigestSeed: CommonDigest[] = [
+  { id: 'preview-digest-receivable', company_id: 'browser-preview', content: '收到{客户}货款' },
+  { id: 'preview-digest-payable', company_id: 'browser-preview', content: '支付{供应商}材料款' },
+  { id: 'preview-digest-office', company_id: 'browser-preview', content: '报销办公费用' },
+]
+
 function previewAiQueueJobStorageKey() {
   return 'accounting-preview-ai-queue-jobs-v1'
 }
@@ -779,6 +791,56 @@ function savePreviewSubjects(subjects: AccountCode[]) {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewSubjectStorageKey(), JSON.stringify(subjects))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewCurrencyStorageKey() {
+  return 'accounting-preview-currencies-v1'
+}
+
+function loadPreviewCurrencies(): Currency[] {
+  const fallback = () => previewCurrencySeed.map((currency) => ({ ...currency }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewCurrencyStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((currency) => typeof currency?.id === 'string' && typeof currency.code === 'string' && typeof currency.name === 'string' && Number.isFinite(currency.exchange_rate) && typeof currency.is_base === 'number')) return fallback()
+    return parsed as Currency[]
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewCurrencies(currencies: Currency[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewCurrencyStorageKey(), JSON.stringify(currencies))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewCommonDigestStorageKey() {
+  return 'accounting-preview-common-digests-v1'
+}
+
+function loadPreviewCommonDigests(): CommonDigest[] {
+  const fallback = () => previewCommonDigestSeed.map((digest) => ({ ...digest }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewCommonDigestStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((digest) => typeof digest?.id === 'string' && typeof digest.content === 'string')) return fallback()
+    return parsed as CommonDigest[]
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewCommonDigests(digests: CommonDigest[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewCommonDigestStorageKey(), JSON.stringify(digests))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -5989,8 +6051,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [editingAuxiliaryArchiveItemId, setEditingAuxiliaryArchiveItemId] = useState<string | null>(null)
   const [auxiliaryArchiveDraft, setAuxiliaryArchiveDraft] = useState({ code: '', name: '', taxNo: '', bank: '', subject: '', contract: '', alias: '', taxRate: '', contactType: '', idNo: '', owner: '', start: '', budget: '', parent: '', people: '', remark: '' })
   const [previewCompanyAccounts, setPreviewCompanyAccounts] = useState<typeof companyAccounts>([])
-  const [previewCurrencies, setPreviewCurrencies] = useState<typeof currencies>([])
-  const [previewCommonDigests, setPreviewCommonDigests] = useState<typeof commonDigests>([])
+  const [previewCurrencies, setPreviewCurrencies] = useState<Currency[]>(loadPreviewCurrencies)
+  const updatePreviewCurrencies = (update: (currencies: Currency[]) => Currency[]) => {
+    setPreviewCurrencies((currencies) => {
+      const nextCurrencies = update(currencies)
+      savePreviewCurrencies(nextCurrencies)
+      return nextCurrencies
+    })
+  }
+  const [previewCommonDigests, setPreviewCommonDigests] = useState<CommonDigest[]>(loadPreviewCommonDigests)
+  const updatePreviewCommonDigests = (update: (digests: CommonDigest[]) => CommonDigest[]) => {
+    setPreviewCommonDigests((digests) => {
+      const nextDigests = update(digests)
+      savePreviewCommonDigests(nextDigests)
+      return nextDigests
+    })
+  }
   const [previewAuxiliaryCategories, setPreviewAuxiliaryCategories] = useState<typeof auxiliaryCategories>([])
   const [previewAuxiliaryItems, setPreviewAuxiliaryItems] = useState<typeof auxiliaryItems>([])
   const [previewVoucherTemplateTypes] = useState<typeof voucherTemplateTypes>([{ id: 'preview-template-type', company_id: 'preview-company', name: '通用凭证', sort_order: 1 }])
@@ -7202,7 +7278,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'currencySettings' && (usesLiveCurrencyData || previewCurrencies.length > 0)) {
+    if (kind === 'currencySettings' && (usesLiveCurrencyData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveCurrencyRows(isTauri ? currencies : previewCurrencies),
@@ -7210,7 +7286,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'commonDigests' && (usesLiveTemplateSettingsData || previewCommonDigests.length > 0)) {
+    if (kind === 'commonDigests' && (usesLiveTemplateSettingsData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveCommonDigestRows(isTauri ? commonDigests : previewCommonDigests),
@@ -8847,7 +8923,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!isTauri) {
       const currency = { id: editingCurrencyId || `preview-currency-${Date.now()}`, company_id: selectedCompanyId || 'preview-company', code: currencyDraft.code.trim().toUpperCase(), name: currencyDraft.name.trim(), exchange_rate: Number(currencyDraft.exchangeRate || 0), is_base: currencyDraft.isBase ? 1 : 0 }
-      setPreviewCurrencies((items) => editingCurrencyId ? items.map((item) => item.id === currency.id ? currency : item) : [currency, ...items])
+      updatePreviewCurrencies((items) => editingCurrencyId ? items.map((item) => item.id === currency.id ? currency : item) : [currency, ...items])
       writeModuleAudit(editingCurrencyId ? '编辑币别' : '新增币别', `${currency.code}｜${currency.exchange_rate}`, '中', '成功')
       setOperationNotice(`币别已保存到当前预览：${currency.code}。桌面端会写入当前账套，期末调汇与凭证生成仍需人工复核。`)
       resetCurrencyDraft()
@@ -8876,6 +8952,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleDeleteCurrency = async () => {
+    if (!isTauri && editingCurrencyId) {
+      const currency = previewCurrencies.find((item) => item.id === editingCurrencyId)
+      if (currency?.is_base === 1) {
+        setOperationNotice('本位币不能直接删除；请先在桌面端设置其他本位币并完成汇兑核验。')
+        return
+      }
+      if (!await requestBusinessRiskConfirmation('确认删除币别', `确认删除币别 ${currency?.code || ''} 吗？该操作仅影响当前预览。`, '删除')) return
+      updatePreviewCurrencies((items) => items.filter((item) => item.id !== editingCurrencyId))
+      writeModuleAudit('删除币别', currency?.code || editingCurrencyId, '高', '成功')
+      setOperationNotice(`已从当前预览删除币别 ${currency?.code || ''}。`)
+      resetCurrencyDraft()
+      setShowCurrencyDialog(false)
+      return
+    }
     if (!selectedCompanyId || !editingCurrencyId) return
     const currency = currencies.find((item) => item.id === editingCurrencyId)
     if (!await requestBusinessRiskConfirmation('确认删除币别', `确认删除币别 ${currency?.code || ''} 吗？已存在的历史业务不会变更。`, '删除')) return
@@ -8899,7 +8989,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!isTauri) {
       const digest = { id: editingCommonDigestId || `preview-digest-${Date.now()}`, company_id: selectedCompanyId || 'preview-company', content: commonDigestDraft.trim() }
-      setPreviewCommonDigests((items) => editingCommonDigestId ? items.map((item) => item.id === digest.id ? digest : item) : [digest, ...items])
+      updatePreviewCommonDigests((items) => editingCommonDigestId ? items.map((item) => item.id === digest.id ? digest : item) : [digest, ...items])
       writeModuleAudit(editingCommonDigestId ? '编辑常用摘要' : '新增常用摘要', digest.content, '中', '成功')
       setOperationNotice(`常用摘要已保存到当前预览：${digest.content}。桌面端会写入当前账套，可在凭证、规则和自动建议中引用。`)
       resetCommonDigestDraft()
@@ -8922,6 +9012,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleDeleteCommonDigest = async () => {
+    if (!isTauri && editingCommonDigestId) {
+      const digest = previewCommonDigests.find((item) => item.id === editingCommonDigestId)
+      if (!await requestBusinessRiskConfirmation('确认删除常用摘要', `确认删除常用摘要“${digest?.content || ''}”吗？该操作仅影响当前预览。`, '删除')) return
+      updatePreviewCommonDigests((items) => items.filter((item) => item.id !== editingCommonDigestId))
+      writeModuleAudit('删除常用摘要', digest?.content || editingCommonDigestId, '高', '成功')
+      setOperationNotice(`已从当前预览删除常用摘要“${digest?.content || ''}”。`)
+      resetCommonDigestDraft()
+      setShowCommonDigestDialog(false)
+      return
+    }
     if (!selectedCompanyId || !editingCommonDigestId) return
     const digest = commonDigests.find((item) => item.id === editingCommonDigestId)
     if (!await requestBusinessRiskConfirmation('确认删除常用摘要', `确认删除常用摘要“${digest?.content || ''}”吗？不会影响历史凭证。`, '删除')) return
@@ -13160,7 +13260,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600">币别编码 *<input required maxLength={12} value={currencyDraft.code} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, code: event.target.value.toUpperCase() }))} placeholder="USD" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
               <label className="grid gap-1 text-xs text-slate-600">币别名称 *<input required value={currencyDraft.name} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="美元" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
               <label className="grid gap-1 text-xs text-slate-600">记账汇率 *<input required type="number" min="0.000001" step="0.0001" value={currencyDraft.exchangeRate} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, exchangeRate: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
-              <label className="flex items-end gap-2 pb-1 text-xs text-slate-700"><input type="checkbox" checked={currencyDraft.isBase} disabled={Boolean(editingCurrencyId && currencies.find((item) => item.id === editingCurrencyId)?.is_base === 1)} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, isBase: event.target.checked }))} />设为本位币</label>
+              <label className="flex items-end gap-2 pb-1 text-xs text-slate-700"><input type="checkbox" checked={currencyDraft.isBase} disabled={Boolean(editingCurrencyId && (isTauri ? currencies : previewCurrencies).find((item) => item.id === editingCurrencyId)?.is_base === 1)} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, isBase: event.target.checked }))} />设为本位币</label>
             </div>
             <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3">
               <div>{editingCurrencyId && <button type="button" onClick={() => void handleDeleteCurrency()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除币别</button>}</div>
