@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type SetStateAction } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -781,10 +781,40 @@ const previewPeriodSeed: AccountingPeriod[] = [
 
 type PreviewInvoiceMatchCandidate = Pick<Invoice, 'id' | 'invoice_no' | 'invoice_code' | 'invoice_type' | 'total_amount' | 'seller_name' | 'buyer_name' | 'status' | 'voucher_id'>
 
+type PreviewPeopleData = {
+  employees: Employee[]
+  payrollRecords: PayrollRecord[]
+  socialSecurityRecords: SocialSecurityRecord[]
+  specialDeductionRecords: SpecialDeductionRecord[]
+}
+
 const previewInvoiceMatchCandidateSeed: PreviewInvoiceMatchCandidate[] = [
   { id: 'preview-match-invoice-001', invoice_no: '031002400128', invoice_code: '3100260001', invoice_type: 'input', total_amount: 18300, seller_name: '苏州材料供应链有限公司', buyer_name: '科旋电气（上海）有限公司', status: 'verified', voucher_id: null },
   { id: 'preview-match-invoice-002', invoice_no: '031002400139', invoice_code: '3100260001', invoice_type: 'input', total_amount: 9800, seller_name: '杭州设备服务有限公司', buyer_name: '科旋电气（上海）有限公司', status: 'verified', voucher_id: null },
 ]
+
+const previewPeopleSeed: PreviewPeopleData = {
+  employees: [
+    { id: 'preview-employee', companyId: 'preview-company', employeeCode: 'P-001', name: '张三', idNo: '310101198905120018', department: '销售部', position: '客户经理', mobile: '13800001001', entryDate: '2025-09-01', employmentStatus: '在职', createdAt: '2025-09-01T09:00:00.000Z', updatedAt: '2026-05-31T09:00:00.000Z' },
+    { id: 'preview-employee-002', companyId: 'preview-company', employeeCode: 'P-002', name: '李四', idNo: '320501199103150021', department: '财务部', position: '会计', mobile: '13900002033', entryDate: '2024-03-15', employmentStatus: '在职', createdAt: '2024-03-15T09:00:00.000Z', updatedAt: '2026-05-31T09:00:00.000Z' },
+    { id: 'preview-employee-003', companyId: 'preview-company', employeeCode: 'P-003', name: '王五', idNo: null, department: '生产部', position: '操作员', mobile: '13700008821', entryDate: '2026-05-10', employmentStatus: '在职', createdAt: '2026-05-10T09:00:00.000Z', updatedAt: '2026-05-31T09:00:00.000Z' },
+  ],
+  payrollRecords: [
+    { id: 'preview-payroll-001', companyId: 'preview-company', employeeId: 'preview-employee', employeeName: '张三', period: '2026-05', baseSalary: 12000, bonus: 2000, taxAmount: 680, socialPersonal: 3000, netSalary: 10320, status: '已生成凭证', createdAt: '2026-05-31T09:00:00.000Z', updatedAt: '2026-05-31T09:30:00.000Z' },
+    { id: 'preview-payroll-002', companyId: 'preview-company', employeeId: 'preview-employee-002', employeeName: '李四', period: '2026-05', baseSalary: 15000, bonus: 0, taxAmount: 950, socialPersonal: 3750, netSalary: 10300, status: '待确认', createdAt: '2026-05-31T09:00:00.000Z', updatedAt: '2026-05-31T09:30:00.000Z' },
+    { id: 'preview-payroll-003', companyId: 'preview-company', employeeId: 'preview-employee-003', employeeName: '王五', period: '2026-05', baseSalary: 8000, bonus: 500, taxAmount: 0, socialPersonal: 0, netSalary: 8500, status: '异常', createdAt: '2026-05-31T09:00:00.000Z', updatedAt: '2026-05-31T09:30:00.000Z' },
+  ],
+  socialSecurityRecords: [
+    { id: 'preview-social-001', companyId: 'preview-company', employeeId: 'preview-employee', employeeName: '张三', period: '2026-05', city: '上海', contributionBase: 12000, companyAmount: 3280, personalAmount: 1320, fundAmount: 1680, status: '已生成凭证', createdAt: '2026-05-31T09:00:00.000Z', updatedAt: '2026-05-31T09:30:00.000Z' },
+    { id: 'preview-social-002', companyId: 'preview-company', employeeId: 'preview-employee-002', employeeName: '李四', period: '2026-05', city: '上海', contributionBase: 15000, companyAmount: 4100, personalAmount: 1650, fundAmount: 2100, status: '待确认', createdAt: '2026-05-31T09:00:00.000Z', updatedAt: '2026-05-31T09:30:00.000Z' },
+    { id: 'preview-social-003', companyId: 'preview-company', employeeId: 'preview-employee-003', employeeName: '王五', period: '2026-05', city: '上海', contributionBase: 0, companyAmount: 0, personalAmount: 0, fundAmount: 0, status: '异常', createdAt: '2026-05-31T09:00:00.000Z', updatedAt: '2026-05-31T09:30:00.000Z' },
+  ],
+  specialDeductionRecords: [
+    { id: 'preview-deduction-001', companyId: 'preview-company', employeeId: 'preview-employee', employeeName: '张三', deductionType: '子女教育', startMonth: '2026-01', endMonth: null, monthlyAmount: 2000, source: '人员确认', status: '有效', createdAt: '2026-01-01T09:00:00.000Z', updatedAt: '2026-05-31T09:30:00.000Z' },
+    { id: 'preview-deduction-002', companyId: 'preview-company', employeeId: 'preview-employee-002', employeeName: '李四', deductionType: '住房租金', startMonth: '2026-01', endMonth: null, monthlyAmount: 1500, source: '人员确认', status: '有效', createdAt: '2026-01-01T09:00:00.000Z', updatedAt: '2026-05-31T09:30:00.000Z' },
+    { id: 'preview-deduction-003', companyId: 'preview-company', employeeId: 'preview-employee-003', employeeName: '王五', deductionType: '继续教育', startMonth: '2026-05', endMonth: null, monthlyAmount: 400, source: '待补资料', status: '待确认', createdAt: '2026-05-10T09:00:00.000Z', updatedAt: '2026-05-31T09:30:00.000Z' },
+  ],
+}
 
 const previewCompanyAccountSeed: CompanyAccount[] = [
   { id: 'preview-company-account-icbc', company_id: 'browser-preview', account_name: '工行基本户', account_type: '银行账户', bank_name: '工商银行上海分行', account_number: '6222********0198', subject_code: '1002 银行存款', opening_balance: 466380, attachment_note: '开户许可证', status: '启用', created_at: '2026-06-01 09:00', updated_at: '2026-06-26 09:00' },
@@ -1166,6 +1196,44 @@ function savePreviewInvoiceMatchCandidates(invoices: PreviewInvoiceMatchCandidat
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewInvoiceVoucherMatchStorageKey(), JSON.stringify(invoices))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewPeopleStorageKey() {
+  return 'accounting-preview-people-data-v1'
+}
+
+function clonePreviewPeopleData(data: PreviewPeopleData = previewPeopleSeed): PreviewPeopleData {
+  return {
+    employees: data.employees.map((employee) => ({ ...employee })),
+    payrollRecords: data.payrollRecords.map((record) => ({ ...record })),
+    socialSecurityRecords: data.socialSecurityRecords.map((record) => ({ ...record })),
+    specialDeductionRecords: data.specialDeductionRecords.map((record) => ({ ...record })),
+  }
+}
+
+function loadPreviewPeopleData(): PreviewPeopleData {
+  const fallback = () => clonePreviewPeopleData()
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewPeopleStorageKey()) || 'null')
+    if (!parsed || !Array.isArray(parsed.employees) || !Array.isArray(parsed.payrollRecords) || !Array.isArray(parsed.socialSecurityRecords) || !Array.isArray(parsed.specialDeductionRecords)) return fallback()
+    const validEmployees = parsed.employees.every((employee: Employee) => typeof employee?.id === 'string' && typeof employee.name === 'string' && typeof employee.employeeCode === 'string' && typeof employee.employmentStatus === 'string')
+    const validPayroll = parsed.payrollRecords.every((record: PayrollRecord) => typeof record?.id === 'string' && typeof record.employeeId === 'string' && Number.isFinite(record.netSalary) && typeof record.status === 'string')
+    const validSocialSecurity = parsed.socialSecurityRecords.every((record: SocialSecurityRecord) => typeof record?.id === 'string' && typeof record.employeeId === 'string' && Number.isFinite(record.contributionBase) && typeof record.status === 'string')
+    const validDeductions = parsed.specialDeductionRecords.every((record: SpecialDeductionRecord) => typeof record?.id === 'string' && typeof record.employeeId === 'string' && Number.isFinite(record.monthlyAmount) && typeof record.status === 'string')
+    return validEmployees && validPayroll && validSocialSecurity && validDeductions ? clonePreviewPeopleData(parsed as PreviewPeopleData) : fallback()
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewPeopleData(data: PreviewPeopleData) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewPeopleStorageKey(), JSON.stringify(data))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -6315,10 +6383,47 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
   const [showCompanyTodoDialog, setShowCompanyTodoDialog] = useState(false)
   const [companyTodoDraft, setCompanyTodoDraft] = useState({ title: '', sourceModule: '资料采集', priority: 'normal' as CompanyTodo['priority'], owner: '', dueDate: '', relatedEntry: '', evidence: '', note: '' })
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([])
-  const [socialSecurityRecords, setSocialSecurityRecords] = useState<SocialSecurityRecord[]>([])
-  const [specialDeductionRecords, setSpecialDeductionRecords] = useState<SpecialDeductionRecord[]>([])
+  const [previewPeopleData, setPreviewPeopleData] = useState<PreviewPeopleData>(() => isTauri ? { employees: [], payrollRecords: [], socialSecurityRecords: [], specialDeductionRecords: [] } : loadPreviewPeopleData())
+  const employees = previewPeopleData.employees
+  const payrollRecords = previewPeopleData.payrollRecords
+  const socialSecurityRecords = previewPeopleData.socialSecurityRecords
+  const specialDeductionRecords = previewPeopleData.specialDeductionRecords
+  const updatePreviewEmployees = (update: SetStateAction<Employee[]>) => {
+    setPreviewPeopleData((data) => {
+      const employees = typeof update === 'function' ? (update as (current: Employee[]) => Employee[])(data.employees) : update
+      const next = { ...data, employees }
+      if (!isTauri) savePreviewPeopleData(next)
+      return next
+    })
+  }
+  const updatePreviewPayrollRecords = (update: SetStateAction<PayrollRecord[]>) => {
+    setPreviewPeopleData((data) => {
+      const payrollRecords = typeof update === 'function' ? (update as (current: PayrollRecord[]) => PayrollRecord[])(data.payrollRecords) : update
+      const next = { ...data, payrollRecords }
+      if (!isTauri) savePreviewPeopleData(next)
+      return next
+    })
+  }
+  const updatePreviewSocialSecurityRecords = (update: SetStateAction<SocialSecurityRecord[]>) => {
+    setPreviewPeopleData((data) => {
+      const socialSecurityRecords = typeof update === 'function' ? (update as (current: SocialSecurityRecord[]) => SocialSecurityRecord[])(data.socialSecurityRecords) : update
+      const next = { ...data, socialSecurityRecords }
+      if (!isTauri) savePreviewPeopleData(next)
+      return next
+    })
+  }
+  const updatePreviewSpecialDeductionRecords = (update: SetStateAction<SpecialDeductionRecord[]>) => {
+    setPreviewPeopleData((data) => {
+      const specialDeductionRecords = typeof update === 'function' ? (update as (current: SpecialDeductionRecord[]) => SpecialDeductionRecord[])(data.specialDeductionRecords) : update
+      const next = { ...data, specialDeductionRecords }
+      if (!isTauri) savePreviewPeopleData(next)
+      return next
+    })
+  }
+  const setEmployees = updatePreviewEmployees
+  const setPayrollRecords = updatePreviewPayrollRecords
+  const setSocialSecurityRecords = updatePreviewSocialSecurityRecords
+  const setSpecialDeductionRecords = updatePreviewSpecialDeductionRecords
   const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])
   const [documentRecords, setDocumentRecords] = useState<DocumentRecord[]>([])
   const [businessOrders, setBusinessOrders] = useState<BusinessOrder[]>([])
@@ -7404,7 +7509,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'employee' && (usesLiveEmployeeData || employees.length > 0)) {
+    if (kind === 'employee' && (usesLiveEmployeeData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveEmployeeRows(employees),
@@ -7412,13 +7517,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'payroll' && (usesLivePayrollData || payrollRecords.length > 0)) {
+    if (kind === 'payroll' && (usesLivePayrollData || !isTauri)) {
       return { ...baseConfig, rows: mapLivePayrollRows(payrollRecords), summary: summarizeLivePayroll(payrollRecords) }
     }
-    if (kind === 'socialSecurity' && (usesLiveSocialSecurityData || socialSecurityRecords.length > 0)) return { ...baseConfig, rows: mapLiveSocialSecurityRows(socialSecurityRecords), summary: summarizeLiveSocialSecurity(socialSecurityRecords) }
-    if (kind === 'specialDeduction' && (usesLiveSpecialDeductionData || specialDeductionRecords.length > 0)) return { ...baseConfig, rows: mapLiveSpecialDeductionRows(specialDeductionRecords), summary: summarizeLiveSpecialDeductions(specialDeductionRecords) }
-    if (kind === 'withholdingTaxReport' && usesLiveWithholdingTaxData) return { ...baseConfig, rows: mapLiveWithholdingTaxRows(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords), summary: summarizeLiveWithholdingTax(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords) }
-    if (kind === 'socialSecurityTaxReport' && usesLiveSocialSecurityTaxData) return { ...baseConfig, rows: mapLiveSocialSecurityTaxRows(socialSecurityRecords), summary: summarizeLiveSocialSecurityTax(socialSecurityRecords) }
+    if (kind === 'socialSecurity' && (usesLiveSocialSecurityData || !isTauri)) return { ...baseConfig, rows: mapLiveSocialSecurityRows(socialSecurityRecords), summary: summarizeLiveSocialSecurity(socialSecurityRecords) }
+    if (kind === 'specialDeduction' && (usesLiveSpecialDeductionData || !isTauri)) return { ...baseConfig, rows: mapLiveSpecialDeductionRows(specialDeductionRecords), summary: summarizeLiveSpecialDeductions(specialDeductionRecords) }
+    if (kind === 'withholdingTaxReport' && (usesLiveWithholdingTaxData || !isTauri)) return { ...baseConfig, rows: mapLiveWithholdingTaxRows(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords), summary: summarizeLiveWithholdingTax(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords) }
+    if (kind === 'socialSecurityTaxReport' && (usesLiveSocialSecurityTaxData || !isTauri)) return { ...baseConfig, rows: mapLiveSocialSecurityTaxRows(socialSecurityRecords), summary: summarizeLiveSocialSecurityTax(socialSecurityRecords) }
     if (kind === 'incomeTaxReport' && usesLiveReportData && liveReports.incomeStatement) return { ...baseConfig, rows: mapLiveIncomeTaxRows(liveReports.incomeStatement), summary: summarizeLiveIncomeTax(liveReports.incomeStatement) }
     if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
     if ((kind === 'billList' || kind === 'bankStatement') && (usesLiveBankTransactionData || bankTransactions.length > 0)) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, effectiveBusinessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
@@ -11715,7 +11820,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowEmployeeDialog(true)
       return
     }
-    if (kind === 'payroll' && isTauri && selectedCompanyId) {
+    if (kind === 'payroll' && (usesLivePayrollData || !isTauri)) {
       const payroll = payrollRecords.find((item) => item.id === row.id)
       if (!payroll) {
         setOperationNotice('未找到当前账期的薪酬行。')
