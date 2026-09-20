@@ -594,6 +594,62 @@ const previewTaxDeclarationTaskSeed: TaxDeclarationTask[] = [
   },
 ]
 
+const previewAiQueueJobSeed: AutomationJob[] = [
+  {
+    id: 'AI-20260626-001', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'voucher_suggestion',
+    sourceModule: '销项发票', sourceId: '310026000118', sourceFile: '销项发票批次0526', suggestionNo: 'AI-V-0526-001',
+    debitSubject: '1122 应收账款', creditSubject: '6001 主营业务收入', suggestionAmount: 38000, generatedVoucherId: null, generatedVoucherNumber: null,
+    status: 'waiting_confirmation', confidence: 0.92, resultSummary: '设备销售收入，建议按销项发票生成待复核分录。', riskLevel: 'normal', reviewer: '王会计', createdBy: '王会计', createdAt: '2026-06-26 09:12', updatedAt: '2026-06-26 09:12',
+  },
+  {
+    id: 'AI-20260626-002', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'bank_classification',
+    sourceModule: '银行流水', sourceId: null, sourceFile: 'BANK-0526-01', suggestionNo: null, debitSubject: null, creditSubject: null, suggestionAmount: null,
+    generatedVoucherId: 'preview-voucher-0051', generatedVoucherNumber: '记-0051', status: 'completed', confidence: 0.96, resultSummary: '流水分类完成，已保留处理日志。', riskLevel: 'normal', reviewer: '李会计', createdBy: '李会计', createdAt: '2026-06-26 10:03', updatedAt: '2026-06-26 10:03',
+  },
+  {
+    id: 'AI-20260626-003', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'document_ocr',
+    sourceModule: '单据登记', sourceId: null, sourceFile: '费用报销图片', suggestionNo: null, debitSubject: null, creditSubject: null, suggestionAmount: null,
+    generatedVoucherId: null, generatedVoucherNumber: null, status: 'failed', confidence: 0.41, resultSummary: '影像模糊，无法完成字段识别。', riskLevel: 'warning', reviewer: '赵会计', createdBy: '赵会计', createdAt: '2026-06-26 10:48', updatedAt: '2026-06-26 10:48',
+  },
+  {
+    id: 'AI-20260626-004', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'voucher_suggestion',
+    sourceModule: '费用报销', sourceId: 'BX-202605-018', sourceFile: '差旅报销单.pdf', suggestionNo: 'AI-V-0526-002',
+    debitSubject: '6601 销售费用', creditSubject: '1002 银行存款', suggestionAmount: 9800, generatedVoucherId: null, generatedVoucherNumber: null,
+    status: 'waiting_confirmation', confidence: 0.78, resultSummary: '差旅报销费用，发票与行程单金额待人工核验。', riskLevel: 'warning', reviewer: '李会计', createdBy: '李会计', createdAt: '2026-06-26 11:08', updatedAt: '2026-06-26 11:08',
+  },
+  {
+    id: 'AI-20260626-005', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'voucher_suggestion',
+    sourceModule: '银行流水', sourceId: 'BANK-0526-01', sourceFile: 'BANK-0526-01', suggestionNo: 'AI-V-0526-003',
+    debitSubject: '1002 银行存款', creditSubject: '1122 应收账款', suggestionAmount: 18300, generatedVoucherId: null, generatedVoucherNumber: null,
+    status: 'confirmed', confidence: 0.96, resultSummary: '客户回款已人工确认，等待凭证草稿复核。', riskLevel: 'normal', reviewer: 'admin', createdBy: '王会计', createdAt: '2026-06-26 11:20', updatedAt: '2026-06-26 11:25',
+  },
+]
+
+function previewAiQueueJobStorageKey() {
+  return 'accounting-preview-ai-queue-jobs-v1'
+}
+
+function loadPreviewAiQueueJobs(): AutomationJob[] {
+  const fallback = () => previewAiQueueJobSeed.map((job) => ({ ...job }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewAiQueueJobStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((job) => typeof job?.id === 'string' && typeof job.jobType === 'string' && typeof job.status === 'string')) return fallback()
+    return parsed as AutomationJob[]
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewAiQueueJobs(jobs: AutomationJob[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewAiQueueJobStorageKey(), JSON.stringify(jobs))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
 function previewTaxDeclarationTaskStorageKey() {
   return 'accounting-preview-tax-declaration-tasks-v1'
 }
@@ -5761,7 +5817,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     { id: 'preview-match-voucher-002', voucher_number: '记-0068', total_debit: 9800, summary: '技术服务费', status: 'draft' },
   ])
   const [previewReviewedAiRecognitionIds, setPreviewReviewedAiRecognitionIds] = useState<Set<string>>(new Set())
-  const [previewConfirmedAiSuggestionIds, setPreviewConfirmedAiSuggestionIds] = useState<Set<string>>(new Set())
   const invoiceMatchCandidates = isTauri ? invoices : previewInvoiceMatchCandidates
   const voucherMatchCandidates = isTauri ? vouchers : previewVoucherMatchCandidates
   const effectiveAssetCategories = isTauri ? assetCategories : previewAssetCategories
@@ -5822,11 +5877,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [importValidationJob, setImportValidationJob] = useState<LocalImportJob | null>(null)
   const [importCommitDraft, setImportCommitDraft] = useState<LocalImportCommitDraft | null>(null)
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
-  const [previewAiQueueJobs, setPreviewAiQueueJobs] = useState<AutomationJob[]>([
-    { id: 'AI-20260626-001', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'voucher_suggestion', sourceModule: '销项发票', sourceId: null, sourceFile: '销项发票批次0526', suggestionNo: null, debitSubject: null, creditSubject: null, suggestionAmount: null, generatedVoucherId: null, generatedVoucherNumber: null, status: 'waiting_confirmation', confidence: 0.92, resultSummary: '凭证建议已生成，待人工确认分录。', riskLevel: 'normal', reviewer: '王会计', createdBy: '王会计', createdAt: '2026-06-26 09:12', updatedAt: '2026-06-26 09:12' },
-    { id: 'AI-20260626-002', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'bank_classification', sourceModule: '银行流水', sourceId: null, sourceFile: 'BANK-0526-01', suggestionNo: null, debitSubject: null, creditSubject: null, suggestionAmount: null, generatedVoucherId: 'preview-voucher-0051', generatedVoucherNumber: '记-0051', status: 'completed', confidence: 0.96, resultSummary: '流水分类完成，已保留处理日志。', riskLevel: 'normal', reviewer: '李会计', createdBy: '李会计', createdAt: '2026-06-26 10:03', updatedAt: '2026-06-26 10:03' },
-    { id: 'AI-20260626-003', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'document_ocr', sourceModule: '单据登记', sourceId: null, sourceFile: '费用报销图片', suggestionNo: null, debitSubject: null, creditSubject: null, suggestionAmount: null, generatedVoucherId: null, generatedVoucherNumber: null, status: 'failed', confidence: 0.41, resultSummary: '影像模糊，无法完成字段识别。', riskLevel: 'warning', reviewer: '赵会计', createdBy: '赵会计', createdAt: '2026-06-26 10:48', updatedAt: '2026-06-26 10:48' },
-  ])
+  const [previewAiQueueJobs, setPreviewAiQueueJobs] = useState(loadPreviewAiQueueJobs)
+  const updatePreviewAiQueueJobs = (update: (jobs: AutomationJob[]) => AutomationJob[]) => {
+    setPreviewAiQueueJobs((jobs) => {
+      const nextJobs = update(jobs)
+      savePreviewAiQueueJobs(nextJobs)
+      return nextJobs
+    })
+  }
   const [showAiJobDialog, setShowAiJobDialog] = useState(false)
   const [aiJobDraft, setAiJobDraft] = useState({ jobType: 'invoice_recognition', sourceModule: '发票', sourceId: '', sourceFile: '', summary: '', riskLevel: 'normal' })
   const [prefilledAiSuggestionId, setPrefilledAiSuggestionId] = useState<string | null>(null)
@@ -6523,17 +6581,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
 
     if (kind === 'aiVoucherSuggestions' && !isTauri) {
-      const rows = baseConfig.rows.map((row) => previewConfirmedAiSuggestionIds.has(row.id)
-        ? { ...row, status: '已确认' as const, values: { ...row.values, risk: '低风险已确认' } }
-        : row)
+      const jobs = [...automationJobs, ...previewAiQueueJobs]
       return {
         ...baseConfig,
-        rows,
-        summary: baseConfig.summary.map((item) => {
-          if (item.label === '可确认') return { ...item, value: `${rows.filter((row) => row.status === '待确认').length} 条` }
-          if (item.label === '待修改') return { ...item, label: '已确认', tone: 'green' as const, value: `${rows.filter((row) => row.status === '已确认').length} 条` }
-          return item
-        }),
+        rows: mapLiveAutomationJobRows(jobs, 'suggestion'),
+        summary: summarizeLiveAutomationJobs(jobs, 'suggestion'),
       }
     }
 
@@ -7163,7 +7215,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewConfirmedAiSuggestionIds, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewReviewedAiRecognitionIds, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewReviewedAiRecognitionIds, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
   const tableMeta = getModuleTableMeta(kind)
@@ -7458,6 +7510,38 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleCreateAiVoucherSuggestion = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const job: AutomationJob = {
+        id: `AI-PREVIEW-SUGGESTION-${Date.now()}`,
+        companyId: 'browser-preview',
+        companyName: previewCompanyInfo?.name || '科旋电气（上海）有限公司',
+        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+        jobType: 'voucher_suggestion',
+        sourceModule: aiVoucherSuggestionDraft.sourceModule.trim(),
+        sourceId: aiVoucherSuggestionDraft.sourceId.trim() || null,
+        sourceFile: aiVoucherSuggestionDraft.sourceFile.trim() || null,
+        suggestionNo: aiVoucherSuggestionDraft.suggestionNo.trim() || `AI-PREVIEW-${Date.now()}`,
+        debitSubject: aiVoucherSuggestionDraft.debitSubject.trim(),
+        creditSubject: aiVoucherSuggestionDraft.creditSubject.trim(),
+        suggestionAmount: Number(aiVoucherSuggestionDraft.amount),
+        generatedVoucherId: null,
+        generatedVoucherNumber: null,
+        status: 'waiting_confirmation',
+        confidence: Number(aiVoucherSuggestionDraft.confidence) / 100,
+        resultSummary: aiVoucherSuggestionDraft.summary.trim(),
+        riskLevel: aiVoucherSuggestionDraft.riskLevel,
+        reviewer: null,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }
+      updatePreviewAiQueueJobs((jobs) => [job, ...jobs])
+      setShowAiVoucherSuggestionDialog(false)
+      writeModuleAudit('预览新增AI凭证建议', job.suggestionNo || job.id, '中', '成功')
+      setOperationNotice('AI 凭证建议已保存到当前预览队列；请人工核验来源、借贷科目和金额，系统不会自动生成或入账凭证。')
+      return
+    }
     if (!selectedCompanyId || currentPeriodLabel === '当前账期') {
       setOperationNotice('请先选择账套和账期，再登记 AI 凭证建议。')
       return
@@ -7521,7 +7605,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         createdAt: timestamp,
         updatedAt: timestamp,
       }
-      setPreviewAiQueueJobs((jobs) => [job, ...jobs])
+      updatePreviewAiQueueJobs((jobs) => [job, ...jobs])
       setShowAiJobDialog(false)
       writeModuleAudit('新建AI处理任务', `${job.jobType}｜${job.sourceModule}｜浏览器预览`, '中', '成功')
       setOperationNotice('AI 处理任务已加入本地预览队列。请从行内启动处理并进入人工复核；不会自动生成或入账凭证。')
@@ -7569,9 +7653,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (!await requestBusinessRiskConfirmation('确认 AI 凭证建议', `确认 ${pendingRows.length} 条 AI 凭证建议后，仅进入凭证草稿复核队列，不会自动生成或入账凭证。`, '确认进入复核队列')) return
-    setPreviewConfirmedAiSuggestionIds((ids) => new Set([...ids, ...pendingRows.map((row) => row.id)]))
+    const timestamp = new Date().toISOString()
+    const confirmedIds = new Set(pendingRows.map((row) => row.id.replace('automation-suggestion-', '')))
+    updatePreviewAiQueueJobs((jobs) => jobs.map((job) => confirmedIds.has(job.id)
+      ? { ...job, status: 'confirmed', reviewer: 'admin', resultSummary: `${job.resultSummary || '未记录建议摘要'}｜admin 已人工确认，待在凭证草稿中复核。`, updatedAt: timestamp }
+      : job))
     setSelectedRowIds(new Set())
-    writeModuleAudit('确认AI凭证建议', `${pendingRows.length} 条｜浏览器预览`, '中', '成功')
+    writeModuleAudit('预览确认AI凭证建议', `${pendingRows.length} 条`, '中', '成功')
     setOperationNotice(`已确认 ${pendingRows.length} 条建议，已进入凭证草稿复核队列；不会自动生成或入账凭证。`)
   }
 
@@ -10566,7 +10654,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       if (row.status === '待处理') {
         if (!await requestBusinessRiskConfirmation('启动 AI 预览任务', `确认启动 ${job.id} 吗？任务只会进入本地人工复核队列，不会自动生成凭证、写入账套或调用外部系统。`, '确认启动')) return
         const timestamp = new Date().toISOString()
-        setPreviewAiQueueJobs((jobs) => jobs.map((item) => item.id === job.id ? { ...item, status: 'waiting_confirmation', reviewer: 'admin', updatedAt: timestamp } : item))
+        updatePreviewAiQueueJobs((jobs) => jobs.map((item) => item.id === job.id ? { ...item, status: 'waiting_confirmation', reviewer: 'admin', updatedAt: timestamp } : item))
         setAutomationJobs((jobs) => jobs.map((item) => item.id === job.id ? { ...item, status: 'waiting_confirmation', reviewer: 'admin', updatedAt: timestamp } : item))
         writeModuleAudit('启动AI预览任务', `${job.id}｜${job.sourceModule}`, '中', '成功')
         setOperationNotice(`${job.id} 已进入人工复核队列。请核验来源、字段和风险后再进入后续模块。`)
