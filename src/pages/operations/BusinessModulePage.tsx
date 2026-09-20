@@ -146,7 +146,7 @@ import { useSettlementRuleStore } from '../../stores/settlementRuleStore'
 import { useCurrencyStore } from '../../stores/currencyStore'
 import { useTemplateStore, type TemplateEntry } from '../../stores/templateStore'
 import { useReportTemplateStore } from '../../stores/reportTemplateStore'
-import { useMatchingRuleStore, type MatchingRuleScope } from '../../stores/matchingRuleStore'
+import { useMatchingRuleStore, type MatchingRule, type MatchingRuleScope } from '../../stores/matchingRuleStore'
 import { useAssetCategoryStore } from '../../stores/assetCategoryStore'
 import { useBusinessTagStore, type BusinessTag } from '../../stores/businessTagStore'
 import { useCompanyAccountStore } from '../../stores/companyAccountStore'
@@ -635,8 +635,53 @@ const previewAiQueueJobSeed: AutomationJob[] = [
   },
 ]
 
+const previewMatchingRuleSeed: MatchingRule[] = [
+  { id: 'preview-matching-invoice-001', company_id: 'preview-company', rule_scope: 'invoice', name: '销售商品', condition_text: '销项商品名称包含控制器', action_text: '生成待确认销售凭证建议', target_account_code: '主营业务收入 13%', voucher_template_id: '借应收 贷收入/销项税', priority: 90, is_enabled: 1, hit_count: 42, created_at: '2026-06-26 09:00', updated_at: '2026-06-26 09:00' },
+  { id: 'preview-matching-invoice-002', company_id: 'preview-company', rule_scope: 'invoice', name: '技术服务收入', condition_text: '销项税率为 6%', action_text: '生成待确认服务收入凭证建议', target_account_code: '主营业务收入 6%', voucher_template_id: '借应收 贷服务收入/销项税', priority: 80, is_enabled: 1, hit_count: 18, created_at: '2026-06-26 09:05', updated_at: '2026-06-26 09:05' },
+  { id: 'preview-matching-invoice-003', company_id: 'preview-company', rule_scope: 'invoice', name: '办公采购', condition_text: '进项商品名称包含办公', action_text: '人工核验费用凭证建议', target_account_code: '管理费用 6%/13%', voucher_template_id: '费用凭证', priority: 60, is_enabled: 0, hit_count: 9, created_at: '2026-06-26 09:10', updated_at: '2026-06-26 09:10' },
+  { id: 'preview-matching-bill-001', company_id: 'preview-company', rule_scope: 'bill', name: '银行手续费', condition_text: '摘要包含手续费，金额小于 1000', action_text: '生成待确认费用凭证建议', target_account_code: '6603 财务费用', voucher_template_id: null, priority: 95, is_enabled: 1, hit_count: 22, created_at: '2026-06-26 09:20', updated_at: '2026-06-26 09:20' },
+  { id: 'preview-matching-bill-002', company_id: 'preview-company', rule_scope: 'bill', name: '销售收款核销', condition_text: '对方户名匹配客户且金额等于发票价税合计', action_text: '生成待确认应收核销建议', target_account_code: '1002/1122', voucher_template_id: null, priority: 90, is_enabled: 1, hit_count: 61, created_at: '2026-06-26 09:25', updated_at: '2026-06-26 09:25' },
+  { id: 'preview-matching-bill-003', company_id: 'preview-company', rule_scope: 'bill', name: '个人备用金', condition_text: '对方户名为个人', action_text: '生成其他应收款候选分录', target_account_code: '1221 其他应收款', voucher_template_id: null, priority: 60, is_enabled: 0, hit_count: 6, created_at: '2026-06-26 09:30', updated_at: '2026-06-26 09:30' },
+  { id: 'preview-matching-cash-001', company_id: 'preview-company', rule_scope: 'cash_flow', name: '销售商品收到的现金', condition_text: '货款/回款', action_text: '1002/1122 流入', target_account_code: 'CF-01', voucher_template_id: null, priority: 95, is_enabled: 1, hit_count: 48, created_at: '2026-06-26 09:40', updated_at: '2026-06-26 09:40' },
+  { id: 'preview-matching-cash-002', company_id: 'preview-company', rule_scope: 'cash_flow', name: '购买商品支付的现金', condition_text: '材料/采购', action_text: '1002/2202 流出', target_account_code: 'CF-12', voucher_template_id: null, priority: 90, is_enabled: 1, hit_count: 31, created_at: '2026-06-26 09:45', updated_at: '2026-06-26 09:45' },
+  { id: 'preview-matching-cash-003', company_id: 'preview-company', rule_scope: 'cash_flow', name: '支付其他经营活动现金', condition_text: '办公/费用', action_text: '1002/6602 流出', target_account_code: 'CF-21', voucher_template_id: null, priority: 50, is_enabled: 0, hit_count: 12, created_at: '2026-06-26 09:50', updated_at: '2026-06-26 09:50' },
+  { id: 'preview-matching-ai-001', company_id: 'preview-company', rule_scope: 'ai_training', name: '技术服务收入识别', condition_text: '销项发票服务费项目加已审核历史凭证', action_text: '生成待确认收入凭证建议', target_account_code: '6001 主营业务收入', voucher_template_id: null, priority: 80, is_enabled: 1, hit_count: 0, created_at: '2026-06-26 10:00', updated_at: '2026-06-26 10:00' },
+  { id: 'preview-matching-ai-002', company_id: 'preview-company', rule_scope: 'ai_training', name: '银行手续费分类', condition_text: '银行流水摘要包含手续费', action_text: '生成待确认费用凭证建议', target_account_code: '6603 财务费用', voucher_template_id: null, priority: 60, is_enabled: 0, hit_count: 0, created_at: '2026-06-26 10:05', updated_at: '2026-06-26 10:05' },
+  { id: 'preview-matching-ai-003', company_id: 'preview-company', rule_scope: 'ai_training', name: '办公采购费用', condition_text: '进项发票品类为办公用品', action_text: '生成费用科目建议', target_account_code: '6602 管理费用', voucher_template_id: null, priority: 50, is_enabled: 0, hit_count: 0, created_at: '2026-06-26 10:10', updated_at: '2026-06-26 10:10' },
+]
+
 function previewAiQueueJobStorageKey() {
   return 'accounting-preview-ai-queue-jobs-v1'
+}
+
+function previewMatchingRuleStorageKey() {
+  return 'accounting-preview-matching-rules-v1'
+}
+
+function mergePreviewMatchingRuleSeed(rules: MatchingRule[]) {
+  const knownIds = new Set(rules.map((rule) => rule.id))
+  return [...rules, ...previewMatchingRuleSeed.filter((rule) => !knownIds.has(rule.id)).map((rule) => ({ ...rule }))]
+}
+
+function loadPreviewMatchingRules(): MatchingRule[] {
+  const fallback = () => previewMatchingRuleSeed.map((rule) => ({ ...rule }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewMatchingRuleStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((rule) => typeof rule?.id === 'string' && typeof rule.rule_scope === 'string' && typeof rule.name === 'string')) return fallback()
+    return mergePreviewMatchingRuleSeed(parsed as MatchingRule[])
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewMatchingRules(rules: MatchingRule[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewMatchingRuleStorageKey(), JSON.stringify(rules))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
 }
 
 function mergePreviewAiQueueJobSeed(jobs: AutomationJob[]) {
@@ -5804,7 +5849,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [previewVoucherTemplateTypes] = useState<typeof voucherTemplateTypes>([{ id: 'preview-template-type', company_id: 'preview-company', name: '通用凭证', sort_order: 1 }])
   const [previewVoucherTemplates, setPreviewVoucherTemplates] = useState<typeof voucherTemplates>([])
   const [previewSettlementRules, setPreviewSettlementRules] = useState<typeof settlementRules>([])
-  const [previewMatchingRules, setPreviewMatchingRules] = useState<typeof matchingRules>([])
+  const [previewMatchingRules, setPreviewMatchingRules] = useState<MatchingRule[]>(loadPreviewMatchingRules)
+  const updatePreviewMatchingRules = (update: (rules: MatchingRule[]) => MatchingRule[]) => {
+    setPreviewMatchingRules((rules) => {
+      const nextRules = update(rules)
+      savePreviewMatchingRules(nextRules)
+      return nextRules
+    })
+  }
   const [previewAssetCategories, setPreviewAssetCategories] = useState<typeof assetCategories>([])
   const [previewBusinessTags, setPreviewBusinessTags] = useState<typeof businessTags>([])
   const [previewAdapterAuthorizations, setPreviewAdapterAuthorizations] = useState<AdapterAuthorization[]>([])
@@ -8950,7 +9002,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         setOperationNotice('请填写规则名称、匹配条件和处理动作。')
         return
       }
-      setPreviewMatchingRules((items) => {
+      updatePreviewMatchingRules((items) => {
         const next = editingMatchingRuleId
           ? items.map((item) => item.id === rule.id ? { ...rule, created_at: item.created_at } : item)
           : [...items, rule]
@@ -8988,7 +9040,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!isTauri && editingMatchingRuleId) {
       const rule = previewMatchingRules.find((item) => item.id === editingMatchingRuleId)
       if (!await requestBusinessRiskConfirmation('确认删除自动匹配规则', `确认删除规则“${rule?.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
-      setPreviewMatchingRules((items) => items.filter((item) => item.id !== editingMatchingRuleId))
+      updatePreviewMatchingRules((items) => items.filter((item) => item.id !== editingMatchingRuleId))
       writeModuleAudit('删除自动匹配规则', rule?.name || editingMatchingRuleId, '高', '成功')
       setOperationNotice(`已从当前预览删除自动匹配规则“${rule?.name || ''}”。`)
       resetMatchingRuleDraft()
@@ -11633,12 +11685,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         })))
       } else {
         const publishedIds = new Set(selectedRules.map((rule) => rule.id))
-        setPreviewMatchingRules((items) => items.map((rule) => publishedIds.has(rule.id)
+        updatePreviewMatchingRules((items) => items.map((rule) => publishedIds.has(rule.id)
           ? { ...rule, is_enabled: 1, updated_at: new Date().toISOString() }
           : rule))
       }
       setSelectedRowIds(new Set())
-      writeModuleAudit('复核并发布AI训练规则', `${selectedRules.length} 条｜${currentPeriodLabel}`, '高', '成功')
+      if (isTauri) {
+        writeModuleAudit('复核并发布AI训练规则', `${selectedRules.length} 条｜${currentPeriodLabel}`, '高', '成功')
+      } else {
+        writeModuleAudit('预览发布AI训练规则', `${selectedRules.length} 条｜${currentPeriodLabel}`, '高', '成功')
+      }
       setOperationNotice(`已完成 ${selectedRules.length} 条训练规则复核并发布。规则只进入待确认 AI 建议队列，不会自动生成已审核凭证或提交税务。`)
     } catch (error) {
       setOperationNotice(`发布 AI 训练规则失败：${String(error)}`)

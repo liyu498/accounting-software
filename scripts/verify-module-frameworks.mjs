@@ -172,6 +172,8 @@ const errors = [
   ...(!businessSource.includes("mapLiveAutomationJobRows(jobs, 'recognition')") ? ['AI recognition preview must use the shared AI job queue'] : []),
   ...(!businessSource.includes('预览确认AI识别复核') ? ['AI recognition preview must retain local manual reviews'] : []),
   ...(((liveRowsSource.match(/view === 'suggestion' \? suggestionJobs : view === 'recognition' \? recognitionJobs : jobs/g) ?? []).length < 2) ? ['AI recognition summaries must use the same filtered records as the recognition table'] : []),
+  ...(!businessSource.includes('previewMatchingRuleStorageKey') ? ['preview matching rules must survive navigation between rule workspaces'] : []),
+  ...(!businessSource.includes('预览发布AI训练规则') ? ['AI training rule preview must retain local publication decisions'] : []),
   ...(!businessSource.includes('报表、税表和配置清单只支持查看、核验与回链处理') ? ['read-only module rows must not fall through to voucher generation'] : []),
   ...(!businessSource.includes('工资核算与凭证准备') ? ['payroll must render a dedicated payroll workflow'] : []),
   ...(!businessSource.includes('社保公积金核对流程') ? ['social security must render a dedicated reconciliation workflow'] : []),
