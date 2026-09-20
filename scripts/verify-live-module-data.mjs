@@ -451,11 +451,11 @@ const requiredPageSnippets = [
   ['voucher recycle mapping', 'mapLiveVoucherRecycleRows(deletedVouchers)'],
   ['voucher recycle live scope', 'usesLiveVoucherRecycleData'],
   ['tax declaration refresh', 'automationApi.getTaxDeclarationTasks'],
-  ['declaration receipt mapping', 'mapLiveDeclarationReceiptRows(taxDeclarationTasks)'],
+  ['declaration receipt mapping', 'mapLiveDeclarationReceiptRows(effectiveTaxDeclarationTasks)'],
   ['declaration receipt live scope', 'usesLiveDeclarationReceiptData'],
-  ['tax init mapping', 'mapLiveTaxInitRows(taxDeclarationTasks, adapterAuthorizations)'],
+  ['tax init mapping', 'mapLiveTaxInitRows(effectiveTaxDeclarationTasks, effectiveAdapterAuthorizations)'],
   ['tax init live scope', 'usesLiveTaxInitData'],
-  ['tax report mapping', 'mapLiveTaxReportRows(taxDeclarationTasks)'],
+  ['tax report mapping', 'mapLiveTaxReportRows(effectiveTaxDeclarationTasks)'],
   ['tax report live scope', 'usesLiveTaxReportData'],
   ['automation job refresh', 'automationApi.getAutomationJobs'],
   ['AI job queue mapping', "mapLiveAutomationJobRows(automationJobs, 'queue')"],
@@ -481,7 +481,7 @@ const requiredPageSnippets = [
   ['invoice voucher matching mapping', 'mapLiveInvoiceVoucherMatchingRows(invoices, vouchers)'],
   ['invoice voucher matching summary mapping', 'summarizeLiveInvoiceVoucherMatching(invoices, vouchers)'],
   ['invoice voucher matching live scope', 'usesLiveInvoiceVoucherMatchingData'],
-  ['finance tax report mapping', 'mapLiveFinanceTaxReportRows(taxDeclarationTasks)'],
+  ['finance tax report mapping', 'mapLiveFinanceTaxReportRows(effectiveTaxDeclarationTasks)'],
   ['finance tax report live scope', 'usesLiveFinanceTaxReportData'],
   ['financial overview mapping', 'mapLiveFinancialOverviewRows(liveReports.balanceSheet, liveReports.incomeStatement, liveReports.cashFlow)'],
   ['financial overview live scope', 'usesLiveFinancialOverviewData'],
@@ -1242,7 +1242,7 @@ const requiredDeclarationCalendarAdapterSnippets = [
 const requiredDeclarationCalendarPageSnippets = [
   ['declaration calendar live scope', "kind === 'declarationCalendar'"],
   ['declaration calendar task loader', 'usesLiveDeclarationCalendarData'],
-  ['declaration calendar live mapper', 'mapLiveDeclarationCalendarRows(taxDeclarationTasks)'],
+  ['declaration calendar live mapper', 'mapLiveDeclarationCalendarRows(effectiveTaxDeclarationTasks)'],
 ]
 const requiredNonTaxRevenueAdapterSnippets = [
   ['non-tax revenue row mapper', 'export function mapLiveNonTaxRevenueRows'],
@@ -1252,7 +1252,7 @@ const requiredNonTaxRevenueAdapterSnippets = [
 const requiredNonTaxRevenuePageSnippets = [
   ['non-tax revenue live scope', "kind === 'nonTaxRevenueReport'"],
   ['non-tax revenue task loader', 'usesLiveNonTaxRevenueData'],
-  ['non-tax revenue live mapper', 'mapLiveNonTaxRevenueRows(taxDeclarationTasks)'],
+  ['non-tax revenue live mapper', 'mapLiveNonTaxRevenueRows(effectiveTaxDeclarationTasks)'],
   ['non-tax revenue manual save', 'automationApi.upsertTaxDeclarationTask({'],
   ['non-tax revenue editor title', '新增非税缴费事项'],
   ['non-tax revenue external submission boundary', '不会计算法定税额、生成外部缴款书或提交申报'],
