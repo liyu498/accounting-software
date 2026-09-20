@@ -248,6 +248,8 @@ const requiredRemainingWorkflowSummarySnippets = [
 ]
 
 const requiredAdapterSnippets = [
+  ['settlement-rule tax-accrual label', "tax_accrual: '计提附加税费'"],
+  ['settlement-rule depreciation label', "depreciation: '计提固定资产折旧'"],
   ['invoice row mapper', 'export function mapLiveInvoiceRows'],
   ['voucher row mapper', 'export function mapLiveVoucherRows'],
   ['invoice summary mapper', 'export function summarizeLiveInvoices'],

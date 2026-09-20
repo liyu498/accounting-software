@@ -1334,6 +1334,8 @@ export function summarizeLiveHistorySubsidiaryLedger(items: SubsidiaryLedgerItem
 const settlementRuleLabels: Record<string, string> = {
   profit_loss: '结转损益',
   tax: '计提所得税',
+  tax_accrual: '计提附加税费',
+  depreciation: '计提固定资产折旧',
   vat: '转出未交增值税',
   custom: '自定义结转',
 }

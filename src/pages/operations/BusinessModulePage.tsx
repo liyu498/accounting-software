@@ -142,12 +142,12 @@ import {
   type TrialBalanceResult,
 } from '../../stores/periodStore'
 import { useVoucherStore, type Voucher } from '../../stores/voucherStore'
-import { useSettlementRuleStore } from '../../stores/settlementRuleStore'
+import { useSettlementRuleStore, type SettlementRule } from '../../stores/settlementRuleStore'
 import { useCurrencyStore, type Currency } from '../../stores/currencyStore'
-import { useTemplateStore, type CommonDigest, type TemplateEntry } from '../../stores/templateStore'
+import { useTemplateStore, type CommonDigest, type TemplateEntry, type VoucherTemplateType, type VoucherTemplateWithEntries } from '../../stores/templateStore'
 import { useReportTemplateStore } from '../../stores/reportTemplateStore'
 import { useMatchingRuleStore, type MatchingRule, type MatchingRuleScope } from '../../stores/matchingRuleStore'
-import { useAssetCategoryStore } from '../../stores/assetCategoryStore'
+import { useAssetCategoryStore, type AssetCategory } from '../../stores/assetCategoryStore'
 import { useBusinessTagStore, type BusinessTag } from '../../stores/businessTagStore'
 import { useCompanyAccountStore, type CompanyAccount } from '../../stores/companyAccountStore'
 
@@ -707,6 +707,59 @@ const previewCommonDigestSeed: CommonDigest[] = [
   { id: 'preview-digest-office', company_id: 'browser-preview', content: '报销办公费用' },
 ]
 
+const previewVoucherTemplateTypeSeed: VoucherTemplateType[] = [
+  { id: 'preview-template-type-business', company_id: 'browser-preview', name: '业务凭证', sort_order: 10 },
+  { id: 'preview-template-type-closing', company_id: 'browser-preview', name: '月末结转', sort_order: 20 },
+]
+
+const previewVoucherTemplateSeed: VoucherTemplateWithEntries[] = [
+  {
+    template: { id: 'preview-voucher-template-receipt', type_id: 'preview-template-type-business', company_id: 'browser-preview', name: '收到客户回款', entries_json: '' },
+    entries: [
+      { account_code: '1002', account_name: '银行存款', direction: 'debit', summary: '收到{客户}货款', auxiliary_type: '客户', auxiliary_id: null },
+      { account_code: '1122', account_name: '应收账款', direction: 'credit', summary: '收到{客户}货款', auxiliary_type: '客户', auxiliary_id: null },
+    ],
+  },
+  {
+    template: { id: 'preview-voucher-template-sales', type_id: 'preview-template-type-business', company_id: 'browser-preview', name: '销售商品收入', entries_json: '' },
+    entries: [
+      { account_code: '1122', account_name: '应收账款', direction: 'debit', summary: '确认{客户}销售收入', auxiliary_type: '客户', auxiliary_id: null },
+      { account_code: '6001', account_name: '主营业务收入', direction: 'credit', summary: '确认{客户}销售收入', auxiliary_type: null, auxiliary_id: null },
+    ],
+  },
+  {
+    template: { id: 'preview-voucher-template-depreciation', type_id: 'preview-template-type-closing', company_id: 'browser-preview', name: '计提固定资产折旧', entries_json: '' },
+    entries: [
+      { account_code: '6602', account_name: '管理费用', direction: 'debit', summary: '计提本期固定资产折旧', auxiliary_type: '部门', auxiliary_id: null },
+      { account_code: '1602', account_name: '累计折旧', direction: 'credit', summary: '计提本期固定资产折旧', auxiliary_type: null, auxiliary_id: null },
+    ],
+  },
+]
+
+const previewSettlementRuleSeed: SettlementRule[] = [
+  { id: 'preview-settlement-rule-profit', company_id: 'browser-preview', name: '结转本期损益', rule_type: 'profit_loss', source_formula: '损益类科目期末余额', target_account_code: '4103 本年利润', voucher_word_id: null, summary_template: '结转本期损益', priority: 10, is_enabled: 1 },
+  { id: 'preview-settlement-rule-depreciation', company_id: 'browser-preview', name: '计提本期折旧', rule_type: 'depreciation', source_formula: '固定资产折旧清单', target_account_code: '1602 累计折旧', voucher_word_id: null, summary_template: '计提本期固定资产折旧', priority: 20, is_enabled: 1 },
+  { id: 'preview-settlement-rule-tax', company_id: 'browser-preview', name: '计提附加税费', rule_type: 'tax_accrual', source_formula: '当期增值税应纳税额', target_account_code: '2221 应交税费', voucher_word_id: null, summary_template: '计提本期附加税费', priority: 30, is_enabled: 0 },
+]
+
+const previewAssetCategorySeed: AssetCategory[] = [
+  { id: 'preview-asset-category-machine', company_id: 'browser-preview', code: 'MACHINE', name: '机器设备', useful_life_months: 120, residual_rate: 0.05, depreciation_method: '平均年限法', asset_account: '1601 固定资产', accumulated_depreciation_account: '1602 累计折旧', expense_account: '6602 管理费用', is_enabled: 1, created_at: '2026-06-01 09:00', updated_at: '2026-06-26 09:00' },
+  { id: 'preview-asset-category-vehicle', company_id: 'browser-preview', code: 'VEHICLE', name: '运输设备', useful_life_months: 48, residual_rate: 0.05, depreciation_method: '平均年限法', asset_account: '1601 固定资产', accumulated_depreciation_account: '1602 累计折旧', expense_account: '6601 销售费用', is_enabled: 1, created_at: '2026-06-01 09:10', updated_at: '2026-06-26 09:10' },
+  { id: 'preview-asset-category-office', company_id: 'browser-preview', code: 'OFFICE', name: '办公及电子设备', useful_life_months: 36, residual_rate: 0.05, depreciation_method: '平均年限法', asset_account: '1601 固定资产', accumulated_depreciation_account: '1602 累计折旧', expense_account: '6602 管理费用', is_enabled: 1, created_at: '2026-06-01 09:20', updated_at: '2026-06-26 09:20' },
+]
+
+const previewBusinessTagSeed: BusinessTag[] = [
+  { id: 'preview-business-tag-risk', company_id: 'browser-preview', name: '高风险待复核', applicable_modules: '发票/流水/凭证/风险', color_name: '红色', auto_rule: '税率、金额或凭证校验异常', usage_count: 3, remarks: '需会计人工复核后关闭', is_enabled: 1, created_at: '2026-06-01 09:00', updated_at: '2026-06-26 09:00' },
+  { id: 'preview-business-tag-material', company_id: 'browser-preview', name: '待补资料', applicable_modules: '发票/单据/报销/附件', color_name: '橙色', auto_rule: '缺少影像、回单或合同', usage_count: 5, remarks: '补齐后重新核验', is_enabled: 1, created_at: '2026-06-01 09:10', updated_at: '2026-06-26 09:10' },
+  { id: 'preview-business-tag-reconcile', company_id: 'browser-preview', name: '回款核销', applicable_modules: '流水/销项发票/应收核销', color_name: '绿色', auto_rule: '金额与客户匹配成功', usage_count: 8, remarks: '仅作人工跟踪标记', is_enabled: 1, created_at: '2026-06-01 09:20', updated_at: '2026-06-26 09:20' },
+]
+
+const previewAdapterAuthorizationSeed: AdapterAuthorization[] = [
+  { id: 'preview-tax-adapter-shanghai', companyId: 'preview-company', companyName: '当前预览账套', adapterType: 'tax', adapterCode: '上海电子税务局适配器', region: '上海', authStatus: 'authorized', accountMask: '9131************X', loginIdentity: '办税员', capabilityScope: '增值税、附加税、个税取数；申报包生成；人工导入回执', lastCheckedAt: '2026-06-26 09:30', expiresAt: '2027-06-25', riskMessage: null, createdAt: '2026-06-01 09:00', updatedAt: '2026-06-26 09:30' },
+  { id: 'preview-bank-adapter-icbc', companyId: 'preview-company', companyName: '当前预览账套', adapterType: 'bank', adapterCode: '工商银行账单导入', region: '上海', authStatus: 'configured', accountMask: '6222********0198', loginIdentity: '财务管理员', capabilityScope: 'Excel/CSV 文件导入、流水对账、人工上传回单', lastCheckedAt: '2026-06-26 09:40', expiresAt: null, riskMessage: null, createdAt: '2026-06-01 09:10', updatedAt: '2026-06-26 09:40' },
+  { id: 'preview-bank-adapter-cmb', companyId: 'preview-company', companyName: '当前预览账套', adapterType: 'bank', adapterCode: '招商银行账单导入', region: '上海', authStatus: 'pending', accountMask: '6214********8801', loginIdentity: '财务管理员', capabilityScope: '账单文件导入、人工上传回单', lastCheckedAt: null, expiresAt: null, riskMessage: '等待企业完成渠道授权，禁止自动提交或发起支付。', createdAt: '2026-06-01 09:20', updatedAt: '2026-06-26 09:45' },
+]
+
 const previewCompanyAccountSeed: CompanyAccount[] = [
   { id: 'preview-company-account-icbc', company_id: 'browser-preview', account_name: '工行基本户', account_type: '银行账户', bank_name: '工商银行上海分行', account_number: '6222********0198', subject_code: '1002 银行存款', opening_balance: 466380, attachment_note: '开户许可证', status: '启用', created_at: '2026-06-01 09:00', updated_at: '2026-06-26 09:00' },
   { id: 'preview-company-account-cmb', company_id: 'browser-preview', account_name: '招行一般户', account_type: '银行账户', bank_name: '招商银行上海分行', account_number: '6214********8801', subject_code: '1002 银行存款', opening_balance: 82600, attachment_note: '网银截图', status: '启用', created_at: '2026-06-01 09:10', updated_at: '2026-06-26 09:10' },
@@ -880,6 +933,138 @@ function savePreviewCommonDigests(digests: CommonDigest[]) {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewCommonDigestStorageKey(), JSON.stringify(digests))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewVoucherTemplateStorageKey() {
+  return 'accounting-preview-voucher-templates-v1'
+}
+
+function clonePreviewVoucherTemplates(templates: VoucherTemplateWithEntries[]) {
+  return templates.map((item) => ({
+    template: { ...item.template },
+    entries: item.entries.map((entry) => ({ ...entry })),
+  }))
+}
+
+function loadPreviewVoucherTemplates(): VoucherTemplateWithEntries[] {
+  const fallback = () => clonePreviewVoucherTemplates(previewVoucherTemplateSeed)
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewVoucherTemplateStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((item) => typeof item?.template?.id === 'string' && typeof item.template.name === 'string' && Array.isArray(item.entries) && item.entries.every((entry: unknown) => typeof (entry as TemplateEntry)?.account_code === 'string' && typeof (entry as TemplateEntry).direction === 'string'))) return fallback()
+    return clonePreviewVoucherTemplates(parsed as VoucherTemplateWithEntries[])
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewVoucherTemplates(templates: VoucherTemplateWithEntries[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewVoucherTemplateStorageKey(), JSON.stringify(templates))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewSettlementRuleStorageKey() {
+  return 'accounting-preview-settlement-rules-v1'
+}
+
+function loadPreviewSettlementRules(): SettlementRule[] {
+  const fallback = () => previewSettlementRuleSeed.map((rule) => ({ ...rule }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewSettlementRuleStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((rule) => typeof rule?.id === 'string' && typeof rule.name === 'string' && typeof rule.rule_type === 'string' && Number.isFinite(rule.priority) && typeof rule.is_enabled === 'number')) return fallback()
+    return parsed as SettlementRule[]
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewSettlementRules(rules: SettlementRule[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewSettlementRuleStorageKey(), JSON.stringify(rules))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewAssetCategoryStorageKey() {
+  return 'accounting-preview-asset-categories-v1'
+}
+
+function loadPreviewAssetCategories(): AssetCategory[] {
+  const fallback = () => previewAssetCategorySeed.map((category) => ({ ...category }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewAssetCategoryStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((category) => typeof category?.id === 'string' && typeof category.code === 'string' && typeof category.name === 'string' && Number.isFinite(category.useful_life_months) && Number.isFinite(category.residual_rate) && typeof category.is_enabled === 'number')) return fallback()
+    return parsed as AssetCategory[]
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewAssetCategories(categories: AssetCategory[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewAssetCategoryStorageKey(), JSON.stringify(categories))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewBusinessTagStorageKey() {
+  return 'accounting-preview-business-tags-v1'
+}
+
+function loadPreviewBusinessTags(): BusinessTag[] {
+  const fallback = () => previewBusinessTagSeed.map((tag) => ({ ...tag }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewBusinessTagStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((tag) => typeof tag?.id === 'string' && typeof tag.name === 'string' && typeof tag.applicable_modules === 'string' && typeof tag.color_name === 'string' && Number.isFinite(tag.usage_count) && typeof tag.is_enabled === 'number')) return fallback()
+    return parsed as BusinessTag[]
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewBusinessTags(tags: BusinessTag[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewBusinessTagStorageKey(), JSON.stringify(tags))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewAdapterAuthorizationStorageKey() {
+  return 'accounting-preview-adapter-authorizations-v1'
+}
+
+function loadPreviewAdapterAuthorizations(): AdapterAuthorization[] {
+  const fallback = () => previewAdapterAuthorizationSeed.map((adapter) => ({ ...adapter }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewAdapterAuthorizationStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((adapter) => typeof adapter?.id === 'string' && typeof adapter.adapterType === 'string' && typeof adapter.adapterCode === 'string' && typeof adapter.authStatus === 'string')) return fallback()
+    return parsed as AdapterAuthorization[]
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewAdapterAuthorizations(adapters: AdapterAuthorization[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewAdapterAuthorizationStorageKey(), JSON.stringify(adapters))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -4291,6 +4476,7 @@ function hasPendingAttachment(value?: string) {
 
 function filterRowsByWorkspaceTab(kind: ModuleKind, tab: string, rows: ModuleRow[]) {
   if (/(日志|变更记录|审计证据)/.test(tab)) return rows
+  if (tab === getModuleTabs(kind)[0]) return rows
 
   // 附件、影像或回单工作区只展示已经有关联文件的业务记录。
   if (/(附件|影像|回单|证照|证明)/.test(tab)) {
@@ -6179,9 +6365,23 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return nextArchive
     })
   }
-  const [previewVoucherTemplateTypes] = useState<typeof voucherTemplateTypes>([{ id: 'preview-template-type', company_id: 'preview-company', name: '通用凭证', sort_order: 1 }])
-  const [previewVoucherTemplates, setPreviewVoucherTemplates] = useState<typeof voucherTemplates>([])
-  const [previewSettlementRules, setPreviewSettlementRules] = useState<typeof settlementRules>([])
+  const [previewVoucherTemplateTypes] = useState<VoucherTemplateType[]>(() => previewVoucherTemplateTypeSeed.map((type) => ({ ...type })))
+  const [previewVoucherTemplates, setPreviewVoucherTemplates] = useState<VoucherTemplateWithEntries[]>(loadPreviewVoucherTemplates)
+  const updatePreviewVoucherTemplates = (update: (templates: VoucherTemplateWithEntries[]) => VoucherTemplateWithEntries[]) => {
+    setPreviewVoucherTemplates((templates) => {
+      const nextTemplates = update(templates)
+      savePreviewVoucherTemplates(nextTemplates)
+      return nextTemplates
+    })
+  }
+  const [previewSettlementRules, setPreviewSettlementRules] = useState<SettlementRule[]>(loadPreviewSettlementRules)
+  const updatePreviewSettlementRules = (update: (rules: SettlementRule[]) => SettlementRule[]) => {
+    setPreviewSettlementRules((rules) => {
+      const nextRules = update(rules)
+      savePreviewSettlementRules(nextRules)
+      return nextRules
+    })
+  }
   const [previewMatchingRules, setPreviewMatchingRules] = useState<MatchingRule[]>(loadPreviewMatchingRules)
   const updatePreviewMatchingRules = (update: (rules: MatchingRule[]) => MatchingRule[]) => {
     setPreviewMatchingRules((rules) => {
@@ -6190,9 +6390,30 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return nextRules
     })
   }
-  const [previewAssetCategories, setPreviewAssetCategories] = useState<typeof assetCategories>([])
-  const [previewBusinessTags, setPreviewBusinessTags] = useState<typeof businessTags>([])
-  const [previewAdapterAuthorizations, setPreviewAdapterAuthorizations] = useState<AdapterAuthorization[]>([])
+  const [previewAssetCategories, setPreviewAssetCategories] = useState<AssetCategory[]>(loadPreviewAssetCategories)
+  const updatePreviewAssetCategories = (update: (categories: AssetCategory[]) => AssetCategory[]) => {
+    setPreviewAssetCategories((categories) => {
+      const nextCategories = update(categories)
+      savePreviewAssetCategories(nextCategories)
+      return nextCategories
+    })
+  }
+  const [previewBusinessTags, setPreviewBusinessTags] = useState<BusinessTag[]>(loadPreviewBusinessTags)
+  const updatePreviewBusinessTags = (update: (tags: BusinessTag[]) => BusinessTag[]) => {
+    setPreviewBusinessTags((tags) => {
+      const nextTags = update(tags)
+      savePreviewBusinessTags(nextTags)
+      return nextTags
+    })
+  }
+  const [previewAdapterAuthorizations, setPreviewAdapterAuthorizations] = useState<AdapterAuthorization[]>(loadPreviewAdapterAuthorizations)
+  const updatePreviewAdapterAuthorizations = (update: (adapters: AdapterAuthorization[]) => AdapterAuthorization[]) => {
+    setPreviewAdapterAuthorizations((adapters) => {
+      const nextAdapters = update(adapters)
+      savePreviewAdapterAuthorizations(nextAdapters)
+      return nextAdapters
+    })
+  }
   const [previewReportTemplates] = useState<typeof reportTemplates>([
     { id: 'preview-balance-sheet', template_code: 'BALANCE_SHEET', template_name: '资产负债表', report_type: 'balance_sheet', is_system: 1, created_at: null },
     { id: 'preview-income-statement', template_code: 'INCOME_STATEMENT', template_name: '利润表', report_type: 'income_statement', is_system: 1, created_at: null },
@@ -7380,7 +7601,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'settlementRules' && (usesLiveSettlementRuleData || previewSettlementRules.length > 0)) {
+    if (kind === 'settlementRules' && (usesLiveSettlementRuleData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveSettlementRuleRows(isTauri ? settlementRules : previewSettlementRules),
@@ -7404,7 +7625,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'voucherTemplateSettings' && (usesLiveTemplateSettingsData || previewVoucherTemplates.length > 0)) {
+    if (kind === 'voucherTemplateSettings' && (usesLiveTemplateSettingsData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveVoucherTemplateRows(isTauri ? voucherTemplates : previewVoucherTemplates, isTauri ? voucherTemplateTypes : previewVoucherTemplateTypes),
@@ -7420,7 +7641,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'taxAdapterSettings' && (usesLiveAdapterAuthorizationData || previewAdapterAuthorizations.some((item) => item.adapterType === 'tax'))) {
+    if (kind === 'taxAdapterSettings' && (usesLiveAdapterAuthorizationData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveAdapterAuthorizationRows(effectiveAdapterAuthorizations, 'tax'),
@@ -7428,7 +7649,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'bankAdapterSettings' && (usesLiveAdapterAuthorizationData || previewAdapterAuthorizations.some((item) => item.adapterType === 'bank'))) {
+    if (kind === 'bankAdapterSettings' && (usesLiveAdapterAuthorizationData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveAdapterAuthorizationRows(effectiveAdapterAuthorizations, 'bank'),
@@ -7514,7 +7735,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (usesLiveAssetCategoryData || previewAssetCategories.length > 0) {
+    if (kind === 'assetCategory' && (usesLiveAssetCategoryData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveAssetCategoryRows(isTauri ? assetCategories : previewAssetCategories),
@@ -7522,7 +7743,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (usesLiveBusinessTagData || previewBusinessTags.length > 0) {
+    if (kind === 'tagArchive' && (usesLiveBusinessTagData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveBusinessTagRows(effectiveBusinessTags),
@@ -8962,7 +9183,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         setOperationNotice('请填写结转规则名称。')
         return
       }
-      setPreviewSettlementRules((items) => {
+      updatePreviewSettlementRules((items) => {
         const next = editingSettlementRuleId
           ? items.map((item) => item.id === rule.id ? rule : item)
           : [...items, rule]
@@ -9003,7 +9224,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!isTauri && editingSettlementRuleId) {
       const rule = previewSettlementRules.find((item) => item.id === editingSettlementRuleId)
       if (!await requestBusinessRiskConfirmation('确认删除结转规则', `确认删除结转规则“${rule?.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
-      setPreviewSettlementRules((items) => items.filter((item) => item.id !== editingSettlementRuleId))
+      updatePreviewSettlementRules((items) => items.filter((item) => item.id !== editingSettlementRuleId))
       writeModuleAudit('删除结转规则', rule?.name || editingSettlementRuleId, '高', '成功')
       setOperationNotice(`已从当前预览删除结转规则“${rule?.name || ''}”。`)
       resetSettlementRuleDraft()
@@ -9160,7 +9381,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const summary = voucherTemplateDraft.summary.trim() || voucherTemplateDraft.name.trim()
       const entries: TemplateEntry[] = [{ account_code: debitAccount.code, account_name: debitAccount.name, direction: 'debit', summary, auxiliary_type: null, auxiliary_id: null }, { account_code: creditAccount.code, account_name: creditAccount.name, direction: 'credit', summary, auxiliary_type: null, auxiliary_id: null }]
       const template = { template: { id: editingVoucherTemplateId || `preview-voucher-template-${Date.now()}`, type_id: voucherTemplateDraft.typeId || previewVoucherTemplateTypes[0].id, company_id: selectedCompanyId || 'preview-company', name: voucherTemplateDraft.name.trim(), entries_json: JSON.stringify(entries) }, entries }
-      setPreviewVoucherTemplates((items) => editingVoucherTemplateId ? items.map((item) => item.template.id === template.template.id ? template : item) : [template, ...items])
+      updatePreviewVoucherTemplates((items) => editingVoucherTemplateId ? items.map((item) => item.template.id === template.template.id ? template : item) : [template, ...items])
       writeModuleAudit(editingVoucherTemplateId ? '编辑凭证模板' : '新增凭证模板', template.template.name, '中', '成功')
       setOperationNotice(`凭证模板已保存到当前预览：${template.template.name}。桌面端会写入当前账套，自动套用前仍需人工核验借贷科目和金额。`)
       resetVoucherTemplateDraft()
@@ -9191,6 +9412,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleDeleteVoucherTemplate = async () => {
+    if (!isTauri && editingVoucherTemplateId) {
+      const template = previewVoucherTemplates.find((item) => item.template.id === editingVoucherTemplateId)
+      if (!await requestBusinessRiskConfirmation('确认删除凭证模板', `确认删除凭证模板“${template?.template.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
+      updatePreviewVoucherTemplates((items) => items.filter((item) => item.template.id !== editingVoucherTemplateId))
+      writeModuleAudit('删除凭证模板', template?.template.name || editingVoucherTemplateId, '高', '成功')
+      setOperationNotice(`已从当前预览删除凭证模板“${template?.template.name || ''}”。`)
+      resetVoucherTemplateDraft()
+      setShowVoucherTemplateDialog(false)
+      return
+    }
     if (!selectedCompanyId || !editingVoucherTemplateId) return
     const template = voucherTemplates.find((item) => item.template.id === editingVoucherTemplateId)
     if (!await requestBusinessRiskConfirmation('确认删除凭证模板', `确认删除凭证模板“${template?.template.name || ''}”吗？不会影响历史凭证。`, '删除')) return
@@ -9237,7 +9468,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         setOperationNotice('请填写渠道名称。')
         return
       }
-      setPreviewAdapterAuthorizations((items) => {
+      updatePreviewAdapterAuthorizations((items) => {
         const next = editingAdapterAuthorizationId
           ? items.map((item) => item.id === adapter.id ? { ...adapter, createdAt: item.createdAt } : item)
           : [...items, adapter]
@@ -9440,7 +9671,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         setOperationNotice('请填写类别编码、名称、折旧期限和折旧方法。')
         return
       }
-      setPreviewAssetCategories((items) => {
+      updatePreviewAssetCategories((items) => {
         const next = editingAssetCategoryId
           ? items.map((item) => item.id === category.id ? { ...category, created_at: item.created_at } : item)
           : [...items, category]
@@ -9472,7 +9703,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!isTauri && editingAssetCategoryId) {
       const category = previewAssetCategories.find((item) => item.id === editingAssetCategoryId)
       if (!await requestBusinessRiskConfirmation('确认删除资产类别', `确认删除资产类别“${category?.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
-      setPreviewAssetCategories((items) => items.filter((item) => item.id !== editingAssetCategoryId))
+      updatePreviewAssetCategories((items) => items.filter((item) => item.id !== editingAssetCategoryId))
       writeModuleAudit('删除资产类别', category ? `${category.code}｜${category.name}` : editingAssetCategoryId, '高', '成功')
       setOperationNotice(`已从当前预览删除资产类别“${category?.name || ''}”。`)
       resetAssetCategoryDraft()
@@ -9513,7 +9744,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         setOperationNotice('请填写标签名称和适用模块。')
         return
       }
-      setPreviewBusinessTags((items) => {
+      updatePreviewBusinessTags((items) => {
         const next = editingBusinessTagId
           ? items.map((item) => item.id === tag.id ? { ...tag, created_at: item.created_at, usage_count: item.usage_count } : item)
           : [...items, tag]
@@ -9543,7 +9774,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!isTauri && editingBusinessTagId) {
       const tag = previewBusinessTags.find((item) => item.id === editingBusinessTagId)
       if (!await requestBusinessRiskConfirmation('确认删除业务标签', `确认删除标签“${tag?.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
-      setPreviewBusinessTags((items) => items.filter((item) => item.id !== editingBusinessTagId))
+      updatePreviewBusinessTags((items) => items.filter((item) => item.id !== editingBusinessTagId))
       writeModuleAudit('删除业务标签', tag ? `${tag.color_name}｜${tag.name}` : editingBusinessTagId, '高', '成功')
       setOperationNotice(`已从当前预览删除业务标签“${tag?.name || ''}”。`)
       resetBusinessTagDraft()
@@ -12406,7 +12637,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'employee' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增人员" onClick={openEmployeeEditor} />}
             {kind === 'payroll' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={openPayrollEditor} />}
             {kind === 'reportFormulaSettings' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增公式" onClick={() => { setEditingReportFormulaId(null); setReportFormulaDraft({ itemName: '', formula: '', sortOrder: '0', isTotal: false }); setShowReportFormulaDialog(true) }} />}
-            {(kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'} onClick={() => { resetAdapterAuthorizationDraft(); setShowAdapterAuthorizationDialog(true) }} />}
             {kind === 'socialSecurity' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={openSocialSecurityEditor} />}
             {kind === 'specialDeduction' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={openSpecialDeductionEditor} />}
             {(kind === 'billList' || kind === 'bankStatement') && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={openBankTransactionEditor} />}
@@ -12564,7 +12794,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         )}
 
         {['taxAdapterSettings', 'bankAdapterSettings'].includes(kind) && (
-          <AdapterAuthorizationWorkflowPanel summary={config.summary} onAdd={openAdapterAuthorizationEditor} onReview={() => reviewRuleTemplateGovernance('adapter')} />
+          <AdapterAuthorizationWorkflowPanel summary={config.summary} onReview={() => reviewRuleTemplateGovernance('adapter')} />
         )}
 
         {['historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger'].includes(kind) && <HistoryMigrationWorkflowPanel summary={config.summary} onReview={() => reviewControlEvidence('history')} />}
@@ -15023,10 +15253,10 @@ function TemplateGovernanceWorkflowPanel({ onReview, summary }: { onReview: () =
   )
 }
 
-function AdapterAuthorizationWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] }) {
+function AdapterAuthorizationWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] }) {
   return (
     <section className="border-b border-slate-200 bg-[#fbfcfe] px-3 py-3" aria-label="外部适配授权与脱敏边界">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">外部适配授权与脱敏边界</h2><p className="mt-1 text-xs text-slate-500">税局与银行适配器仅登记渠道、地区、能力范围、脱敏身份和授权状态；密码、令牌、Cookie 与证书不写入账套。</p></div><div className="flex flex-wrap gap-1.5"><ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增授权渠道" onClick={onAdd} /><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核授权边界" onClick={onReview} /></div></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">外部适配授权与脱敏边界</h2><p className="mt-1 text-xs text-slate-500">税局与银行适配器仅登记渠道、地区、能力范围、脱敏身份和授权状态；密码、令牌、Cookie 与证书不写入账套。</p></div><ToolbarButton icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="复核授权边界" onClick={onReview} /></div>
       <WorkflowMetrics summary={summary} detailFor={(label) => label.includes('待') ? '等待人工核验授权范围和身份' : label.includes('异常') ? '敏感凭据不写入账套' : '按当前账套基础与规则台账实时汇总'} />
     </section>
   )
