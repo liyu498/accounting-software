@@ -71,7 +71,7 @@ function invoiceStatus(invoice: Invoice): LiveModuleStatus {
   return '待处理'
 }
 
-function invoiceAttachment(invoice: Invoice) {
+function invoiceAttachment(invoice: Pick<Invoice, 'invoice_code'>) {
   return invoice.invoice_code ? `发票代码 ${invoice.invoice_code}` : '待关联影像'
 }
 
@@ -395,14 +395,17 @@ export function summarizeLiveClosingTasks(
   ]
 }
 
-function invoiceVoucherMatchingStatus(invoice: Invoice, voucher: Voucher | undefined): LiveModuleStatus {
+type InvoiceVoucherMatchInvoice = Pick<Invoice, 'id' | 'invoice_no' | 'invoice_code' | 'invoice_type' | 'total_amount' | 'seller_name' | 'buyer_name' | 'status' | 'voucher_id'>
+type InvoiceVoucherMatchVoucher = Pick<Voucher, 'id' | 'voucher_number' | 'total_debit' | 'summary' | 'status'>
+
+function invoiceVoucherMatchingStatus(invoice: InvoiceVoucherMatchInvoice, voucher: InvoiceVoucherMatchVoucher | undefined): LiveModuleStatus {
   if (invoice.status === 'rejected') return '异常'
   if (!invoice.voucher_id) return '待处理'
   if (!voucher) return '异常'
   return Math.abs(voucher.total_debit - invoice.total_amount) < 0.01 ? '已匹配' : '待确认'
 }
 
-export function mapLiveInvoiceVoucherMatchingRows(invoices: Invoice[], vouchers: Voucher[]): LiveModuleRow[] {
+export function mapLiveInvoiceVoucherMatchingRows(invoices: InvoiceVoucherMatchInvoice[], vouchers: InvoiceVoucherMatchVoucher[]): LiveModuleRow[] {
   const vouchersById = new Map(vouchers.map((voucher) => [voucher.id, voucher]))
   return invoices.map((invoice) => {
     const voucher = invoice.voucher_id ? vouchersById.get(invoice.voucher_id) : undefined
@@ -435,7 +438,7 @@ export function mapLiveInvoiceVoucherMatchingRows(invoices: Invoice[], vouchers:
   })
 }
 
-export function summarizeLiveInvoiceVoucherMatching(invoices: Invoice[], vouchers: Voucher[]): LiveSummaryItem[] {
+export function summarizeLiveInvoiceVoucherMatching(invoices: InvoiceVoucherMatchInvoice[], vouchers: InvoiceVoucherMatchVoucher[]): LiveSummaryItem[] {
   const rows = mapLiveInvoiceVoucherMatchingRows(invoices, vouchers)
   const linked = rows.filter((row) => row.status === '已匹配').length
   const pending = rows.filter((row) => row.status === '待确认').length

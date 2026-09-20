@@ -779,6 +779,13 @@ const previewPeriodSeed: AccountingPeriod[] = [
   { id: 'preview-period-2026-05', company_id: 'preview-company', period_year: 2026, period_month: 5, start_date: '2026-05-01', end_date: '2026-05-31', status: 'open', closed_at: null, closed_by: null, created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' },
 ]
 
+type PreviewInvoiceMatchCandidate = Pick<Invoice, 'id' | 'invoice_no' | 'invoice_code' | 'invoice_type' | 'total_amount' | 'seller_name' | 'buyer_name' | 'status' | 'voucher_id'>
+
+const previewInvoiceMatchCandidateSeed: PreviewInvoiceMatchCandidate[] = [
+  { id: 'preview-match-invoice-001', invoice_no: '031002400128', invoice_code: '3100260001', invoice_type: 'input', total_amount: 18300, seller_name: '苏州材料供应链有限公司', buyer_name: '科旋电气（上海）有限公司', status: 'verified', voucher_id: null },
+  { id: 'preview-match-invoice-002', invoice_no: '031002400139', invoice_code: '3100260001', invoice_type: 'input', total_amount: 9800, seller_name: '杭州设备服务有限公司', buyer_name: '科旋电气（上海）有限公司', status: 'verified', voucher_id: null },
+]
+
 const previewCompanyAccountSeed: CompanyAccount[] = [
   { id: 'preview-company-account-icbc', company_id: 'browser-preview', account_name: '工行基本户', account_type: '银行账户', bank_name: '工商银行上海分行', account_number: '6222********0198', subject_code: '1002 银行存款', opening_balance: 466380, attachment_note: '开户许可证', status: '启用', created_at: '2026-06-01 09:00', updated_at: '2026-06-26 09:00' },
   { id: 'preview-company-account-cmb', company_id: 'browser-preview', account_name: '招行一般户', account_type: '银行账户', bank_name: '招商银行上海分行', account_number: '6214********8801', subject_code: '1002 银行存款', opening_balance: 82600, attachment_note: '网银截图', status: '启用', created_at: '2026-06-01 09:10', updated_at: '2026-06-26 09:10' },
@@ -1134,6 +1141,31 @@ function savePreviewPeriods(periods: AccountingPeriod[]) {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewPeriodStorageKey(), JSON.stringify(periods))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewInvoiceVoucherMatchStorageKey() {
+  return 'accounting-preview-invoice-voucher-matches-v1'
+}
+
+function loadPreviewInvoiceMatchCandidates(): PreviewInvoiceMatchCandidate[] {
+  const fallback = () => previewInvoiceMatchCandidateSeed.map((invoice) => ({ ...invoice }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewInvoiceVoucherMatchStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((invoice) => typeof invoice?.id === 'string' && typeof invoice.invoice_no === 'string' && typeof invoice.invoice_type === 'string' && Number.isFinite(invoice.total_amount) && typeof invoice.status === 'string' && (typeof invoice.voucher_id === 'string' || invoice.voucher_id === null))) return fallback()
+    return parsed as PreviewInvoiceMatchCandidate[]
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewInvoiceMatchCandidates(invoices: PreviewInvoiceMatchCandidate[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewInvoiceVoucherMatchStorageKey(), JSON.stringify(invoices))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -6502,15 +6534,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return nextPeriods
     })
   }
-  const [previewInvoiceMatchCandidates, setPreviewInvoiceMatchCandidates] = useState<Array<Pick<Invoice, 'id' | 'invoice_no' | 'total_amount' | 'voucher_id'>>>([
-    { id: 'preview-match-invoice-001', invoice_no: '031002400128', total_amount: 18300, voucher_id: null },
-    { id: 'preview-match-invoice-002', invoice_no: '031002400139', total_amount: 9800, voucher_id: null },
-  ])
+  const [previewInvoiceMatchCandidates, setPreviewInvoiceMatchCandidates] = useState<PreviewInvoiceMatchCandidate[]>(loadPreviewInvoiceMatchCandidates)
+  const updatePreviewInvoiceMatchCandidates = (update: (invoices: PreviewInvoiceMatchCandidate[]) => PreviewInvoiceMatchCandidate[]) => {
+    setPreviewInvoiceMatchCandidates((invoices) => {
+      const nextInvoices = update(invoices)
+      savePreviewInvoiceMatchCandidates(nextInvoices)
+      return nextInvoices
+    })
+  }
   const [previewVoucherMatchCandidates] = useState<Array<Pick<Voucher, 'id' | 'voucher_number' | 'total_debit' | 'summary' | 'status'>>>([
     { id: 'preview-match-voucher-001', voucher_number: '记-0063', total_debit: 18000, summary: '采购原材料', status: 'draft' },
     { id: 'preview-match-voucher-002', voucher_number: '记-0068', total_debit: 9800, summary: '技术服务费', status: 'draft' },
   ])
-  const [previewReviewedAiRecognitionIds, setPreviewReviewedAiRecognitionIds] = useState<Set<string>>(new Set())
   const invoiceMatchCandidates = isTauri ? invoices : previewInvoiceMatchCandidates
   const voucherMatchCandidates = isTauri ? vouchers : previewVoucherMatchCandidates
   const effectiveAssetCategories = isTauri ? assetCategories : previewAssetCategories
@@ -7329,11 +7364,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'invoiceVoucherMatching' && usesLiveInvoiceVoucherMatchingData) {
+    if (kind === 'invoiceVoucherMatching' && (usesLiveInvoiceVoucherMatchingData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveInvoiceVoucherMatchingRows(invoices, vouchers),
-        summary: summarizeLiveInvoiceVoucherMatching(invoices, vouchers),
+        rows: mapLiveInvoiceVoucherMatchingRows(invoiceMatchCandidates, voucherMatchCandidates),
+        summary: summarizeLiveInvoiceVoucherMatching(invoiceMatchCandidates, voucherMatchCandidates),
       }
     }
 
@@ -7901,7 +7936,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, employees, exportJobs, fixedAssets, inventoryItems, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewReviewedAiRecognitionIds, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, employees, exportJobs, fixedAssets, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
   const tableMeta = getModuleTableMeta(kind)
@@ -9161,7 +9196,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (!isTauri) {
-      setPreviewInvoiceMatchCandidates((items) => items.map((item) => item.id === invoice.id ? { ...item, voucher_id: voucher.id } : item))
+      updatePreviewInvoiceMatchCandidates((items) => items.map((item) => item.id === invoice.id ? { ...item, voucher_id: voucher.id } : item))
       writeModuleAudit('人工匹配发票与凭证', `${invoice.invoice_no}｜${voucher.voucher_number}`, '中', '成功')
       setShowInvoiceVoucherMatchDialog(false)
       setSelectedMatchInvoiceId('')
@@ -11611,7 +11646,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
       return
     }
-    if (kind === 'invoiceVoucherMatching' && isTauri && selectedCompanyId) {
+    if (kind === 'invoiceVoucherMatching' && (usesLiveInvoiceVoucherMatchingData || !isTauri)) {
       setSelectedMatchInvoiceId(row.id.replace('invoice-voucher-match-', ''))
       setSelectedMatchVoucherId('')
       setShowInvoiceVoucherMatchDialog(true)
@@ -13327,7 +13362,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
                         <button type="button" disabled={isCompanyTodoRow && row.status === '已通过'} onClick={() => isCompanyTodoRow ? void completeCompanyTodo(row.id) : kind === 'printTemplateSettings' ? openPrintTemplatePreview() : handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline disabled:cursor-not-allowed disabled:text-slate-400">
-                          {isCompanyTodoRow ? row.status === '已通过' ? '已完成' : '完成待办' : kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiJobQueue' ? row.status === '待处理' ? '启动处理' : row.status === '待确认' ? '进入复核' : row.status === '异常' ? '查看异常' : '查看结果' : kind === 'aiRecognitionResults' ? row.status === '已通过' ? '已复核' : row.status === '异常' ? '查看问题' : '复核' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'periodManagement' ? row.status === '已通过' ? '申请反结账' : '查看检查' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                          {isCompanyTodoRow ? row.status === '已通过' ? '已完成' : '完成待办' : kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiJobQueue' ? row.status === '待处理' ? '启动处理' : row.status === '待确认' ? '进入复核' : row.status === '异常' ? '查看异常' : '查看结果' : kind === 'aiRecognitionResults' ? row.status === '已通过' ? '已复核' : row.status === '异常' ? '查看问题' : '复核' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'invoiceVoucherMatching' ? row.status === '已匹配' ? '查看关联' : '人工匹配' : kind === 'periodManagement' ? row.status === '已通过' ? '申请反结账' : '查看检查' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
                       {canGenerateVoucherFromModule(kind) && !(isLocalRegistryModule && !isLocalRegistryRow) && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
