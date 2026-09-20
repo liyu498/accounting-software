@@ -2168,23 +2168,35 @@ export function summarizeLiveAuxiliaryArchive(
   ]
 }
 
+const auxiliaryCategoryControlMeta: Record<string, { scope: string; subjects: string; required: string }> = {
+  CUST: { scope: '应收/收入', subjects: '1122, 6001', required: '是' },
+  SUPP: { scope: '应付/采购', subjects: '2202, 1403', required: '是' },
+  EMP: { scope: '员工/股东往来', subjects: '1221, 2241', required: '按科目配置' },
+  PROJ: { scope: '研发/项目归集', subjects: '5301, 6601', required: '按项目成本配置' },
+  DEPT: { scope: '工资/费用归集', subjects: '6601, 6602', required: '按费用科目配置' },
+  TAX: { scope: '税费申报', subjects: '2221', required: '待申报初始化确认' },
+}
+
 export function mapLiveAuxiliaryCategoryRows(categories: AuxiliaryCategory[]): LiveModuleRow[] {
   return [...categories]
     .sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name))
-    .map((category) => ({
-      id: `auxiliary-category-${category.id}`,
-      status: '启用',
-      voucher: '-',
-      attachment: category.is_system === 1 ? '系统预置' : '账套自定义',
-      values: {
-        code: category.code,
-        name: category.name,
-        scope: '账套辅助核算',
-        subjects: '未配置关联科目',
-        required: '待配置',
-        source: category.is_system === 1 ? '系统预置' : '账套自定义',
-      },
-    }))
+    .map((category) => {
+      const control = auxiliaryCategoryControlMeta[category.code]
+      return {
+        id: `auxiliary-category-${category.id}`,
+        status: '启用' as const,
+        voucher: '-',
+        attachment: category.is_system === 1 ? '系统预置' : '账套自定义',
+        values: {
+          code: category.code,
+          name: category.name,
+          scope: control?.scope || '账套辅助核算',
+          subjects: control?.subjects || '未配置关联科目',
+          required: control?.required || '待配置',
+          source: category.is_system === 1 ? '系统预置' : '账套自定义',
+        },
+      }
+    })
 }
 
 export function summarizeLiveAuxiliaryCategories(categories: AuxiliaryCategory[]): LiveSummaryItem[] {
@@ -2208,20 +2220,24 @@ export function mapLiveAuxiliaryItemRows(
       const rightCategory = categoryById.get(right.category_id)?.name || ''
       return leftCategory.localeCompare(rightCategory) || left.code.localeCompare(right.code)
     })
-    .map((item) => ({
-      id: `auxiliary-item-${item.id}`,
-      status: item.is_enabled === 1 ? '启用' : '停用',
-      voucher: '-',
-      attachment: item.remarks || '无备注',
-      values: {
-        category: categoryById.get(item.category_id)?.name || '未知类别',
-        code: item.code,
-        name: item.name,
-        alias: item.remarks || '未配置别名/备注',
-        subject: '未配置默认科目',
-        lastUsed: '未记录使用时间',
-      },
-    }))
+    .map((item) => {
+      const profile = parseAuxiliaryArchiveProfile(item.remarks)
+      const alias = profile.alias || profile.remark || profile.contract || profile.contactType || profile.parent || profile.owner || profile.taxNo || profile.taxRate || (item.remarks?.startsWith('@archive-profile:') ? '' : item.remarks) || '未配置别名/备注'
+      return {
+        id: `auxiliary-item-${item.id}`,
+        status: item.is_enabled === 1 ? '启用' as const : '停用' as const,
+        voucher: '-',
+        attachment: alias,
+        values: {
+          category: categoryById.get(item.category_id)?.name || '未知类别',
+          code: item.code,
+          name: item.name,
+          alias,
+          subject: profile.subject || '未配置默认科目',
+          lastUsed: '未记录使用时间',
+        },
+      }
+    })
 }
 
 export function summarizeLiveAuxiliaryItems(items: AuxiliaryItem[]): LiveSummaryItem[] {

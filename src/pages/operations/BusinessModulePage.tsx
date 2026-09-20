@@ -130,7 +130,7 @@ import {
 } from '../../lib/liveModuleRows'
 import { useCompanyStore, type Company } from '../../stores/companyStore'
 import { useAccountStore, type AccountCode } from '../../stores/accountStore'
-import { useAuxiliaryStore, type AuxiliaryBalanceRow, type AuxiliaryLedgerRow } from '../../stores/auxiliaryStore'
+import { useAuxiliaryStore, type AuxiliaryBalanceRow, type AuxiliaryCategory, type AuxiliaryItem, type AuxiliaryLedgerRow } from '../../stores/auxiliaryStore'
 import { useInvoiceStore, type Invoice } from '../../stores/invoiceStore'
 import {
   usePeriodStore,
@@ -149,7 +149,7 @@ import { useReportTemplateStore } from '../../stores/reportTemplateStore'
 import { useMatchingRuleStore, type MatchingRule, type MatchingRuleScope } from '../../stores/matchingRuleStore'
 import { useAssetCategoryStore } from '../../stores/assetCategoryStore'
 import { useBusinessTagStore, type BusinessTag } from '../../stores/businessTagStore'
-import { useCompanyAccountStore } from '../../stores/companyAccountStore'
+import { useCompanyAccountStore, type CompanyAccount } from '../../stores/companyAccountStore'
 
 type ModuleKind =
   | 'attachmentCenter'
@@ -525,6 +525,11 @@ type PreviewCompanyInfo = {
   enterpriseType: string
 }
 
+type PreviewAuxiliaryArchiveState = {
+  categories: AuxiliaryCategory[]
+  items: AuxiliaryItem[]
+}
+
 function buildPreviewCompanyInfo(draft: PreviewCompanyInfo): Company {
   return {
     id: 'browser-preview-company',
@@ -702,6 +707,40 @@ const previewCommonDigestSeed: CommonDigest[] = [
   { id: 'preview-digest-office', company_id: 'browser-preview', content: '报销办公费用' },
 ]
 
+const previewCompanyAccountSeed: CompanyAccount[] = [
+  { id: 'preview-company-account-icbc', company_id: 'browser-preview', account_name: '工行基本户', account_type: '银行账户', bank_name: '工商银行上海分行', account_number: '6222********0198', subject_code: '1002 银行存款', opening_balance: 466380, attachment_note: '开户许可证', status: '启用', created_at: '2026-06-01 09:00', updated_at: '2026-06-26 09:00' },
+  { id: 'preview-company-account-cmb', company_id: 'browser-preview', account_name: '招行一般户', account_type: '银行账户', bank_name: '招商银行上海分行', account_number: '6214********8801', subject_code: '1002 银行存款', opening_balance: 82600, attachment_note: '网银截图', status: '启用', created_at: '2026-06-01 09:10', updated_at: '2026-06-26 09:10' },
+  { id: 'preview-company-account-alipay', company_id: 'browser-preview', account_name: '支付宝账户', account_type: '第三方支付', bank_name: '支付宝', account_number: 'finance@demo.com', subject_code: '1012 其他货币资金', opening_balance: 0, attachment_note: '待补对账资料', status: '停用', created_at: '2026-06-01 09:20', updated_at: '2026-06-26 09:20' },
+]
+
+const previewAuxiliaryArchiveSeed: PreviewAuxiliaryArchiveState = {
+  categories: [
+    { id: 'preview-aux-customer', company_id: 'browser-preview', code: 'CUST', name: '客户', is_system: 1, sort_order: 10 },
+    { id: 'preview-aux-supplier', company_id: 'browser-preview', code: 'SUPP', name: '供应商', is_system: 1, sort_order: 20 },
+    { id: 'preview-aux-other-contact', company_id: 'browser-preview', code: 'EMP', name: '其他往来', is_system: 1, sort_order: 30 },
+    { id: 'preview-aux-project', company_id: 'browser-preview', code: 'PROJ', name: '项目', is_system: 1, sort_order: 40 },
+    { id: 'preview-aux-department', company_id: 'browser-preview', code: 'DEPT', name: '部门', is_system: 1, sort_order: 50 },
+    { id: 'preview-aux-tax', company_id: 'browser-preview', code: 'TAX', name: '税种', is_system: 0, sort_order: 60 },
+  ],
+  items: [
+    { id: 'preview-customer-001', category_id: 'preview-aux-customer', company_id: 'browser-preview', code: 'C001', name: '上海辰光贸易有限公司', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ taxNo: '9131********001X', bank: '上海银行浦东支行', subject: '1122 应收账款', contract: 'HT-2026-001', alias: 'CGMY' }) },
+    { id: 'preview-customer-002', category_id: 'preview-aux-customer', company_id: 'browser-preview', code: 'C002', name: '杭州辰星科技有限公司', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ taxNo: '9133********889K', bank: '杭州银行科技支行', subject: '1122 应收账款', contract: 'HT-2026-008', alias: 'HXKJ' }) },
+    { id: 'preview-customer-003', category_id: 'preview-aux-customer', company_id: 'browser-preview', code: 'C009', name: '南京云杉贸易有限公司', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ taxNo: '待补', bank: '待补', subject: '1122 应收账款', remark: '开票资料待补' }) },
+    { id: 'preview-supplier-001', category_id: 'preview-aux-supplier', company_id: 'browser-preview', code: 'S001', name: '苏州材料供应链有限公司', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ alias: '苏州材料', taxNo: '9132********888K', subject: '2202 应付账款', taxRate: '13%' }) },
+    { id: 'preview-supplier-002', category_id: 'preview-aux-supplier', company_id: 'browser-preview', code: 'S002', name: '上海云启科技有限公司', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ alias: '云启科技', taxNo: '9131********775M', subject: '2202 应付账款', taxRate: '6%' }) },
+    { id: 'preview-supplier-003', category_id: 'preview-aux-supplier', company_id: 'browser-preview', code: 'S009', name: '杭州设备服务有限公司', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ alias: '设备服务', taxNo: '待补', subject: '2202 应付账款', taxRate: '待核', remark: '供应商资料待补' }) },
+    { id: 'preview-contact-001', category_id: 'preview-aux-other-contact', company_id: 'browser-preview', code: 'O001', name: '张三', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ contactType: '员工备用金', idNo: '310********1234', subject: '1221 其他应收款', remark: '销售备用金' }) },
+    { id: 'preview-contact-002', category_id: 'preview-aux-other-contact', company_id: 'browser-preview', code: 'O002', name: '李股东', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ contactType: '股东往来', idNo: '320********5421', subject: '2241 其他应付款', remark: '借款往来' }) },
+    { id: 'preview-contact-003', category_id: 'preview-aux-other-contact', company_id: 'browser-preview', code: 'O006', name: '临时个人', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ contactType: '个人往来', idNo: '待补', subject: '1221 其他应收款', remark: '待确认' }) },
+    { id: 'preview-project-001', category_id: 'preview-aux-project', company_id: 'browser-preview', code: 'P001', name: '研发项目A', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ owner: '研发部', start: '2026-01-01', subject: '5301 研发支出', budget: '¥520,000.00', alias: 'YFXMA' }) },
+    { id: 'preview-project-002', category_id: 'preview-aux-project', company_id: 'browser-preview', code: 'P002', name: '华东销售项目', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ owner: '销售部', start: '2026-03-01', subject: '6601 销售费用', budget: '¥180,000.00', alias: 'HDXS' }) },
+    { id: 'preview-project-003', category_id: 'preview-aux-project', company_id: 'browser-preview', code: 'P006', name: '设备改造', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ owner: '生产部', start: '待确认', subject: '1604 在建工程', budget: '待确认', remark: '立项资料待补' }) },
+    { id: 'preview-department-001', category_id: 'preview-aux-department', company_id: 'browser-preview', code: 'D001', name: '销售部', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ parent: '总部', owner: '陈经理', subject: '6601 销售费用', people: '14' }) },
+    { id: 'preview-department-002', category_id: 'preview-aux-department', company_id: 'browser-preview', code: 'D002', name: '财务部', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ parent: '总部', owner: '王会计', subject: '6602 管理费用', people: '5' }) },
+    { id: 'preview-department-003', category_id: 'preview-aux-department', company_id: 'browser-preview', code: 'D009', name: '临时项目组', is_enabled: 0, remarks: serializeAuxiliaryArchiveProfile({ parent: '总部', owner: '-', subject: '6602 管理费用', people: '0', remark: '不再使用' }) },
+  ],
+}
+
 function previewAiQueueJobStorageKey() {
   return 'accounting-preview-ai-queue-jobs-v1'
 }
@@ -841,6 +880,62 @@ function savePreviewCommonDigests(digests: CommonDigest[]) {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewCommonDigestStorageKey(), JSON.stringify(digests))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewCompanyAccountStorageKey() {
+  return 'accounting-preview-company-accounts-v1'
+}
+
+function loadPreviewCompanyAccounts(): CompanyAccount[] {
+  const fallback = () => previewCompanyAccountSeed.map((account) => ({ ...account }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewCompanyAccountStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((account) => typeof account?.id === 'string' && typeof account.account_name === 'string' && typeof account.account_number === 'string' && typeof account.subject_code === 'string' && Number.isFinite(account.opening_balance) && ['启用', '停用'].includes(account.status))) return fallback()
+    return parsed as CompanyAccount[]
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewCompanyAccounts(accounts: CompanyAccount[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewCompanyAccountStorageKey(), JSON.stringify(accounts))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewAuxiliaryArchiveStorageKey() {
+  return 'accounting-preview-auxiliary-archives-v1'
+}
+
+function loadPreviewAuxiliaryArchive(): PreviewAuxiliaryArchiveState {
+  const fallback = (): PreviewAuxiliaryArchiveState => ({
+    categories: previewAuxiliaryArchiveSeed.categories.map((category) => ({ ...category })),
+    items: previewAuxiliaryArchiveSeed.items.map((item) => ({ ...item })),
+  })
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewAuxiliaryArchiveStorageKey()) || 'null')
+    if (!parsed || !Array.isArray(parsed.categories) || !Array.isArray(parsed.items)) return fallback()
+    const categoriesAreValid = parsed.categories.every((category: unknown) => typeof (category as AuxiliaryCategory)?.id === 'string' && typeof (category as AuxiliaryCategory).code === 'string' && typeof (category as AuxiliaryCategory).name === 'string' && typeof (category as AuxiliaryCategory).is_system === 'number' && Number.isFinite((category as AuxiliaryCategory).sort_order))
+    const itemsAreValid = parsed.items.every((item: unknown) => typeof (item as AuxiliaryItem)?.id === 'string' && typeof (item as AuxiliaryItem).category_id === 'string' && typeof (item as AuxiliaryItem).code === 'string' && typeof (item as AuxiliaryItem).name === 'string' && typeof (item as AuxiliaryItem).is_enabled === 'number')
+    if (!categoriesAreValid || !itemsAreValid) return fallback()
+    return parsed as PreviewAuxiliaryArchiveState
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewAuxiliaryArchive(archive: PreviewAuxiliaryArchiveState) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewAuxiliaryArchiveStorageKey(), JSON.stringify(archive))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -6050,7 +6145,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showAuxiliaryArchiveDialog, setShowAuxiliaryArchiveDialog] = useState(false)
   const [editingAuxiliaryArchiveItemId, setEditingAuxiliaryArchiveItemId] = useState<string | null>(null)
   const [auxiliaryArchiveDraft, setAuxiliaryArchiveDraft] = useState({ code: '', name: '', taxNo: '', bank: '', subject: '', contract: '', alias: '', taxRate: '', contactType: '', idNo: '', owner: '', start: '', budget: '', parent: '', people: '', remark: '' })
-  const [previewCompanyAccounts, setPreviewCompanyAccounts] = useState<typeof companyAccounts>([])
+  const [previewCompanyAccounts, setPreviewCompanyAccounts] = useState<CompanyAccount[]>(loadPreviewCompanyAccounts)
+  const updatePreviewCompanyAccounts = (update: (accounts: CompanyAccount[]) => CompanyAccount[]) => {
+    setPreviewCompanyAccounts((accounts) => {
+      const nextAccounts = update(accounts)
+      savePreviewCompanyAccounts(nextAccounts)
+      return nextAccounts
+    })
+  }
   const [previewCurrencies, setPreviewCurrencies] = useState<Currency[]>(loadPreviewCurrencies)
   const updatePreviewCurrencies = (update: (currencies: Currency[]) => Currency[]) => {
     setPreviewCurrencies((currencies) => {
@@ -6067,8 +6169,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return nextDigests
     })
   }
-  const [previewAuxiliaryCategories, setPreviewAuxiliaryCategories] = useState<typeof auxiliaryCategories>([])
-  const [previewAuxiliaryItems, setPreviewAuxiliaryItems] = useState<typeof auxiliaryItems>([])
+  const [previewAuxiliaryArchive, setPreviewAuxiliaryArchive] = useState<PreviewAuxiliaryArchiveState>(loadPreviewAuxiliaryArchive)
+  const previewAuxiliaryCategories = previewAuxiliaryArchive.categories
+  const previewAuxiliaryItems = previewAuxiliaryArchive.items
+  const updatePreviewAuxiliaryArchive = (update: (archive: PreviewAuxiliaryArchiveState) => PreviewAuxiliaryArchiveState) => {
+    setPreviewAuxiliaryArchive((archive) => {
+      const nextArchive = update(archive)
+      savePreviewAuxiliaryArchive(nextArchive)
+      return nextArchive
+    })
+  }
   const [previewVoucherTemplateTypes] = useState<typeof voucherTemplateTypes>([{ id: 'preview-template-type', company_id: 'preview-company', name: '通用凭证', sort_order: 1 }])
   const [previewVoucherTemplates, setPreviewVoucherTemplates] = useState<typeof voucherTemplates>([])
   const [previewSettlementRules, setPreviewSettlementRules] = useState<typeof settlementRules>([])
@@ -7246,7 +7356,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'accountArchive' && (usesLiveCompanyBankAccountData || previewCompanyAccounts.length > 0)) {
+    if (kind === 'accountArchive' && (usesLiveCompanyBankAccountData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveCompanyAccountRows(isTauri ? companyAccounts : previewCompanyAccounts),
@@ -7388,7 +7498,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'auxiliaryCategories' && (usesLiveArchiveData || previewAuxiliaryCategories.length > 0)) {
+    if (kind === 'auxiliaryCategories' && (usesLiveArchiveData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveAuxiliaryCategoryRows(isTauri ? auxiliaryCategories : previewAuxiliaryCategories),
@@ -7420,7 +7530,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'auxiliaryItems' && (usesLiveArchiveData || previewAuxiliaryItems.length > 0)) {
+    if (kind === 'auxiliaryItems' && (usesLiveArchiveData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveAuxiliaryItemRows(isTauri ? auxiliaryCategories : previewAuxiliaryCategories, isTauri ? auxiliaryItems : previewAuxiliaryItems),
@@ -7428,7 +7538,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (isLiveAuxiliaryArchiveKind(kind) && (usesLiveArchiveData || previewAuxiliaryCategories.some((category) => category.code === auxiliaryArchiveDefinitions[kind].categoryCode))) {
+    if (isLiveAuxiliaryArchiveKind(kind) && (usesLiveArchiveData || !isTauri)) {
       return {
         ...baseConfig,
         rows: mapLiveAuxiliaryArchiveRows(kind, isTauri ? auxiliaryCategories : previewAuxiliaryCategories, isTauri ? auxiliaryItems : previewAuxiliaryItems),
@@ -9667,13 +9777,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       owner: auxiliaryArchiveDraft.owner.trim(), start: auxiliaryArchiveDraft.start.trim(), budget: auxiliaryArchiveDraft.budget.trim(), parent: auxiliaryArchiveDraft.parent.trim(), people: auxiliaryArchiveDraft.people.trim(), remark: auxiliaryArchiveDraft.remark.trim(),
     })
     if (!isTauri) {
-      let categoryId = previewAuxiliaryCategories.find((category) => category.code === definition.categoryCode)?.id
-      if (!categoryId) {
-        categoryId = `preview-archive-category-${definition.categoryCode}`
-        setPreviewAuxiliaryCategories((items) => [...items, { id: categoryId!, company_id: selectedCompanyId || 'preview-company', code: definition.categoryCode, name: definition.categoryName, is_system: 0, sort_order: items.length + 1 }])
-      }
+      const categoryId = previewAuxiliaryCategories.find((category) => category.code === definition.categoryCode)?.id || `preview-archive-category-${definition.categoryCode}`
       const record = { id: editingAuxiliaryArchiveItemId || `preview-archive-${Date.now()}`, category_id: categoryId, company_id: selectedCompanyId || 'preview-company', code, name, is_enabled: 1, remarks }
-      setPreviewAuxiliaryItems((items) => editingAuxiliaryArchiveItemId ? items.map((item) => item.id === editingAuxiliaryArchiveItemId ? { ...record, is_enabled: item.is_enabled } : item) : [...items, record])
+      updatePreviewAuxiliaryArchive((archive) => ({
+        categories: archive.categories.some((category) => category.id === categoryId)
+          ? archive.categories
+          : [...archive.categories, { id: categoryId, company_id: selectedCompanyId || 'preview-company', code: definition.categoryCode, name: definition.categoryName, is_system: 0, sort_order: archive.categories.length + 1 }],
+        items: editingAuxiliaryArchiveItemId
+          ? archive.items.map((item) => item.id === editingAuxiliaryArchiveItemId ? { ...record, is_enabled: item.is_enabled } : item)
+          : [...archive.items, record],
+      }))
       writeModuleAudit(editingAuxiliaryArchiveItemId ? `预览编辑${definition.title}` : `预览新增${definition.title}`, `${code}｜${name}`, '中', '成功')
       setOperationNotice(`${definition.title}档案已保存到浏览器预览；桌面端会写入当前账套的辅助核算档案，并保留扩展字段与变更记录。`)
       setShowAuxiliaryArchiveDialog(false)
@@ -9701,6 +9814,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleToggleAuxiliaryArchive = async () => {
+    if (!isTauri && editingAuxiliaryArchiveItemId && isLiveAuxiliaryArchiveKind(kind)) {
+      const item = previewAuxiliaryItems.find((current) => current.id === editingAuxiliaryArchiveItemId)
+      if (!item) return
+      const action = item.is_enabled === 1 ? '停用' : '启用'
+      if (!await requestBusinessRiskConfirmation(`确认${action}${auxiliaryArchiveDefinitions[kind].title}档案`, `确认${action}${auxiliaryArchiveDefinitions[kind].title}档案“${item.name}”吗？该操作仅影响当前预览。`, `确认${action}`)) return
+      updatePreviewAuxiliaryArchive((archive) => ({ ...archive, items: archive.items.map((current) => current.id === item.id ? { ...current, is_enabled: current.is_enabled === 1 ? 0 : 1 } : current) }))
+      writeModuleAudit(`${action}${auxiliaryArchiveDefinitions[kind].title}档案`, `${item.code}｜${item.name}`, '中', '成功')
+      setOperationNotice(`当前预览中的${auxiliaryArchiveDefinitions[kind].title}档案“${item.name}”已${action}。`)
+      setShowAuxiliaryArchiveDialog(false)
+      return
+    }
     if (!editingAuxiliaryArchiveItemId || !selectedCompanyId || !isTauri || !isLiveAuxiliaryArchiveKind(kind)) return
     try {
       await toggleAuxiliaryItem(editingAuxiliaryArchiveItemId, selectedCompanyId)
@@ -9711,6 +9835,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleDeleteAuxiliaryArchive = async () => {
+    if (!isTauri && editingAuxiliaryArchiveItemId && isLiveAuxiliaryArchiveKind(kind)) {
+      const item = previewAuxiliaryItems.find((current) => current.id === editingAuxiliaryArchiveItemId)
+      if (!item) return
+      const title = auxiliaryArchiveDefinitions[kind].title
+      if (!await requestBusinessRiskConfirmation(`确认删除${title}档案`, `确认删除${title}档案“${item.name}”吗？该操作仅影响当前预览。`, '删除')) return
+      updatePreviewAuxiliaryArchive((archive) => ({ ...archive, items: archive.items.filter((current) => current.id !== item.id) }))
+      writeModuleAudit(`删除${title}`, `${item.code}｜${item.name}`, '高', '成功')
+      setOperationNotice(`已从当前预览删除${title}档案“${item.name}”。`)
+      setShowAuxiliaryArchiveDialog(false)
+      return
+    }
     if (!editingAuxiliaryArchiveItemId || !selectedCompanyId || !isTauri || !isLiveAuxiliaryArchiveKind(kind)) return
     const title = auxiliaryArchiveDefinitions[kind].title
     if (!await requestBusinessRiskConfirmation(`确认删除${title}档案`, `确认删除${title}档案“${auxiliaryArchiveDraft.name}”吗？已有业务引用时系统会阻止删除。`, '删除')) return
@@ -9732,7 +9867,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const account = { id: editingCompanyAccountId || `preview-account-${Date.now()}`, company_id: selectedCompanyId || 'preview-company', account_name: companyAccountDraft.accountName.trim(), account_type: companyAccountDraft.accountType, bank_name: companyAccountDraft.bankName.trim() || null, account_number: companyAccountDraft.accountNumber.trim(), subject_code: companyAccountDraft.subjectCode.trim(), opening_balance: Number(companyAccountDraft.openingBalance || 0), attachment_note: companyAccountDraft.attachmentNote.trim() || null, status: companyAccountDraft.status, created_at: timestamp, updated_at: timestamp }
-      setPreviewCompanyAccounts((items) => editingCompanyAccountId ? items.map((item) => item.id === account.id ? { ...account, created_at: item.created_at } : item) : [account, ...items])
+      updatePreviewCompanyAccounts((items) => editingCompanyAccountId ? items.map((item) => item.id === account.id ? { ...account, created_at: item.created_at } : item) : [account, ...items])
       writeModuleAudit(editingCompanyAccountId ? '编辑账户档案' : '新增账户档案', `${account.account_name}｜${account.account_number}`, '中', '成功')
       setOperationNotice(`账户档案已保存到当前预览：${account.account_name}。桌面端会写入当前账套，可继续用于流水、转账和资金余额表。`)
       resetCompanyAccountDraft()
@@ -9755,6 +9890,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleDeleteCompanyAccount = async () => {
+    if (!isTauri && editingCompanyAccountId) {
+      const account = previewCompanyAccounts.find((item) => item.id === editingCompanyAccountId)
+      if (!await requestBusinessRiskConfirmation('确认删除账户档案', `确认删除账户“${account?.account_name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
+      updatePreviewCompanyAccounts((accounts) => accounts.filter((item) => item.id !== editingCompanyAccountId))
+      writeModuleAudit('删除账户档案', `${account?.account_name || ''}｜${account?.account_number || ''}`, '高', '成功')
+      setOperationNotice(`已从当前预览删除账户“${account?.account_name || ''}”。`)
+      resetCompanyAccountDraft()
+      setShowCompanyAccountDialog(false)
+      return
+    }
     if (!selectedCompanyId || !editingCompanyAccountId) return
     const account = companyAccounts.find((item) => item.id === editingCompanyAccountId)
     if (!account) return
@@ -9770,9 +9915,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveAuxiliaryCategory = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const existingCategory = (isTauri ? auxiliaryCategories : previewAuxiliaryCategories).find((item) => item.id === editingAuxiliaryCategoryId)
+    if (existingCategory?.is_system === 1) {
+      setOperationNotice('系统预置辅助核算类别不能编辑。')
+      return
+    }
     if (!isTauri) {
       const category = { id: editingAuxiliaryCategoryId || `preview-aux-category-${Date.now()}`, company_id: selectedCompanyId || 'preview-company', code: auxiliaryCategoryDraft.code.trim().toUpperCase(), name: auxiliaryCategoryDraft.name.trim(), is_system: 0, sort_order: Number(auxiliaryCategoryDraft.sortOrder || 0) }
-      setPreviewAuxiliaryCategories((items) => editingAuxiliaryCategoryId ? items.map((item) => item.id === category.id ? category : item) : [category, ...items])
+      updatePreviewAuxiliaryArchive((archive) => ({
+        ...archive,
+        categories: editingAuxiliaryCategoryId ? archive.categories.map((item) => item.id === category.id ? category : item) : [category, ...archive.categories],
+      }))
       writeModuleAudit(editingAuxiliaryCategoryId ? '编辑辅助核算类别' : '新增辅助核算类别', `${category.code}｜${category.name}`, '中', '成功')
       setOperationNotice(`辅助核算类别已保存到当前预览：${category.name}。桌面端会写入当前账套，可继续维护项目和科目关联。`)
       resetAuxiliaryCategoryDraft()
@@ -9801,6 +9954,25 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleDeleteAuxiliaryCategory = async () => {
+    if (!isTauri && editingAuxiliaryCategoryId) {
+      const category = previewAuxiliaryCategories.find((item) => item.id === editingAuxiliaryCategoryId)
+      if (!category) return
+      if (category.is_system === 1) {
+        setOperationNotice('系统预置辅助核算类别不能删除。')
+        return
+      }
+      if (previewAuxiliaryItems.some((item) => item.category_id === category.id)) {
+        setOperationNotice(`类别“${category.name}”仍有关联项目，请先处理项目后再删除。`)
+        return
+      }
+      if (!await requestBusinessRiskConfirmation('确认删除辅助核算类别', `确认删除辅助核算类别“${category.name}”吗？该操作仅影响当前预览。`, '删除')) return
+      updatePreviewAuxiliaryArchive((archive) => ({ ...archive, categories: archive.categories.filter((item) => item.id !== category.id) }))
+      writeModuleAudit('删除辅助核算类别', `${category.code}｜${category.name}`, '高', '成功')
+      setOperationNotice(`已从当前预览删除辅助核算类别“${category.name}”。`)
+      resetAuxiliaryCategoryDraft()
+      setShowAuxiliaryCategoryDialog(false)
+      return
+    }
     if (!selectedCompanyId || !editingAuxiliaryCategoryId) return
     const category = auxiliaryCategories.find((item) => item.id === editingAuxiliaryCategoryId)
     if (!category) return
@@ -9829,7 +10001,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!isTauri) {
       const item = { id: editingAuxiliaryItemId || `preview-aux-item-${Date.now()}`, category_id: auxiliaryItemDraft.categoryId, company_id: selectedCompanyId || 'preview-company', code: auxiliaryItemDraft.code.trim().toUpperCase(), name: auxiliaryItemDraft.name.trim(), is_enabled: 1, remarks: auxiliaryItemDraft.remarks.trim() || null }
-      setPreviewAuxiliaryItems((items) => editingAuxiliaryItemId ? items.map((current) => current.id === item.id ? item : current) : [item, ...items])
+      updatePreviewAuxiliaryArchive((archive) => ({
+        ...archive,
+        items: editingAuxiliaryItemId
+          ? archive.items.map((current) => current.id === item.id ? { ...item, is_enabled: current.is_enabled } : current)
+          : [item, ...archive.items],
+      }))
       writeModuleAudit(editingAuxiliaryItemId ? '编辑辅助核算项目' : '新增辅助核算项目', `${item.code}｜${item.name}`, '中', '成功')
       setOperationNotice(`辅助核算项目已保存到当前预览：${item.name}。桌面端会写入当前账套，可在档案、凭证和账簿中引用。`)
       resetAuxiliaryItemDraft()
@@ -9859,6 +10036,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleDeleteAuxiliaryItem = async () => {
+    if (!isTauri && editingAuxiliaryItemId) {
+      const item = previewAuxiliaryItems.find((current) => current.id === editingAuxiliaryItemId)
+      if (!item) return
+      if (!await requestBusinessRiskConfirmation('确认删除辅助核算项目', `确认删除辅助核算项目“${item.name}”吗？该操作仅影响当前预览。`, '删除')) return
+      updatePreviewAuxiliaryArchive((archive) => ({ ...archive, items: archive.items.filter((current) => current.id !== item.id) }))
+      writeModuleAudit('删除辅助核算项目', `${item.code}｜${item.name}`, '高', '成功')
+      setOperationNotice(`已从当前预览删除辅助核算项目“${item.name}”。`)
+      resetAuxiliaryItemDraft()
+      setShowAuxiliaryItemDialog(false)
+      return
+    }
     if (!selectedCompanyId || !editingAuxiliaryItemId) return
     const item = auxiliaryItems.find((current) => current.id === editingAuxiliaryItemId)
     if (!item) return
@@ -9875,6 +10063,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleToggleAuxiliaryItem = async () => {
+    if (!isTauri && editingAuxiliaryItemId) {
+      const item = previewAuxiliaryItems.find((current) => current.id === editingAuxiliaryItemId)
+      if (!item) return
+      const action = item.is_enabled === 1 ? '停用' : '启用'
+      if (!await requestBusinessRiskConfirmation(`确认${action}辅助核算项目`, `确认${action}辅助核算项目“${item.name}”吗？该操作仅影响当前预览。`, `确认${action}`)) return
+      updatePreviewAuxiliaryArchive((archive) => ({ ...archive, items: archive.items.map((current) => current.id === item.id ? { ...current, is_enabled: current.is_enabled === 1 ? 0 : 1 } : current) }))
+      writeModuleAudit(`${action}辅助核算项目`, `${item.code}｜${item.name}`, '中', '成功')
+      setOperationNotice(`当前预览中的辅助核算项目“${item.name}”已${action}。`)
+      setShowAuxiliaryItemDialog(false)
+      resetAuxiliaryItemDraft()
+      return
+    }
     if (!selectedCompanyId || !editingAuxiliaryItemId) return
     const item = auxiliaryItems.find((current) => current.id === editingAuxiliaryItemId)
     if (!item) return
@@ -12205,9 +12405,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'aiVoucherSuggestions' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增建议" onClick={openAiVoucherSuggestionEditor} />}
             {kind === 'employee' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增人员" onClick={openEmployeeEditor} />}
             {kind === 'payroll' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={openPayrollEditor} />}
-            {kind === 'accountArchive' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增账户" onClick={() => { resetCompanyAccountDraft(); setShowCompanyAccountDialog(true) }} />}
-            {kind === 'auxiliaryCategories' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增类别" onClick={() => { resetAuxiliaryCategoryDraft(); setShowAuxiliaryCategoryDialog(true) }} />}
-            {kind === 'auxiliaryItems' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增项目" onClick={() => { if ((isTauri ? auxiliaryCategories : previewAuxiliaryCategories).length === 0) { setOperationNotice('请先新增辅助核算类别，再维护辅助核算项目。'); return }; resetAuxiliaryItemDraft(); setShowAuxiliaryItemDialog(true) }} />}
             {kind === 'reportFormulaSettings' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增公式" onClick={() => { setEditingReportFormulaId(null); setReportFormulaDraft({ itemName: '', formula: '', sortOrder: '0', isTotal: false }); setShowReportFormulaDialog(true) }} />}
             {(kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings') && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label={kind === 'taxAdapterSettings' ? '新增税局渠道' : '新增银行渠道'} onClick={() => { resetAdapterAuthorizationDraft(); setShowAdapterAuthorizationDialog(true) }} />}
             {kind === 'socialSecurity' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={openSocialSecurityEditor} />}
@@ -13417,7 +13614,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               {kind === 'departmentArchive' && <><label className="grid gap-1 text-xs text-slate-600">上级部门<input value={auxiliaryArchiveDraft.parent} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, parent: event.target.value }))} placeholder="如：总部" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">负责人<input value={auxiliaryArchiveDraft.owner} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, owner: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">费用科目<input value={auxiliaryArchiveDraft.subject} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, subject: event.target.value }))} placeholder="6602 管理费用" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label><label className="grid gap-1 text-xs text-slate-600">人员数<input type="number" min="0" step="1" value={auxiliaryArchiveDraft.people} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, people: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label></>}
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">备注<input value={auxiliaryArchiveDraft.remark} onChange={(event) => setAuxiliaryArchiveDraft((draft) => ({ ...draft, remark: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
             </div></div>
-            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div className="flex gap-2">{editingAuxiliaryArchiveItemId && isTauri && <button type="button" onClick={() => void handleToggleAuxiliaryArchive()} className="h-8 rounded border border-amber-300 px-3 text-xs text-amber-700">启用/停用</button>}{editingAuxiliaryArchiveItemId && isTauri && <button type="button" onClick={() => void handleDeleteAuxiliaryArchive()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700">删除档案</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowAuxiliaryArchiveDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存档案</button></div></div>
+            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div className="flex gap-2">{editingAuxiliaryArchiveItemId && <button type="button" onClick={() => void handleToggleAuxiliaryArchive()} className="h-8 rounded border border-amber-300 px-3 text-xs text-amber-700">启用/停用</button>}{editingAuxiliaryArchiveItemId && <button type="button" onClick={() => void handleDeleteAuxiliaryArchive()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700">删除档案</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowAuxiliaryArchiveDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存档案</button></div></div>
           </form>
         </div>
       )}
@@ -13502,7 +13699,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600">项目名称 *<input required value={auxiliaryItemDraft.name} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="如：上海示例客户" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">别名/备注<input value={auxiliaryItemDraft.remarks} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, remarks: event.target.value }))} placeholder="助记码、合同号或补充说明" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
             </div>
-            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div className="flex gap-2">{editingAuxiliaryItemId && <button type="button" onClick={() => void handleDeleteAuxiliaryItem()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除项目</button>}{editingAuxiliaryItemId && <button type="button" onClick={() => void handleToggleAuxiliaryItem()} className="h-8 rounded border border-amber-300 px-3 text-xs text-amber-700 hover:bg-amber-50">{auxiliaryItems.find((item) => item.id === editingAuxiliaryItemId)?.is_enabled === 1 ? '停用项目' : '启用项目'}</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowAuxiliaryItemDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingAuxiliaryItemId ? '保存修改' : '保存项目'}</button></div></div>
+            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div className="flex gap-2">{editingAuxiliaryItemId && <button type="button" onClick={() => void handleDeleteAuxiliaryItem()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除项目</button>}{editingAuxiliaryItemId && <button type="button" onClick={() => void handleToggleAuxiliaryItem()} className="h-8 rounded border border-amber-300 px-3 text-xs text-amber-700 hover:bg-amber-50">{(isTauri ? auxiliaryItems : previewAuxiliaryItems).find((item) => item.id === editingAuxiliaryItemId)?.is_enabled === 1 ? '停用项目' : '启用项目'}</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowAuxiliaryItemDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingAuxiliaryItemId ? '保存修改' : '保存项目'}</button></div></div>
           </form>
         </div>
       )}
