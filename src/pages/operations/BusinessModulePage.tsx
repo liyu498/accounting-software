@@ -756,6 +756,31 @@ function savePreviewSubjects(subjects: AccountCode[]) {
   }
 }
 
+function previewInitialBalanceStorageKey() {
+  return 'accounting-preview-initial-balances-v1'
+}
+
+function loadPreviewInitialBalanceRows(): PreviewInitialBalanceRow[] {
+  const fallback = () => previewInitialBalanceSeed.map((row) => ({ ...row }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewInitialBalanceStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((row) => typeof row?.accountCode === 'string' && typeof row.accountName === 'string' && Number.isFinite(row.openingDebit) && Number.isFinite(row.openingCredit))) return fallback()
+    return parsed as PreviewInitialBalanceRow[]
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewInitialBalanceRows(rows: PreviewInitialBalanceRow[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewInitialBalanceStorageKey(), JSON.stringify(rows))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
 function mergePreviewAiQueueJobSeed(jobs: AutomationJob[]) {
   const knownIds = new Set(jobs.map((job) => job.id))
   return [...jobs, ...previewAiQueueJobSeed.filter((job) => !knownIds.has(job.id)).map((job) => ({ ...job }))]
@@ -5919,7 +5944,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [subjectDraft, setSubjectDraft] = useState({ code: '', name: '', accountType: '资产类', normalBalance: 'debit', level: '1', parentCode: '', isDetail: true, hasQuantity: false, defaultUnit: '', hasAuxiliary: false })
   const [showInitialBalanceDialog, setShowInitialBalanceDialog] = useState(false)
   const [initialBalanceDraft, setInitialBalanceDraft] = useState({ accountCode: '', openingDebit: '', openingCredit: '', sourceNote: '' })
-  const [previewInitialBalanceRows, setPreviewInitialBalanceRows] = useState(() => previewInitialBalanceSeed.map((row) => ({ ...row })))
+  const [previewInitialBalanceRows, setPreviewInitialBalanceRows] = useState<PreviewInitialBalanceRow[]>(loadPreviewInitialBalanceRows)
+  const updatePreviewInitialBalanceRows = (update: (rows: PreviewInitialBalanceRow[]) => PreviewInitialBalanceRow[]) => {
+    setPreviewInitialBalanceRows((rows) => {
+      const nextRows = update(rows)
+      savePreviewInitialBalanceRows(nextRows)
+      return nextRows
+    })
+  }
   const [showAuxiliaryArchiveDialog, setShowAuxiliaryArchiveDialog] = useState(false)
   const [editingAuxiliaryArchiveItemId, setEditingAuxiliaryArchiveItemId] = useState<string | null>(null)
   const [auxiliaryArchiveDraft, setAuxiliaryArchiveDraft] = useState({ code: '', name: '', taxNo: '', bank: '', subject: '', contract: '', alias: '', taxRate: '', contactType: '', idNo: '', owner: '', start: '', budget: '', parent: '', people: '', remark: '' })
@@ -9447,7 +9479,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         openingCredit,
         sourceNote: initialBalanceDraft.sourceNote.trim(),
       }
-      setPreviewInitialBalanceRows((rows) => [...rows.filter((row) => row.accountCode !== accountCode), previewRow])
+      updatePreviewInitialBalanceRows((rows) => [...rows.filter((row) => row.accountCode !== accountCode), previewRow])
       writeModuleAudit(existingRow ? '预览更新期初余额' : '预览登记期初余额', `${accountCode}｜借 ${openingDebit.toFixed(2)}｜贷 ${openingCredit.toFixed(2)}${previewRow.sourceNote ? `｜来源：${previewRow.sourceNote}` : ''}`, '高', '成功')
       setOperationNotice(`浏览器预览已${existingRow ? '更新' : '登记'} ${previewRow.accountName} 的期初余额，并写入本地余额清单；请执行试算平衡后人工确认启用账套。`)
       setShowInitialBalanceDialog(false)

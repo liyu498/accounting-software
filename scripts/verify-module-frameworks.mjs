@@ -246,6 +246,8 @@ const errors = [
   ...(!businessSource.includes('openInitialBalanceEditor') ? ['initial balance must provide a dedicated balance editor'] : []),
   ...(!businessSource.includes('handleSaveInitialBalance') ? ['initial balance must persist account opening balances'] : []),
   ...(!businessSource.includes('setPreviewInitialBalanceRows') ? ['initial balance preview must retain locally saved balance rows'] : []),
+  ...(!businessSource.includes('previewInitialBalanceStorageKey') ? ['initial balance preview must survive navigation between balance workspaces'] : []),
+  ...(!businessSource.includes('updatePreviewInitialBalanceRows') ? ['initial balance preview must retain local balance changes after navigation'] : []),
   ...(!businessSource.includes('buildPreviewInitialBalanceTrial') ? ['initial balance preview must calculate trial balance from its local balance rows'] : []),
   ...(!businessSource.includes('期初余额不会自动生成凭证') ? ['initial balance editor must state the posting boundary'] : []),
   ...(!businessSource.includes('const runLedgerCalculation') ? ['ledger report primary actions must use the dedicated calculation workflow'] : []),
