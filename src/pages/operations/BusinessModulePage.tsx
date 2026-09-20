@@ -129,7 +129,7 @@ import {
   summarizeLiveVoucherTemplates,
 } from '../../lib/liveModuleRows'
 import { useCompanyStore, type Company } from '../../stores/companyStore'
-import { useAccountStore } from '../../stores/accountStore'
+import { useAccountStore, type AccountCode } from '../../stores/accountStore'
 import { useAuxiliaryStore, type AuxiliaryBalanceRow, type AuxiliaryLedgerRow } from '../../stores/auxiliaryStore'
 import { useInvoiceStore, type Invoice } from '../../stores/invoiceStore'
 import {
@@ -656,6 +656,12 @@ const previewMatchingRuleSeed: MatchingRule[] = [
   { id: 'preview-matching-ai-003', company_id: 'preview-company', rule_scope: 'ai_training', name: '办公采购费用', condition_text: '进项发票品类为办公用品', action_text: '生成费用科目建议', target_account_code: '6602 管理费用', voucher_template_id: null, priority: 50, is_enabled: 0, hit_count: 0, created_at: '2026-06-26 10:10', updated_at: '2026-06-26 10:10' },
 ]
 
+const previewSubjectSeed: AccountCode[] = [
+  { code: '1002', company_id: 'browser-preview', name: '银行存款', account_type: '资产类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
+  { code: '1122', company_id: 'browser-preview', name: '应收账款', account_type: '资产类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
+  { code: '2221', company_id: 'browser-preview', name: '应交税费', account_type: '负债类', normal_balance: 'credit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
+]
+
 function previewAiQueueJobStorageKey() {
   return 'accounting-preview-ai-queue-jobs-v1'
 }
@@ -715,6 +721,36 @@ function savePreviewMatchingRules(rules: MatchingRule[]) {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewMatchingRuleStorageKey(), JSON.stringify(rules))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewSubjectStorageKey() {
+  return 'accounting-preview-subjects-v1'
+}
+
+function mergePreviewSubjectSeed(subjects: AccountCode[]) {
+  const knownCodes = new Set(subjects.map((subject) => subject.code))
+  return [...subjects, ...previewSubjectSeed.filter((subject) => !knownCodes.has(subject.code)).map((subject) => ({ ...subject }))]
+}
+
+function loadPreviewSubjects(): AccountCode[] {
+  const fallback = () => previewSubjectSeed.map((subject) => ({ ...subject }))
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewSubjectStorageKey()) || 'null')
+    if (!Array.isArray(parsed) || !parsed.every((subject) => typeof subject?.code === 'string' && typeof subject.name === 'string' && typeof subject.account_type === 'string')) return fallback()
+    return mergePreviewSubjectSeed(parsed as AccountCode[])
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewSubjects(subjects: AccountCode[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewSubjectStorageKey(), JSON.stringify(subjects))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -5870,7 +5906,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showCompanyInfoDialog, setShowCompanyInfoDialog] = useState(false)
   const [companyInfoDraft, setCompanyInfoDraft] = useState<PreviewCompanyInfo>({ code: '', name: '', taxId: '', taxpayerType: 'general', province: '', city: '', district: '', accountingSystem: 'small_enterprise', enableYear: String(new Date().getFullYear()), enableMonth: String(new Date().getMonth() + 1), serviceStart: '', serviceEnd: '', industry: '', enterpriseType: '私营有限责任公司' })
   const [previewCompanyInfo, setPreviewCompanyInfo] = useState<PreviewCompanyInfo | null>(null)
-  const [previewSubjects, setPreviewSubjects] = useState<Array<typeof accounts[number]>>([])
+  const [previewSubjects, setPreviewSubjects] = useState<AccountCode[]>(loadPreviewSubjects)
+  const updatePreviewSubjects = (update: (subjects: AccountCode[]) => AccountCode[]) => {
+    setPreviewSubjects((subjects) => {
+      const nextSubjects = update(subjects)
+      savePreviewSubjects(nextSubjects)
+      return nextSubjects
+    })
+  }
   const [showSubjectDialog, setShowSubjectDialog] = useState(false)
   const [editingSubjectCode, setEditingSubjectCode] = useState<string | null>(null)
   const [subjectDraft, setSubjectDraft] = useState({ code: '', name: '', accountType: '资产类', normalBalance: 'debit', level: '1', parentCode: '', isDetail: true, hasQuantity: false, defaultUnit: '', hasAuxiliary: false })
@@ -6654,7 +6697,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         summary: summarizeLiveInitialBalance(initialBalance),
       }
     }
-    if (kind === 'subjectSettings' && !isTauri && previewSubjects.length > 0) {
+    if (kind === 'subjectSettings' && !isTauri) {
       return { ...baseConfig, rows: mapLiveSubjectRows(previewSubjects), summary: summarizeLiveSubjects(previewSubjects) }
     }
     if (kind === 'notificationCenter' && !isTauri) {
@@ -9321,7 +9364,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (!isTauri) {
       const account = { code: subjectDraft.code.trim(), company_id: 'browser-preview', name: subjectDraft.name.trim(), account_type: subjectDraft.accountType, normal_balance: subjectDraft.normalBalance, level: Number(subjectDraft.level || 1), parent_code: subjectDraft.parentCode.trim() || null, is_detail: subjectDraft.isDetail ? 1 : 0, is_enabled: 1, has_quantity: subjectDraft.hasQuantity ? 1 : 0, default_unit: subjectDraft.hasQuantity ? subjectDraft.defaultUnit.trim() || null : null, has_auxiliary: subjectDraft.hasAuxiliary ? 1 : 0 }
-      setPreviewSubjects((subjects) => [...subjects.filter((item) => item.code !== account.code), account])
+      updatePreviewSubjects((subjects) => [...subjects.filter((item) => item.code !== account.code), account])
       writeModuleAudit(editingSubjectCode ? '预览编辑会计科目' : '预览新增会计科目', `${subjectDraft.code}｜${subjectDraft.name}`, '中', '成功')
       setOperationNotice(`浏览器预览已保存会计科目：${account.code}｜${account.name}。`)
       setShowSubjectDialog(false)
@@ -10732,7 +10775,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
     if (kind === 'subjectSettings') {
-      const account = accounts.find((item) => item.code === row.id || item.code === row.values.code)
+      const account = (isTauri ? accounts : previewSubjects).find((item) => item.code === row.id || item.code === row.values.code)
       if (account) {
         openSubjectEditor(account)
       } else {
