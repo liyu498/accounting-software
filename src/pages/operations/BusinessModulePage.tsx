@@ -800,6 +800,13 @@ type PreviewDocumentBusinessData = {
   businessOrders: BusinessOrder[]
 }
 
+type PreviewAssetInventoryData = {
+  fixedAssets: FixedAsset[]
+  inventoryItems: InventoryItem[]
+  inventoryMovements: InventoryMovement[]
+  costCarryoverRecords: CostCarryoverRecord[]
+}
+
 const previewInvoiceMatchCandidateSeed: PreviewInvoiceMatchCandidate[] = [
   { id: 'preview-match-invoice-001', invoice_no: '031002400128', invoice_code: '3100260001', invoice_type: 'input', total_amount: 18300, seller_name: '苏州材料供应链有限公司', buyer_name: '科旋电气（上海）有限公司', status: 'verified', voucher_id: null },
   { id: 'preview-match-invoice-002', invoice_no: '031002400139', invoice_code: '3100260001', invoice_type: 'input', total_amount: 9800, seller_name: '杭州设备服务有限公司', buyer_name: '科旋电气（上海）有限公司', status: 'verified', voucher_id: null },
@@ -862,6 +869,27 @@ const previewDocumentBusinessSeed: PreviewDocumentBusinessData = {
     { id: 'preview-order-002', companyId: 'preview-company', period: '2026-05', orderType: 'purchase', orderNo: 'PO-2026-030', businessDate: '2026-05-26', counterparty: '苏州材料供应链有限公司', goodsName: '包装耗材', amount: 18600, fulfillmentStatus: '待入库', invoiceStatus: '待收票', settlementStatus: '未付款', status: '异常', sourceDocument: null, voucherId: null, createdAt: '2026-05-26T09:00:00.000Z', updatedAt: '2026-05-26T10:00:00.000Z' },
     { id: 'preview-order-003', companyId: 'preview-company', period: '2026-05', orderType: 'sales', orderNo: 'SO-2026-018', businessDate: '2026-05-08', counterparty: '杭州客户', goodsName: '设备安装服务', amount: 128600, fulfillmentStatus: '已出库', invoiceStatus: '销项已开', settlementStatus: '已收款', status: '已完成', sourceDocument: '销售合同 HT-2026-018', voucherId: '记-0061', createdAt: '2026-05-08T09:00:00.000Z', updatedAt: '2026-05-08T10:00:00.000Z' },
     { id: 'preview-order-004', companyId: 'preview-company', period: '2026-05', orderType: 'sales', orderNo: 'SO-2026-021', businessDate: '2026-05-22', counterparty: '北京渠道商', goodsName: '渠道技术服务', amount: 68000, fulfillmentStatus: '已出库', invoiceStatus: '待开票', settlementStatus: '未收款', status: '待确认', sourceDocument: '技术合同 HT-2026-006', voucherId: null, createdAt: '2026-05-22T09:00:00.000Z', updatedAt: '2026-05-22T10:00:00.000Z' },
+  ],
+}
+
+const previewAssetInventorySeed: PreviewAssetInventoryData = {
+  fixedAssets: [
+    { id: 'preview-asset-001', companyId: 'preview-company', period: '2026-05', assetCode: 'FA-2026-001', assetName: '自动贴装设备', category: '机器设备', startDate: '2026-05-01', originalValue: 240000, usefulLifeMonths: 120, residualRate: 0.05, sourceDocument: '设备采购合同 HT-2026-011', status: '待确认', createdAt: '2026-05-01T09:00:00.000Z', updatedAt: '2026-05-01T10:00:00.000Z' },
+    { id: 'preview-asset-002', companyId: 'preview-company', period: '2026-05', assetCode: 'FA-2026-002', assetName: '财务管理软件', category: '无形资产', startDate: '2026-03-01', originalValue: 120000, usefulLifeMonths: 36, residualRate: 0, sourceDocument: '软件许可协议 SW-2026-003', status: '已生成凭证', createdAt: '2026-03-01T09:00:00.000Z', updatedAt: '2026-05-31T10:00:00.000Z' },
+  ],
+  inventoryItems: [
+    { id: 'preview-inventory-001', companyId: 'preview-company', itemCode: 'MAT-A', itemName: '原材料 A', specification: 'A-100', unit: '件', taxRate: 0.13, defaultSubject: '1403 原材料', status: '启用', createdAt: '2026-05-01T09:00:00.000Z', updatedAt: '2026-05-01T10:00:00.000Z' },
+    { id: 'preview-inventory-002', companyId: 'preview-company', itemCode: 'PKG-01', itemName: '包装耗材', specification: '标准包装', unit: '箱', taxRate: 0.13, defaultSubject: '1405 库存商品', status: '启用', createdAt: '2026-05-01T09:00:00.000Z', updatedAt: '2026-05-01T10:00:00.000Z' },
+    { id: 'preview-inventory-003', companyId: 'preview-company', itemCode: 'PART-B', itemName: '安装配件', specification: null, unit: '套', taxRate: null, defaultSubject: null, status: '停用', createdAt: '2026-05-01T09:00:00.000Z', updatedAt: '2026-05-20T10:00:00.000Z' },
+  ],
+  inventoryMovements: [
+    { id: 'preview-movement-001', companyId: 'preview-company', period: '2026-05', movementDate: '2026-05-15', billNo: 'RK-202605-026', movementType: '采购入库', inventoryName: '原材料 A', warehouse: '主仓', counterparty: '上海零件供应商', unit: '件', quantity: 500, amount: 86300, sourceDocument: '采购单 PO-2026-026', status: '已匹配', createdAt: '2026-05-15T09:00:00.000Z', updatedAt: '2026-05-15T10:00:00.000Z' },
+    { id: 'preview-movement-002', companyId: 'preview-company', period: '2026-05', movementDate: '2026-05-22', billNo: 'CK-202605-018', movementType: '销售出库', inventoryName: '安装配件', warehouse: '主仓', counterparty: '杭州客户', unit: '套', quantity: 20, amount: 53600, sourceDocument: '销售单 SO-2026-018', status: '已生成凭证', createdAt: '2026-05-22T09:00:00.000Z', updatedAt: '2026-05-22T10:00:00.000Z' },
+    { id: 'preview-movement-003', companyId: 'preview-company', period: '2026-05', movementDate: '2026-05-26', billNo: 'RK-202605-031', movementType: '采购入库', inventoryName: '包装耗材', warehouse: '辅料仓', counterparty: '苏州材料供应链有限公司', unit: '箱', quantity: 100, amount: 18600, sourceDocument: null, status: '异常', createdAt: '2026-05-26T09:00:00.000Z', updatedAt: '2026-05-26T10:00:00.000Z' },
+  ],
+  costCarryoverRecords: [
+    { id: 'preview-cost-001', companyId: 'preview-company', period: '2026-05', batchNo: 'CC-202605-001', carryoverDate: '2026-05-31', valuationMethod: '移动加权', sourceBillNo: 'CK-202605-018', inventoryName: '安装配件', debitSubject: '主营业务成本', creditSubject: '库存商品', costAmount: 53600, differenceAmount: 0, voucherNo: '记-0061', status: '已生成凭证', sourceDocument: '销售出库单 CK-202605-018', createdAt: '2026-05-31T09:00:00.000Z', updatedAt: '2026-05-31T10:00:00.000Z' },
+    { id: 'preview-cost-002', companyId: 'preview-company', period: '2026-05', batchNo: 'CC-202605-002', carryoverDate: '2026-05-31', valuationMethod: '移动加权', sourceBillNo: 'RK-202605-031', inventoryName: '包装耗材', debitSubject: '管理费用', creditSubject: '库存商品', costAmount: 9860, differenceAmount: 300, voucherNo: null, status: '异常', sourceDocument: null, createdAt: '2026-05-31T09:00:00.000Z', updatedAt: '2026-05-31T10:00:00.000Z' },
   ],
 }
 
@@ -1355,6 +1383,44 @@ function savePreviewDocumentBusinessData(data: PreviewDocumentBusinessData) {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewDocumentBusinessStorageKey(), JSON.stringify(data))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewAssetInventoryStorageKey() {
+  return 'accounting-preview-asset-inventory-data-v1'
+}
+
+function clonePreviewAssetInventoryData(data: PreviewAssetInventoryData = previewAssetInventorySeed): PreviewAssetInventoryData {
+  return {
+    fixedAssets: data.fixedAssets.map((asset) => ({ ...asset })),
+    inventoryItems: data.inventoryItems.map((item) => ({ ...item })),
+    inventoryMovements: data.inventoryMovements.map((movement) => ({ ...movement })),
+    costCarryoverRecords: data.costCarryoverRecords.map((record) => ({ ...record })),
+  }
+}
+
+function loadPreviewAssetInventoryData(): PreviewAssetInventoryData {
+  const fallback = () => clonePreviewAssetInventoryData()
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewAssetInventoryStorageKey()) || 'null')
+    if (!parsed || !Array.isArray(parsed.fixedAssets) || !Array.isArray(parsed.inventoryItems) || !Array.isArray(parsed.inventoryMovements) || !Array.isArray(parsed.costCarryoverRecords)) return fallback()
+    const validAssets = parsed.fixedAssets.every((asset: FixedAsset) => typeof asset?.id === 'string' && typeof asset.assetCode === 'string' && Number.isFinite(asset.originalValue) && Number.isFinite(asset.usefulLifeMonths) && typeof asset.status === 'string')
+    const validItems = parsed.inventoryItems.every((item: InventoryItem) => typeof item?.id === 'string' && typeof item.itemCode === 'string' && typeof item.itemName === 'string' && typeof item.unit === 'string' && typeof item.status === 'string')
+    const validMovements = parsed.inventoryMovements.every((movement: InventoryMovement) => typeof movement?.id === 'string' && typeof movement.billNo === 'string' && typeof movement.inventoryName === 'string' && Number.isFinite(movement.quantity) && Number.isFinite(movement.amount) && typeof movement.status === 'string')
+    const validCarryovers = parsed.costCarryoverRecords.every((record: CostCarryoverRecord) => typeof record?.id === 'string' && typeof record.batchNo === 'string' && typeof record.sourceBillNo === 'string' && Number.isFinite(record.costAmount) && Number.isFinite(record.differenceAmount) && typeof record.status === 'string')
+    return validAssets && validItems && validMovements && validCarryovers ? clonePreviewAssetInventoryData(parsed as PreviewAssetInventoryData) : fallback()
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewAssetInventoryData(data: PreviewAssetInventoryData) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewAssetInventoryStorageKey(), JSON.stringify(data))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -6607,19 +6673,56 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
   const setDocumentRecords = updatePreviewDocumentRecords
   const setBusinessOrders = updatePreviewBusinessOrders
-  const [costCarryoverRecords, setCostCarryoverRecords] = useState<CostCarryoverRecord[]>([])
+  const [previewAssetInventoryData, setPreviewAssetInventoryData] = useState<PreviewAssetInventoryData>(() => isTauri ? { fixedAssets: [], inventoryItems: [], inventoryMovements: [], costCarryoverRecords: [] } : loadPreviewAssetInventoryData())
+  const fixedAssets = previewAssetInventoryData.fixedAssets
+  const inventoryItems = previewAssetInventoryData.inventoryItems
+  const inventoryMovements = previewAssetInventoryData.inventoryMovements
+  const costCarryoverRecords = previewAssetInventoryData.costCarryoverRecords
+  const updatePreviewFixedAssets = (update: SetStateAction<FixedAsset[]>) => {
+    setPreviewAssetInventoryData((data) => {
+      const fixedAssets = typeof update === 'function' ? (update as (current: FixedAsset[]) => FixedAsset[])(data.fixedAssets) : update
+      const next = { ...data, fixedAssets }
+      if (!isTauri) savePreviewAssetInventoryData(next)
+      return next
+    })
+  }
+  const updatePreviewInventoryItems = (update: SetStateAction<InventoryItem[]>) => {
+    setPreviewAssetInventoryData((data) => {
+      const inventoryItems = typeof update === 'function' ? (update as (current: InventoryItem[]) => InventoryItem[])(data.inventoryItems) : update
+      const next = { ...data, inventoryItems }
+      if (!isTauri) savePreviewAssetInventoryData(next)
+      return next
+    })
+  }
+  const updatePreviewInventoryMovements = (update: SetStateAction<InventoryMovement[]>) => {
+    setPreviewAssetInventoryData((data) => {
+      const inventoryMovements = typeof update === 'function' ? (update as (current: InventoryMovement[]) => InventoryMovement[])(data.inventoryMovements) : update
+      const next = { ...data, inventoryMovements }
+      if (!isTauri) savePreviewAssetInventoryData(next)
+      return next
+    })
+  }
+  const updatePreviewCostCarryoverRecords = (update: SetStateAction<CostCarryoverRecord[]>) => {
+    setPreviewAssetInventoryData((data) => {
+      const costCarryoverRecords = typeof update === 'function' ? (update as (current: CostCarryoverRecord[]) => CostCarryoverRecord[])(data.costCarryoverRecords) : update
+      const next = { ...data, costCarryoverRecords }
+      if (!isTauri) savePreviewAssetInventoryData(next)
+      return next
+    })
+  }
+  const setFixedAssets = updatePreviewFixedAssets
+  const setInventoryItems = updatePreviewInventoryItems
+  const setInventoryMovements = updatePreviewInventoryMovements
+  const setCostCarryoverRecords = updatePreviewCostCarryoverRecords
   const [showCostCarryoverDialog, setShowCostCarryoverDialog] = useState(false)
   const [editingCostCarryoverId, setEditingCostCarryoverId] = useState<string | null>(null)
   const [costCarryoverDraft, setCostCarryoverDraft] = useState({ batchNo: '', carryoverDate: '', valuationMethod: '移动加权', sourceBillNo: '', inventoryName: '', debitSubject: '主营业务成本', creditSubject: '库存商品', costAmount: '', differenceAmount: '0', voucherNo: '', status: '待确认', sourceDocument: '' })
   const [showBankReconciliationDialog, setShowBankReconciliationDialog] = useState(false)
   const [editingBankReconciliationId, setEditingBankReconciliationId] = useState<string | null>(null)
   const [bankReconciliationDraft, setBankReconciliationDraft] = useState({ reconciliationNo: '', reconciliationDate: '', accountName: '', transactionNo: '', summary: '', bankAmount: '', bookAmount: '', voucherNo: '', matchStatus: '待人工对账', owner: '', status: '待处理', note: '' })
-  const [fixedAssets, setFixedAssets] = useState<FixedAsset[]>([])
   const [showFixedAssetDialog, setShowFixedAssetDialog] = useState(false)
   const [editingFixedAssetId, setEditingFixedAssetId] = useState<string | null>(null)
   const [fixedAssetDraft, setFixedAssetDraft] = useState({ assetCode: '', assetName: '', category: '', startDate: '', originalValue: '', usefulLifeMonths: '', residualRate: '5', sourceDocument: '' })
-  const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([])
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
   const [measurementUnits, setMeasurementUnits] = useState<MeasurementUnit[]>([])
   const [showMeasurementUnitDialog, setShowMeasurementUnitDialog] = useState(false)
   const [editingMeasurementUnitId, setEditingMeasurementUnitId] = useState<string | null>(null)
@@ -7716,10 +7819,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'purchaseManagement' && (usesLiveBusinessOrderData || !isTauri)) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'purchase'), summary: summarizeLiveBusinessOrders(businessOrders, 'purchase', ['采购单', '已完成', '待处理', '异常单']) }
     if (kind === 'salesManagement' && (usesLiveBusinessOrderData || !isTauri)) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'sales'), summary: summarizeLiveBusinessOrders(businessOrders, 'sales', ['销售单', '已完成', '待处理', '异常单']) }
     if (kind === 'transfer' && (usesLiveAccountTransferData || !isTauri)) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
-    if (kind === 'depreciation' && (usesLiveFixedAssetData || fixedAssets.length > 0)) return { ...baseConfig, rows: mapLiveFixedAssetRows(fixedAssets), summary: summarizeLiveFixedAssets(fixedAssets) }
-    if (kind === 'inventoryMovement' && (usesLiveInventoryMovementData || inventoryMovements.length > 0)) return { ...baseConfig, rows: mapLiveInventoryMovementRows(inventoryMovements), summary: summarizeLiveInventoryMovements(inventoryMovements) }
-    if (kind === 'costCarryover' && (usesLiveCostCarryoverData || costCarryoverRecords.length > 0)) return { ...baseConfig, rows: mapLiveCostCarryoverRows(costCarryoverRecords), summary: summarizeLiveCostCarryover(costCarryoverRecords) }
-    if (kind === 'inventorySettings' && (usesLiveInventoryItemData || inventoryItems.length > 0)) return { ...baseConfig, rows: mapLiveInventoryItemRows(inventoryItems), summary: [{ label: '存货档案', value: `${inventoryItems.length} 项`, tone: 'blue' }, { label: '启用', value: `${inventoryItems.filter((item) => item.status !== '停用').length} 项`, tone: 'green' }, { label: '待补税率', value: `${inventoryItems.filter((item) => item.taxRate === null).length} 项`, tone: 'amber' }, { label: '停用', value: `${inventoryItems.filter((item) => item.status === '停用').length} 项`, tone: 'gray' }] as ModuleConfig['summary'] }
+    if (kind === 'depreciation' && (usesLiveFixedAssetData || !isTauri)) return { ...baseConfig, rows: mapLiveFixedAssetRows(fixedAssets), summary: summarizeLiveFixedAssets(fixedAssets) }
+    if (kind === 'inventoryMovement' && (usesLiveInventoryMovementData || !isTauri)) return { ...baseConfig, rows: mapLiveInventoryMovementRows(inventoryMovements), summary: summarizeLiveInventoryMovements(inventoryMovements) }
+    if (kind === 'costCarryover' && (usesLiveCostCarryoverData || !isTauri)) return { ...baseConfig, rows: mapLiveCostCarryoverRows(costCarryoverRecords), summary: summarizeLiveCostCarryover(costCarryoverRecords) }
+    if (kind === 'inventorySettings' && (usesLiveInventoryItemData || !isTauri)) return { ...baseConfig, rows: mapLiveInventoryItemRows(inventoryItems), summary: [{ label: '存货档案', value: `${inventoryItems.length} 项`, tone: 'blue' }, { label: '启用', value: `${inventoryItems.filter((item) => item.status !== '停用').length} 项`, tone: 'green' }, { label: '待补税率', value: `${inventoryItems.filter((item) => item.taxRate === null).length} 项`, tone: 'amber' }, { label: '停用', value: `${inventoryItems.filter((item) => item.status === '停用').length} 项`, tone: 'gray' }] as ModuleConfig['summary'] }
     if (kind === 'unitSettings' && (usesLiveMeasurementUnitData || measurementUnits.length > 0)) return { ...baseConfig, rows: mapLiveMeasurementUnitRows(measurementUnits) }
 
     if (kind === 'declarationReceipt' && (usesLiveDeclarationReceiptData || !isTauri)) {
@@ -11032,10 +11135,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!isTauri) {
       const timestamp = new Date().toISOString()
-      const record: CostCarryoverRecord = { id: `preview-cost-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, batchNo: costCarryoverDraft.batchNo, carryoverDate: costCarryoverDraft.carryoverDate, valuationMethod: costCarryoverDraft.valuationMethod, sourceBillNo: costCarryoverDraft.sourceBillNo, inventoryName: costCarryoverDraft.inventoryName, debitSubject: costCarryoverDraft.debitSubject, creditSubject: costCarryoverDraft.creditSubject, costAmount: Number(costCarryoverDraft.costAmount || 0), differenceAmount: Number(costCarryoverDraft.differenceAmount || 0), voucherNo: costCarryoverDraft.voucherNo || null, status: costCarryoverDraft.status, sourceDocument: costCarryoverDraft.sourceDocument || null, createdAt: timestamp, updatedAt: timestamp }
-      setCostCarryoverRecords((records) => [record, ...records])
-      writeModuleAudit('新增成本结转', record.batchNo, '高', '成功')
-      setOperationNotice(`成本结转已保存到当前预览：${record.batchNo}。桌面端会写入当前账套，成本差异仍需人工复核后关联凭证。`)
+      const existingRecord = editingCostCarryoverId ? costCarryoverRecords.find((item) => item.id === editingCostCarryoverId) : undefined
+      const record: CostCarryoverRecord = { id: existingRecord?.id || `preview-cost-${Date.now()}`, companyId: existingRecord?.companyId || selectedCompanyId || 'preview-company', period: existingRecord?.period || (currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel), batchNo: costCarryoverDraft.batchNo, carryoverDate: costCarryoverDraft.carryoverDate, valuationMethod: costCarryoverDraft.valuationMethod, sourceBillNo: costCarryoverDraft.sourceBillNo, inventoryName: costCarryoverDraft.inventoryName, debitSubject: costCarryoverDraft.debitSubject, creditSubject: costCarryoverDraft.creditSubject, costAmount: Number(costCarryoverDraft.costAmount || 0), differenceAmount: Number(costCarryoverDraft.differenceAmount || 0), voucherNo: costCarryoverDraft.voucherNo || null, status: costCarryoverDraft.status, sourceDocument: costCarryoverDraft.sourceDocument || null, createdAt: existingRecord?.createdAt || timestamp, updatedAt: timestamp }
+      setCostCarryoverRecords((records) => editingCostCarryoverId ? records.map((item) => item.id === record.id ? record : item) : [record, ...records])
+      writeModuleAudit(editingCostCarryoverId ? '编辑成本结转' : '新增成本结转', record.batchNo, '高', '成功')
+      setOperationNotice(editingCostCarryoverId ? `成本结转已更新：${record.batchNo}。成本差异仍需人工复核后关联凭证。` : `成本结转已保存到当前预览：${record.batchNo}。桌面端会写入当前账套，成本差异仍需人工复核后关联凭证。`)
+      setEditingCostCarryoverId(null)
       setShowCostCarryoverDialog(false)
       return
     }
@@ -11096,10 +11201,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!isTauri) {
       const timestamp = new Date().toISOString()
-      const asset: FixedAsset = { id: `preview-asset-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, assetCode: fixedAssetDraft.assetCode, assetName: fixedAssetDraft.assetName, category: fixedAssetDraft.category, startDate: fixedAssetDraft.startDate, originalValue: Number(fixedAssetDraft.originalValue || 0), usefulLifeMonths: Number(fixedAssetDraft.usefulLifeMonths || 0), residualRate: Number(fixedAssetDraft.residualRate || 0) / 100, sourceDocument: fixedAssetDraft.sourceDocument || null, status: '待确认', createdAt: timestamp, updatedAt: timestamp }
-      setFixedAssets((records) => [asset, ...records])
-      writeModuleAudit('新增固定资产', asset.assetName, '中', '成功')
-      setOperationNotice(`固定资产已保存到当前预览：${asset.assetName}。桌面端会写入当前账套，折旧与凭证仍需人工确认。`)
+      const existingAsset = editingFixedAssetId ? fixedAssets.find((item) => item.id === editingFixedAssetId) : undefined
+      const asset: FixedAsset = { id: existingAsset?.id || `preview-asset-${Date.now()}`, companyId: existingAsset?.companyId || selectedCompanyId || 'preview-company', period: existingAsset?.period || (currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel), assetCode: fixedAssetDraft.assetCode, assetName: fixedAssetDraft.assetName, category: fixedAssetDraft.category, startDate: fixedAssetDraft.startDate, originalValue: Number(fixedAssetDraft.originalValue || 0), usefulLifeMonths: Number(fixedAssetDraft.usefulLifeMonths || 0), residualRate: Number(fixedAssetDraft.residualRate || 0) / 100, sourceDocument: fixedAssetDraft.sourceDocument || null, status: existingAsset?.status || '待确认', createdAt: existingAsset?.createdAt || timestamp, updatedAt: timestamp }
+      setFixedAssets((records) => editingFixedAssetId ? records.map((item) => item.id === asset.id ? asset : item) : [asset, ...records])
+      writeModuleAudit(editingFixedAssetId ? '编辑固定资产' : '新增固定资产', asset.assetName, '中', '成功')
+      setOperationNotice(editingFixedAssetId ? `固定资产已更新：${asset.assetName}。请重新核验本月折旧测算后再生成凭证。` : `固定资产已保存到当前预览：${asset.assetName}。桌面端会写入当前账套，折旧与凭证仍需人工确认。`)
+      setEditingFixedAssetId(null)
       setShowFixedAssetDialog(false)
       return
     }
@@ -11123,10 +11230,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!isTauri) {
       const timestamp = new Date().toISOString()
-      const movement: InventoryMovement = { id: `preview-movement-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, movementDate: inventoryMovementDraft.movementDate, billNo: inventoryMovementDraft.billNo, movementType: inventoryMovementDraft.movementType, inventoryName: inventoryMovementDraft.inventoryName, warehouse: inventoryMovementDraft.warehouse, counterparty: inventoryMovementDraft.counterparty || null, unit: inventoryMovementDraft.unit, quantity: Number(inventoryMovementDraft.quantity || 0), amount: Number(inventoryMovementDraft.amount || 0), sourceDocument: inventoryMovementDraft.sourceDocument || null, status: '待确认', createdAt: timestamp, updatedAt: timestamp }
-      setInventoryMovements((records) => [movement, ...records])
-      writeModuleAudit('新增出入库单', movement.billNo, '中', '成功')
-      setOperationNotice(`出入库单已保存到当前预览：${movement.billNo}。桌面端会写入当前账套，发票匹配、计价和凭证仍需人工确认。`)
+      const existingMovement = editingInventoryMovementId ? inventoryMovements.find((item) => item.id === editingInventoryMovementId) : undefined
+      const movement: InventoryMovement = { id: existingMovement?.id || `preview-movement-${Date.now()}`, companyId: existingMovement?.companyId || selectedCompanyId || 'preview-company', period: existingMovement?.period || (currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel), movementDate: inventoryMovementDraft.movementDate, billNo: inventoryMovementDraft.billNo, movementType: inventoryMovementDraft.movementType, inventoryName: inventoryMovementDraft.inventoryName, warehouse: inventoryMovementDraft.warehouse, counterparty: inventoryMovementDraft.counterparty || null, unit: inventoryMovementDraft.unit, quantity: Number(inventoryMovementDraft.quantity || 0), amount: Number(inventoryMovementDraft.amount || 0), sourceDocument: inventoryMovementDraft.sourceDocument || null, status: existingMovement?.status || '待确认', createdAt: existingMovement?.createdAt || timestamp, updatedAt: timestamp }
+      setInventoryMovements((records) => editingInventoryMovementId ? records.map((item) => item.id === movement.id ? movement : item) : [movement, ...records])
+      writeModuleAudit(editingInventoryMovementId ? '编辑出入库单' : '新增出入库单', movement.billNo, '中', '成功')
+      setOperationNotice(editingInventoryMovementId ? `出入库单已更新：${movement.billNo}。请重新核验发票匹配、计价与成本结转。` : `出入库单已保存到当前预览：${movement.billNo}。桌面端会写入当前账套，发票匹配、计价和凭证仍需人工确认。`)
+      setEditingInventoryMovementId(null)
       setShowInventoryMovementDialog(false)
       return
     }
@@ -11150,10 +11259,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!isTauri) {
       const timestamp = new Date().toISOString()
-      const item: InventoryItem = { id: `preview-item-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', itemCode: inventoryItemDraft.itemCode, itemName: inventoryItemDraft.itemName, specification: inventoryItemDraft.specification || null, unit: inventoryItemDraft.unit, taxRate: Number(inventoryItemDraft.taxRate || 0) / 100, defaultSubject: inventoryItemDraft.defaultSubject || null, status: '启用', createdAt: timestamp, updatedAt: timestamp }
-      setInventoryItems((items) => [item, ...items])
-      writeModuleAudit('新增存货', item.itemName, '中', '成功')
-      setOperationNotice(`存货档案已保存到当前预览：${item.itemName}。桌面端会写入当前账套，可继续用于出入库和成本结转。`)
+      const existingItem = editingInventoryItemId ? inventoryItems.find((item) => item.id === editingInventoryItemId) : undefined
+      const item: InventoryItem = { id: existingItem?.id || `preview-item-${Date.now()}`, companyId: existingItem?.companyId || selectedCompanyId || 'preview-company', itemCode: inventoryItemDraft.itemCode, itemName: inventoryItemDraft.itemName, specification: inventoryItemDraft.specification || null, unit: inventoryItemDraft.unit, taxRate: Number(inventoryItemDraft.taxRate || 0) / 100, defaultSubject: inventoryItemDraft.defaultSubject || null, status: existingItem?.status || '启用', createdAt: existingItem?.createdAt || timestamp, updatedAt: timestamp }
+      setInventoryItems((items) => editingInventoryItemId ? items.map((current) => current.id === item.id ? item : current) : [item, ...items])
+      writeModuleAudit(editingInventoryItemId ? '编辑存货' : '新增存货', item.itemName, '中', '成功')
+      setOperationNotice(editingInventoryItemId ? `存货档案已更新：${item.itemName}。可继续用于出入库和成本结转。` : `存货档案已保存到当前预览：${item.itemName}。桌面端会写入当前账套，可继续用于出入库和成本结转。`)
+      setEditingInventoryItemId(null)
       setShowInventoryItemDialog(false)
       return
     }
@@ -12163,7 +12274,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowAccountTransferDialog(true)
       return
     }
-    if (kind === 'depreciation' && isTauri && selectedCompanyId) {
+    if (kind === 'depreciation' && (usesLiveFixedAssetData || !isTauri)) {
       const asset = fixedAssets.find((item) => item.id === row.id)
       if (!asset) {
         setOperationNotice('未找到当前账期的固定资产。')
@@ -12178,7 +12289,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowFixedAssetDialog(true)
       return
     }
-    if (kind === 'inventoryMovement' && isTauri && selectedCompanyId) {
+    if (kind === 'inventoryMovement' && (usesLiveInventoryMovementData || !isTauri)) {
       const movement = inventoryMovements.find((item) => item.id === row.id)
       if (!movement) {
         setOperationNotice('未找到当前账期的出入库单。')
@@ -12193,7 +12304,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowInventoryMovementDialog(true)
       return
     }
-    if (kind === 'inventorySettings' && isTauri && selectedCompanyId) { const item=inventoryItems.find((value)=>value.id===row.id); if(!item)return; setEditingInventoryItemId(item.id); setInventoryItemDraft({itemCode:item.itemCode,itemName:item.itemName,specification:item.specification||'',unit:item.unit,taxRate:String((item.taxRate||0)*100),defaultSubject:item.defaultSubject||''}); setShowInventoryItemDialog(true); return }
+    if (kind === 'inventorySettings' && (usesLiveInventoryItemData || !isTauri)) { const item=inventoryItems.find((value)=>value.id===row.id); if(!item)return; setEditingInventoryItemId(item.id); setInventoryItemDraft({itemCode:item.itemCode,itemName:item.itemName,specification:item.specification||'',unit:item.unit,taxRate:String((item.taxRate||0)*100),defaultSubject:item.defaultSubject||''}); setShowInventoryItemDialog(true); return }
+    if (kind === 'costCarryover' && (usesLiveCostCarryoverData || !isTauri)) {
+      const record = costCarryoverRecords.find((item) => item.id === row.id)
+      if (!record) {
+        setOperationNotice('未找到当前账期的成本结转记录。')
+        return
+      }
+      if (record.voucherNo || record.status === '已生成凭证') {
+        setOperationNotice('该成本结转已关联凭证，不可直接修改。请先按凭证处理流程完成复核。')
+        return
+      }
+      setEditingCostCarryoverId(record.id)
+      setCostCarryoverDraft({ batchNo: record.batchNo, carryoverDate: record.carryoverDate, valuationMethod: record.valuationMethod, sourceBillNo: record.sourceBillNo, inventoryName: record.inventoryName, debitSubject: record.debitSubject, creditSubject: record.creditSubject, costAmount: String(record.costAmount), differenceAmount: String(record.differenceAmount), voucherNo: record.voucherNo || '', status: record.status, sourceDocument: record.sourceDocument || '' })
+      setShowCostCarryoverDialog(true)
+      return
+    }
     if (kind === 'unitSettings' && isTauri && selectedCompanyId) { const unit=measurementUnits.find((value)=>value.id===row.id); if(!unit)return; setEditingMeasurementUnitId(unit.id); setMeasurementUnitDraft({unitName:unit.unitName,unitGroup:unit.unitGroup||'',baseUnit:unit.baseUnit||'',conversionRate:String(unit.conversionRate),precisionDigits:String(unit.precisionDigits),remark:unit.remark||''}); setShowMeasurementUnitDialog(true); return }
     if (kind === 'billList' || kind === 'bankStatement') {
       const transaction = bankTransactions.find((item) => item.id === row.id)
@@ -13646,7 +13772,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
                         <button type="button" disabled={isCompanyTodoRow && row.status === '已通过'} onClick={() => isCompanyTodoRow ? void completeCompanyTodo(row.id) : kind === 'printTemplateSettings' ? openPrintTemplatePreview() : handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline disabled:cursor-not-allowed disabled:text-slate-400">
-                          {isCompanyTodoRow ? row.status === '已通过' ? '已完成' : '完成待办' : kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiJobQueue' ? row.status === '待处理' ? '启动处理' : row.status === '待确认' ? '进入复核' : row.status === '异常' ? '查看异常' : '查看结果' : kind === 'aiRecognitionResults' ? row.status === '已通过' ? '已复核' : row.status === '异常' ? '查看问题' : '复核' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'invoiceVoucherMatching' ? row.status === '已匹配' ? '查看关联' : '人工匹配' : kind === 'periodManagement' ? row.status === '已通过' ? '申请反结账' : '查看检查' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'bankReconciliation' || kind === 'receivableSettlement' || kind === 'payableSettlement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                          {isCompanyTodoRow ? row.status === '已通过' ? '已完成' : '完成待办' : kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiJobQueue' ? row.status === '待处理' ? '启动处理' : row.status === '待确认' ? '进入复核' : row.status === '异常' ? '查看异常' : '查看结果' : kind === 'aiRecognitionResults' ? row.status === '已通过' ? '已复核' : row.status === '异常' ? '查看问题' : '复核' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'invoiceVoucherMatching' ? row.status === '已匹配' ? '查看关联' : '人工匹配' : kind === 'periodManagement' ? row.status === '已通过' ? '申请反结账' : '查看检查' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'costCarryover' || kind === 'billList' || kind === 'bankStatement' || kind === 'bankReconciliation' || kind === 'receivableSettlement' || kind === 'payableSettlement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
                       {canGenerateVoucherFromModule(kind) && !(isLocalRegistryModule && !isLocalRegistryRow) && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">
@@ -14756,7 +14882,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </div>
       )}
       {showCostCarryoverDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true"><form onSubmit={handleSaveCostCarryover} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl"><div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><div><h2 className="text-sm font-semibold text-slate-900">{editingCostCarryoverId?'编辑成本结转':'新增成本结转'}</h2><p className="mt-0.5 text-xs text-slate-500">结转批次不会自动生成凭证，须复核成本和差异。</p></div><button type="button" onClick={()=>setShowCostCarryoverDialog(false)} className="text-xs text-slate-500">取消</button></div><div className="grid gap-3 p-4 sm:grid-cols-2">{([{field:'carryoverDate',label:'结转日期 *',type:'date'},{field:'batchNo',label:'结转批次 *',type:'text'},{field:'sourceBillNo',label:'来源单号 *',type:'text'},{field:'inventoryName',label:'存货名称 *',type:'text'},{field:'debitSubject',label:'借方科目 *',type:'text'},{field:'creditSubject',label:'贷方科目 *',type:'text'},{field:'costAmount',label:'结转成本 *',type:'number'},{field:'differenceAmount',label:'差异金额',type:'number'},{field:'voucherNo',label:'关联凭证号',type:'text'},{field:'sourceDocument',label:'来源附件',type:'text'}] as Array<{field:keyof typeof costCarryoverDraft;label:string;type:string}>).map(({field,label,type})=><label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['carryoverDate','batchNo','sourceBillNo','inventoryName','debitSubject','creditSubject','costAmount'].includes(field)} type={type} min={type==='number'?'0':undefined} step={type==='number'?'0.01':undefined} value={costCarryoverDraft[field]} onChange={(event)=>setCostCarryoverDraft((draft)=>({...draft,[field]:event.target.value}))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900"/></label>)}<label className="grid gap-1 text-xs text-slate-600">计价方法<select value={costCarryoverDraft.valuationMethod} onChange={(event)=>setCostCarryoverDraft((draft)=>({...draft,valuationMethod:event.target.value}))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['移动加权','月末一次加权','先进先出','个别计价'].map((item)=><option key={item} value={item}>{item}</option>)}</select></label><label className="grid gap-1 text-xs text-slate-600">状态<select value={costCarryoverDraft.status} onChange={(event)=>setCostCarryoverDraft((draft)=>({...draft,status:event.target.value}))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['待确认','已生成凭证','异常'].map((item)=><option key={item} value={item}>{item}</option>)}</select></label></div><div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={()=>setShowCostCarryoverDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">保存结转</button></div></form></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true"><form onSubmit={handleSaveCostCarryover} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl"><div className="flex h-11 items-center justify-between border-b border-slate-200 px-4"><div><h2 className="text-sm font-semibold text-slate-900">{editingCostCarryoverId?'编辑成本结转':'新增成本结转'}</h2><p className="mt-0.5 text-xs text-slate-500">结转批次不会自动生成凭证，须复核成本和差异。</p></div><button type="button" onClick={()=>setShowCostCarryoverDialog(false)} className="text-xs text-slate-500">取消</button></div><div className="grid gap-3 p-4 sm:grid-cols-2">{([{field:'carryoverDate',label:'结转日期 *',type:'date'},{field:'batchNo',label:'结转批次 *',type:'text'},{field:'sourceBillNo',label:'来源单号 *',type:'text'},{field:'inventoryName',label:'存货名称 *',type:'text'},{field:'debitSubject',label:'借方科目 *',type:'text'},{field:'creditSubject',label:'贷方科目 *',type:'text'},{field:'costAmount',label:'结转成本 *',type:'number'},{field:'differenceAmount',label:'差异金额',type:'number'},{field:'voucherNo',label:'关联凭证号',type:'text'},{field:'sourceDocument',label:'来源附件',type:'text'}] as Array<{field:keyof typeof costCarryoverDraft;label:string;type:string}>).map(({field,label,type})=><label key={field} className="grid gap-1 text-xs text-slate-600">{label}<input required={['carryoverDate','batchNo','sourceBillNo','inventoryName','debitSubject','creditSubject','costAmount'].includes(field)} type={type} min={type==='number'?'0':undefined} step={type==='number'?'0.01':undefined} value={costCarryoverDraft[field]} onChange={(event)=>setCostCarryoverDraft((draft)=>({...draft,[field]:event.target.value}))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900"/></label>)}<label className="grid gap-1 text-xs text-slate-600">计价方法<select value={costCarryoverDraft.valuationMethod} onChange={(event)=>setCostCarryoverDraft((draft)=>({...draft,valuationMethod:event.target.value}))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['移动加权','月末一次加权','先进先出','个别计价'].map((item)=><option key={item} value={item}>{item}</option>)}</select></label><label className="grid gap-1 text-xs text-slate-600">状态<select value={costCarryoverDraft.status} onChange={(event)=>setCostCarryoverDraft((draft)=>({...draft,status:event.target.value}))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">{['待确认','已生成凭证','异常'].map((item)=><option key={item} value={item}>{item}</option>)}</select></label></div><div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3"><button type="button" onClick={()=>setShowCostCarryoverDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">{editingCostCarryoverId ? '保存修改' : '保存结转'}</button></div></form></div>
       )}
       {showBankReconciliationDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true">
@@ -14813,11 +14939,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         </div>
       )}
       {showInventoryItemDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增存货">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingInventoryItemId ? '编辑存货' : '新增存货'}>
           <form onSubmit={handleSaveInventoryItem} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">新增存货</h2>
+                <h2 className="text-sm font-semibold text-slate-900">{editingInventoryItemId ? '编辑存货' : '新增存货'}</h2>
                 <p className="mt-0.5 text-xs text-slate-500">建立客户账套内的存货基础档案，供发票、出入库与结转使用。</p>
               </div>
               <button type="button" onClick={() => setShowInventoryItemDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
@@ -14850,7 +14976,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
               <button type="button" onClick={() => setShowInventoryItemDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button>
-              <button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">保存存货</button>
+              <button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingInventoryItemId ? '保存修改' : '保存存货'}</button>
             </div>
           </form>
         </div>
