@@ -795,6 +795,11 @@ type PreviewCashflowData = {
   accountTransfers: AccountTransfer[]
 }
 
+type PreviewDocumentBusinessData = {
+  documentRecords: DocumentRecord[]
+  businessOrders: BusinessOrder[]
+}
+
 const previewInvoiceMatchCandidateSeed: PreviewInvoiceMatchCandidate[] = [
   { id: 'preview-match-invoice-001', invoice_no: '031002400128', invoice_code: '3100260001', invoice_type: 'input', total_amount: 18300, seller_name: '苏州材料供应链有限公司', buyer_name: '科旋电气（上海）有限公司', status: 'verified', voucher_id: null },
   { id: 'preview-match-invoice-002', invoice_no: '031002400139', invoice_code: '3100260001', invoice_type: 'input', total_amount: 9800, seller_name: '杭州设备服务有限公司', buyer_name: '科旋电气（上海）有限公司', status: 'verified', voucher_id: null },
@@ -841,6 +846,22 @@ const previewCashflowSeed: PreviewCashflowData = {
   accountTransfers: [
     { id: 'preview-transfer-001', companyId: 'preview-company', period: '2026-05', transferDate: '2026-05-20', fromAccount: '工行基本户', toAccount: '招行一般户', amount: 50000, fee: 3, serialNo: 'TR20260520001', status: '待确认', createdAt: '2026-05-20T09:00:00.000Z', updatedAt: '2026-05-20T09:00:00.000Z' },
     { id: 'preview-transfer-002', companyId: 'preview-company', period: '2026-05', transferDate: '2026-05-26', fromAccount: '招行一般户', toAccount: '支付宝账户', amount: 8000, fee: 0, serialNo: null, status: '异常', createdAt: '2026-05-26T09:00:00.000Z', updatedAt: '2026-05-26T09:00:00.000Z' },
+  ],
+}
+
+const previewDocumentBusinessSeed: PreviewDocumentBusinessData = {
+  documentRecords: [
+    { id: 'preview-document-001', companyId: 'preview-company', period: '2026-05', businessDate: '2026-05-06', documentCode: 'HT-2026-018', businessType: '销售合同', partner: '杭州客户', amount: 128600, owner: '王会计', attachmentStatus: '已归档', stampTaxItem: '购销合同', stampTaxRate: 0.0003, status: '已审核', createdAt: '2026-05-06T09:00:00.000Z', updatedAt: '2026-05-06T10:00:00.000Z' },
+    { id: 'preview-document-002', companyId: 'preview-company', period: '2026-05', businessDate: '2026-05-12', documentCode: 'BX-202605-016', businessType: '差旅报销', partner: '张三', amount: 3680, owner: '李会计', attachmentStatus: '已归档', stampTaxItem: null, stampTaxRate: null, status: '已审核', createdAt: '2026-05-12T09:00:00.000Z', updatedAt: '2026-05-12T10:00:00.000Z' },
+    { id: 'preview-document-003', companyId: 'preview-company', period: '2026-05', businessDate: '2026-05-08', documentCode: 'SK-202605-009', businessType: '收款票据', partner: '杭州客户', amount: 128600, owner: '王会计', attachmentStatus: '已归档', stampTaxItem: null, stampTaxRate: null, status: '已生成凭证', createdAt: '2026-05-08T09:00:00.000Z', updatedAt: '2026-05-08T10:00:00.000Z' },
+    { id: 'preview-document-004', companyId: 'preview-company', period: '2026-05', businessDate: '2026-05-15', documentCode: 'FK-202605-005', businessType: '付款票据', partner: '上海零件供应商', amount: 86300, owner: '李会计', attachmentStatus: '待补附件', stampTaxItem: null, stampTaxRate: null, status: '待确认', createdAt: '2026-05-15T09:00:00.000Z', updatedAt: '2026-05-15T10:00:00.000Z' },
+    { id: 'preview-document-005', companyId: 'preview-company', period: '2026-05', businessDate: '2026-03-10', documentCode: 'HT-2026-006', businessType: '技术合同', partner: '北京渠道商', amount: 68000, owner: '赵会计', attachmentStatus: '待补附件', stampTaxItem: '技术合同', stampTaxRate: 0.0003, status: '异常', createdAt: '2026-03-10T09:00:00.000Z', updatedAt: '2026-05-31T10:00:00.000Z' },
+  ],
+  businessOrders: [
+    { id: 'preview-order-001', companyId: 'preview-company', period: '2026-05', orderType: 'purchase', orderNo: 'PO-2026-026', businessDate: '2026-05-15', counterparty: '上海零件供应商', goodsName: '原材料 A', amount: 86300, fulfillmentStatus: '已入库', invoiceStatus: '进项已匹配', settlementStatus: '部分付款', status: '待确认', sourceDocument: '采购合同 HT-2026-017', voucherId: null, createdAt: '2026-05-15T09:00:00.000Z', updatedAt: '2026-05-15T10:00:00.000Z' },
+    { id: 'preview-order-002', companyId: 'preview-company', period: '2026-05', orderType: 'purchase', orderNo: 'PO-2026-030', businessDate: '2026-05-26', counterparty: '苏州材料供应链有限公司', goodsName: '包装耗材', amount: 18600, fulfillmentStatus: '待入库', invoiceStatus: '待收票', settlementStatus: '未付款', status: '异常', sourceDocument: null, voucherId: null, createdAt: '2026-05-26T09:00:00.000Z', updatedAt: '2026-05-26T10:00:00.000Z' },
+    { id: 'preview-order-003', companyId: 'preview-company', period: '2026-05', orderType: 'sales', orderNo: 'SO-2026-018', businessDate: '2026-05-08', counterparty: '杭州客户', goodsName: '设备安装服务', amount: 128600, fulfillmentStatus: '已出库', invoiceStatus: '销项已开', settlementStatus: '已收款', status: '已完成', sourceDocument: '销售合同 HT-2026-018', voucherId: '记-0061', createdAt: '2026-05-08T09:00:00.000Z', updatedAt: '2026-05-08T10:00:00.000Z' },
+    { id: 'preview-order-004', companyId: 'preview-company', period: '2026-05', orderType: 'sales', orderNo: 'SO-2026-021', businessDate: '2026-05-22', counterparty: '北京渠道商', goodsName: '渠道技术服务', amount: 68000, fulfillmentStatus: '已出库', invoiceStatus: '待开票', settlementStatus: '未收款', status: '待确认', sourceDocument: '技术合同 HT-2026-006', voucherId: null, createdAt: '2026-05-22T09:00:00.000Z', updatedAt: '2026-05-22T10:00:00.000Z' },
   ],
 }
 
@@ -1300,6 +1321,40 @@ function savePreviewCashflowData(data: PreviewCashflowData) {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewCashflowStorageKey(), JSON.stringify(data))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewDocumentBusinessStorageKey() {
+  return 'accounting-preview-document-business-data-v1'
+}
+
+function clonePreviewDocumentBusinessData(data: PreviewDocumentBusinessData = previewDocumentBusinessSeed): PreviewDocumentBusinessData {
+  return {
+    documentRecords: data.documentRecords.map((record) => ({ ...record })),
+    businessOrders: data.businessOrders.map((order) => ({ ...order })),
+  }
+}
+
+function loadPreviewDocumentBusinessData(): PreviewDocumentBusinessData {
+  const fallback = () => clonePreviewDocumentBusinessData()
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewDocumentBusinessStorageKey()) || 'null')
+    if (!parsed || !Array.isArray(parsed.documentRecords) || !Array.isArray(parsed.businessOrders)) return fallback()
+    const validDocuments = parsed.documentRecords.every((record: DocumentRecord) => typeof record?.id === 'string' && typeof record.documentCode === 'string' && typeof record.businessType === 'string' && Number.isFinite(record.amount) && typeof record.status === 'string')
+    const validOrders = parsed.businessOrders.every((order: BusinessOrder) => typeof order?.id === 'string' && (order.orderType === 'purchase' || order.orderType === 'sales') && typeof order.orderNo === 'string' && Number.isFinite(order.amount) && typeof order.status === 'string')
+    return validDocuments && validOrders ? clonePreviewDocumentBusinessData(parsed as PreviewDocumentBusinessData) : fallback()
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewDocumentBusinessData(data: PreviewDocumentBusinessData) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewDocumentBusinessStorageKey(), JSON.stringify(data))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -6397,7 +6452,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'receipt')
   const usesLiveBusinessOrderData = Boolean(isTauri && selectedCompanyId && ['purchaseManagement', 'salesManagement'].includes(kind))
   const canEditBusinessOrders = kind === 'purchaseManagement' || kind === 'salesManagement'
-  const canEditDocumentRecords = ['documentRegister', 'contractLedger', 'expenseReimbursement', 'receipt', 'stampTaxReport'].includes(kind)
+  const canEditDocumentRecords = ['documentRegister', 'contractLedger', 'expenseReimbursement', 'receipt'].includes(kind)
   const usesLiveAccountTransferData = Boolean(isTauri && selectedCompanyId && kind === 'transfer')
   const usesLiveFixedAssetData = Boolean(isTauri && selectedCompanyId && kind === 'depreciation')
   const usesLiveInventoryMovementData = Boolean(isTauri && selectedCompanyId && ['inventoryMovement', 'costCarryover'].includes(kind))
@@ -6531,8 +6586,27 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const setSettlementRecords = updatePreviewSettlementRecords
   const setBankReconciliationRecords = updatePreviewBankReconciliationRecords
   const setAccountTransfers = updatePreviewAccountTransfers
-  const [documentRecords, setDocumentRecords] = useState<DocumentRecord[]>([])
-  const [businessOrders, setBusinessOrders] = useState<BusinessOrder[]>([])
+  const [previewDocumentBusinessData, setPreviewDocumentBusinessData] = useState<PreviewDocumentBusinessData>(() => isTauri ? { documentRecords: [], businessOrders: [] } : loadPreviewDocumentBusinessData())
+  const documentRecords = previewDocumentBusinessData.documentRecords
+  const businessOrders = previewDocumentBusinessData.businessOrders
+  const updatePreviewDocumentRecords = (update: SetStateAction<DocumentRecord[]>) => {
+    setPreviewDocumentBusinessData((data) => {
+      const documentRecords = typeof update === 'function' ? (update as (current: DocumentRecord[]) => DocumentRecord[])(data.documentRecords) : update
+      const next = { ...data, documentRecords }
+      if (!isTauri) savePreviewDocumentBusinessData(next)
+      return next
+    })
+  }
+  const updatePreviewBusinessOrders = (update: SetStateAction<BusinessOrder[]>) => {
+    setPreviewDocumentBusinessData((data) => {
+      const businessOrders = typeof update === 'function' ? (update as (current: BusinessOrder[]) => BusinessOrder[])(data.businessOrders) : update
+      const next = { ...data, businessOrders }
+      if (!isTauri) savePreviewDocumentBusinessData(next)
+      return next
+    })
+  }
+  const setDocumentRecords = updatePreviewDocumentRecords
+  const setBusinessOrders = updatePreviewBusinessOrders
   const [costCarryoverRecords, setCostCarryoverRecords] = useState<CostCarryoverRecord[]>([])
   const [showCostCarryoverDialog, setShowCostCarryoverDialog] = useState(false)
   const [editingCostCarryoverId, setEditingCostCarryoverId] = useState<string | null>(null)
@@ -7634,13 +7708,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'receivableSettlement' && (usesLiveSettlementRecordData || !isTauri)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'receivable') }
     if (kind === 'payableSettlement' && (usesLiveSettlementRecordData || !isTauri)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'payable') }
     if (kind === 'receivablePayableAging' && (usesLiveSettlementRecordData || !isTauri)) return { ...baseConfig, rows: mapLiveSettlementAgingRows(settlementRecords), summary: summarizeLiveSettlementAging(settlementRecords) }
-    if (kind === 'documentRegister' && (usesLiveDocumentRecordData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveDocumentRecordRows(documentRecords), summary: summarizeLiveDocumentRecords(documentRecords) }
-    if (kind === 'contractLedger' && (usesLiveDocumentRecordData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveContractLedgerRows(documentRecords), summary: summarizeLiveContractLedger(documentRecords) }
-    if (kind === 'stampTaxReport' && (usesLiveStampTaxData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveStampTaxRows(documentRecords), summary: summarizeLiveStampTax(documentRecords) }
-    if (kind === 'expenseReimbursement' && (usesLiveExpenseReimbursementData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveExpenseReimbursementRows(documentRecords), summary: summarizeLiveExpenseReimbursements(documentRecords) }
-    if (kind === 'receipt' && (usesLiveReceiptData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveReceiptRows(documentRecords), summary: summarizeLiveReceipts(documentRecords) }
-    if (kind === 'purchaseManagement' && (usesLiveBusinessOrderData || businessOrders.length > 0)) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'purchase'), summary: summarizeLiveBusinessOrders(businessOrders, 'purchase', ['采购单', '已完成', '待处理', '异常单']) }
-    if (kind === 'salesManagement' && (usesLiveBusinessOrderData || businessOrders.length > 0)) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'sales'), summary: summarizeLiveBusinessOrders(businessOrders, 'sales', ['销售单', '已完成', '待处理', '异常单']) }
+    if (kind === 'documentRegister' && (usesLiveDocumentRecordData || !isTauri)) return { ...baseConfig, rows: mapLiveDocumentRecordRows(documentRecords), summary: summarizeLiveDocumentRecords(documentRecords) }
+    if (kind === 'contractLedger' && (usesLiveDocumentRecordData || !isTauri)) return { ...baseConfig, rows: mapLiveContractLedgerRows(documentRecords), summary: summarizeLiveContractLedger(documentRecords) }
+    if (kind === 'stampTaxReport' && (usesLiveStampTaxData || !isTauri)) return { ...baseConfig, rows: mapLiveStampTaxRows(documentRecords), summary: summarizeLiveStampTax(documentRecords) }
+    if (kind === 'expenseReimbursement' && (usesLiveExpenseReimbursementData || !isTauri)) return { ...baseConfig, rows: mapLiveExpenseReimbursementRows(documentRecords), summary: summarizeLiveExpenseReimbursements(documentRecords) }
+    if (kind === 'receipt' && (usesLiveReceiptData || !isTauri)) return { ...baseConfig, rows: mapLiveReceiptRows(documentRecords), summary: summarizeLiveReceipts(documentRecords) }
+    if (kind === 'purchaseManagement' && (usesLiveBusinessOrderData || !isTauri)) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'purchase'), summary: summarizeLiveBusinessOrders(businessOrders, 'purchase', ['采购单', '已完成', '待处理', '异常单']) }
+    if (kind === 'salesManagement' && (usesLiveBusinessOrderData || !isTauri)) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'sales'), summary: summarizeLiveBusinessOrders(businessOrders, 'sales', ['销售单', '已完成', '待处理', '异常单']) }
     if (kind === 'transfer' && (usesLiveAccountTransferData || !isTauri)) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
     if (kind === 'depreciation' && (usesLiveFixedAssetData || fixedAssets.length > 0)) return { ...baseConfig, rows: mapLiveFixedAssetRows(fixedAssets), summary: summarizeLiveFixedAssets(fixedAssets) }
     if (kind === 'inventoryMovement' && (usesLiveInventoryMovementData || inventoryMovements.length > 0)) return { ...baseConfig, rows: mapLiveInventoryMovementRows(inventoryMovements), summary: summarizeLiveInventoryMovements(inventoryMovements) }
@@ -10817,7 +10891,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const order: BusinessOrder = {
-        id: `preview-order-${Date.now()}`,
+        id: editingBusinessOrderId || `preview-order-${Date.now()}`,
         companyId: selectedCompanyId || 'preview-company',
         period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
         orderType: kind === 'purchaseManagement' ? 'purchase' : 'sales',
@@ -10835,10 +10909,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         createdAt: timestamp,
         updatedAt: timestamp,
       }
-      setBusinessOrders((orders) => [order, ...orders])
-      writeModuleAudit('新增业务订单', order.orderNo, '中', '成功')
-      setOperationNotice(`业务订单已保存到当前预览：${order.orderNo}。桌面端会写入当前账套，发票、收付款和凭证仍需人工关联。`)
+      setBusinessOrders((orders) => editingBusinessOrderId ? orders.map((item) => item.id === order.id ? { ...order, voucherId: item.voucherId, createdAt: item.createdAt } : item) : [order, ...orders])
+      writeModuleAudit(editingBusinessOrderId ? '编辑业务订单' : '新增业务订单', order.orderNo, '中', '成功')
+      setOperationNotice(editingBusinessOrderId
+        ? `当前预览业务订单已更新：${order.orderNo}。履约、发票、收付款和凭证关联仍需人工确认。`
+        : `业务订单已保存到当前预览：${order.orderNo}。桌面端会写入当前账套，发票、收付款和凭证仍需人工关联。`)
       setBusinessOrderDraft({ orderNo: '', businessDate: '', counterparty: '', goodsName: '', amount: '', fulfillmentStatus: kind === 'purchaseManagement' ? '待入库' : '待出库', invoiceStatus: kind === 'purchaseManagement' ? '待收票' : '待开票', settlementStatus: kind === 'purchaseManagement' ? '未付款' : '未收款', status: '待确认', sourceDocument: '' })
+      setEditingBusinessOrderId(null)
       setShowBusinessOrderDialog(false)
       return
     }
@@ -11884,7 +11961,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowInvoiceDialog(true)
       return
     }
-    if ((kind === 'purchaseManagement' || kind === 'salesManagement') && isTauri && selectedCompanyId) {
+    if ((kind === 'purchaseManagement' || kind === 'salesManagement') && (usesLiveBusinessOrderData || !isTauri)) {
       const order = businessOrders.find((item) => item.id === row.id)
       if (!order) {
         setOperationNotice('未找到当前账期的业务订单。')
@@ -13005,7 +13082,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             {kind === 'socialSecurity' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增社保" onClick={openSocialSecurityEditor} />}
             {kind === 'specialDeduction' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增扣除" onClick={openSpecialDeductionEditor} />}
             {(kind === 'billList' || kind === 'bankStatement') && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增流水" onClick={openBankTransactionEditor} />}
-            {kind === 'documentRegister' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增单据" onClick={() => setShowDocumentRecordDialog(true)} />}
             <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="刷新" onClick={handleRefreshAction} />
             <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="模板" onClick={handleTemplateAction} />
             <ToolbarButton icon={<FileDown className="h-3.5 w-3.5" />} label="导出Excel" onClick={handleExportExcel} />
