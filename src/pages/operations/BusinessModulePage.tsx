@@ -788,6 +788,13 @@ type PreviewPeopleData = {
   specialDeductionRecords: SpecialDeductionRecord[]
 }
 
+type PreviewCashflowData = {
+  bankTransactions: BankTransaction[]
+  settlementRecords: SettlementRecord[]
+  bankReconciliationRecords: BankReconciliationRecord[]
+  accountTransfers: AccountTransfer[]
+}
+
 const previewInvoiceMatchCandidateSeed: PreviewInvoiceMatchCandidate[] = [
   { id: 'preview-match-invoice-001', invoice_no: '031002400128', invoice_code: '3100260001', invoice_type: 'input', total_amount: 18300, seller_name: '苏州材料供应链有限公司', buyer_name: '科旋电气（上海）有限公司', status: 'verified', voucher_id: null },
   { id: 'preview-match-invoice-002', invoice_no: '031002400139', invoice_code: '3100260001', invoice_type: 'input', total_amount: 9800, seller_name: '杭州设备服务有限公司', buyer_name: '科旋电气（上海）有限公司', status: 'verified', voucher_id: null },
@@ -813,6 +820,27 @@ const previewPeopleSeed: PreviewPeopleData = {
     { id: 'preview-deduction-001', companyId: 'preview-company', employeeId: 'preview-employee', employeeName: '张三', deductionType: '子女教育', startMonth: '2026-01', endMonth: null, monthlyAmount: 2000, source: '人员确认', status: '有效', createdAt: '2026-01-01T09:00:00.000Z', updatedAt: '2026-05-31T09:30:00.000Z' },
     { id: 'preview-deduction-002', companyId: 'preview-company', employeeId: 'preview-employee-002', employeeName: '李四', deductionType: '住房租金', startMonth: '2026-01', endMonth: null, monthlyAmount: 1500, source: '人员确认', status: '有效', createdAt: '2026-01-01T09:00:00.000Z', updatedAt: '2026-05-31T09:30:00.000Z' },
     { id: 'preview-deduction-003', companyId: 'preview-company', employeeId: 'preview-employee-003', employeeName: '王五', deductionType: '继续教育', startMonth: '2026-05', endMonth: null, monthlyAmount: 400, source: '待补资料', status: '待确认', createdAt: '2026-05-10T09:00:00.000Z', updatedAt: '2026-05-31T09:30:00.000Z' },
+  ],
+}
+
+const previewCashflowSeed: PreviewCashflowData = {
+  bankTransactions: [
+    { id: 'preview-bank-001', companyId: 'preview-company', period: '2026-05', accountName: '工行基本户', serialNo: 'BK20260508001', transactionDate: '2026-05-08', counterparty: '杭州客户', summary: '销售回款', incomeAmount: 128600, expenseAmount: 0, balance: 594980, receiptStatus: '已关联回单', matchResult: '已核销 AR-202605-001', status: '已匹配', createdAt: '2026-05-08T09:10:00.000Z', updatedAt: '2026-05-08T10:00:00.000Z' },
+    { id: 'preview-bank-002', companyId: 'preview-company', period: '2026-05', accountName: '工行基本户', serialNo: 'BK20260515002', transactionDate: '2026-05-15', counterparty: '上海零件供应商', summary: '采购付款', incomeAmount: 0, expenseAmount: 86300, balance: 508680, receiptStatus: '已上传回单', matchResult: '待核销 AP-202605-002', status: '待处理', createdAt: '2026-05-15T09:10:00.000Z', updatedAt: '2026-05-15T10:00:00.000Z' },
+    { id: 'preview-bank-003', companyId: 'preview-company', period: '2026-05', accountName: '招行一般户', serialNo: 'BK20260522003', transactionDate: '2026-05-22', counterparty: '北京渠道商', summary: '保证金退款', incomeAmount: 68000, expenseAmount: 0, balance: null, receiptStatus: '待补回单', matchResult: '未找到关联合同', status: '异常', createdAt: '2026-05-22T09:10:00.000Z', updatedAt: '2026-05-22T10:00:00.000Z' },
+  ],
+  settlementRecords: [
+    { id: 'preview-settlement-001', companyId: 'preview-company', period: '2026-05', settlementType: 'receivable', settlementNo: 'AR-202605-001', settlementDate: '2026-05-08', counterparty: '杭州客户', invoiceNo: '031002400128', transactionNo: 'BK20260508001', totalAmount: 128600, settledAmount: 128600, balanceAmount: 0, settlementMethod: '银行转账', owner: '王会计', status: '已完成', sourceDocument: '销售合同 HT-2026-018', createdAt: '2026-05-08T09:00:00.000Z', updatedAt: '2026-05-08T10:00:00.000Z' },
+    { id: 'preview-settlement-002', companyId: 'preview-company', period: '2026-05', settlementType: 'payable', settlementNo: 'AP-202605-002', settlementDate: '2026-05-15', counterparty: '上海零件供应商', invoiceNo: '031002400139', transactionNo: 'BK20260515002', totalAmount: 86300, settledAmount: 50000, balanceAmount: 36300, settlementMethod: '银行转账', owner: '李会计', status: '待确认', sourceDocument: '采购订单 PO-2026-026', createdAt: '2026-05-15T09:00:00.000Z', updatedAt: '2026-05-15T10:00:00.000Z' },
+    { id: 'preview-settlement-003', companyId: 'preview-company', period: '2026-05', settlementType: 'receivable', settlementNo: 'AR-202603-003', settlementDate: '2026-03-10', counterparty: '北京渠道商', invoiceNo: '031002300866', transactionNo: null, totalAmount: 68000, settledAmount: 0, balanceAmount: 68000, settlementMethod: '银行转账', owner: '赵会计', status: '异常', sourceDocument: '渠道服务合同 HT-2026-006', createdAt: '2026-03-10T09:00:00.000Z', updatedAt: '2026-05-31T10:00:00.000Z' },
+  ],
+  bankReconciliationRecords: [
+    { id: 'preview-reconciliation-001', companyId: 'preview-company', period: '2026-05', reconciliationNo: 'BR-202605-001', reconciliationDate: '2026-05-08', bankTransactionId: 'preview-bank-001', accountName: '工行基本户', transactionNo: 'BK20260508001', summary: '销售回款与应收核销', bankAmount: 128600, bookAmount: 128600, differenceAmount: 0, voucherNo: '记-0061', matchStatus: '已匹配', owner: '王会计', status: '已通过', note: '回单、发票与凭证金额一致', createdAt: '2026-05-08T10:00:00.000Z', updatedAt: '2026-05-08T10:00:00.000Z' },
+    { id: 'preview-reconciliation-002', companyId: 'preview-company', period: '2026-05', reconciliationNo: 'BR-202605-002', reconciliationDate: '2026-05-15', bankTransactionId: 'preview-bank-002', accountName: '工行基本户', transactionNo: 'BK20260515002', summary: '采购付款与应付核销', bankAmount: 86300, bookAmount: 86000, differenceAmount: 300, voucherNo: '记-0066', matchStatus: '金额不一致', owner: '李会计', status: '待处理', note: '待补手续费或付款折让依据', createdAt: '2026-05-15T10:00:00.000Z', updatedAt: '2026-05-15T10:00:00.000Z' },
+  ],
+  accountTransfers: [
+    { id: 'preview-transfer-001', companyId: 'preview-company', period: '2026-05', transferDate: '2026-05-20', fromAccount: '工行基本户', toAccount: '招行一般户', amount: 50000, fee: 3, serialNo: 'TR20260520001', status: '待确认', createdAt: '2026-05-20T09:00:00.000Z', updatedAt: '2026-05-20T09:00:00.000Z' },
+    { id: 'preview-transfer-002', companyId: 'preview-company', period: '2026-05', transferDate: '2026-05-26', fromAccount: '招行一般户', toAccount: '支付宝账户', amount: 8000, fee: 0, serialNo: null, status: '异常', createdAt: '2026-05-26T09:00:00.000Z', updatedAt: '2026-05-26T09:00:00.000Z' },
   ],
 }
 
@@ -1234,6 +1262,44 @@ function savePreviewPeopleData(data: PreviewPeopleData) {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewPeopleStorageKey(), JSON.stringify(data))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewCashflowStorageKey() {
+  return 'accounting-preview-cashflow-data-v1'
+}
+
+function clonePreviewCashflowData(data: PreviewCashflowData = previewCashflowSeed): PreviewCashflowData {
+  return {
+    bankTransactions: data.bankTransactions.map((record) => ({ ...record })),
+    settlementRecords: data.settlementRecords.map((record) => ({ ...record })),
+    bankReconciliationRecords: data.bankReconciliationRecords.map((record) => ({ ...record })),
+    accountTransfers: data.accountTransfers.map((record) => ({ ...record })),
+  }
+}
+
+function loadPreviewCashflowData(): PreviewCashflowData {
+  const fallback = () => clonePreviewCashflowData()
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewCashflowStorageKey()) || 'null')
+    if (!parsed || !Array.isArray(parsed.bankTransactions) || !Array.isArray(parsed.settlementRecords) || !Array.isArray(parsed.bankReconciliationRecords) || !Array.isArray(parsed.accountTransfers)) return fallback()
+    const validTransactions = parsed.bankTransactions.every((record: BankTransaction) => typeof record?.id === 'string' && typeof record.serialNo === 'string' && Number.isFinite(record.incomeAmount) && Number.isFinite(record.expenseAmount) && typeof record.status === 'string')
+    const validSettlements = parsed.settlementRecords.every((record: SettlementRecord) => typeof record?.id === 'string' && (record.settlementType === 'receivable' || record.settlementType === 'payable') && Number.isFinite(record.totalAmount) && Number.isFinite(record.balanceAmount) && typeof record.status === 'string')
+    const validReconciliations = parsed.bankReconciliationRecords.every((record: BankReconciliationRecord) => typeof record?.id === 'string' && typeof record.reconciliationNo === 'string' && Number.isFinite(record.differenceAmount) && typeof record.matchStatus === 'string')
+    const validTransfers = parsed.accountTransfers.every((record: AccountTransfer) => typeof record?.id === 'string' && typeof record.fromAccount === 'string' && typeof record.toAccount === 'string' && Number.isFinite(record.amount) && typeof record.status === 'string')
+    return validTransactions && validSettlements && validReconciliations && validTransfers ? clonePreviewCashflowData(parsed as PreviewCashflowData) : fallback()
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewCashflowData(data: PreviewCashflowData) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewCashflowStorageKey(), JSON.stringify(data))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -6424,11 +6490,49 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const setPayrollRecords = updatePreviewPayrollRecords
   const setSocialSecurityRecords = updatePreviewSocialSecurityRecords
   const setSpecialDeductionRecords = updatePreviewSpecialDeductionRecords
-  const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])
+  const [previewCashflowData, setPreviewCashflowData] = useState<PreviewCashflowData>(() => isTauri ? { bankTransactions: [], settlementRecords: [], bankReconciliationRecords: [], accountTransfers: [] } : loadPreviewCashflowData())
+  const bankTransactions = previewCashflowData.bankTransactions
+  const settlementRecords = previewCashflowData.settlementRecords
+  const bankReconciliationRecords = previewCashflowData.bankReconciliationRecords
+  const accountTransfers = previewCashflowData.accountTransfers
+  const updatePreviewBankTransactions = (update: SetStateAction<BankTransaction[]>) => {
+    setPreviewCashflowData((data) => {
+      const bankTransactions = typeof update === 'function' ? (update as (current: BankTransaction[]) => BankTransaction[])(data.bankTransactions) : update
+      const next = { ...data, bankTransactions }
+      if (!isTauri) savePreviewCashflowData(next)
+      return next
+    })
+  }
+  const updatePreviewSettlementRecords = (update: SetStateAction<SettlementRecord[]>) => {
+    setPreviewCashflowData((data) => {
+      const settlementRecords = typeof update === 'function' ? (update as (current: SettlementRecord[]) => SettlementRecord[])(data.settlementRecords) : update
+      const next = { ...data, settlementRecords }
+      if (!isTauri) savePreviewCashflowData(next)
+      return next
+    })
+  }
+  const updatePreviewBankReconciliationRecords = (update: SetStateAction<BankReconciliationRecord[]>) => {
+    setPreviewCashflowData((data) => {
+      const bankReconciliationRecords = typeof update === 'function' ? (update as (current: BankReconciliationRecord[]) => BankReconciliationRecord[])(data.bankReconciliationRecords) : update
+      const next = { ...data, bankReconciliationRecords }
+      if (!isTauri) savePreviewCashflowData(next)
+      return next
+    })
+  }
+  const updatePreviewAccountTransfers = (update: SetStateAction<AccountTransfer[]>) => {
+    setPreviewCashflowData((data) => {
+      const accountTransfers = typeof update === 'function' ? (update as (current: AccountTransfer[]) => AccountTransfer[])(data.accountTransfers) : update
+      const next = { ...data, accountTransfers }
+      if (!isTauri) savePreviewCashflowData(next)
+      return next
+    })
+  }
+  const setBankTransactions = updatePreviewBankTransactions
+  const setSettlementRecords = updatePreviewSettlementRecords
+  const setBankReconciliationRecords = updatePreviewBankReconciliationRecords
+  const setAccountTransfers = updatePreviewAccountTransfers
   const [documentRecords, setDocumentRecords] = useState<DocumentRecord[]>([])
   const [businessOrders, setBusinessOrders] = useState<BusinessOrder[]>([])
-  const [settlementRecords, setSettlementRecords] = useState<SettlementRecord[]>([])
-  const [bankReconciliationRecords, setBankReconciliationRecords] = useState<BankReconciliationRecord[]>([])
   const [costCarryoverRecords, setCostCarryoverRecords] = useState<CostCarryoverRecord[]>([])
   const [showCostCarryoverDialog, setShowCostCarryoverDialog] = useState(false)
   const [editingCostCarryoverId, setEditingCostCarryoverId] = useState<string | null>(null)
@@ -6436,7 +6540,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showBankReconciliationDialog, setShowBankReconciliationDialog] = useState(false)
   const [editingBankReconciliationId, setEditingBankReconciliationId] = useState<string | null>(null)
   const [bankReconciliationDraft, setBankReconciliationDraft] = useState({ reconciliationNo: '', reconciliationDate: '', accountName: '', transactionNo: '', summary: '', bankAmount: '', bookAmount: '', voucherNo: '', matchStatus: '待人工对账', owner: '', status: '待处理', note: '' })
-  const [accountTransfers, setAccountTransfers] = useState<AccountTransfer[]>([])
   const [fixedAssets, setFixedAssets] = useState<FixedAsset[]>([])
   const [showFixedAssetDialog, setShowFixedAssetDialog] = useState(false)
   const [editingFixedAssetId, setEditingFixedAssetId] = useState<string | null>(null)
@@ -7526,11 +7629,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'socialSecurityTaxReport' && (usesLiveSocialSecurityTaxData || !isTauri)) return { ...baseConfig, rows: mapLiveSocialSecurityTaxRows(socialSecurityRecords), summary: summarizeLiveSocialSecurityTax(socialSecurityRecords) }
     if (kind === 'incomeTaxReport' && usesLiveReportData && liveReports.incomeStatement) return { ...baseConfig, rows: mapLiveIncomeTaxRows(liveReports.incomeStatement), summary: summarizeLiveIncomeTax(liveReports.incomeStatement) }
     if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
-    if ((kind === 'billList' || kind === 'bankStatement') && (usesLiveBankTransactionData || bankTransactions.length > 0)) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, effectiveBusinessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
-    if (kind === 'bankReconciliation' && (usesLiveBankReconciliationRecordData || bankReconciliationRecords.length > 0)) return { ...baseConfig, rows: mapLiveBankReconciliationRows(bankReconciliationRecords), summary: summarizeLiveBankReconciliation(bankReconciliationRecords) }
-    if (kind === 'receivableSettlement' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'receivable') }
-    if (kind === 'payableSettlement' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'payable') }
-    if (kind === 'receivablePayableAging' && (usesLiveSettlementRecordData || settlementRecords.length > 0)) return { ...baseConfig, rows: mapLiveSettlementAgingRows(settlementRecords), summary: summarizeLiveSettlementAging(settlementRecords) }
+    if ((kind === 'billList' || kind === 'bankStatement') && (usesLiveBankTransactionData || !isTauri)) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, effectiveBusinessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
+    if (kind === 'bankReconciliation' && (usesLiveBankReconciliationRecordData || !isTauri)) return { ...baseConfig, rows: mapLiveBankReconciliationRows(bankReconciliationRecords), summary: summarizeLiveBankReconciliation(bankReconciliationRecords) }
+    if (kind === 'receivableSettlement' && (usesLiveSettlementRecordData || !isTauri)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'receivable') }
+    if (kind === 'payableSettlement' && (usesLiveSettlementRecordData || !isTauri)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'payable') }
+    if (kind === 'receivablePayableAging' && (usesLiveSettlementRecordData || !isTauri)) return { ...baseConfig, rows: mapLiveSettlementAgingRows(settlementRecords), summary: summarizeLiveSettlementAging(settlementRecords) }
     if (kind === 'documentRegister' && (usesLiveDocumentRecordData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveDocumentRecordRows(documentRecords), summary: summarizeLiveDocumentRecords(documentRecords) }
     if (kind === 'contractLedger' && (usesLiveDocumentRecordData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveContractLedgerRows(documentRecords), summary: summarizeLiveContractLedger(documentRecords) }
     if (kind === 'stampTaxReport' && (usesLiveStampTaxData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveStampTaxRows(documentRecords), summary: summarizeLiveStampTax(documentRecords) }
@@ -7538,7 +7641,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'receipt' && (usesLiveReceiptData || documentRecords.length > 0)) return { ...baseConfig, rows: mapLiveReceiptRows(documentRecords), summary: summarizeLiveReceipts(documentRecords) }
     if (kind === 'purchaseManagement' && (usesLiveBusinessOrderData || businessOrders.length > 0)) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'purchase'), summary: summarizeLiveBusinessOrders(businessOrders, 'purchase', ['采购单', '已完成', '待处理', '异常单']) }
     if (kind === 'salesManagement' && (usesLiveBusinessOrderData || businessOrders.length > 0)) return { ...baseConfig, rows: mapLiveBusinessOrderRows(businessOrders, 'sales'), summary: summarizeLiveBusinessOrders(businessOrders, 'sales', ['销售单', '已完成', '待处理', '异常单']) }
-    if (kind === 'transfer' && (usesLiveAccountTransferData || accountTransfers.length > 0)) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
+    if (kind === 'transfer' && (usesLiveAccountTransferData || !isTauri)) return { ...baseConfig, rows: mapLiveAccountTransferRows(accountTransfers), summary: summarizeLiveAccountTransfers(accountTransfers) }
     if (kind === 'depreciation' && (usesLiveFixedAssetData || fixedAssets.length > 0)) return { ...baseConfig, rows: mapLiveFixedAssetRows(fixedAssets), summary: summarizeLiveFixedAssets(fixedAssets) }
     if (kind === 'inventoryMovement' && (usesLiveInventoryMovementData || inventoryMovements.length > 0)) return { ...baseConfig, rows: mapLiveInventoryMovementRows(inventoryMovements), summary: summarizeLiveInventoryMovements(inventoryMovements) }
     if (kind === 'costCarryover' && (usesLiveCostCarryoverData || costCarryoverRecords.length > 0)) return { ...baseConfig, rows: mapLiveCostCarryoverRows(costCarryoverRecords), summary: summarizeLiveCostCarryover(costCarryoverRecords) }
@@ -11796,7 +11899,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowBusinessOrderDialog(true)
       return
     }
-    if ((kind === 'receivableSettlement' || kind === 'payableSettlement') && isTauri && selectedCompanyId) {
+    if ((kind === 'receivableSettlement' || kind === 'payableSettlement') && (usesLiveSettlementRecordData || !isTauri)) {
       const record = settlementRecords.find((item) => item.id === row.id)
       if (!record) return
       setEditingSettlementRecordId(record.id)
@@ -11804,7 +11907,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowSettlementRecordDialog(true)
       return
     }
-    if (kind === 'bankReconciliation' && isTauri && selectedCompanyId) {
+    if (kind === 'bankReconciliation' && (usesLiveBankReconciliationRecordData || !isTauri)) {
       const record = bankReconciliationRecords.find((item) => item.id === row.id)
       if (!record) return
       setEditingBankReconciliationId(record.id)
@@ -11968,7 +12071,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (kind === 'socialSecurity') { const record=socialSecurityRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSocialSecurityId(record.id);setSocialSecurityDraft({employeeId:record.employeeId,city:record.city||'',base:String(record.contributionBase),company:String(record.companyAmount),personal:String(record.personalAmount),fund:String(record.fundAmount)});setShowSocialSecurityDialog(true);return }
     if (kind === 'specialDeduction') { const record=specialDeductionRecords.find((item)=>item.id===row.id);if(!record)return;setEditingSpecialDeductionId(record.id);setSpecialDeductionDraft({employeeId:record.employeeId,deductionType:record.deductionType,startMonth:record.startMonth,endMonth:record.endMonth||'',monthlyAmount:String(record.monthlyAmount),source:record.source});setShowSpecialDeductionDialog(true);return }
-    if (kind === 'transfer' && isTauri && selectedCompanyId) {
+    if (kind === 'transfer' && (usesLiveAccountTransferData || !isTauri)) {
       const transfer = accountTransfers.find((item) => item.id === row.id)
       if (!transfer) {
         setOperationNotice('未找到当前账期的账户转账记录。')
@@ -13467,7 +13570,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     <td className="whitespace-nowrap border-b border-slate-100 px-2 py-2 text-right">
                       {!(kind === 'aiVoucherSuggestions' && row.status === '已生成凭证') && (
                         <button type="button" disabled={isCompanyTodoRow && row.status === '已通过'} onClick={() => isCompanyTodoRow ? void completeCompanyTodo(row.id) : kind === 'printTemplateSettings' ? openPrintTemplatePreview() : handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline disabled:cursor-not-allowed disabled:text-slate-400">
-                          {isCompanyTodoRow ? row.status === '已通过' ? '已完成' : '完成待办' : kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiJobQueue' ? row.status === '待处理' ? '启动处理' : row.status === '待确认' ? '进入复核' : row.status === '异常' ? '查看异常' : '查看结果' : kind === 'aiRecognitionResults' ? row.status === '已通过' ? '已复核' : row.status === '异常' ? '查看问题' : '复核' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'invoiceVoucherMatching' ? row.status === '已匹配' ? '查看关联' : '人工匹配' : kind === 'periodManagement' ? row.status === '已通过' ? '申请反结账' : '查看检查' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
+                          {isCompanyTodoRow ? row.status === '已通过' ? '已完成' : '完成待办' : kind === 'printTemplateSettings' ? '查看预览' : kind === 'attachmentCenter' && isLocalRegistryRow ? '关联单据' : kind === 'importCenter' && isLocalRegistryRow ? '核验批次' : kind === 'backupRestore' ? '核验' : kind === 'aiJobQueue' ? row.status === '待处理' ? '启动处理' : row.status === '待确认' ? '进入复核' : row.status === '异常' ? '查看异常' : '查看结果' : kind === 'aiRecognitionResults' ? row.status === '已通过' ? '已复核' : row.status === '异常' ? '查看问题' : '复核' : kind === 'aiVoucherSuggestions' ? row.status === '已确认' ? '已确认' : '确认' : kind === 'declarationReceipt' ? '归档回执' : kind === 'taxInit' ? '编辑认定' : isLocalTaxTaskKind ? isConfirmedTaxTask(row) ? '已确认' : '确认事项' : kind === 'invoiceVoucherMatching' ? row.status === '已匹配' ? '查看关联' : '人工匹配' : kind === 'periodManagement' ? row.status === '已通过' ? '申请反结账' : '查看检查' : kind === 'employee' || kind === 'payroll' || kind === 'settlementRules' || kind === 'currencySettings' || kind === 'commonDigests' || kind === 'voucherTemplateSettings' || kind === 'reportFormulaSettings' || kind === 'taxAdapterSettings' || kind === 'bankAdapterSettings' || kind === 'socialSecurity' || kind === 'specialDeduction' || kind === 'transfer' || kind === 'depreciation' || kind === 'inventoryMovement' || kind === 'inventorySettings' || kind === 'billList' || kind === 'bankStatement' || kind === 'bankReconciliation' || kind === 'receivableSettlement' || kind === 'payableSettlement' || kind === 'documentRegister' || kind === 'contractLedger' || kind === 'expenseReimbursement' || kind === 'receipt' || kind === 'purchaseManagement' || kind === 'salesManagement' ? '编辑' : kind === 'voucherRecycle' ? '恢复' : '查看'}
                         </button>
                       )}
                       {canGenerateVoucherFromModule(kind) && !(isLocalRegistryModule && !isLocalRegistryRow) && <button type="button" onClick={() => handleGenerateVoucher(row)} className="text-[#1f65a7] hover:underline">

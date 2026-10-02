@@ -1498,7 +1498,7 @@ const requiredAccountTransferPageSnippets = [
   ['account transfer api list binding', 'accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
   ['account transfer api create binding', 'accountTransferApi.createAccountTransfer({'],
   ['account transfer api update binding', 'accountTransferApi.updateAccountTransfer({'],
-  ['account transfer edit row binding', "if (kind === 'transfer' && isTauri && selectedCompanyId)"],
+  ['account transfer edit row binding', "if (kind === 'transfer' && (usesLiveAccountTransferData || !isTauri))"],
   ['account transfer edit state', 'const [editingAccountTransferId, setEditingAccountTransferId] = useState<string | null>(null)'],
   ['account transfer row mapper', 'mapLiveAccountTransferRows(accountTransfers)'],
 ]
