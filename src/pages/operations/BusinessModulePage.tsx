@@ -807,10 +807,44 @@ type PreviewAssetInventoryData = {
   costCarryoverRecords: CostCarryoverRecord[]
 }
 
+type PreviewInvoiceVoucherCoreData = {
+  invoices: Invoice[]
+  vouchers: Voucher[]
+  invoiceTagIds: Record<string, string[]>
+  voucherTagIds: Record<string, string[]>
+}
+
 const previewInvoiceMatchCandidateSeed: PreviewInvoiceMatchCandidate[] = [
   { id: 'preview-match-invoice-001', invoice_no: '031002400128', invoice_code: '3100260001', invoice_type: 'input', total_amount: 18300, seller_name: '苏州材料供应链有限公司', buyer_name: '科旋电气（上海）有限公司', status: 'verified', voucher_id: null },
   { id: 'preview-match-invoice-002', invoice_no: '031002400139', invoice_code: '3100260001', invoice_type: 'input', total_amount: 9800, seller_name: '杭州设备服务有限公司', buyer_name: '科旋电气（上海）有限公司', status: 'verified', voucher_id: null },
 ]
+
+const previewInvoiceVoucherCoreSeed: PreviewInvoiceVoucherCoreData = {
+  invoices: [
+    { id: 'preview-output-invoice-001', company_id: 'preview-company', period_id: 'preview-period-2026-05', invoice_type: 'output', invoice_no: '031002400118', invoice_code: '3100260001', invoice_date: '2026-05-03', amount: 86000, tax_amount: 11180, total_amount: 97180, tax_rate: 0.13, seller_name: '科旋电气（上海）有限公司', seller_tax_id: '91310115MA1H8KXQ8R', buyer_name: '上海辰光贸易有限公司', buyer_tax_id: '91310110MA1G8D1H21', status: 'matched', voucher_id: 'preview-output-voucher-001', remarks: '控制器 A-100 销售', created_at: '2026-05-03T09:10:00.000Z', updated_at: '2026-05-03T10:20:00.000Z' },
+    { id: 'preview-output-invoice-002', company_id: 'preview-company', period_id: 'preview-period-2026-05', invoice_type: 'output', invoice_no: '031002400126', invoice_code: '3100260001', invoice_date: '2026-05-08', amount: 120000, tax_amount: 7200, total_amount: 127200, tax_rate: 0.06, seller_name: '科旋电气（上海）有限公司', seller_tax_id: '91310115MA1H8KXQ8R', buyer_name: '杭州辰星科技有限公司', buyer_tax_id: '91330105MA2B4T2L7P', status: 'pending', voucher_id: null, remarks: '技术服务费', created_at: '2026-05-08T13:20:00.000Z', updated_at: '2026-05-08T13:20:00.000Z' },
+    { id: 'preview-output-invoice-003', company_id: 'preview-company', period_id: 'preview-period-2026-05', invoice_type: 'output', invoice_no: '031002400188', invoice_code: '3100260001', invoice_date: '2026-05-16', amount: 38000, tax_amount: 4940, total_amount: 42940, tax_rate: null, seller_name: '科旋电气（上海）有限公司', seller_tax_id: '91310115MA1H8KXQ8R', buyer_name: '南京云杉贸易有限公司', buyer_tax_id: null, status: 'rejected', voucher_id: null, remarks: '配件销售，税率待复核', created_at: '2026-05-16T15:40:00.000Z', updated_at: '2026-05-16T16:05:00.000Z' },
+    { id: 'preview-match-invoice-001', company_id: 'preview-company', period_id: 'preview-period-2026-05', invoice_type: 'input', invoice_no: '031002400128', invoice_code: '3100260001', invoice_date: '2026-05-06', amount: 16200, tax_amount: 2100, total_amount: 18300, tax_rate: 0.13, seller_name: '苏州材料供应链有限公司', seller_tax_id: '91320594MA1N9YRB6P', buyer_name: '科旋电气（上海）有限公司', buyer_tax_id: '91310115MA1H8KXQ8R', status: 'verified', voucher_id: null, remarks: '原材料采购，票凭金额差异 ¥300 待复核', created_at: '2026-05-06T10:10:00.000Z', updated_at: '2026-05-06T11:00:00.000Z' },
+    { id: 'preview-match-invoice-002', company_id: 'preview-company', period_id: 'preview-period-2026-05', invoice_type: 'input', invoice_no: '031002400139', invoice_code: '3100260001', invoice_date: '2026-05-12', amount: 9245.28, tax_amount: 554.72, total_amount: 9800, tax_rate: 0.06, seller_name: '杭州设备服务有限公司', seller_tax_id: '91330108MA2A6J8B4C', buyer_name: '科旋电气（上海）有限公司', buyer_tax_id: '91310115MA1H8KXQ8R', status: 'verified', voucher_id: null, remarks: '设备维护服务', created_at: '2026-05-12T14:00:00.000Z', updated_at: '2026-05-12T14:00:00.000Z' },
+    { id: 'preview-input-invoice-003', company_id: 'preview-company', period_id: 'preview-period-2026-05', invoice_type: 'input', invoice_no: '031002400142', invoice_code: '3100260001', invoice_date: '2026-05-20', amount: 38000, tax_amount: 4940, total_amount: 42940, tax_rate: 0.13, seller_name: '上海云启科技有限公司', seller_tax_id: '91310110MA1G8D1H21', buyer_name: '科旋电气（上海）有限公司', buyer_tax_id: '91310115MA1H8KXQ8R', status: 'pending', voucher_id: null, remarks: '服务器租赁，待勾选认证', created_at: '2026-05-20T09:30:00.000Z', updated_at: '2026-05-20T09:30:00.000Z' },
+  ],
+  vouchers: [
+    { id: 'preview-output-voucher-001', company_id: 'preview-company', period_id: 'preview-period-2026-05', voucher_word_id: 'preview-voucher-word-remember', voucher_number: '记-0061', sequence_num: 61, voucher_date: '2026-05-03', summary: '确认控制器销售收入', attachment_count: 2, status: 'approved', total_debit: 97180, total_credit: 97180, version: 1, created_by: '王会计', created_at: '2026-05-03T10:20:00.000Z', modified_by: '王会计', modified_at: '2026-05-03T10:20:00.000Z', approved_by: '李主管', approved_at: '2026-05-03T11:00:00.000Z', reversed_by: null, reversed_at: null, reversal_of_id: null, is_system: 0, is_deleted: 0, deleted_at: null, entries: [{ id: 'preview-voucher-entry-001', voucher_id: 'preview-output-voucher-001', line_num: 1, account_code: '1122', account_name: '应收账款', direction: 'debit', amount: 97180, summary: '控制器 A-100 销售', auxiliary_type: 'customer', auxiliary_id: 'C010', doc_number: '031002400118', quantity: null, unit_price: null, unit: null, currency_id: null, exchange_rate: null, created_at: '2026-05-03T10:20:00.000Z' }, { id: 'preview-voucher-entry-002', voucher_id: 'preview-output-voucher-001', line_num: 2, account_code: '6001', account_name: '主营业务收入', direction: 'credit', amount: 86000, summary: '控制器 A-100 销售', auxiliary_type: null, auxiliary_id: null, doc_number: '031002400118', quantity: null, unit_price: null, unit: null, currency_id: null, exchange_rate: null, created_at: '2026-05-03T10:20:00.000Z' }, { id: 'preview-voucher-entry-003', voucher_id: 'preview-output-voucher-001', line_num: 3, account_code: '2221', account_name: '应交税费', direction: 'credit', amount: 11180, summary: '销项税额', auxiliary_type: null, auxiliary_id: null, doc_number: '031002400118', quantity: null, unit_price: null, unit: null, currency_id: null, exchange_rate: null, created_at: '2026-05-03T10:20:00.000Z' }] },
+    { id: 'preview-match-voucher-001', company_id: 'preview-company', period_id: 'preview-period-2026-05', voucher_word_id: 'preview-voucher-word-remember', voucher_number: '记-0063', sequence_num: 63, voucher_date: '2026-05-06', summary: '采购原材料', attachment_count: 2, status: 'draft', total_debit: 18000, total_credit: 18000, version: 1, created_by: '王会计', created_at: '2026-05-06T11:05:00.000Z', modified_by: '王会计', modified_at: '2026-05-06T11:05:00.000Z', approved_by: null, approved_at: null, reversed_by: null, reversed_at: null, reversal_of_id: null, is_system: 0, is_deleted: 0, deleted_at: null, entries: [{ id: 'preview-voucher-entry-004', voucher_id: 'preview-match-voucher-001', line_num: 1, account_code: '1403', account_name: '原材料', direction: 'debit', amount: 16200, summary: '采购原材料', auxiliary_type: null, auxiliary_id: null, doc_number: '031002400128', quantity: null, unit_price: null, unit: null, currency_id: null, exchange_rate: null, created_at: '2026-05-06T11:05:00.000Z' }, { id: 'preview-voucher-entry-005', voucher_id: 'preview-match-voucher-001', line_num: 2, account_code: '2221', account_name: '应交税费', direction: 'debit', amount: 1800, summary: '进项税额', auxiliary_type: null, auxiliary_id: null, doc_number: '031002400128', quantity: null, unit_price: null, unit: null, currency_id: null, exchange_rate: null, created_at: '2026-05-06T11:05:00.000Z' }, { id: 'preview-voucher-entry-006', voucher_id: 'preview-match-voucher-001', line_num: 3, account_code: '2202', account_name: '应付账款', direction: 'credit', amount: 18000, summary: '采购原材料', auxiliary_type: 'supplier', auxiliary_id: 'S008', doc_number: '031002400128', quantity: null, unit_price: null, unit: null, currency_id: null, exchange_rate: null, created_at: '2026-05-06T11:05:00.000Z' }] },
+    { id: 'preview-match-voucher-002', company_id: 'preview-company', period_id: 'preview-period-2026-05', voucher_word_id: 'preview-voucher-word-remember', voucher_number: '记-0068', sequence_num: 68, voucher_date: '2026-05-12', summary: '技术服务费', attachment_count: 1, status: 'draft', total_debit: 9800, total_credit: 9800, version: 1, created_by: '赵会计', created_at: '2026-05-12T15:20:00.000Z', modified_by: '赵会计', modified_at: '2026-05-12T15:20:00.000Z', approved_by: null, approved_at: null, reversed_by: null, reversed_at: null, reversal_of_id: null, is_system: 0, is_deleted: 0, deleted_at: null, entries: [{ id: 'preview-voucher-entry-007', voucher_id: 'preview-match-voucher-002', line_num: 1, account_code: '6602', account_name: '管理费用', direction: 'debit', amount: 9800, summary: '技术服务费', auxiliary_type: null, auxiliary_id: null, doc_number: '031002400139', quantity: null, unit_price: null, unit: null, currency_id: null, exchange_rate: null, created_at: '2026-05-12T15:20:00.000Z' }, { id: 'preview-voucher-entry-008', voucher_id: 'preview-match-voucher-002', line_num: 2, account_code: '2202', account_name: '应付账款', direction: 'credit', amount: 9800, summary: '技术服务费', auxiliary_type: 'supplier', auxiliary_id: 'S013', doc_number: '031002400139', quantity: null, unit_price: null, unit: null, currency_id: null, exchange_rate: null, created_at: '2026-05-12T15:20:00.000Z' }] },
+    { id: 'preview-voucher-004', company_id: 'preview-company', period_id: 'preview-period-2026-05', voucher_word_id: 'preview-voucher-word-remember', voucher_number: '记-0071', sequence_num: 71, voucher_date: '2026-05-28', summary: '暂估成本结转待复核', attachment_count: 0, status: 'error', total_debit: 6800, total_credit: 6500, version: 1, created_by: '赵会计', created_at: '2026-05-28T17:00:00.000Z', modified_by: '赵会计', modified_at: '2026-05-28T17:05:00.000Z', approved_by: null, approved_at: null, reversed_by: null, reversed_at: null, reversal_of_id: null, is_system: 1, is_deleted: 0, deleted_at: null, entries: [{ id: 'preview-voucher-entry-009', voucher_id: 'preview-voucher-004', line_num: 1, account_code: '6401', account_name: '主营业务成本', direction: 'debit', amount: 6800, summary: '暂估成本结转', auxiliary_type: null, auxiliary_id: null, doc_number: 'CC-202605-002', quantity: null, unit_price: null, unit: null, currency_id: null, exchange_rate: null, created_at: '2026-05-28T17:00:00.000Z' }, { id: 'preview-voucher-entry-010', voucher_id: 'preview-voucher-004', line_num: 2, account_code: '1405', account_name: '库存商品', direction: 'credit', amount: 6500, summary: '暂估成本结转', auxiliary_type: null, auxiliary_id: null, doc_number: 'CC-202605-002', quantity: null, unit_price: null, unit: null, currency_id: null, exchange_rate: null, created_at: '2026-05-28T17:00:00.000Z' }] },
+  ],
+  invoiceTagIds: {
+    'preview-output-invoice-001': ['preview-business-tag-reconcile'],
+    'preview-output-invoice-003': ['preview-business-tag-risk'],
+    'preview-match-invoice-001': ['preview-business-tag-risk'],
+    'preview-input-invoice-003': ['preview-business-tag-material'],
+  },
+  voucherTagIds: {
+    'preview-match-voucher-001': ['preview-business-tag-risk'],
+    'preview-voucher-004': ['preview-business-tag-risk'],
+  },
+}
 
 const previewPeopleSeed: PreviewPeopleData = {
   employees: [
@@ -1273,6 +1307,53 @@ function savePreviewInvoiceMatchCandidates(invoices: PreviewInvoiceMatchCandidat
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewInvoiceVoucherMatchStorageKey(), JSON.stringify(invoices))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewInvoiceVoucherCoreStorageKey() {
+  return 'accounting-preview-invoice-voucher-core-data-v1'
+}
+
+function clonePreviewInvoiceVoucherCoreData(data: PreviewInvoiceVoucherCoreData = previewInvoiceVoucherCoreSeed): PreviewInvoiceVoucherCoreData {
+  return {
+    invoices: data.invoices.map((invoice) => ({ ...invoice })),
+    vouchers: data.vouchers.map((voucher) => ({ ...voucher, entries: voucher.entries.map((entry) => ({ ...entry })) })),
+    invoiceTagIds: Object.fromEntries(Object.entries(data.invoiceTagIds).map(([invoiceId, tagIds]) => [invoiceId, [...tagIds]])),
+    voucherTagIds: Object.fromEntries(Object.entries(data.voucherTagIds).map(([voucherId, tagIds]) => [voucherId, [...tagIds]])),
+  }
+}
+
+function loadPreviewInvoiceVoucherCoreData(): PreviewInvoiceVoucherCoreData {
+  const fallback = () => clonePreviewInvoiceVoucherCoreData()
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewInvoiceVoucherCoreStorageKey()) || 'null')
+    const validInvoices = Array.isArray(parsed?.invoices) && parsed.invoices.every((invoice: Invoice) => typeof invoice?.id === 'string' && typeof invoice.invoice_no === 'string' && typeof invoice.invoice_type === 'string' && Number.isFinite(invoice.amount) && Number.isFinite(invoice.tax_amount) && Number.isFinite(invoice.total_amount) && typeof invoice.status === 'string' && (typeof invoice.voucher_id === 'string' || invoice.voucher_id === null))
+    const validVouchers = Array.isArray(parsed?.vouchers) && parsed.vouchers.every((voucher: Voucher) => typeof voucher?.id === 'string' && typeof voucher.voucher_number === 'string' && Number.isFinite(voucher.total_debit) && Number.isFinite(voucher.total_credit) && typeof voucher.status === 'string' && Array.isArray(voucher.entries))
+    const validTagIds = parsed?.invoiceTagIds && parsed?.voucherTagIds && typeof parsed.invoiceTagIds === 'object' && typeof parsed.voucherTagIds === 'object' && Object.values(parsed.invoiceTagIds).every((tagIds) => Array.isArray(tagIds) && tagIds.every((tagId) => typeof tagId === 'string')) && Object.values(parsed.voucherTagIds).every((tagIds) => Array.isArray(tagIds) && tagIds.every((tagId) => typeof tagId === 'string'))
+    if (validInvoices && validVouchers && validTagIds) return clonePreviewInvoiceVoucherCoreData(parsed as PreviewInvoiceVoucherCoreData)
+  } catch {
+    // Migrate the earlier matching-only preview state below when the core state is unavailable.
+  }
+
+  const legacyMatches = loadPreviewInvoiceMatchCandidates()
+  const core = fallback()
+  return {
+    ...core,
+    invoices: core.invoices.map((invoice) => {
+      const legacy = legacyMatches.find((candidate) => candidate.id === invoice.id)
+      if (!legacy?.voucher_id) return invoice
+      return { ...invoice, voucher_id: legacy.voucher_id, status: 'matched' }
+    }),
+  }
+}
+
+function savePreviewInvoiceVoucherCoreData(data: PreviewInvoiceVoucherCoreData) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewInvoiceVoucherCoreStorageKey(), JSON.stringify(data))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -6474,7 +6555,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const createCompanyAccount = useCompanyAccountStore((state) => state.createCompanyAccount)
   const updateCompanyAccount = useCompanyAccountStore((state) => state.updateCompanyAccount)
   const deleteCompanyAccount = useCompanyAccountStore((state) => state.deleteCompanyAccount)
-  const usesLiveModuleData = isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice', 'voucher', 'riskCheck'].includes(kind)
+  const usesLiveInvoiceData = Boolean(isTauri && selectedCompanyId && ['outputInvoice', 'inputInvoice'].includes(kind))
+  const usesLiveVoucherData = Boolean(isTauri && selectedCompanyId && kind === 'voucher')
+  const usesLiveRiskCheckData = Boolean(isTauri && selectedCompanyId && kind === 'riskCheck')
+  const usesLiveModuleData = usesLiveInvoiceData || usesLiveVoucherData || usesLiveRiskCheckData
   const usesLiveReportData = Boolean(
     isTauri &&
       selectedCompanyId &&
@@ -6919,20 +7003,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return nextPeriods
     })
   }
-  const [previewInvoiceMatchCandidates, setPreviewInvoiceMatchCandidates] = useState<PreviewInvoiceMatchCandidate[]>(loadPreviewInvoiceMatchCandidates)
-  const updatePreviewInvoiceMatchCandidates = (update: (invoices: PreviewInvoiceMatchCandidate[]) => PreviewInvoiceMatchCandidate[]) => {
-    setPreviewInvoiceMatchCandidates((invoices) => {
-      const nextInvoices = update(invoices)
-      savePreviewInvoiceMatchCandidates(nextInvoices)
-      return nextInvoices
+  const [previewInvoiceVoucherCoreData, setPreviewInvoiceVoucherCoreData] = useState<PreviewInvoiceVoucherCoreData>(() => isTauri ? { invoices: [], vouchers: [], invoiceTagIds: {}, voucherTagIds: {} } : loadPreviewInvoiceVoucherCoreData())
+  const updatePreviewInvoiceVoucherCoreData = (update: (data: PreviewInvoiceVoucherCoreData) => PreviewInvoiceVoucherCoreData) => {
+    setPreviewInvoiceVoucherCoreData((data) => {
+      const next = update(data)
+      if (!isTauri) savePreviewInvoiceVoucherCoreData(next)
+      return next
     })
   }
-  const [previewVoucherMatchCandidates] = useState<Array<Pick<Voucher, 'id' | 'voucher_number' | 'total_debit' | 'summary' | 'status'>>>([
-    { id: 'preview-match-voucher-001', voucher_number: '记-0063', total_debit: 18000, summary: '采购原材料', status: 'draft' },
-    { id: 'preview-match-voucher-002', voucher_number: '记-0068', total_debit: 9800, summary: '技术服务费', status: 'draft' },
-  ])
-  const invoiceMatchCandidates = isTauri ? invoices : previewInvoiceMatchCandidates
-  const voucherMatchCandidates = isTauri ? vouchers : previewVoucherMatchCandidates
+  const previewInvoices = previewInvoiceVoucherCoreData.invoices
+  const previewVouchers = previewInvoiceVoucherCoreData.vouchers
+  const effectiveInvoices = isTauri ? invoices : previewInvoices
+  const effectiveVouchers = isTauri ? vouchers : previewVouchers
+  const effectiveInvoiceTagIds = isTauri ? invoiceTagIds : previewInvoiceVoucherCoreData.invoiceTagIds
+  const effectiveVoucherTagIds = isTauri ? voucherTagIds : previewInvoiceVoucherCoreData.voucherTagIds
+  const invoiceMatchCandidates = effectiveInvoices
+  const voucherMatchCandidates = effectiveVouchers
   const effectiveAssetCategories = isTauri ? assetCategories : previewAssetCategories
   const effectiveBusinessTags = isTauri ? businessTags : previewBusinessTags
   const effectiveAdapterAuthorizations = isTauri ? adapterAuthorizations : previewAdapterAuthorizations
@@ -6953,6 +7039,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showInvoiceVoucherMatchDialog, setShowInvoiceVoucherMatchDialog] = useState(false)
   const [selectedMatchInvoiceId, setSelectedMatchInvoiceId] = useState('')
   const [selectedMatchVoucherId, setSelectedMatchVoucherId] = useState('')
+  const [invoiceMatchScope, setInvoiceMatchScope] = useState<'all' | 'input'>('all')
   const [invoiceDraft, setInvoiceDraft] = useState({ invoiceNo: '', invoiceCode: '', invoiceDate: '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
   const [selectedInvoiceTagIds, setSelectedInvoiceTagIds] = useState<string[]>([])
   const [selectedVoucherTagIds, setSelectedVoucherTagIds] = useState<string[]>([])
@@ -7717,35 +7804,35 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'outputInvoice' && usesLiveModuleData) {
+    if (kind === 'outputInvoice' && (usesLiveInvoiceData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveInvoiceRows(invoices, 'output', invoiceTagIds, effectiveBusinessTags),
-        summary: summarizeLiveInvoices(invoices, 'output'),
+        rows: mapLiveInvoiceRows(effectiveInvoices, 'output', effectiveInvoiceTagIds, effectiveBusinessTags),
+        summary: summarizeLiveInvoices(effectiveInvoices, 'output'),
       }
     }
 
-    if (kind === 'inputInvoice' && usesLiveModuleData) {
+    if (kind === 'inputInvoice' && (usesLiveInvoiceData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveInvoiceRows(invoices, 'input', invoiceTagIds, effectiveBusinessTags),
-        summary: summarizeLiveInvoices(invoices, 'input'),
+        rows: mapLiveInvoiceRows(effectiveInvoices, 'input', effectiveInvoiceTagIds, effectiveBusinessTags),
+        summary: summarizeLiveInvoices(effectiveInvoices, 'input'),
       }
     }
 
-    if (kind === 'voucher' && usesLiveModuleData) {
+    if (kind === 'voucher' && (usesLiveVoucherData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveVoucherRows(vouchers, voucherTagIds, effectiveBusinessTags),
-        summary: summarizeLiveVouchers(vouchers),
+        rows: mapLiveVoucherRows(effectiveVouchers, effectiveVoucherTagIds, effectiveBusinessTags),
+        summary: summarizeLiveVouchers(effectiveVouchers),
       }
     }
 
-    if (kind === 'riskCheck' && usesLiveModuleData) {
+    if (kind === 'riskCheck' && (usesLiveRiskCheckData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveRiskCheckRows(vouchers, invoices),
-        summary: summarizeLiveRiskChecks(vouchers, invoices),
+        rows: mapLiveRiskCheckRows(effectiveVouchers, effectiveInvoices),
+        summary: summarizeLiveRiskChecks(effectiveVouchers, effectiveInvoices),
       }
     }
 
@@ -8321,7 +8408,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, employees, exportJobs, fixedAssets, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherRecycleData, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectiveInvoiceTagIds, effectiveInvoices, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, effectiveVoucherTagIds, effectiveVouchers, employees, exportJobs, fixedAssets, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveRiskCheckData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherData, usesLiveVoucherRecycleData, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
   const tableMeta = getModuleTableMeta(kind)
@@ -9264,14 +9351,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'outputInvoice' || kind === 'inputInvoice') {
-      if (!selectedCompanyId || !currentPeriodId) {
+      if (isTauri && (!selectedCompanyId || !currentPeriodId)) {
         setOperationNotice('请先在顶部选择账套和账期，再登记发票。')
         return
       }
-      setEditingInvoiceId(null)
-      setInvoiceDraft({ invoiceNo: '', invoiceCode: '', invoiceDate: currentPeriod?.end_date || '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
-      setSelectedInvoiceTagIds([])
-      setShowInvoiceDialog(true)
+      openInputInvoiceEditor()
       return
     }
     if (canEditBusinessOrders) {
@@ -9525,15 +9609,60 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleCreateInvoice = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!selectedCompanyId || (kind !== 'outputInvoice' && kind !== 'inputInvoice')) return
+    if (kind !== 'outputInvoice' && kind !== 'inputInvoice') return
+    const amount = Number(invoiceDraft.amount)
+    const taxAmount = Number(invoiceDraft.taxAmount || 0)
+    if (!invoiceDraft.invoiceNo.trim() || !invoiceDraft.invoiceDate || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(taxAmount) || taxAmount < 0) {
+      setOperationNotice('请填写发票号码、开票日期和有效的不含税金额。')
+      return
+    }
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const existing = editingInvoiceId ? previewInvoices.find((invoice) => invoice.id === editingInvoiceId) : null
+      const invoice: Invoice = {
+        id: existing?.id || `preview-invoice-${Date.now()}`,
+        company_id: existing?.company_id || selectedCompanyId || 'preview-company',
+        period_id: existing?.period_id || currentPeriodId || 'preview-period-2026-05',
+        invoice_type: kind === 'outputInvoice' ? 'output' : 'input',
+        invoice_no: invoiceDraft.invoiceNo.trim(),
+        invoice_code: invoiceDraft.invoiceCode.trim() || null,
+        invoice_date: invoiceDraft.invoiceDate,
+        amount,
+        tax_amount: taxAmount,
+        total_amount: amount + taxAmount,
+        tax_rate: Number(invoiceDraft.taxRate || 0) / 100,
+        seller_name: invoiceDraft.sellerName.trim() || null,
+        seller_tax_id: invoiceDraft.sellerTaxId.trim() || null,
+        buyer_name: invoiceDraft.buyerName.trim() || null,
+        buyer_tax_id: invoiceDraft.buyerTaxId.trim() || null,
+        status: existing?.status || 'pending',
+        voucher_id: existing?.voucher_id || null,
+        remarks: invoiceDraft.remarks.trim() || null,
+        created_at: existing?.created_at || timestamp,
+        updated_at: timestamp,
+      }
+      updatePreviewInvoiceVoucherCoreData((data) => ({
+        ...data,
+        invoices: existing ? data.invoices.map((item) => item.id === invoice.id ? invoice : item) : [invoice, ...data.invoices],
+        invoiceTagIds: { ...data.invoiceTagIds, [invoice.id]: [...selectedInvoiceTagIds] },
+      }))
+      writeModuleAudit(existing ? '编辑发票' : kind === 'outputInvoice' ? '新增销项发票' : '新增进项发票', invoice.invoice_no, '中', '成功')
+      setShowInvoiceDialog(false)
+      setEditingInvoiceId(null)
+      setInvoiceDraft({ invoiceNo: '', invoiceCode: '', invoiceDate: '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
+      setSelectedInvoiceTagIds([])
+      setOperationNotice(`${kind === 'outputInvoice' ? '销项' : '进项'}发票已${existing ? '更新' : '保存'}到当前预览；可继续人工匹配凭证或复核勾选状态。`)
+      return
+    }
+    if (!selectedCompanyId) return
     try {
       const input = {
         invoice_type: kind === 'outputInvoice' ? 'output' : 'input',
         invoice_no: invoiceDraft.invoiceNo,
         invoice_code: invoiceDraft.invoiceCode || undefined,
         invoice_date: invoiceDraft.invoiceDate,
-        amount: Number(invoiceDraft.amount),
-        tax_amount: Number(invoiceDraft.taxAmount || 0),
+        amount,
+        tax_amount: taxAmount,
         tax_rate: Number(invoiceDraft.taxRate || 0) / 100,
         seller_name: invoiceDraft.sellerName || undefined,
         seller_tax_id: invoiceDraft.sellerTaxId || undefined,
@@ -9581,7 +9710,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (!isTauri) {
-      updatePreviewInvoiceMatchCandidates((items) => items.map((item) => item.id === invoice.id ? { ...item, voucher_id: voucher.id } : item))
+      updatePreviewInvoiceVoucherCoreData((data) => ({
+        ...data,
+        invoices: data.invoices.map((item) => item.id === invoice.id ? { ...item, voucher_id: voucher.id, status: 'matched', updated_at: new Date().toISOString() } : item),
+      }))
       writeModuleAudit('人工匹配发票与凭证', `${invoice.invoice_no}｜${voucher.voucher_number}`, '中', '成功')
       setShowInvoiceVoucherMatchDialog(false)
       setSelectedMatchInvoiceId('')
@@ -12003,6 +12135,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'voucher') {
+      if (!isTauri) {
+        const voucher = effectiveVouchers.find((item) => item.id === row.id)
+        if (!voucher) {
+          setOperationNotice('未找到该预览凭证，请刷新后重试。')
+          return
+        }
+        writeModuleAudit('查看凭证明细', voucher.voucher_number, '中', '成功')
+        setDetailRow(row)
+        return
+      }
       navigate(`/vouchers/detail/${row.id}`)
       return
     }
@@ -12043,13 +12185,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'invoiceVoucherMatching' && (usesLiveInvoiceVoucherMatchingData || !isTauri)) {
+      setInvoiceMatchScope('all')
       setSelectedMatchInvoiceId(row.id.replace('invoice-voucher-match-', ''))
       setSelectedMatchVoucherId('')
       setShowInvoiceVoucherMatchDialog(true)
       return
     }
-    if ((kind === 'outputInvoice' || kind === 'inputInvoice') && isTauri && selectedCompanyId) {
-      const invoice = await getInvoice(row.id, selectedCompanyId)
+    if ((kind === 'outputInvoice' || kind === 'inputInvoice') && (usesLiveInvoiceData || !isTauri)) {
+      const invoice = isTauri && selectedCompanyId
+        ? await getInvoice(row.id, selectedCompanyId)
+        : previewInvoices.find((item) => item.id === row.id) || null
       if (!invoice) {
         setOperationNotice('未找到该发票，或发票不属于当前账套。')
         return
@@ -12068,7 +12213,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         buyerTaxId: invoice.buyer_tax_id || '',
         remarks: invoice.remarks || '',
       })
-      setSelectedInvoiceTagIds(await fetchInvoiceTagIds(invoice.id, selectedCompanyId))
+      setSelectedInvoiceTagIds(isTauri && selectedCompanyId ? await fetchInvoiceTagIds(invoice.id, selectedCompanyId) : effectiveInvoiceTagIds[invoice.id] || [])
       setShowInvoiceDialog(true)
       return
     }
@@ -12688,23 +12833,24 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const openInputInvoiceEditor = () => {
     setEditingInvoiceId(null)
-    setInvoiceDraft({ invoiceNo: '', invoiceCode: '', invoiceDate: currentPeriod?.end_date || '', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
+    setInvoiceDraft({ invoiceNo: '', invoiceCode: '', invoiceDate: currentPeriod?.end_date || '2026-05-31', amount: '', taxAmount: '', taxRate: '13', sellerName: '', sellerTaxId: '', buyerName: '', buyerTaxId: '', remarks: '' })
     setSelectedInvoiceTagIds([])
     setShowInvoiceDialog(true)
   }
 
   const openInputInvoiceMatcher = () => {
-    const candidate = invoices.find((invoice) => invoice.invoice_type === 'input' && !invoice.voucher_id)
+    const candidate = invoiceMatchCandidates.find((invoice) => invoice.invoice_type === 'input' && !invoice.voucher_id)
     if (!candidate) {
       setOperationNotice('当前没有可关联凭证的进项发票；请先登记发票或解除现有凭证关联。')
       return
     }
-    if (vouchers.length === 0) {
+    if (voucherMatchCandidates.length === 0) {
       setOperationNotice('当前账期尚无可关联凭证；请先新增并人工复核会计凭证。')
       return
     }
+    setInvoiceMatchScope('input')
     setSelectedMatchInvoiceId(candidate.id)
-    setSelectedMatchVoucherId(vouchers[0].id)
+    setSelectedMatchVoucherId(voucherMatchCandidates[0].id)
     setShowInvoiceVoucherMatchDialog(true)
   }
 
@@ -13108,6 +13254,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openInvoiceVoucherMatching = () => {
+    setInvoiceMatchScope('all')
     setSelectedMatchInvoiceId((current) => current || invoiceMatchCandidates.find((invoice) => !invoice.voucher_id)?.id || '')
     setSelectedMatchVoucherId((current) => current || voucherMatchCandidates[0]?.id || '')
     setShowInvoiceVoucherMatchDialog(true)
@@ -14020,7 +14167,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 发票
                 <select required value={selectedMatchInvoiceId} onChange={(event) => setSelectedMatchInvoiceId(event.target.value)} className="h-8 border border-slate-300 bg-white px-2 text-sm text-slate-900">
                   <option value="">请选择发票</option>
-                  {invoiceMatchCandidates.filter((invoice) => !invoice.voucher_id || invoice.id === selectedMatchInvoiceId).map((invoice) => <option key={invoice.id} value={invoice.id}>{invoice.invoice_no} | ¥{invoice.total_amount.toFixed(2)}</option>)}
+                  {invoiceMatchCandidates.filter((invoice) => (invoiceMatchScope === 'all' || invoice.invoice_type === invoiceMatchScope) && (!invoice.voucher_id || invoice.id === selectedMatchInvoiceId)).map((invoice) => <option key={invoice.id} value={invoice.id}>{invoice.invoice_no} | ¥{invoice.total_amount.toFixed(2)}</option>)}
                 </select>
               </label>
               <label className="grid gap-1 text-xs text-slate-600">

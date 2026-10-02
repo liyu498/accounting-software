@@ -80,13 +80,14 @@ export function mapLiveInvoiceRows(invoices: Invoice[], invoiceType: 'output' | 
     .filter((invoice) => invoice.invoice_type === invoiceType)
     .map((invoice) => {
       const status = invoiceStatus(invoice)
+      const displayRate = Math.abs(invoice.tax_rate) <= 1 ? invoice.tax_rate * 100 : invoice.tax_rate
       const commonValues = {
         source: '本地账套',
         date: invoice.invoice_date,
         number: invoice.invoice_no,
         goods: invoice.remarks || '待补充商品/服务信息',
         amount: currency(invoice.amount),
-        taxRate: invoice.tax_rate === null ? '待核' : `${invoice.tax_rate}%`,
+        taxRate: invoice.tax_rate === null ? '待核' : `${displayRate}%`,
         tax: currency(invoice.tax_amount),
         tags: (invoiceTagIds[invoice.id] || []).map((tagId) => businessTags.find((tag) => tag.id === tagId)?.name).filter(Boolean).join(' / ') || '-',
       }
