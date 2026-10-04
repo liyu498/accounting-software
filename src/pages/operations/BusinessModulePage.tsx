@@ -1341,6 +1341,72 @@ function savePreviewClosingChecks(checks: Record<string, PreviewClosingCheck>) {
   }
 }
 
+function previewBackupStorageKey() {
+  return 'accounting-preview-backup-snapshots-v1'
+}
+
+function previewBackupValidationStorageKey() {
+  return 'accounting-preview-backup-validations-v1'
+}
+
+function loadPreviewBackups(): LocalBackupSnapshot[] {
+  const fallback = () => [] as LocalBackupSnapshot[]
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewBackupStorageKey()) || 'null')
+    if (!Array.isArray(parsed)) return fallback()
+    const isValid = parsed.every((snapshot) => {
+      const candidate = snapshot as Partial<LocalBackupSnapshot>
+      return typeof candidate?.id === 'string'
+        && typeof candidate.fileName === 'string'
+        && typeof candidate.createdAt === 'string'
+        && Number.isFinite(candidate.sizeBytes)
+    })
+    return isValid ? parsed as LocalBackupSnapshot[] : fallback()
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewBackups(snapshots: LocalBackupSnapshot[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewBackupStorageKey(), JSON.stringify(snapshots))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function loadPreviewBackupValidations(): Record<string, LocalBackupVerification> {
+  const fallback = () => ({}) as Record<string, LocalBackupVerification>
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewBackupValidationStorageKey()) || 'null')
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return fallback()
+    const validations = parsed as Record<string, unknown>
+    const isValid = Object.entries(validations).every(([snapshotId, value]) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+      const validation = value as LocalBackupVerification
+      return validation.id === snapshotId
+        && typeof validation.fileName === 'string'
+        && typeof validation.valid === 'boolean'
+        && typeof validation.message === 'string'
+    })
+    return isValid ? validations as Record<string, LocalBackupVerification> : fallback()
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewBackupValidations(validations: Record<string, LocalBackupVerification>) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewBackupValidationStorageKey(), JSON.stringify(validations))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
 function previewInvoiceVoucherMatchStorageKey() {
   return 'accounting-preview-invoice-voucher-matches-v1'
 }
@@ -5872,34 +5938,64 @@ function formatBackupSize(sizeBytes: number) {
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function mapLocalBackupRows(snapshots: LocalBackupSnapshot[], validations: Record<string, LocalBackupVerification>): ModuleRow[] {
+function mapLocalBackupRows(snapshots: LocalBackupSnapshot[], validations: Record<string, LocalBackupVerification>, isPreview = false): ModuleRow[] {
   return snapshots.map((snapshot) => ({
     id: snapshot.id,
     status: validations[snapshot.id]?.valid === false ? '异常' : '已通过',
     voucher: '-',
-    attachment: 'SQLite',
+    attachment: isPreview ? '预览元数据' : 'SQLite',
     values: {
       name: snapshot.fileName,
-      company: '本机全部账套',
-      type: 'SQLite 快照',
+      company: isPreview ? '浏览器本机预览' : '本机全部账套',
+      type: isPreview ? '预览快照元数据' : 'SQLite 快照',
       size: formatBackupSize(snapshot.sizeBytes),
-      hash: validations[snapshot.id]?.valid === true ? 'SQLite 文件头通过' : validations[snapshot.id]?.valid === false ? '校验失败，禁止恢复' : '未核验',
-      operator: '系统',
+      hash: validations[snapshot.id]?.valid === true
+        ? isPreview ? '预览元数据结构通过' : 'SQLite 文件头通过'
+        : validations[snapshot.id]?.valid === false ? '校验失败，禁止恢复' : '未核验',
+      operator: isPreview ? '预览管理员' : '系统',
       time: snapshot.createdAt.replace('T', ' ').slice(0, 16),
-      restore: validations[snapshot.id]?.valid === false ? '不可恢复' : validations[snapshot.id]?.valid ? '恢复需人工确认' : '需先核验',
+      restore: isPreview
+        ? validations[snapshot.id]?.valid === false ? '预览不可用' : validations[snapshot.id]?.valid ? '仅供预览，不可恢复' : '需核验预览元数据'
+        : validations[snapshot.id]?.valid === false ? '不可恢复' : validations[snapshot.id]?.valid ? '恢复需人工确认' : '需先核验',
     },
   }))
 }
 
-function summarizeLocalBackups(snapshots: LocalBackupSnapshot[], validations: Record<string, LocalBackupVerification>): ModuleConfig['summary'] {
+function summarizeLocalBackups(snapshots: LocalBackupSnapshot[], validations: Record<string, LocalBackupVerification>, isPreview = false): ModuleConfig['summary'] {
   const totalSize = snapshots.reduce((total, snapshot) => total + snapshot.sizeBytes, 0)
   const invalidCount = Object.values(validations).filter((verification) => !verification.valid).length
+  const validCount = Object.values(validations).filter((verification) => verification.valid).length
   return [
-    { label: '备份文件', value: `${snapshots.length} 个`, tone: 'blue' },
-    { label: '本地容量', value: formatBackupSize(totalSize), tone: 'green' },
-    { label: '待恢复确认', value: `${Object.values(validations).filter((verification) => verification.valid).length} 个`, tone: 'amber' },
+    { label: isPreview ? '预览快照' : '备份文件', value: `${snapshots.length} 个`, tone: 'blue' },
+    { label: isPreview ? '元数据大小' : '本地容量', value: formatBackupSize(totalSize), tone: 'green' },
+    { label: isPreview ? '已校验' : '待恢复确认', value: `${validCount} 个`, tone: 'amber' },
     { label: '异常', value: `${invalidCount} 个`, tone: 'red' },
   ]
+}
+
+function createPreviewBackupSnapshot(period: AccountingPeriod | undefined, vouchers: Voucher[], invoices: Invoice[]): LocalBackupSnapshot {
+  const createdAt = new Date().toISOString()
+  const periodLabel = period ? `${period.period_year}-${String(period.period_month).padStart(2, '0')}` : '未选择账期'
+  const snapshotDescriptor = JSON.stringify({
+    scope: 'browser-preview-metadata',
+    period: periodLabel,
+    voucherCount: vouchers.length,
+    invoiceCount: invoices.length,
+    createdAt,
+  })
+  const timestamp = createdAt
+    .split('-').join('')
+    .split(':').join('')
+    .split('T').join('')
+    .split('Z').join('')
+    .split('.').join('')
+    .slice(0, 14)
+  return {
+    id: `preview-backup-${Date.now()}`,
+    fileName: `浏览器预览-${periodLabel}-${timestamp}.snapshot.json`,
+    createdAt,
+    sizeBytes: new TextEncoder().encode(snapshotDescriptor).byteLength,
+  }
 }
 
 function maskEmployeeId(value: string | null) {
@@ -6695,8 +6791,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [liveReports, setLiveReports] = useState<LiveReportData>(emptyLiveReportData)
   const [adapterAuthorizations, setAdapterAuthorizations] = useState<AdapterAuthorization[]>([])
   const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])
-  const [localBackups, setLocalBackups] = useState<LocalBackupSnapshot[]>([])
-  const [backupValidations, setBackupValidations] = useState<Record<string, LocalBackupVerification>>({})
+  const [localBackups, setLocalBackups] = useState<LocalBackupSnapshot[]>(() => isTauri ? [] : loadPreviewBackups())
+  const [backupValidations, setBackupValidations] = useState<Record<string, LocalBackupVerification>>(() => isTauri ? {} : loadPreviewBackupValidations())
+  const updatePreviewBackups = (update: (snapshots: LocalBackupSnapshot[]) => LocalBackupSnapshot[]) => {
+    setLocalBackups((snapshots) => {
+      const nextSnapshots = update(snapshots)
+      if (!isTauri) savePreviewBackups(nextSnapshots)
+      return nextSnapshots
+    })
+  }
+  const updatePreviewBackupValidations = (update: (validations: Record<string, LocalBackupVerification>) => Record<string, LocalBackupVerification>) => {
+    setBackupValidations((validations) => {
+      const nextValidations = update(validations)
+      if (!isTauri) savePreviewBackupValidations(nextValidations)
+      return nextValidations
+    })
+  }
   const [companyTodos, setCompanyTodos] = useState<CompanyTodo[]>([])
   const [previewCompanyTodos, setPreviewCompanyTodos] = useState<CompanyTodo[]>(loadPreviewCompanyTodos)
   const updatePreviewCompanyTodos = (update: (todos: CompanyTodo[]) => CompanyTodo[]) => {
@@ -7978,11 +8088,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'backupRestore' && usesLiveBackupData) {
+    if (kind === 'backupRestore' && (usesLiveBackupData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLocalBackupRows(localBackups, backupValidations),
-        summary: summarizeLocalBackups(localBackups, backupValidations),
+        rows: mapLocalBackupRows(localBackups, backupValidations, !isTauri),
+        summary: summarizeLocalBackups(localBackups, backupValidations, !isTauri),
       }
     }
 
@@ -9603,6 +9713,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice('工资凭证已进入待确认队列；需人工核验金额、个税和社保后才会生成会计凭证。')
       return
     }
+    if (kind === 'backupRestore' && !isTauri) {
+      const snapshot = createPreviewBackupSnapshot(voucherEditorPeriod, activeVouchers, effectiveInvoices)
+      updatePreviewBackups((snapshots) => [snapshot, ...snapshots])
+      writeModuleAudit('创建预览备份快照', snapshot.fileName, '中', '成功')
+      setOperationNotice('已保存浏览器预览快照元数据；不会生成真实备份文件，不能用于恢复或覆盖账套。')
+      return
+    }
     if (kind === 'backupRestore' && isTauri && selectedCompanyId) {
       try {
         const result = await backupApi.createLocalBackup()
@@ -9616,11 +9733,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
       return
     }
-    if (kind === 'backupRestore') {
-      reviewImportArchiveData('backup')
-      return
-    }
-
     if (kind === 'periodManagement' && !isTauri) {
       const period = previewPeriods.find((item) => item.status !== 'closed')
       if (!period) {
@@ -12683,6 +12795,23 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setEditingDocumentRecordId(record.id)
       setDocumentRecordDraft({ businessDate: record.businessDate, documentCode: record.documentCode, businessType: record.businessType, partner: record.partner || '', amount: String(record.amount), owner: record.owner || '', attachmentStatus: record.attachmentStatus, stampTaxItem: record.stampTaxItem || '', stampTaxRate: record.stampTaxRate === null ? '' : String(record.stampTaxRate * 100) })
       setShowDocumentRecordDialog(true)
+      return
+    }
+    if (kind === 'backupRestore' && !isTauri) {
+      const snapshot = localBackups.find((item) => item.id === row.id)
+      if (!snapshot) {
+        setOperationNotice('未找到当前浏览器预览快照。请刷新列表后重试。')
+        return
+      }
+      const verification: LocalBackupVerification = {
+        id: snapshot.id,
+        fileName: snapshot.fileName,
+        valid: snapshot.fileName.endsWith('.snapshot.json') && snapshot.sizeBytes > 0,
+        message: '预览快照元数据结构已核验；该记录不包含真实备份文件，不能执行恢复。',
+      }
+      updatePreviewBackupValidations((validations) => ({ ...validations, [snapshot.id]: verification }))
+      writeModuleAudit('核验预览备份快照', snapshot.fileName, verification.valid ? '中' : '高', verification.valid ? '成功' : '失败')
+      setOperationNotice(verification.message)
       return
     }
     if (kind === 'backupRestore' && isTauri) {
