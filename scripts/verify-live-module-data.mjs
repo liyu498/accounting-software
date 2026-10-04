@@ -1414,8 +1414,8 @@ const requiredSocialSecurityTaxPageSnippets = [
 
 const requiredIncomeTaxPageSnippets = [
   ['income tax report loader', "if (kind === 'incomeStatementReport' || kind === 'incomeQuarterReport' || kind === 'incomeTaxReport')"],
-  ['income tax row mapper', 'mapLiveIncomeTaxRows(liveReports.incomeStatement)'],
-  ['income tax summary mapper', 'summarizeLiveIncomeTax(liveReports.incomeStatement)'],
+  ['income tax row mapper', 'mapLiveIncomeTaxRows(incomeStatement)'],
+  ['income tax summary mapper', 'summarizeLiveIncomeTax(incomeStatement)'],
 ]
 
 const requiredVatTaxPageSnippets = [

@@ -6470,7 +6470,7 @@ function findIncomeStatementItem(items: IncomeStatementResult['items'], keyword:
 }
 
 function mapLiveIncomeTaxRows(incomeStatement: IncomeStatementResult): ModuleRow[] {
-  const totalProfit = findIncomeStatementItem(incomeStatement.items, '利润总额')
+  const totalProfit = findIncomeStatementItem(incomeStatement.items, '利润总额') || findIncomeStatementItem(incomeStatement.items, '净利润')
   const currentProfit = totalProfit?.current_amount
   const hasProfit = typeof currentProfit === 'number'
   return [
@@ -6500,7 +6500,7 @@ function mapLiveIncomeTaxRows(incomeStatement: IncomeStatementResult): ModuleRow
 }
 
 function summarizeLiveIncomeTax(incomeStatement: IncomeStatementResult): ModuleConfig['summary'] {
-  const totalProfit = findIncomeStatementItem(incomeStatement.items, '利润总额')
+  const totalProfit = findIncomeStatementItem(incomeStatement.items, '利润总额') || findIncomeStatementItem(incomeStatement.items, '净利润')
   return [
     { label: '利润总额', value: totalProfit ? payrollCurrency(totalProfit.current_amount) : '待取数', tone: totalProfit ? 'blue' : 'red' },
     { label: '纳税调整', value: '待人工填写', tone: 'amber' },
@@ -8361,7 +8361,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'specialDeduction' && (usesLiveSpecialDeductionData || !isTauri)) return { ...baseConfig, rows: mapLiveSpecialDeductionRows(specialDeductionRecords), summary: summarizeLiveSpecialDeductions(specialDeductionRecords) }
     if (kind === 'withholdingTaxReport' && (usesLiveWithholdingTaxData || !isTauri)) return { ...baseConfig, rows: mapLiveWithholdingTaxRows(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords), summary: summarizeLiveWithholdingTax(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords) }
     if (kind === 'socialSecurityTaxReport' && (usesLiveSocialSecurityTaxData || !isTauri)) return { ...baseConfig, rows: mapLiveSocialSecurityTaxRows(socialSecurityRecords), summary: summarizeLiveSocialSecurityTax(socialSecurityRecords) }
-    if (kind === 'incomeTaxReport' && usesLiveReportData && liveReports.incomeStatement) return { ...baseConfig, rows: mapLiveIncomeTaxRows(liveReports.incomeStatement), summary: summarizeLiveIncomeTax(liveReports.incomeStatement) }
+    if (kind === 'incomeTaxReport' && ((usesLiveReportData && liveReports.incomeStatement) || !isTauri)) {
+      const incomeStatement = isTauri
+        ? liveReports.incomeStatement!
+        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).incomeStatement
+      return { ...baseConfig, rows: mapLiveIncomeTaxRows(incomeStatement), summary: summarizeLiveIncomeTax(incomeStatement) }
+    }
     if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
     if ((kind === 'billList' || kind === 'bankStatement') && (usesLiveBankTransactionData || !isTauri)) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, effectiveBusinessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
     if (kind === 'bankReconciliation' && (usesLiveBankReconciliationRecordData || !isTauri)) return { ...baseConfig, rows: mapLiveBankReconciliationRows(bankReconciliationRecords), summary: summarizeLiveBankReconciliation(bankReconciliationRecords) }
