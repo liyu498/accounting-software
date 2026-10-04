@@ -818,6 +818,14 @@ type PreviewAssetInventoryData = {
   costCarryoverRecords: CostCarryoverRecord[]
 }
 
+type PreviewClosingCheck = {
+  periodId: string
+  checkedAt: string
+  passed: number
+  pending: number
+  blockers: number
+}
+
 type PreviewInvoiceVoucherCoreData = {
   invoices: Invoice[]
   vouchers: Voucher[]
@@ -1293,6 +1301,41 @@ function savePreviewPeriods(periods: AccountingPeriod[]) {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewPeriodStorageKey(), JSON.stringify(periods))
+  } catch {
+    // The preview remains usable for the current view when local storage is unavailable.
+  }
+}
+
+function previewClosingCheckStorageKey() {
+  return 'accounting-preview-closing-checks-v1'
+}
+
+function loadPreviewClosingChecks(): Record<string, PreviewClosingCheck> {
+  const fallback = () => ({})
+  if (typeof window === 'undefined') return fallback()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(previewClosingCheckStorageKey()) || 'null')
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return fallback()
+    const checks = parsed as Record<string, unknown>
+    const isValid = Object.entries(checks).every(([periodId, value]) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+      const check = value as PreviewClosingCheck
+      return check.periodId === periodId
+        && typeof check.checkedAt === 'string'
+        && Number.isFinite(check.passed)
+        && Number.isFinite(check.pending)
+        && Number.isFinite(check.blockers)
+    })
+    return isValid ? checks as Record<string, PreviewClosingCheck> : fallback()
+  } catch {
+    return fallback()
+  }
+}
+
+function savePreviewClosingChecks(checks: Record<string, PreviewClosingCheck>) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(previewClosingCheckStorageKey(), JSON.stringify(checks))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -7014,6 +7057,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return nextPeriods
     })
   }
+  const [previewClosingChecks, setPreviewClosingChecks] = useState<Record<string, PreviewClosingCheck>>(loadPreviewClosingChecks)
+  const updatePreviewClosingChecks = (update: (checks: Record<string, PreviewClosingCheck>) => Record<string, PreviewClosingCheck>) => {
+    setPreviewClosingChecks((checks) => {
+      const nextChecks = update(checks)
+      savePreviewClosingChecks(nextChecks)
+      return nextChecks
+    })
+  }
   const [previewInvoiceVoucherCoreData, setPreviewInvoiceVoucherCoreData] = useState<PreviewInvoiceVoucherCoreData>(() => isTauri ? { invoices: [], vouchers: [], invoiceTagIds: {}, voucherTagIds: {} } : loadPreviewInvoiceVoucherCoreData())
   const updatePreviewInvoiceVoucherCoreData = (update: (data: PreviewInvoiceVoucherCoreData) => PreviewInvoiceVoucherCoreData) => {
     setPreviewInvoiceVoucherCoreData((data) => {
@@ -7885,11 +7936,26 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'closingTasks' && usesLiveClosingTaskData) {
+    if (kind === 'closingTasks' && (usesLiveClosingTaskData || !isTauri)) {
+      const closingPeriod = isTauri ? currentPeriod : voucherEditorPeriod
+      const closingVouchers = isTauri ? vouchers : activeVouchers
+      const closingTrialBalance = isTauri
+        ? liveReports.trialBalance
+        : buildPreviewInitialBalanceTrial(previewInitialBalanceRows)
+      const closingBalanceSheet = isTauri ? liveReports.balanceSheet : null
+      const lastCheck = !isTauri && closingPeriod ? previewClosingChecks[closingPeriod.id] : null
+      const rows: ModuleConfig['rows'] = mapLiveClosingTaskRows(closingPeriod, closingVouchers, closingTrialBalance, closingBalanceSheet)
+        .map((row) => lastCheck ? {
+          ...row,
+          values: {
+            ...row.values,
+            lastRun: lastCheck.checkedAt.replace('T', ' ').slice(0, 16),
+          },
+        } : row)
       return {
         ...baseConfig,
-        rows: mapLiveClosingTaskRows(currentPeriod, vouchers, liveReports.trialBalance, liveReports.balanceSheet),
-        summary: summarizeLiveClosingTasks(currentPeriod, vouchers, liveReports.trialBalance, liveReports.balanceSheet),
+        rows,
+        summary: summarizeLiveClosingTasks(closingPeriod, closingVouchers, closingTrialBalance, closingBalanceSheet),
       }
     }
 
@@ -8460,7 +8526,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectiveInvoiceTagIds, effectiveInvoices, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, effectiveVoucherTagIds, effectiveVouchers, employees, exportJobs, fixedAssets, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveRiskCheckData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherData, usesLiveVoucherRecycleData, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectiveInvoiceTagIds, effectiveInvoices, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, effectiveVoucherTagIds, effectiveVouchers, employees, exportJobs, fixedAssets, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewClosingChecks, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveRiskCheckData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherData, usesLiveVoucherRecycleData, voucherEditorPeriod, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
   const tableMeta = getModuleTableMeta(kind)
@@ -9615,10 +9681,30 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
 
     if (kind === 'closingTasks') {
+      const period = voucherEditorPeriod
+      if (!period) {
+        setOperationNotice('当前预览没有可检查的账期。')
+        return
+      }
       const blockers = config.rows.filter((row) => row.status === '异常')
       const pending = config.rows.filter((row) => row.status === '待处理' || row.status === '待确认')
-      writeModuleAudit('执行结转前检查', `${currentPeriodLabel}｜浏览器预览｜待确认 ${pending.length} 项｜阻断 ${blockers.length} 项`, blockers.length > 0 ? '高' : '中', blockers.length > 0 || pending.length > 0 ? '待审批' : '成功')
-      setOperationNotice(blockers.length > 0 || pending.length > 0 ? `结转前检查已登记：${blockers.length} 项阻断、${pending.length} 项待确认。` : '结转前检查已通过；桌面端请前往账期管理完成最终关账确认。')
+      const passed = config.rows.filter((row) => row.status === '已通过').length
+      const timestamp = new Date().toISOString()
+      updatePreviewClosingChecks((checks) => ({
+        ...checks,
+        [period.id]: {
+          periodId: period.id,
+          checkedAt: timestamp,
+          passed,
+          pending: pending.length,
+          blockers: blockers.length,
+        },
+      }))
+      const label = `${period.period_year}-${String(period.period_month).padStart(2, '0')}`
+      writeModuleAudit('执行预览结转前检查', `${label}｜通过 ${passed} 项｜待确认 ${pending.length} 项｜阻断 ${blockers.length} 项`, blockers.length > 0 ? '高' : pending.length > 0 ? '中' : '普通', blockers.length > 0 || pending.length > 0 ? '待审批' : '成功')
+      setOperationNotice(blockers.length > 0 || pending.length > 0
+        ? `结转前检查快照已保存：${blockers.length} 项阻断、${pending.length} 项待确认。请完成来源业务后重新检查；系统未结账。`
+        : '结转前检查快照已保存。请前往账期管理人工确认结账；系统未自动锁定账期。')
       return
     }
 
