@@ -141,6 +141,7 @@ import {
   type IncomeStatementResult,
   type SubsidiaryLedgerItem,
   type TrialBalanceResult,
+  type VoucherWord,
 } from '../../stores/periodStore'
 import { useVoucherStore, type Voucher } from '../../stores/voucherStore'
 import { useSettlementRuleStore, type SettlementRule } from '../../stores/settlementRuleStore'
@@ -693,7 +694,17 @@ const previewMatchingRuleSeed: MatchingRule[] = [
 const previewSubjectSeed: AccountCode[] = [
   { code: '1002', company_id: 'browser-preview', name: '银行存款', account_type: '资产类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
   { code: '1122', company_id: 'browser-preview', name: '应收账款', account_type: '资产类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
+  { code: '1403', company_id: 'browser-preview', name: '原材料', account_type: '资产类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 1, default_unit: '件', has_auxiliary: 0 },
+  { code: '1405', company_id: 'browser-preview', name: '库存商品', account_type: '资产类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 1, default_unit: '件', has_auxiliary: 0 },
   { code: '2221', company_id: 'browser-preview', name: '应交税费', account_type: '负债类', normal_balance: 'credit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
+  { code: '2202', company_id: 'browser-preview', name: '应付账款', account_type: '负债类', normal_balance: 'credit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
+  { code: '6001', company_id: 'browser-preview', name: '主营业务收入', account_type: '损益类', normal_balance: 'credit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 0 },
+  { code: '6401', company_id: 'browser-preview', name: '主营业务成本', account_type: '损益类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 0 },
+  { code: '6602', company_id: 'browser-preview', name: '管理费用', account_type: '损益类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
+]
+
+const previewVoucherWordSeed: VoucherWord[] = [
+  { id: 'preview-voucher-word-remember', company_id: 'preview-company', word_code: '记', word_name: '记', is_enabled: 1 },
 ]
 
 const previewCurrencySeed: Currency[] = [
@@ -7106,6 +7117,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     () => accounts.filter((account) => account.is_enabled === 1 && account.is_detail === 1),
     [accounts],
   )
+  const effectiveVoucherWords = isTauri ? voucherWords : previewVoucherWordSeed
+  const voucherEditorAccounts = isTauri ? detailedAccounts : previewSubjects.filter((account) => account.is_enabled === 1 && account.is_detail === 1)
+  const voucherEditorPeriod = isTauri
+    ? currentPeriod
+    : effectivePeriods.find((period) => period.status !== 'closed') || effectivePeriods[0]
   const templateAccounts = detailedAccounts.length > 0 ? detailedAccounts : [{ code: '1002', name: '银行存款' }, { code: '6001', name: '主营业务收入' }]
   const selectedAuxiliaryCategory = useMemo(
     () => auxiliaryCategories.find((category) => category.id === selectedAuxiliaryCategoryId),
@@ -7169,13 +7185,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [fetchAccounts, fetchVoucherWords, kind, selectedCompanyId])
 
   useEffect(() => {
-    if (kind !== 'voucherCreate' || !currentPeriod) return
+    if (kind !== 'voucherCreate' || !voucherEditorPeriod) return
     setVoucherDraft((draft) => ({
       ...draft,
-      voucherDate: draft.voucherDate || currentPeriod.end_date,
-      voucherWordId: draft.voucherWordId || voucherWords[0]?.id || '',
+      voucherDate: draft.voucherDate || voucherEditorPeriod.end_date,
+      voucherWordId: draft.voucherWordId || effectiveVoucherWords[0]?.id || '',
     }))
-  }, [currentPeriod, kind, voucherWords])
+  }, [effectiveVoucherWords, kind, voucherEditorPeriod])
 
   useEffect(() => {
     if (kind !== 'voucherCreate' || !isTauri || !selectedCompanyId || !aiVoucherSuggestionId || prefilledAiSuggestionId === aiVoucherSuggestionId || currentPeriodLabel === '当前账期' || accounts.length === 0) return
@@ -7217,6 +7233,29 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         )
       })
   }, [accounts, aiVoucherSuggestionId, currentPeriod, currentPeriodLabel, kind, prefilledAiSuggestionId, selectedCompanyId, voucherWords])
+
+  useEffect(() => {
+    if (!isTauri && ['voucherEdit', 'voucherDetail'].includes(kind) && voucherId) {
+      const voucher = effectiveVouchers.find((item) => item.id === voucherId)
+      if (!voucher) {
+        setOperationNotice('未找到当前预览凭证，可能已被删除或不属于当前账期。')
+        return
+      }
+      setLoadedVoucher(voucher)
+      setSelectedVoucherTagIds([...(effectiveVoucherTagIds[voucher.id] || [])])
+      setVoucherDraft({
+        voucherWordId: voucher.voucher_word_id,
+        voucherDate: voucher.voucher_date,
+        summary: voucher.summary || '',
+        attachmentCount: String(voucher.attachment_count || 0),
+        entries: voucher.entries.map((entry) => ({
+          accountCode: entry.account_code,
+          direction: entry.direction === 'credit' ? 'credit' : 'debit',
+          amount: String(entry.amount),
+        })),
+      })
+    }
+  }, [effectiveVoucherTagIds, effectiveVouchers, isTauri, kind, voucherId])
 
   useEffect(() => {
     if (!['voucherEdit', 'voucherDetail'].includes(kind) || !isTauri || !selectedCompanyId || !voucherId) return
@@ -12142,7 +12181,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           return
         }
         writeModuleAudit('查看凭证明细', voucher.voucher_number, '中', '成功')
-        setDetailRow(row)
+        navigate(`/vouchers/detail/${row.id}`)
         return
       }
       navigate(`/vouchers/detail/${row.id}`)
@@ -12727,7 +12766,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveVoucherDraft = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!selectedCompanyId || (kind === 'voucherCreate' && !currentPeriodId)) return
+    if (isTauri && (!selectedCompanyId || (kind === 'voucherCreate' && !currentPeriodId))) return
     const entries = voucherDraft.entries.filter((entry) => entry.accountCode && Number(entry.amount) > 0)
     if (entries.length < 2) {
       setOperationNotice('凭证至少需要两条有效分录。')
@@ -12735,6 +12774,91 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (!voucherBalanced) {
       setOperationNotice('借贷金额不平衡，请调整分录金额后再保存。')
+      return
+    }
+    if (!isTauri) {
+      const existing = kind === 'voucherEdit' ? loadedVoucher : null
+      if (kind === 'voucherEdit' && !existing) {
+        setOperationNotice('当前预览凭证尚未加载完成，无法保存修改。')
+        return
+      }
+      if (!voucherEditorPeriod && !existing) {
+        setOperationNotice('当前预览没有可用账期，无法保存凭证草稿。')
+        return
+      }
+      const timestamp = new Date().toISOString()
+      const sequenceNum = existing?.sequence_num ?? Math.max(0, ...effectiveVouchers.map((voucher) => voucher.sequence_num)) + 1
+      const voucherId = existing?.id || `preview-voucher-${Date.now()}`
+      const voucherWordId = voucherDraft.voucherWordId || effectiveVoucherWords[0]?.id || ''
+      const voucherWord = effectiveVoucherWords.find((word) => word.id === voucherWordId)
+      const voucher: Voucher = {
+        id: voucherId,
+        company_id: existing?.company_id || 'preview-company',
+        period_id: existing?.period_id || voucherEditorPeriod?.id || 'preview-period-2026-05',
+        voucher_word_id: voucherWordId,
+        voucher_number: existing?.voucher_number || `${voucherWord?.word_name || '记'}-${String(sequenceNum).padStart(4, '0')}`,
+        sequence_num: sequenceNum,
+        voucher_date: voucherDraft.voucherDate,
+        summary: voucherDraft.summary.trim(),
+        attachment_count: Number(voucherDraft.attachmentCount || 0),
+        status: existing?.status || 'draft',
+        total_debit: voucherDebitTotal,
+        total_credit: voucherCreditTotal,
+        version: (existing?.version || 0) + 1,
+        created_by: existing?.created_by || 'admin',
+        created_at: existing?.created_at || timestamp,
+        modified_by: 'admin',
+        modified_at: timestamp,
+        approved_by: existing?.approved_by || null,
+        approved_at: existing?.approved_at || null,
+        reversed_by: existing?.reversed_by || null,
+        reversed_at: existing?.reversed_at || null,
+        reversal_of_id: existing?.reversal_of_id || null,
+        is_system: existing?.is_system ?? 0,
+        is_deleted: existing?.is_deleted ?? 0,
+        deleted_at: existing?.deleted_at || null,
+        entries: entries.map((entry, index) => {
+          const account = voucherEditorAccounts.find((item) => item.code === entry.accountCode)
+          const existingEntry = existing?.entries.find((item) => item.line_num === index + 1 && item.account_code === entry.accountCode && item.direction === entry.direction)
+          return {
+            id: existingEntry?.id || `${voucherId}-entry-${index + 1}`,
+            voucher_id: voucherId,
+            line_num: index + 1,
+            account_code: entry.accountCode,
+            account_name: account?.name || existingEntry?.account_name || entry.accountCode,
+            direction: entry.direction,
+            amount: Number(entry.amount),
+            summary: voucherDraft.summary.trim() || null,
+            auxiliary_type: existingEntry?.auxiliary_type || null,
+            auxiliary_id: existingEntry?.auxiliary_id || null,
+            doc_number: existingEntry?.doc_number || null,
+            quantity: existingEntry?.quantity ?? null,
+            unit_price: existingEntry?.unit_price ?? null,
+            unit: existingEntry?.unit || null,
+            currency_id: existingEntry?.currency_id || null,
+            exchange_rate: existingEntry?.exchange_rate ?? null,
+            created_at: existingEntry?.created_at || timestamp,
+          }
+        }),
+      }
+      updatePreviewInvoiceVoucherCoreData((data) => ({
+        ...data,
+        vouchers: existing ? data.vouchers.map((item) => item.id === voucher.id ? voucher : item) : [voucher, ...data.vouchers],
+        voucherTagIds: { ...data.voucherTagIds, [voucher.id]: [...selectedVoucherTagIds] },
+      }))
+      setLoadedVoucher(voucher)
+      writeModuleAudit(kind === 'voucherEdit' ? '预览保存凭证修改' : '预览保存凭证草稿', voucher.voucher_number, '中', '成功')
+      setOperationNotice(`凭证 ${voucher.voucher_number} 已${kind === 'voucherEdit' ? '保存修改' : '保存为草稿'}到当前浏览器预览；不会自动审核、过账或提交外部系统。`)
+      if (kind === 'voucherCreate') {
+        setSelectedVoucherTagIds([])
+        setVoucherDraft({
+          voucherWordId: effectiveVoucherWords[0]?.id || '',
+          voucherDate: voucherEditorPeriod?.end_date || voucherDraft.voucherDate,
+          summary: '',
+          attachmentCount: '0',
+          entries: [{ accountCode: '', direction: 'debit', amount: '' }, { accountCode: '', direction: 'credit', amount: '' }],
+        })
+      }
       return
     }
     try {
@@ -12806,7 +12930,33 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleVoucherApproval = async () => {
-    if (!selectedCompanyId || !loadedVoucher) return
+    if (!loadedVoucher) return
+    if (!isTauri) {
+      const shouldApprove = loadedVoucher.status !== 'approved'
+      const actionLabel = shouldApprove ? '审核' : '反审核'
+      if (!await requestBusinessRiskConfirmation(`确认${actionLabel}预览凭证`, `确认${actionLabel}凭证 ${loadedVoucher.voucher_number} 吗？该操作仅更新当前浏览器预览并写入本机审计日志，不会过账或向外部系统提交数据。`, `确认${actionLabel}`)) return
+      const timestamp = new Date().toISOString()
+      const voucher: Voucher = {
+        ...loadedVoucher,
+        status: shouldApprove ? 'approved' : 'draft',
+        approved_by: shouldApprove ? 'admin' : null,
+        approved_at: shouldApprove ? timestamp : null,
+        reversed_by: shouldApprove ? loadedVoucher.reversed_by : 'admin',
+        reversed_at: shouldApprove ? loadedVoucher.reversed_at : timestamp,
+        modified_by: 'admin',
+        modified_at: timestamp,
+        version: loadedVoucher.version + 1,
+      }
+      updatePreviewInvoiceVoucherCoreData((data) => ({
+        ...data,
+        vouchers: data.vouchers.map((item) => item.id === voucher.id ? voucher : item),
+      }))
+      setLoadedVoucher(voucher)
+      writeModuleAudit(shouldApprove ? '预览审核凭证' : '预览反审核凭证', voucher.voucher_number, '高', '成功')
+      setOperationNotice(`凭证 ${voucher.voucher_number} 已${shouldApprove ? '审核' : '反审核'}到当前浏览器预览；过账和外部提交仍需在受控流程中完成。`)
+      return
+    }
+    if (!selectedCompanyId) return
     try {
       const voucher = loadedVoucher.status === 'approved'
         ? await reverseApproveVoucher(loadedVoucher.id, selectedCompanyId)
@@ -13283,11 +13433,30 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setShowPrintTemplatePreviewDialog(true)
   }
 
+  const businessRiskConfirmationDialog = pendingBusinessRiskConfirmation && (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-label="确认高风险业务操作">
+      <section className="w-full max-w-lg border border-slate-300 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-950">
+        <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{pendingBusinessRiskConfirmation.title}</h2>
+          <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">{pendingBusinessRiskConfirmation.description}</p>
+        </div>
+        <div className="px-4 py-3 text-xs leading-5 text-slate-600 dark:text-slate-300">
+          确认后将执行本机账套操作并写入审计日志；不会自动向税局、银行或其他外部系统提交数据。
+        </div>
+        <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-slate-700">
+          <button type="button" onClick={() => resolveBusinessRiskConfirmation(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700 dark:border-slate-600 dark:text-slate-200">取消</button>
+          <button type="button" onClick={() => resolveBusinessRiskConfirmation(true)} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{pendingBusinessRiskConfirmation.confirmLabel}</button>
+        </div>
+      </section>
+    </div>
+  )
+
   if (kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail') {
     const isVoucherEdit = kind === 'voucherEdit'
     const isVoucherReadOnly = kind === 'voucherDetail'
     const voucherWorkspaceTitle = isVoucherReadOnly ? '查看会计凭证' : isVoucherEdit ? '编辑会计凭证' : '新增会计凭证'
     return (
+      <>
       <div className="h-full min-w-0 bg-[#f3f6fa] p-3 text-slate-900">
         <form onSubmit={handleSaveVoucherDraft} className="min-h-full border border-slate-200 bg-white">
           <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-2">
@@ -13300,13 +13469,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <span className={cn('text-xs font-medium', voucherBalanced ? 'text-emerald-700' : 'text-red-600')}>借贷{voucherBalanced ? '平衡' : '不平衡'}</span>
               {isVoucherReadOnly && loadedVoucher && <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印凭证" onClick={handlePrint} />}
               {isVoucherReadOnly && loadedVoucher && <button type="button" onClick={handleVoucherApproval} className="h-8 border border-[#1f65a7] px-3 text-xs font-medium text-[#1f65a7] hover:bg-blue-50">{loadedVoucher.status === 'approved' ? '反审核' : '审核'}</button>}
-              {isVoucherReadOnly && loadedVoucher?.status === 'draft' && <button type="button" onClick={handleDeleteVoucher} className="h-8 border border-red-300 px-3 text-xs font-medium text-red-600 hover:bg-red-50">删除</button>}
+              {isVoucherReadOnly && isTauri && loadedVoucher?.status === 'draft' && <button type="button" onClick={handleDeleteVoucher} className="h-8 border border-red-300 px-3 text-xs font-medium text-red-600 hover:bg-red-50">删除</button>}
               {!isVoucherReadOnly && <button type="submit" disabled={isVoucherEdit && !loadedVoucher} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82] disabled:bg-slate-300">{isVoucherEdit ? '保存修改' : '保存凭证草稿'}</button>}
             </div>
           </div>
           {operationNotice && <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">{operationNotice}</div>}
           <div className="grid gap-3 border-b border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
-            <label className="space-y-1 text-xs text-slate-600"><span>凭证字</span><select required disabled={isVoucherReadOnly} value={voucherDraft.voucherWordId} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, voucherWordId: event.target.value }))} className="h-8 w-full border border-slate-300 bg-white px-2 text-sm disabled:bg-slate-100"><option value="">请选择凭证字</option>{voucherWords.filter((word) => word.is_enabled === 1).map((word) => <option key={word.id} value={word.id}>{word.word_name}</option>)}</select></label>
+            <label className="space-y-1 text-xs text-slate-600"><span>凭证字</span><select required disabled={isVoucherReadOnly} value={voucherDraft.voucherWordId} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, voucherWordId: event.target.value }))} className="h-8 w-full border border-slate-300 bg-white px-2 text-sm disabled:bg-slate-100"><option value="">请选择凭证字</option>{effectiveVoucherWords.filter((word) => word.is_enabled === 1).map((word) => <option key={word.id} value={word.id}>{word.word_name}</option>)}</select></label>
             <label className="space-y-1 text-xs text-slate-600"><span>凭证日期</span><input required readOnly={isVoucherReadOnly} type="date" value={voucherDraft.voucherDate} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, voucherDate: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm read-only:bg-slate-100" /></label>
             <label className="space-y-1 text-xs text-slate-600"><span>附件张数</span><input readOnly={isVoucherReadOnly} min="0" step="1" type="number" value={voucherDraft.attachmentCount} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, attachmentCount: event.target.value }))} className="h-8 w-full border border-slate-300 px-2 text-sm read-only:bg-slate-100" /></label>
             <label className="space-y-1 text-xs text-slate-600 md:col-span-1"><span>摘要</span><input required readOnly={isVoucherReadOnly} value={voucherDraft.summary} onChange={(event) => setVoucherDraft((draft) => ({ ...draft, summary: event.target.value }))} placeholder="请输入凭证摘要" className="h-8 w-full border border-slate-300 px-2 text-sm read-only:bg-slate-100" /></label>
@@ -13322,10 +13491,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2"><h2 className="text-sm font-semibold">凭证分录</h2>{!isVoucherReadOnly && <button type="button" onClick={() => setVoucherDraft((draft) => ({ ...draft, entries: [...draft.entries, { accountCode: '', direction: 'debit', amount: '' }] }))} className="h-7 border border-[#1f65a7] px-2 text-xs text-[#1f65a7]">新增分录</button>}</div>
           <div className="overflow-x-auto">
-            <table className="min-w-[780px] w-full text-left text-sm"><thead className="bg-slate-100 text-xs text-slate-600"><tr><th className="px-3 py-2">行</th><th className="px-3 py-2">摘要</th><th className="px-3 py-2">会计科目</th><th className="px-3 py-2">方向</th><th className="px-3 py-2 text-right">金额</th>{!isVoucherReadOnly && <th className="px-3 py-2 text-right">操作</th>}</tr></thead><tbody>{voucherDraft.entries.map((entry, index) => <tr key={index} className="border-t border-slate-200"><td className="px-3 py-2 text-xs text-slate-500">{index + 1}</td><td className="px-3 py-2 text-xs text-slate-500">{voucherDraft.summary || '-'}</td><td className="px-3 py-2"><select required disabled={isVoucherReadOnly} value={entry.accountCode} onChange={(event) => updateVoucherEntry(index, { accountCode: event.target.value })} className="h-8 w-full min-w-64 border border-slate-300 bg-white px-2 text-sm disabled:bg-slate-100"><option value="">请选择明细科目</option>{detailedAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}</select></td><td className="px-3 py-2"><select disabled={isVoucherReadOnly} value={entry.direction} onChange={(event) => updateVoucherEntry(index, { direction: event.target.value as 'debit' | 'credit' })} className="h-8 border border-slate-300 bg-white px-2 text-sm disabled:bg-slate-100"><option value="debit">借方</option><option value="credit">贷方</option></select></td><td className="px-3 py-2 text-right"><input required readOnly={isVoucherReadOnly} min="0" step="0.01" type="number" value={entry.amount} onChange={(event) => updateVoucherEntry(index, { amount: event.target.value })} className="h-8 w-32 border border-slate-300 px-2 text-right text-sm read-only:bg-slate-100" /></td>{!isVoucherReadOnly && <td className="px-3 py-2 text-right"><button type="button" disabled={voucherDraft.entries.length <= 2} onClick={() => setVoucherDraft((draft) => ({ ...draft, entries: draft.entries.filter((_, entryIndex) => entryIndex !== index) }))} className="text-xs text-red-600 disabled:text-slate-300">删除</button></td>}</tr>)}</tbody><tfoot className="border-t border-slate-300 bg-slate-50 font-medium"><tr><td colSpan={3} className="px-3 py-2">合计</td><td className="px-3 py-2">借方</td><td className="px-3 py-2 text-right">¥{voucherDebitTotal.toFixed(2)}</td>{!isVoucherReadOnly && <td className="px-3 py-2" />}</tr><tr><td colSpan={3} /><td className="px-3 py-2">贷方</td><td className="px-3 py-2 text-right">¥{voucherCreditTotal.toFixed(2)}</td>{!isVoucherReadOnly && <td className="px-3 py-2" />}</tr></tfoot></table>
+            <table className="min-w-[780px] w-full text-left text-sm"><thead className="bg-slate-100 text-xs text-slate-600"><tr><th className="px-3 py-2">行</th><th className="px-3 py-2">摘要</th><th className="px-3 py-2">会计科目</th><th className="px-3 py-2">方向</th><th className="px-3 py-2 text-right">金额</th>{!isVoucherReadOnly && <th className="px-3 py-2 text-right">操作</th>}</tr></thead><tbody>{voucherDraft.entries.map((entry, index) => <tr key={index} className="border-t border-slate-200"><td className="px-3 py-2 text-xs text-slate-500">{index + 1}</td><td className="px-3 py-2 text-xs text-slate-500">{voucherDraft.summary || '-'}</td><td className="px-3 py-2"><select required disabled={isVoucherReadOnly} value={entry.accountCode} onChange={(event) => updateVoucherEntry(index, { accountCode: event.target.value })} className="h-8 w-full min-w-64 border border-slate-300 bg-white px-2 text-sm disabled:bg-slate-100"><option value="">请选择明细科目</option>{voucherEditorAccounts.map((account) => <option key={account.code} value={account.code}>{account.code} | {account.name}</option>)}</select></td><td className="px-3 py-2"><select disabled={isVoucherReadOnly} value={entry.direction} onChange={(event) => updateVoucherEntry(index, { direction: event.target.value as 'debit' | 'credit' })} className="h-8 border border-slate-300 bg-white px-2 text-sm disabled:bg-slate-100"><option value="debit">借方</option><option value="credit">贷方</option></select></td><td className="px-3 py-2 text-right"><input required readOnly={isVoucherReadOnly} min="0" step="0.01" type="number" value={entry.amount} onChange={(event) => updateVoucherEntry(index, { amount: event.target.value })} className="h-8 w-32 border border-slate-300 px-2 text-right text-sm read-only:bg-slate-100" /></td>{!isVoucherReadOnly && <td className="px-3 py-2 text-right"><button type="button" disabled={voucherDraft.entries.length <= 2} onClick={() => setVoucherDraft((draft) => ({ ...draft, entries: draft.entries.filter((_, entryIndex) => entryIndex !== index) }))} className="text-xs text-red-600 disabled:text-slate-300">删除</button></td>}</tr>)}</tbody><tfoot className="border-t border-slate-300 bg-slate-50 font-medium"><tr><td colSpan={3} className="px-3 py-2">合计</td><td className="px-3 py-2">借方</td><td className="px-3 py-2 text-right">¥{voucherDebitTotal.toFixed(2)}</td>{!isVoucherReadOnly && <td className="px-3 py-2" />}</tr><tr><td colSpan={3} /><td className="px-3 py-2">贷方</td><td className="px-3 py-2 text-right">¥{voucherCreditTotal.toFixed(2)}</td>{!isVoucherReadOnly && <td className="px-3 py-2" />}</tr></tfoot></table>
           </div>
         </form>
       </div>
+      {businessRiskConfirmationDialog}
+      </>
     )
   }
 
@@ -13973,23 +14144,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
         </section>
       </div>
-      {pendingBusinessRiskConfirmation && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-label="确认高风险业务操作">
-          <section className="w-full max-w-lg border border-slate-300 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-950">
-            <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
-              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{pendingBusinessRiskConfirmation.title}</h2>
-              <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">{pendingBusinessRiskConfirmation.description}</p>
-            </div>
-            <div className="px-4 py-3 text-xs leading-5 text-slate-600 dark:text-slate-300">
-              确认后将执行本机账套操作并写入审计日志；不会自动向税局、银行或其他外部系统提交数据。
-            </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-slate-700">
-              <button type="button" onClick={() => resolveBusinessRiskConfirmation(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700 dark:border-slate-600 dark:text-slate-200">取消</button>
-              <button type="button" onClick={() => resolveBusinessRiskConfirmation(true)} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{pendingBusinessRiskConfirmation.confirmLabel}</button>
-            </div>
-          </section>
-        </div>
-      )}
+      {businessRiskConfirmationDialog}
       {detailRow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={detailMeta.title}>
           <div className="max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto border border-slate-300 bg-white shadow-xl">
