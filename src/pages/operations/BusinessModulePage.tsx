@@ -1792,6 +1792,99 @@ function buildPreviewInitialBalanceTrial(rows: PreviewInitialBalanceRow[]): Tria
   }
 }
 
+function buildPreviewPeriodTrialBalance(rows: PreviewInitialBalanceRow[], vouchers: Voucher[], periodId: string | undefined): TrialBalanceResult {
+  type Accumulator = {
+    accountCode: string
+    accountName: string
+    accountType: string
+    isDetail: boolean
+    openingDebit: number
+    openingCredit: number
+    periodDebit: number
+    periodCredit: number
+  }
+
+  const roundMoney = (value: number) => Math.round(value * 100) / 100
+  const accounts = new Map<string, Accumulator>()
+  rows.forEach((row) => {
+    accounts.set(row.accountCode, {
+      accountCode: row.accountCode,
+      accountName: row.accountName,
+      accountType: row.accountType,
+      isDetail: row.isDetail,
+      openingDebit: row.openingDebit,
+      openingCredit: row.openingCredit,
+      periodDebit: 0,
+      periodCredit: 0,
+    })
+  })
+
+  vouchers
+    .filter((voucher) => voucher.is_deleted !== 1 && (!periodId || voucher.period_id === periodId))
+    .forEach((voucher) => voucher.entries.forEach((entry) => {
+      const current = accounts.get(entry.account_code) || {
+        accountCode: entry.account_code,
+        accountName: entry.account_name || entry.account_code,
+        accountType: '业务发生科目',
+        isDetail: true,
+        openingDebit: 0,
+        openingCredit: 0,
+        periodDebit: 0,
+        periodCredit: 0,
+      }
+      if (entry.direction === 'debit' || entry.direction === '借') current.periodDebit += entry.amount
+      else current.periodCredit += entry.amount
+      accounts.set(entry.account_code, current)
+    }))
+
+  const items = [...accounts.values()]
+    .sort((left, right) => left.accountCode.localeCompare(right.accountCode))
+    .map((account) => {
+      const openingDebit = roundMoney(account.openingDebit)
+      const openingCredit = roundMoney(account.openingCredit)
+      const periodDebit = roundMoney(account.periodDebit)
+      const periodCredit = roundMoney(account.periodCredit)
+      const balance = roundMoney(openingDebit - openingCredit + periodDebit - periodCredit)
+      return {
+        account_code: account.accountCode,
+        account_name: account.accountName,
+        account_type: account.accountType,
+        account_level: 1,
+        is_detail: account.isDetail,
+        opening_debit: openingDebit,
+        opening_credit: openingCredit,
+        period_debit: periodDebit,
+        period_credit: periodCredit,
+        cumulative_debit: roundMoney(openingDebit + periodDebit),
+        cumulative_credit: roundMoney(openingCredit + periodCredit),
+        closing_debit: balance > 0 ? balance : 0,
+        closing_credit: balance < 0 ? Math.abs(balance) : 0,
+      }
+    })
+
+  const total = (key: keyof typeof items[number]) => roundMoney(items.reduce((sum, item) => sum + (typeof item[key] === 'number' ? item[key] : 0), 0))
+  const totalOpeningDebit = total('opening_debit')
+  const totalOpeningCredit = total('opening_credit')
+  const totalPeriodDebit = total('period_debit')
+  const totalPeriodCredit = total('period_credit')
+  const totalClosingDebit = total('closing_debit')
+  const totalClosingCredit = total('closing_credit')
+  return {
+    items,
+    total_opening_debit: totalOpeningDebit,
+    total_opening_credit: totalOpeningCredit,
+    total_period_debit: totalPeriodDebit,
+    total_period_credit: totalPeriodCredit,
+    total_cumulative_debit: total('cumulative_debit'),
+    total_cumulative_credit: total('cumulative_credit'),
+    total_closing_debit: totalClosingDebit,
+    total_closing_credit: totalClosingCredit,
+    is_balanced: Math.abs(totalOpeningDebit - totalOpeningCredit) < 0.005
+      && Math.abs(totalPeriodDebit - totalPeriodCredit) < 0.005
+      && Math.abs(totalClosingDebit - totalClosingCredit) < 0.005,
+  }
+}
+
 const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   attachmentCenter: {
     keywordPlaceholder: '搜索附件名称、来源模块、关联单据、上传人',
@@ -8220,19 +8313,25 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'trialBalanceReport' && usesLiveReportData && liveReports.trialBalance) {
+    if (kind === 'trialBalanceReport' && ((usesLiveReportData && liveReports.trialBalance) || !isTauri)) {
+      const trialBalance = isTauri
+        ? liveReports.trialBalance!
+        : buildPreviewPeriodTrialBalance(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
       return {
         ...baseConfig,
-        rows: mapLiveTrialBalanceRows(liveReports.trialBalance),
-        summary: summarizeLiveTrialBalance(liveReports.trialBalance),
+        rows: mapLiveTrialBalanceRows(trialBalance),
+        summary: summarizeLiveTrialBalance(trialBalance),
       }
     }
 
-    if (kind === 'ledgerReport' && usesLiveReportData && liveReports.ledgerOverview) {
+    if (kind === 'ledgerReport' && ((usesLiveReportData && liveReports.ledgerOverview) || !isTauri)) {
+      const ledgerOverview = isTauri
+        ? liveReports.ledgerOverview!
+        : buildPreviewPeriodTrialBalance(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
       return {
         ...baseConfig,
-        rows: mapLiveLedgerOverviewRows(liveReports.ledgerOverview),
-        summary: summarizeLiveLedgerOverview(liveReports.ledgerOverview),
+        rows: mapLiveLedgerOverviewRows(ledgerOverview),
+        summary: summarizeLiveLedgerOverview(ledgerOverview),
       }
     }
 
