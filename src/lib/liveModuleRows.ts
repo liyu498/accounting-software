@@ -458,7 +458,7 @@ export function mapLiveVoucherRecycleRows(vouchers: Voucher[]): LiveModuleRow[] 
   return [...vouchers]
     .sort((left, right) => (right.deleted_at || '').localeCompare(left.deleted_at || ''))
     .map((voucher) => ({
-      id: `voucher-recycle-${voucher.id}`,
+      id: voucher.id,
       status: '待确认',
       voucher: voucher.voucher_number,
       attachment: voucher.attachment_count > 0 ? `附件 ${voucher.attachment_count}` : '无附件',

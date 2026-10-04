@@ -7026,10 +7026,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const previewVouchers = previewInvoiceVoucherCoreData.vouchers
   const effectiveInvoices = isTauri ? invoices : previewInvoices
   const effectiveVouchers = isTauri ? vouchers : previewVouchers
+  const activeVouchers = effectiveVouchers.filter((voucher) => voucher.is_deleted !== 1)
+  const previewDeletedVouchers = effectiveVouchers.filter((voucher) => voucher.is_deleted === 1)
   const effectiveInvoiceTagIds = isTauri ? invoiceTagIds : previewInvoiceVoucherCoreData.invoiceTagIds
   const effectiveVoucherTagIds = isTauri ? voucherTagIds : previewInvoiceVoucherCoreData.voucherTagIds
   const invoiceMatchCandidates = effectiveInvoices
-  const voucherMatchCandidates = effectiveVouchers
+  const voucherMatchCandidates = activeVouchers
   const effectiveAssetCategories = isTauri ? assetCategories : previewAssetCategories
   const effectiveBusinessTags = isTauri ? businessTags : previewBusinessTags
   const effectiveAdapterAuthorizations = isTauri ? adapterAuthorizations : previewAdapterAuthorizations
@@ -7236,7 +7238,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   useEffect(() => {
     if (!isTauri && ['voucherEdit', 'voucherDetail'].includes(kind) && voucherId) {
-      const voucher = effectiveVouchers.find((item) => item.id === voucherId)
+      const voucher = effectiveVouchers.find((item) => item.id === voucherId && item.is_deleted !== 1)
       if (!voucher) {
         setOperationNotice('未找到当前预览凭证，可能已被删除或不属于当前账期。')
         return
@@ -7862,16 +7864,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'voucher' && (usesLiveVoucherData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveVoucherRows(effectiveVouchers, effectiveVoucherTagIds, effectiveBusinessTags),
-        summary: summarizeLiveVouchers(effectiveVouchers),
+        rows: mapLiveVoucherRows(activeVouchers, effectiveVoucherTagIds, effectiveBusinessTags),
+        summary: summarizeLiveVouchers(activeVouchers),
       }
     }
 
     if (kind === 'riskCheck' && (usesLiveRiskCheckData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveRiskCheckRows(effectiveVouchers, effectiveInvoices),
-        summary: summarizeLiveRiskChecks(effectiveVouchers, effectiveInvoices),
+        rows: mapLiveRiskCheckRows(activeVouchers, effectiveInvoices),
+        summary: summarizeLiveRiskChecks(activeVouchers, effectiveInvoices),
       }
     }
 
@@ -7891,11 +7893,22 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'voucherRecycle' && usesLiveVoucherRecycleData) {
+    if (kind === 'voucherRecycle' && (usesLiveVoucherRecycleData || !isTauri)) {
+      const recycleRows: ModuleConfig['rows'] = isTauri
+        ? mapLiveVoucherRecycleRows(deletedVouchers)
+        : mapLiveVoucherRecycleRows(previewDeletedVouchers).map((row) => ({
+          ...row,
+          values: {
+            ...row.values,
+            deletedBy: '预览管理员',
+            reason: '浏览器预览手工移入回收站',
+          },
+        }))
+      const recycleVouchers = isTauri ? deletedVouchers : previewDeletedVouchers
       return {
         ...baseConfig,
-        rows: mapLiveVoucherRecycleRows(deletedVouchers),
-        summary: summarizeLiveVoucherRecycle(deletedVouchers),
+        rows: recycleRows,
+        summary: summarizeLiveVoucherRecycle(recycleVouchers),
       }
     }
 
@@ -9210,6 +9223,48 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('待办已标记完成并保留处理时间和操作人；原始业务仍需在对应模块核验。')
   }
 
+  const restorePreviewVouchers = async (voucherIds: string[]) => {
+    const vouchersToRestore = previewDeletedVouchers.filter((voucher) => voucherIds.includes(voucher.id))
+    if (vouchersToRestore.length === 0) {
+      setOperationNotice('请先选择需要恢复的预览凭证。')
+      return false
+    }
+    if (!await requestBusinessRiskConfirmation('确认恢复预览凭证', `确认恢复 ${vouchersToRestore.length} 张凭证吗？恢复后会回到草稿状态，仍需人工审核和记账。`, '确认恢复')) return false
+    const timestamp = new Date().toISOString()
+    const restoreIds = new Set(vouchersToRestore.map((voucher) => voucher.id))
+    updatePreviewInvoiceVoucherCoreData((data) => ({
+      ...data,
+      vouchers: data.vouchers.map((voucher) => restoreIds.has(voucher.id)
+        ? { ...voucher, is_deleted: 0, deleted_at: null, status: 'draft', approved_by: null, approved_at: null, modified_by: 'admin', modified_at: timestamp, version: voucher.version + 1 }
+        : voucher),
+    }))
+    setSelectedRowIds(new Set())
+    writeModuleAudit('预览恢复凭证', vouchersToRestore.map((voucher) => voucher.voucher_number).join('、'), '高', '成功')
+    setOperationNotice(`已恢复 ${vouchersToRestore.length} 张预览凭证为草稿；不会自动审核、记账或提交外部系统。`)
+    return true
+  }
+
+  const permanentlyDeletePreviewVoucher = async (voucherId: string) => {
+    const voucher = previewDeletedVouchers.find((item) => item.id === voucherId)
+    if (!voucher) {
+      setOperationNotice('未找到需要彻底删除的预览凭证。')
+      return
+    }
+    if (!await requestBusinessRiskConfirmation('确认彻底删除预览凭证', `确认彻底删除凭证 ${voucher.voucher_number} 吗？该操作只清理当前浏览器预览，无法恢复且不会向外部系统发送指令。`, '彻底删除')) return
+    updatePreviewInvoiceVoucherCoreData((data) => ({
+      ...data,
+      vouchers: data.vouchers.filter((item) => item.id !== voucher.id),
+      voucherTagIds: Object.fromEntries(Object.entries(data.voucherTagIds).filter(([id]) => id !== voucher.id)),
+    }))
+    setSelectedRowIds((ids) => {
+      const next = new Set(ids)
+      next.delete(voucher.id)
+      return next
+    })
+    writeModuleAudit('预览彻底删除凭证', voucher.voucher_number, '高', '成功')
+    setOperationNotice(`凭证 ${voucher.voucher_number} 已从当前浏览器预览彻底删除；未影响桌面账套或外部系统。`)
+  }
+
   const handlePrimaryAction = async () => {
     if (kind === 'companyInfo') {
       openCompanyInfoEditor()
@@ -9335,6 +9390,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       } else {
         await confirmPreviewAiVoucherSuggestions([...selectedRowIds])
       }
+      return
+    }
+    if (kind === 'voucherRecycle' && !isTauri) {
+      await restorePreviewVouchers([...selectedRowIds])
       return
     }
     if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {
@@ -12211,6 +12270,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       await confirmTaxTaskFromRow(row)
       return
     }
+    if (kind === 'voucherRecycle' && !isTauri) {
+      await restorePreviewVouchers([row.id])
+      return
+    }
     if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {
       if (!await requestBusinessRiskConfirmation('确认恢复凭证', `确认恢复凭证 ${row.voucher} 吗？恢复后仍需人工复核、审核和记账。`, '确认恢复')) return
       try {
@@ -12589,6 +12652,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       writeModuleAudit('打开AI凭证草稿复核', suggestionNo, '中', '成功')
       setOperationNotice(`${suggestionNo} 已进入凭证草稿复核入口；请人工录入、校验借贷平衡并保存，系统不会自动生成或入账凭证。`)
       navigate(`/vouchers/new?aiSuggestion=${encodeURIComponent(suggestionJobId)}`)
+      return
+    }
+    if (kind === 'voucherRecycle' && !isTauri) {
+      await permanentlyDeletePreviewVoucher(row.id)
       return
     }
     if (kind === 'voucherRecycle' && isTauri && selectedCompanyId) {
@@ -12970,7 +13037,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const handleDeleteVoucher = async () => {
-    if (!selectedCompanyId || !loadedVoucher) return
+    if (!loadedVoucher) return
+    if (!isTauri) {
+      if (!await requestBusinessRiskConfirmation('确认移入预览凭证回收站', `确认将凭证 ${loadedVoucher.voucher_number} 移入回收站吗？该操作只更新当前浏览器预览，可在回收站人工恢复。`, '移入回收站')) return
+      const timestamp = new Date().toISOString()
+      const voucher: Voucher = { ...loadedVoucher, is_deleted: 1, deleted_at: timestamp, modified_by: 'admin', modified_at: timestamp, version: loadedVoucher.version + 1 }
+      updatePreviewInvoiceVoucherCoreData((data) => ({
+        ...data,
+        vouchers: data.vouchers.map((item) => item.id === voucher.id ? voucher : item),
+      }))
+      writeModuleAudit('预览移入凭证回收站', voucher.voucher_number, '高', '成功')
+      navigate('/vouchers')
+      return
+    }
+    if (!selectedCompanyId) return
     if (!await requestBusinessRiskConfirmation('确认移入凭证回收站', `确认将凭证 ${loadedVoucher.voucher_number} 移入回收站吗？可在回收站人工恢复。`, '移入回收站')) return
     try {
       await deleteVoucher(loadedVoucher.id, selectedCompanyId)
@@ -13469,7 +13549,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <span className={cn('text-xs font-medium', voucherBalanced ? 'text-emerald-700' : 'text-red-600')}>借贷{voucherBalanced ? '平衡' : '不平衡'}</span>
               {isVoucherReadOnly && loadedVoucher && <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印凭证" onClick={handlePrint} />}
               {isVoucherReadOnly && loadedVoucher && <button type="button" onClick={handleVoucherApproval} className="h-8 border border-[#1f65a7] px-3 text-xs font-medium text-[#1f65a7] hover:bg-blue-50">{loadedVoucher.status === 'approved' ? '反审核' : '审核'}</button>}
-              {isVoucherReadOnly && isTauri && loadedVoucher?.status === 'draft' && <button type="button" onClick={handleDeleteVoucher} className="h-8 border border-red-300 px-3 text-xs font-medium text-red-600 hover:bg-red-50">删除</button>}
+              {isVoucherReadOnly && loadedVoucher?.status === 'draft' && <button type="button" onClick={handleDeleteVoucher} className="h-8 border border-red-300 px-3 text-xs font-medium text-red-600 hover:bg-red-50">移入回收站</button>}
               {!isVoucherReadOnly && <button type="submit" disabled={isVoucherEdit && !loadedVoucher} className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82] disabled:bg-slate-300">{isVoucherEdit ? '保存修改' : '保存凭证草稿'}</button>}
             </div>
           </div>
