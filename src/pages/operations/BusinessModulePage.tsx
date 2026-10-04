@@ -1931,6 +1931,109 @@ function buildPreviewGeneralLedger(rows: PreviewInitialBalanceRow[], vouchers: V
   }))
 }
 
+function buildPreviewFinancialReports(rows: PreviewInitialBalanceRow[], vouchers: Voucher[], period: AccountingPeriod | undefined): {
+  balanceSheet: BalanceSheetResult
+  incomeStatement: IncomeStatementResult
+  cashFlow: CashFlowResult
+} {
+  const trialBalance = buildPreviewPeriodTrialBalance(rows, vouchers, period?.id)
+  const roundMoney = (value: number) => Math.round(value * 100) / 100
+  const sumBalance = (predicate: (code: string) => boolean, field: 'opening' | 'closing', direction: 'debit' | 'credit') => roundMoney(
+    trialBalance.items
+      .filter((item) => predicate(item.account_code))
+      .reduce((sum, item) => sum + (field === 'opening'
+        ? direction === 'debit' ? item.opening_debit - item.opening_credit : item.opening_credit - item.opening_debit
+        : direction === 'debit' ? item.closing_debit - item.closing_credit : item.closing_credit - item.closing_debit), 0),
+  )
+  const isAsset = (code: string) => code.startsWith('1')
+  const isLiability = (code: string) => code.startsWith('2')
+  const isEquity = (code: string) => code.startsWith('4')
+  const isRevenue = (code: string) => ['6001', '6011', '6051'].some((prefix) => code.startsWith(prefix))
+  const isExpense = (code: string) => code.startsWith('6') && !isRevenue(code)
+  const assetOpening = sumBalance(isAsset, 'opening', 'debit')
+  const assetEnding = sumBalance(isAsset, 'closing', 'debit')
+  const cashOpening = sumBalance((code) => ['1001', '1002', '1012'].some((prefix) => code.startsWith(prefix)), 'opening', 'debit')
+  const cashEnding = sumBalance((code) => ['1001', '1002', '1012'].some((prefix) => code.startsWith(prefix)), 'closing', 'debit')
+  const liabilityOpening = sumBalance(isLiability, 'opening', 'credit')
+  const liabilityEnding = sumBalance(isLiability, 'closing', 'credit')
+  const equityOpening = sumBalance(isEquity, 'opening', 'credit')
+  const equityClosing = sumBalance(isEquity, 'closing', 'credit')
+  const revenue = sumBalance(isRevenue, 'closing', 'credit') - sumBalance(isRevenue, 'opening', 'credit')
+  const expenses = sumBalance(isExpense, 'closing', 'debit') - sumBalance(isExpense, 'opening', 'debit')
+  const netProfit = roundMoney(revenue - expenses)
+  const periodId = period?.id || 'browser-preview'
+  const paidInCapital = sumBalance((code) => code.startsWith('4001'), 'closing', 'credit')
+  const paidInCapitalOpening = sumBalance((code) => code.startsWith('4001'), 'opening', 'credit')
+  const capitalReserve = sumBalance((code) => code.startsWith('4002'), 'closing', 'credit')
+  const capitalReserveOpening = sumBalance((code) => code.startsWith('4002'), 'opening', 'credit')
+  const surplusReserve = sumBalance((code) => code.startsWith('4101'), 'closing', 'credit')
+  const surplusReserveOpening = sumBalance((code) => code.startsWith('4101'), 'opening', 'credit')
+  const undistributedProfit = roundMoney(equityClosing - paidInCapital - capitalReserve - surplusReserve + netProfit)
+  const undistributedProfitOpening = roundMoney(equityOpening - paidInCapitalOpening - capitalReserveOpening - surplusReserveOpening)
+  const totalEquity = roundMoney(equityClosing + netProfit)
+  const totalOpeningEquity = equityOpening
+  const balanceSheet: BalanceSheetResult = {
+    period_id: periodId,
+    items: [
+      { item_code: 'BS101', item_name: '货币资金', item_level: 1, is_total: 0, opening_balance: cashOpening, ending_balance: cashEnding, section: 'assets', children: [] },
+      { item_code: 'BS102', item_name: '其他资产', item_level: 1, is_total: 0, opening_balance: roundMoney(assetOpening - cashOpening), ending_balance: roundMoney(assetEnding - cashEnding), section: 'assets', children: [] },
+      { item_code: 'BS100', item_name: '资产合计', item_level: 1, is_total: 1, opening_balance: assetOpening, ending_balance: assetEnding, section: 'assets', children: [] },
+      { item_code: 'BS200', item_name: '负债合计', item_level: 1, is_total: 1, opening_balance: liabilityOpening, ending_balance: liabilityEnding, section: 'liabilities', children: [] },
+      { item_code: 'BS601', item_name: '实收资本', item_level: 1, is_total: 0, opening_balance: paidInCapitalOpening, ending_balance: paidInCapital, section: 'equity', children: [] },
+      { item_code: 'BS602', item_name: '资本公积', item_level: 1, is_total: 0, opening_balance: capitalReserveOpening, ending_balance: capitalReserve, section: 'equity', children: [] },
+      { item_code: 'BS603', item_name: '盈余公积', item_level: 1, is_total: 0, opening_balance: surplusReserveOpening, ending_balance: surplusReserve, section: 'equity', children: [] },
+      { item_code: 'BS604', item_name: '未分配利润', item_level: 1, is_total: 0, opening_balance: undistributedProfitOpening, ending_balance: undistributedProfit, section: 'equity', children: [] },
+      { item_code: 'BS600', item_name: '所有者权益合计', item_level: 1, is_total: 1, opening_balance: totalOpeningEquity, ending_balance: totalEquity, section: 'equity', children: [] },
+    ],
+    total_assets: assetEnding,
+    total_liabilities: liabilityEnding,
+    total_equity: totalEquity,
+    opening_total_assets: assetOpening,
+    opening_total_liabilities: liabilityOpening,
+    opening_total_equity: totalOpeningEquity,
+    is_balanced: Math.abs(assetEnding - liabilityEnding - totalEquity) < 0.005,
+  }
+  const incomeStatement: IncomeStatementResult = {
+    period_id: periodId,
+    items: [
+      { item_code: 'IS100', item_name: '营业收入', item_level: 1, is_total: 0, current_amount: revenue, year_to_date: revenue, children: [] },
+      { item_code: 'IS200', item_name: '营业成本及期间费用', item_level: 1, is_total: 0, current_amount: expenses, year_to_date: expenses, children: [] },
+      { item_code: 'IS300', item_name: '净利润', item_level: 1, is_total: 1, current_amount: netProfit, year_to_date: netProfit, children: [] },
+    ],
+    current_period_total: netProfit,
+    year_to_date_total: netProfit,
+  }
+  const cashMovement = { operating: 0, investing: 0, financing: 0 }
+  vouchers
+    .filter((voucher) => voucher.is_deleted !== 1 && (!period?.id || voucher.period_id === period.id))
+    .forEach((voucher) => voucher.entries.forEach((entry) => {
+      if (!['1001', '1002', '1012'].some((prefix) => entry.account_code.startsWith(prefix))) return
+      const otherEntries = voucher.entries.filter((candidate) => candidate.id !== entry.id)
+      const group = otherEntries.some((candidate) => candidate.account_code.startsWith('4') || candidate.account_code.startsWith('25'))
+        ? 'financing'
+        : otherEntries.some((candidate) => candidate.account_code.startsWith('15') || candidate.account_code.startsWith('16'))
+          ? 'investing'
+          : 'operating'
+      cashMovement[group] += entry.direction === 'debit' || entry.direction === '借' ? entry.amount : -entry.amount
+    }))
+  const operatingCash = roundMoney(cashMovement.operating)
+  const investingCash = roundMoney(cashMovement.investing)
+  const financingCash = roundMoney(cashMovement.financing)
+  const netCash = roundMoney(operatingCash + investingCash + financingCash)
+  const cashFlow: CashFlowResult = {
+    period_id: periodId,
+    items: [
+      { item_code: 'CF199', item_name: '经营活动产生的现金流量净额', item_level: 1, is_total: 1, current_amount: operatingCash, year_to_date: operatingCash },
+      { item_code: 'CF299', item_name: '投资活动产生的现金流量净额', item_level: 1, is_total: 1, current_amount: investingCash, year_to_date: investingCash },
+      { item_code: 'CF399', item_name: '筹资活动产生的现金流量净额', item_level: 1, is_total: 1, current_amount: financingCash, year_to_date: financingCash },
+      { item_code: 'CF999', item_name: '现金及现金等价物净增加额', item_level: 1, is_total: 1, current_amount: netCash, year_to_date: netCash },
+    ],
+    net_increase: netCash,
+    net_increase_year_to_date: netCash,
+  }
+  return { balanceSheet, incomeStatement, cashFlow }
+}
+
 const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   attachmentCenter: {
     keywordPlaceholder: '搜索附件名称、来源模块、关联单据、上传人',
@@ -8327,11 +8430,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'financialReport' && usesLiveFinancialOverviewData && liveReports.balanceSheet && liveReports.incomeStatement && liveReports.cashFlow) {
+    if (kind === 'financialReport' && ((usesLiveFinancialOverviewData && liveReports.balanceSheet && liveReports.incomeStatement && liveReports.cashFlow) || !isTauri)) {
+      const financialReports = isTauri
+        ? { balanceSheet: liveReports.balanceSheet!, incomeStatement: liveReports.incomeStatement!, cashFlow: liveReports.cashFlow! }
+        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod)
       return {
         ...baseConfig,
-        rows: mapLiveFinancialOverviewRows(liveReports.balanceSheet, liveReports.incomeStatement, liveReports.cashFlow),
-        summary: summarizeLiveFinancialOverview(liveReports.balanceSheet, liveReports.incomeStatement, liveReports.cashFlow),
+        rows: mapLiveFinancialOverviewRows(financialReports.balanceSheet, financialReports.incomeStatement, financialReports.cashFlow),
+        summary: summarizeLiveFinancialOverview(financialReports.balanceSheet, financialReports.incomeStatement, financialReports.cashFlow),
       }
     }
 
@@ -8445,27 +8551,36 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'balanceSheetReport' && usesLiveReportData && liveReports.balanceSheet) {
+    if (kind === 'balanceSheetReport' && ((usesLiveReportData && liveReports.balanceSheet) || !isTauri)) {
+      const balanceSheet = isTauri
+        ? liveReports.balanceSheet!
+        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).balanceSheet
       return {
         ...baseConfig,
-        rows: mapLiveBalanceSheetRows(liveReports.balanceSheet),
-        summary: summarizeLiveBalanceSheet(liveReports.balanceSheet),
+        rows: mapLiveBalanceSheetRows(balanceSheet),
+        summary: summarizeLiveBalanceSheet(balanceSheet),
       }
     }
 
-    if (kind === 'equityChangeReport' && usesLiveReportData && liveReports.balanceSheet && liveReports.incomeStatement) {
+    if (kind === 'equityChangeReport' && ((usesLiveReportData && liveReports.balanceSheet && liveReports.incomeStatement) || !isTauri)) {
+      const financialReports = isTauri
+        ? { balanceSheet: liveReports.balanceSheet!, incomeStatement: liveReports.incomeStatement! }
+        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod)
       return {
         ...baseConfig,
-        rows: mapLiveEquityChangeRows(liveReports.balanceSheet, liveReports.incomeStatement),
-        summary: summarizeLiveEquityChange(liveReports.balanceSheet, liveReports.incomeStatement),
+        rows: mapLiveEquityChangeRows(financialReports.balanceSheet, financialReports.incomeStatement),
+        summary: summarizeLiveEquityChange(financialReports.balanceSheet, financialReports.incomeStatement),
       }
     }
 
-    if (kind === 'incomeStatementReport' && usesLiveReportData && liveReports.incomeStatement) {
+    if (kind === 'incomeStatementReport' && ((usesLiveReportData && liveReports.incomeStatement) || !isTauri)) {
+      const incomeStatement = isTauri
+        ? liveReports.incomeStatement!
+        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).incomeStatement
       return {
         ...baseConfig,
-        rows: mapLiveIncomeStatementRows(liveReports.incomeStatement),
-        summary: summarizeLiveIncomeStatement(liveReports.incomeStatement),
+        rows: mapLiveIncomeStatementRows(incomeStatement),
+        summary: summarizeLiveIncomeStatement(incomeStatement),
       }
     }
 
@@ -8489,11 +8604,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'cashFlowReport' && usesLiveReportData && liveReports.cashFlow) {
+    if (kind === 'cashFlowReport' && ((usesLiveReportData && liveReports.cashFlow) || !isTauri)) {
+      const cashFlow = isTauri
+        ? liveReports.cashFlow!
+        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).cashFlow
       return {
         ...baseConfig,
-        rows: mapLiveCashFlowRows(liveReports.cashFlow),
-        summary: summarizeLiveCashFlow(liveReports.cashFlow),
+        rows: mapLiveCashFlowRows(cashFlow),
+        summary: summarizeLiveCashFlow(cashFlow),
       }
     }
 
