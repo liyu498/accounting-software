@@ -8584,23 +8584,39 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'incomeQuarterReport' && usesLiveReportData && liveReports.incomeStatement) {
-      const quarter = Math.ceil((currentPeriod?.period_month || 1) / 3)
-      const quarterLabel = `${currentPeriod?.period_year || '当前'}-Q${quarter}（截至${String(currentPeriod?.period_month || 0).padStart(2, '0')}月）`
+    if (kind === 'incomeQuarterReport' && ((usesLiveReportData && liveReports.incomeStatement) || !isTauri)) {
+      const reportPeriod = isTauri ? currentPeriod : voucherEditorPeriod
+      const quarter = Math.ceil((reportPeriod?.period_month || 1) / 3)
+      const quarterLabel = `${reportPeriod?.period_year || '当前'}-Q${quarter}（截至${String(reportPeriod?.period_month || 0).padStart(2, '0')}月）`
+      const previewQuarterStartMonth = Math.floor(((voucherEditorPeriod?.period_month || 1) - 1) / 3) * 3 + 1
+      const previewQuarterBaselineMissing = !isTauri && previewQuarterStartMonth > 1
+      const incomeStatement = isTauri
+        ? liveReports.incomeStatement!
+        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).incomeStatement
+      const incomeQuarterBaseline = isTauri ? liveReports.incomeQuarterBaseline : null
+      const incomeQuarterBaselineMissing = isTauri ? liveReports.incomeQuarterBaselineMissing : previewQuarterBaselineMissing
       return {
         ...baseConfig,
-        rows: mapLiveIncomeQuarterRows(liveReports.incomeStatement, liveReports.incomeQuarterBaseline, quarterLabel, liveReports.incomeQuarterBaselineMissing),
-        summary: summarizeLiveIncomeQuarter(liveReports.incomeStatement, liveReports.incomeQuarterBaseline, liveReports.incomeQuarterBaselineMissing),
+        rows: mapLiveIncomeQuarterRows(incomeStatement, incomeQuarterBaseline, quarterLabel, incomeQuarterBaselineMissing),
+        summary: summarizeLiveIncomeQuarter(incomeStatement, incomeQuarterBaseline, incomeQuarterBaselineMissing),
       }
     }
 
-    if (kind === 'cashFlowQuarterReport' && usesLiveReportData && liveReports.cashFlow) {
-      const quarter = Math.ceil((currentPeriod?.period_month || 1) / 3)
-      const quarterLabel = `${currentPeriod?.period_year || '当前'}-Q${quarter}（截至${String(currentPeriod?.period_month || 0).padStart(2, '0')}月）`
+    if (kind === 'cashFlowQuarterReport' && ((usesLiveReportData && liveReports.cashFlow) || !isTauri)) {
+      const reportPeriod = isTauri ? currentPeriod : voucherEditorPeriod
+      const quarter = Math.ceil((reportPeriod?.period_month || 1) / 3)
+      const quarterLabel = `${reportPeriod?.period_year || '当前'}-Q${quarter}（截至${String(reportPeriod?.period_month || 0).padStart(2, '0')}月）`
+      const previewQuarterStartMonth = Math.floor(((voucherEditorPeriod?.period_month || 1) - 1) / 3) * 3 + 1
+      const previewQuarterBaselineMissing = !isTauri && previewQuarterStartMonth > 1
+      const cashFlow = isTauri
+        ? liveReports.cashFlow!
+        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).cashFlow
+      const cashFlowQuarterBaseline = isTauri ? liveReports.cashFlowQuarterBaseline : null
+      const cashFlowQuarterBaselineMissing = isTauri ? liveReports.cashFlowQuarterBaselineMissing : previewQuarterBaselineMissing
       return {
         ...baseConfig,
-        rows: mapLiveCashFlowQuarterRows(liveReports.cashFlow, liveReports.cashFlowQuarterBaseline, quarterLabel, liveReports.cashFlowQuarterBaselineMissing),
-        summary: summarizeLiveCashFlowQuarter(liveReports.cashFlow, liveReports.cashFlowQuarterBaseline, liveReports.cashFlowQuarterBaselineMissing),
+        rows: mapLiveCashFlowQuarterRows(cashFlow, cashFlowQuarterBaseline, quarterLabel, cashFlowQuarterBaselineMissing),
+        summary: summarizeLiveCashFlowQuarter(cashFlow, cashFlowQuarterBaseline, cashFlowQuarterBaselineMissing),
       }
     }
 

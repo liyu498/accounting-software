@@ -1216,7 +1216,7 @@ const requiredIncomeQuarterAdapterSnippets = [
 const requiredIncomeQuarterPageSnippets = [
   ['income quarter live scope', "'incomeQuarterReport'"],
   ['income quarter baseline request', 'getIncomeStatement(priorQuarterPeriod.id)'],
-  ['income quarter live mapper', 'mapLiveIncomeQuarterRows(liveReports.incomeStatement, liveReports.incomeQuarterBaseline'],
+  ['income quarter live mapper', 'mapLiveIncomeQuarterRows(incomeStatement, incomeQuarterBaseline'],
 ]
 const requiredCashFlowQuarterAdapterSnippets = [
   ['cash flow quarter row mapper', 'export function mapLiveCashFlowQuarterRows'],
@@ -1225,7 +1225,7 @@ const requiredCashFlowQuarterAdapterSnippets = [
 const requiredCashFlowQuarterPageSnippets = [
   ['cash flow quarter live scope', "'cashFlowQuarterReport'"],
   ['cash flow quarter baseline request', 'getCashFlowStatement(priorQuarterPeriod.id)'],
-  ['cash flow quarter live mapper', 'mapLiveCashFlowQuarterRows(liveReports.cashFlow, liveReports.cashFlowQuarterBaseline'],
+  ['cash flow quarter live mapper', 'mapLiveCashFlowQuarterRows(cashFlow, cashFlowQuarterBaseline'],
 ]
 const requiredEquityChangeAdapterSnippets = [
   ['equity change row mapper', 'export function mapLiveEquityChangeRows'],
