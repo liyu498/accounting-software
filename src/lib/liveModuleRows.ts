@@ -1106,7 +1106,7 @@ export function summarizeLiveMultiColumnLedger(items: GeneralLedgerItem[]): Live
   ]
 }
 
-export function mapLiveSubsidiaryLedgerRows(items: SubsidiaryLedgerItem[]): LiveModuleRow[] {
+export function mapLiveSubsidiaryLedgerRows(items: SubsidiaryLedgerItem[], subjectLabel = '当前选择科目'): LiveModuleRow[] {
   return items.map((item, index) => ({
     id: `subsidiary-${item.voucher_id || item.voucher_number || index}`,
     status: item.balance_direction ? '已通过' : '待确认',
@@ -1115,7 +1115,7 @@ export function mapLiveSubsidiaryLedgerRows(items: SubsidiaryLedgerItem[]): Live
     values: {
       date: item.voucher_date || '-',
       wordNo: item.voucher_number || '期初',
-      subject: '当前选择科目',
+      subject: subjectLabel,
       summary: item.summary || '期初余额',
       opposite: item.opposite_account || '-',
       debit: currency(item.debit),

@@ -362,7 +362,7 @@ const requiredPageSnippets = [
   ['subsidiary ledger query', 'getSubsidiaryLedger(currentPeriodId, selectedLedgerAccountCode)'],
   ['auxiliary ledger query', 'fetchAuxiliaryLedger({'],
   ['auxiliary balance query', 'fetchAuxiliaryBalance(selectedAuxiliaryCategoryId, currentPeriodId, selectedCompanyId)'],
-  ['subsidiary ledger mapping', 'mapLiveSubsidiaryLedgerRows(liveReports.subsidiaryLedger)'],
+  ['subsidiary ledger mapping', 'mapLiveSubsidiaryLedgerRows(subsidiaryLedger, effectiveLedgerSubjectLabel)'],
   ['auxiliary ledger mapping', 'mapLiveAuxiliaryLedgerRows(liveReports.auxiliaryLedger'],
   ['auxiliary balance mapping', 'mapLiveAuxiliaryBalanceRows(liveReports.auxiliaryBalance'],
   ['ledger account selector', 'aria-label="明细账科目"'],

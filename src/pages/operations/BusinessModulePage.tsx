@@ -1931,6 +1931,44 @@ function buildPreviewGeneralLedger(rows: PreviewInitialBalanceRow[], vouchers: V
   }))
 }
 
+function buildPreviewSubsidiaryLedger(
+  rows: PreviewInitialBalanceRow[],
+  vouchers: Voucher[],
+  periodId: string | undefined,
+  accountCode: string,
+): SubsidiaryLedgerItem[] {
+  const selectedAccount = buildPreviewGeneralLedger(rows, vouchers, periodId)
+    .find((item) => item.account_code === accountCode)
+  if (!selectedAccount) return []
+
+  const vouchersById = new Map(
+    vouchers
+      .filter((voucher) => voucher.is_deleted !== 1 && (!periodId || voucher.period_id === periodId))
+      .map((voucher) => [voucher.id, voucher]),
+  )
+
+  return selectedAccount.entries.map((entry) => {
+    const voucher = vouchersById.get(entry.voucher_id)
+    const oppositeAccount = voucher?.entries
+      .filter((voucherEntry) => voucherEntry.account_code !== accountCode)
+      .map((voucherEntry) => `${voucherEntry.account_code} ${voucherEntry.account_name}`)
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .join(' / ') || '-'
+    const isDebit = entry.direction === 'debit' || entry.direction === '借'
+    return {
+      voucher_id: entry.voucher_id,
+      voucher_date: entry.voucher_date,
+      voucher_number: entry.voucher_number,
+      summary: entry.summary,
+      opposite_account: oppositeAccount,
+      debit: isDebit ? entry.amount : 0,
+      credit: isDebit ? 0 : entry.amount,
+      balance: Math.abs(entry.balance),
+      balance_direction: entry.balance > 0 ? '借' : entry.balance < 0 ? '贷' : '',
+    }
+  })
+}
+
 function buildPreviewFinancialReports(rows: PreviewInitialBalanceRow[], vouchers: Voucher[], period: AccountingPeriod | undefined): {
   balanceSheet: BalanceSheetResult
   incomeStatement: IncomeStatementResult
@@ -7527,6 +7565,17 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const voucherEditorPeriod = isTauri
     ? currentPeriod
     : effectivePeriods.find((period) => period.status !== 'closed') || effectivePeriods[0]
+  const ledgerDetailAccountOptions = useMemo(() => {
+    if (isTauri) return detailedAccounts.map((account) => ({ code: account.code, name: account.name }))
+    return buildPreviewGeneralLedger(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
+      .filter((account) => account.entries.length > 0)
+      .map((account) => ({ code: account.account_code, name: account.account_name }))
+  }, [activeVouchers, detailedAccounts, isTauri, previewInitialBalanceRows, voucherEditorPeriod?.id])
+  const effectiveLedgerAccountCode = isTauri ? selectedLedgerAccountCode : selectedLedgerAccountCode || ledgerDetailAccountOptions[0]?.code || ''
+  const selectedLedgerAccount = ledgerDetailAccountOptions.find((account) => account.code === effectiveLedgerAccountCode)
+  const effectiveLedgerSubjectLabel = selectedLedgerAccount
+    ? `${selectedLedgerAccount.code} ${selectedLedgerAccount.name}`
+    : '当前选择科目'
   const templateAccounts = detailedAccounts.length > 0 ? detailedAccounts : [{ code: '1002', name: '银行存款' }, { code: '6001', name: '主营业务收入' }]
   const selectedAuxiliaryCategory = useMemo(
     () => auxiliaryCategories.find((category) => category.id === selectedAuxiliaryCategoryId),
@@ -8525,14 +8574,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'subsidiaryLedgerReport' && usesLiveLedgerDetailData) {
-      const rows = liveReports.subsidiaryLedger
-        ? mapLiveSubsidiaryLedgerRows(liveReports.subsidiaryLedger)
-        : []
+    if (kind === 'subsidiaryLedgerReport' && (usesLiveLedgerDetailData || !isTauri)) {
+      const subsidiaryLedger = isTauri
+        ? liveReports.subsidiaryLedger || []
+        : buildPreviewSubsidiaryLedger(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id, effectiveLedgerAccountCode)
       return {
         ...baseConfig,
-        rows,
-        summary: summarizeLiveSubsidiaryLedger(liveReports.subsidiaryLedger || []),
+        rows: mapLiveSubsidiaryLedgerRows(subsidiaryLedger, effectiveLedgerSubjectLabel),
+        summary: summarizeLiveSubsidiaryLedger(subsidiaryLedger),
       }
     }
 
@@ -8929,7 +8978,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectiveInvoiceTagIds, effectiveInvoices, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, effectiveVoucherTagIds, effectiveVouchers, employees, exportJobs, fixedAssets, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewClosingChecks, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveRiskCheckData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherData, usesLiveVoucherRecycleData, voucherEditorPeriod, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectiveInvoiceTagIds, effectiveInvoices, effectiveLedgerAccountCode, effectiveLedgerSubjectLabel, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, effectiveVoucherTagIds, effectiveVouchers, employees, exportJobs, fixedAssets, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewClosingChecks, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveRiskCheckData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherData, usesLiveVoucherRecycleData, voucherEditorPeriod, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
   const tableMeta = getModuleTableMeta(kind)
@@ -14447,15 +14496,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 {effectiveBusinessTags.filter((tag) => tag.is_enabled === 1).map((tag) => <option key={tag.id} value={tag.name}>{tag.name}</option>)}
               </select>
             )}
-            {kind === 'subsidiaryLedgerReport' && usesLiveLedgerDetailData && (
+            {kind === 'subsidiaryLedgerReport' && (usesLiveLedgerDetailData || !isTauri) && (
               <select
                 aria-label="明细账科目"
-                value={selectedLedgerAccountCode}
+              value={effectiveLedgerAccountCode}
                 onChange={(event) => setSelectedLedgerAccountCode(event.target.value)}
                 className="h-8 max-w-56 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#1f65a7]"
               >
                 <option value="">选择科目</option>
-                {detailedAccounts.map((account) => (
+                {ledgerDetailAccountOptions.map((account) => (
                   <option key={account.code} value={account.code}>{account.code} {account.name}</option>
                 ))}
               </select>
