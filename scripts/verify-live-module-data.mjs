@@ -1421,8 +1421,8 @@ const requiredIncomeTaxPageSnippets = [
 const requiredVatTaxPageSnippets = [
   ['vat tax local data boundary', "const usesLiveVatTaxData = Boolean(isTauri && selectedCompanyId && kind === 'vatTaxReport')"],
   ['vat tax invoice fetch', 'if (!usesLiveVatTaxData || !selectedCompanyId) return'],
-  ['vat tax row mapper', 'mapLiveVatTaxRows(invoices)'],
-  ['vat tax summary mapper', 'summarizeLiveVatTax(invoices)'],
+  ['vat tax row mapper', 'mapLiveVatTaxRows(effectiveInvoices)'],
+  ['vat tax summary mapper', 'summarizeLiveVatTax(effectiveInvoices)'],
 ]
 
 const requiredBankTransactionCommandSnippets = [

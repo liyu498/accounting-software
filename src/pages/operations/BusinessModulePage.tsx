@@ -8367,7 +8367,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).incomeStatement
       return { ...baseConfig, rows: mapLiveIncomeTaxRows(incomeStatement), summary: summarizeLiveIncomeTax(incomeStatement) }
     }
-    if (kind === 'vatTaxReport' && usesLiveVatTaxData) return { ...baseConfig, rows: mapLiveVatTaxRows(invoices), summary: summarizeLiveVatTax(invoices) }
+    if (kind === 'vatTaxReport' && (usesLiveVatTaxData || !isTauri)) return { ...baseConfig, rows: mapLiveVatTaxRows(effectiveInvoices), summary: summarizeLiveVatTax(effectiveInvoices) }
     if ((kind === 'billList' || kind === 'bankStatement') && (usesLiveBankTransactionData || !isTauri)) return { ...baseConfig, rows: mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, effectiveBusinessTags), summary: summarizeLiveBankTransactions(bankTransactions, kind) }
     if (kind === 'bankReconciliation' && (usesLiveBankReconciliationRecordData || !isTauri)) return { ...baseConfig, rows: mapLiveBankReconciliationRows(bankReconciliationRecords), summary: summarizeLiveBankReconciliation(bankReconciliationRecords) }
     if (kind === 'receivableSettlement' && (usesLiveSettlementRecordData || !isTauri)) return { ...baseConfig, rows: mapLiveSettlementRecordRows(settlementRecords, 'receivable') }

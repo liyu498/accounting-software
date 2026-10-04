@@ -195,6 +195,8 @@ const errors = [
   ...(!businessSource.includes('const previewQuarterBaselineMissing = !isTauri && previewQuarterStartMonth > 1') ? ['quarter reports must flag unavailable preview quarter baselines instead of fabricating values'] : []),
   ...(!businessSource.includes("if (kind === 'incomeTaxReport' && ((usesLiveReportData && liveReports.incomeStatement) || !isTauri))") ? ['income tax report must derive browser preview rows from the current income statement'] : []),
   ...(!businessSource.includes("findIncomeStatementItem(incomeStatement.items, '净利润')") ? ['income tax preview must accept the preview net-profit line when no total-profit line exists'] : []),
+  ...(!businessSource.includes("if (kind === 'vatTaxReport' && (usesLiveVatTaxData || !isTauri))") ? ['VAT report must derive browser preview rows from invoices rather than static samples'] : []),
+  ...(!businessSource.includes('mapLiveVatTaxRows(effectiveInvoices)') ? ['VAT report must use the shared effective invoice source'] : []),
   ...(!businessSource.includes("if (kind === 'equityChangeReport' && ((usesLiveReportData && liveReports.balanceSheet && liveReports.incomeStatement) || !isTauri))") ? ['equity statement must render browser preview balances rather than static rows'] : []),
   ...(!businessSource.includes("if (kind === 'financialReport' && ((usesLiveFinancialOverviewData && liveReports.balanceSheet && liveReports.incomeStatement && liveReports.cashFlow) || !isTauri))") ? ['financial overview must render browser preview reports rather than static rows'] : []),
   ...(!businessSource.includes("const effectiveVoucherWords = isTauri ? voucherWords : previewVoucherWordSeed") ? ['voucher editor must provide browser preview voucher words'] : []),
