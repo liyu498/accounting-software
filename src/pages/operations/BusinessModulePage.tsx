@@ -1885,6 +1885,52 @@ function buildPreviewPeriodTrialBalance(rows: PreviewInitialBalanceRow[], vouche
   }
 }
 
+function buildPreviewGeneralLedger(rows: PreviewInitialBalanceRow[], vouchers: Voucher[], periodId: string | undefined): GeneralLedgerItem[] {
+  const trialBalance = buildPreviewPeriodTrialBalance(rows, vouchers, periodId)
+  const roundMoney = (value: number) => Math.round(value * 100) / 100
+  const entriesByAccount = new Map<string, GeneralLedgerItem['entries']>()
+  const balances = new Map<string, number>()
+
+  trialBalance.items.forEach((item) => {
+    entriesByAccount.set(item.account_code, [])
+    balances.set(item.account_code, item.opening_debit - item.opening_credit)
+  })
+
+  vouchers
+    .filter((voucher) => voucher.is_deleted !== 1 && (!periodId || voucher.period_id === periodId))
+    .sort((left, right) => left.voucher_date.localeCompare(right.voucher_date) || left.sequence_num - right.sequence_num)
+    .forEach((voucher) => voucher.entries.forEach((entry) => {
+      const isDebit = entry.direction === 'debit' || entry.direction === '借'
+      const currentBalance = balances.get(entry.account_code) || 0
+      const nextBalance = roundMoney(currentBalance + (isDebit ? entry.amount : -entry.amount))
+      balances.set(entry.account_code, nextBalance)
+      const entries = entriesByAccount.get(entry.account_code) || []
+      entries.push({
+        voucher_id: voucher.id,
+        voucher_number: voucher.voucher_number,
+        voucher_date: voucher.voucher_date,
+        summary: entry.summary || voucher.summary || '未记录摘要',
+        direction: isDebit ? 'debit' : 'credit',
+        amount: entry.amount,
+        balance: nextBalance,
+      })
+      entriesByAccount.set(entry.account_code, entries)
+    }))
+
+  return trialBalance.items.map((item) => ({
+    account_code: item.account_code,
+    account_name: item.account_name,
+    account_type: item.account_type,
+    entries: entriesByAccount.get(item.account_code) || [],
+    opening_debit: item.opening_debit,
+    opening_credit: item.opening_credit,
+    period_debit: item.period_debit,
+    period_credit: item.period_credit,
+    closing_debit: item.closing_debit,
+    closing_credit: item.closing_credit,
+  }))
+}
+
 const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
   attachmentCenter: {
     keywordPlaceholder: '搜索附件名称、来源模块、关联单据、上传人',
@@ -8335,27 +8381,36 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'accountSummaryReport' && usesLiveReportData && liveReports.accountSummary) {
+    if (kind === 'accountSummaryReport' && ((usesLiveReportData && liveReports.accountSummary) || !isTauri)) {
+      const accountSummary = isTauri
+        ? liveReports.accountSummary!
+        : buildPreviewGeneralLedger(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
       return {
         ...baseConfig,
-        rows: mapLiveAccountSummaryRows(liveReports.accountSummary),
-        summary: summarizeLiveAccountSummary(liveReports.accountSummary),
+        rows: mapLiveAccountSummaryRows(accountSummary),
+        summary: summarizeLiveAccountSummary(accountSummary),
       }
     }
 
-    if (kind === 'generalLedgerReport' && usesLiveReportData && liveReports.generalLedger) {
+    if (kind === 'generalLedgerReport' && ((usesLiveReportData && liveReports.generalLedger) || !isTauri)) {
+      const generalLedger = isTauri
+        ? liveReports.generalLedger!
+        : buildPreviewGeneralLedger(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
       return {
         ...baseConfig,
-        rows: mapLiveGeneralLedgerRows(liveReports.generalLedger),
-        summary: summarizeLiveGeneralLedger(liveReports.generalLedger),
+        rows: mapLiveGeneralLedgerRows(generalLedger),
+        summary: summarizeLiveGeneralLedger(generalLedger),
       }
     }
 
-    if (kind === 'multiColumnLedgerReport' && usesLiveReportData && liveReports.multiColumnLedger) {
+    if (kind === 'multiColumnLedgerReport' && ((usesLiveReportData && liveReports.multiColumnLedger) || !isTauri)) {
+      const multiColumnLedger = isTauri
+        ? liveReports.multiColumnLedger!
+        : buildPreviewGeneralLedger(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
       return {
         ...baseConfig,
-        rows: mapLiveMultiColumnLedgerRows(liveReports.multiColumnLedger),
-        summary: summarizeLiveMultiColumnLedger(liveReports.multiColumnLedger),
+        rows: mapLiveMultiColumnLedgerRows(multiColumnLedger),
+        summary: summarizeLiveMultiColumnLedger(multiColumnLedger),
       }
     }
 

@@ -343,7 +343,7 @@ const requiredPageSnippets = [
   ['income statement refresh', 'getIncomeStatement(currentPeriodId)'],
   ['cash flow refresh', 'getCashFlowStatement(currentPeriodId)'],
   ['trial balance mapping', 'mapLiveTrialBalanceRows(trialBalance)'],
-  ['general ledger mapping', 'mapLiveGeneralLedgerRows(liveReports.generalLedger)'],
+  ['general ledger mapping', 'mapLiveGeneralLedgerRows(generalLedger)'],
   ['balance sheet mapping', 'mapLiveBalanceSheetRows(liveReports.balanceSheet)'],
   ['income statement mapping', 'mapLiveIncomeStatementRows(liveReports.incomeStatement)'],
   ['cash flow mapping', 'mapLiveCashFlowRows(liveReports.cashFlow)'],
@@ -358,7 +358,7 @@ const requiredPageSnippets = [
   ['subject settings mapping', 'mapLiveSubjectRows(accounts)'],
   ['auxiliary archive mapping', 'mapLiveAuxiliaryArchiveRows(kind, isTauri ? auxiliaryCategories : previewAuxiliaryCategories'],
   ['ledger overview mapping', 'mapLiveLedgerOverviewRows(ledgerOverview)'],
-  ['account summary mapping', 'mapLiveAccountSummaryRows(liveReports.accountSummary)'],
+  ['account summary mapping', 'mapLiveAccountSummaryRows(accountSummary)'],
   ['subsidiary ledger query', 'getSubsidiaryLedger(currentPeriodId, selectedLedgerAccountCode)'],
   ['auxiliary ledger query', 'fetchAuxiliaryLedger({'],
   ['auxiliary balance query', 'fetchAuxiliaryBalance(selectedAuxiliaryCategoryId, currentPeriodId, selectedCompanyId)'],
@@ -1207,7 +1207,7 @@ const requiredMultiColumnLedgerAdapterSnippets = [
 const requiredMultiColumnLedgerPageSnippets = [
   ['multi-column ledger live scope', "'multiColumnLedgerReport'"],
   ['multi-column ledger report request', "kind === 'multiColumnLedgerReport'"],
-  ['multi-column ledger live mapper', 'mapLiveMultiColumnLedgerRows(liveReports.multiColumnLedger)'],
+  ['multi-column ledger live mapper', 'mapLiveMultiColumnLedgerRows(multiColumnLedger)'],
 ]
 const requiredIncomeQuarterAdapterSnippets = [
   ['income quarter row mapper', 'export function mapLiveIncomeQuarterRows'],
