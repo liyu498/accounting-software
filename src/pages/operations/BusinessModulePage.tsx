@@ -8453,15 +8453,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           summary: summarizeLiveOperationAudits(operationAuditLogs),
         }
       }
-      const dynamicRows = auditLogs.map(auditLogToModuleRow)
+      const dynamicRows = isTauri ? [] : auditLogs.map(auditLogToModuleRow)
       return {
         ...baseConfig,
-        rows: [...dynamicRows, ...baseConfig.rows],
+        rows: dynamicRows,
         summary: baseConfig.summary.map((item) => {
-          if (item.label === '日志条数') return { ...item, value: `${dynamicRows.length + 1286} 条` }
-          if (item.label === '普通操作') return { ...item, value: `${dynamicRows.filter((row) => row.values.level === '普通').length + 1214} 条` }
-          if (item.label === '需复核') return { ...item, value: `${dynamicRows.filter((row) => row.status === '待确认').length + 58} 条` }
-          if (item.label === '高风险') return { ...item, value: `${dynamicRows.filter((row) => row.values.level === '高').length + 14} 条` }
+          if (item.label === '日志条数') return { ...item, value: `${dynamicRows.length} 条` }
+          if (item.label === '普通操作') return { ...item, value: `${dynamicRows.filter((row) => row.values.level === '普通').length} 条` }
+          if (item.label === '需复核') return { ...item, value: `${dynamicRows.filter((row) => row.status === '待确认').length} 条` }
+          if (item.label === '高风险') return { ...item, value: `${dynamicRows.filter((row) => row.values.level === '高').length} 条` }
           return item
         }),
       }
@@ -9113,7 +9113,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'attachmentCenter' && (isTauri || localAttachmentRecords.length > 0)) {
+    if (kind === 'attachmentCenter') {
       const dynamicRows = mapLocalAttachmentRows(localAttachmentRecords)
       return {
         ...baseConfig,
@@ -9128,7 +9128,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'importCenter' && (usesLiveImportData || localImportJobs.length > 0)) {
+    if (kind === 'importCenter') {
       const localRows = mapLocalImportJobRows(localImportJobs)
       const localFileNames = new Set(localRows.map((row) => row.values.file))
       const auditRows = usesLiveImportData

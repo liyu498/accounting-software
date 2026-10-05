@@ -506,11 +506,13 @@ const requiredPageSnippets = [
   ['export center browser rows', "if (kind === 'exportCenter' && (usesLiveExportData || !isTauri))"],
   ['export center browser jobs', 'const dynamicRows = isTauri'],
   ['export center audit fetch', "kind === 'auditLog' || kind === 'exportCenter'"],
+  ['audit log browser rows', 'const dynamicRows = isTauri ? [] : auditLogs.map(auditLogToModuleRow)'],
+  ['attachment center local rows', "if (kind === 'attachmentCenter') {\n      const dynamicRows = mapLocalAttachmentRows(localAttachmentRecords)"],
+  ['import center local rows', "if (kind === 'importCenter') {\n      const localRows = mapLocalImportJobRows(localImportJobs)"],
   ['import center live scope', "const usesLiveImportData = Boolean(isTauri && selectedCompanyId && kind === 'importCenter')"],
   ['import center audit mapper', 'function mapOperationAuditImportRows(logs: OperationAuditLog[]): ModuleRow[]'],
   ['import center audit filter', 'function isImportOperationAudit(log: OperationAuditLog)'],
   ['import center upload audit filter', "log.action.includes('上传')"],
-  ['import center local and live rows', "if (kind === 'importCenter' && (usesLiveImportData || localImportJobs.length > 0))"],
   ['import center audit fetch', "kind === 'auditLog' || kind === 'exportCenter' || kind === 'importCenter'"],
   ['module import file ref', 'const importFileRef = useRef<HTMLInputElement>(null)'],
   ['module import capability guard', "const supportsFileImport = /导入|采集|上传/.test(config.importLabel)"],
@@ -901,6 +903,7 @@ const forbiddenBusinessModulePageSnippets = [
   ['generic import follow-up promise', '后续接入文件选择、字段映射、错误清单和回滚记录'],
   ['generic primary-action follow-up promise', '后续会接入对应表单、规则校验和附件快照'],
   ['export center static-sample fallback', "if (kind !== 'exportCenter') return baseConfig\n    const dynamicRows = exportJobs.map(exportJobToModuleRow)"],
+  ['audit log static-sample merge', 'rows: [...dynamicRows, ...baseConfig.rows]'],
 ]
 
 const requiredBackupCommandSnippets = [
