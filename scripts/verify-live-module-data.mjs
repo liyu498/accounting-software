@@ -1128,6 +1128,11 @@ const requiredSettingsOverviewPageSnippets = [
   ['settings overview review action', "if (kind === 'settingsData') {\n      reviewFoundationConfiguration('account')"],
 ]
 
+const forbiddenStaticSettingsOverviewSnippets = [
+  ['static selected-company settings value', "currentValue: '已选择企业'"],
+  ['static accounting-system settings value', "currentValue: '已配置会计制度'"],
+]
+
 const requiredDashboardBankDataSnippets = [
   ['dashboard bank transaction API', 'bankTransactionApi.getBankTransactions'],
   ['dashboard bank transaction state', 'const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])'],
@@ -1691,6 +1696,7 @@ const errors = [
   ...verify(adapterSource, requiredAiTrainingRuleMappingSnippets, 'AI training rule mapping'),
   ...verify(pageSource, requiredAiTrainingReviewSnippets, 'AI training review controls'),
   ...verify(pageSource, requiredSettingsOverviewPageSnippets, 'settings overview module page'),
+  ...verifyAbsent(pageSource, forbiddenStaticSettingsOverviewSnippets, 'settings overview module page'),
   ...verify(readFileSync('src/pages/Dashboard.tsx', 'utf8'), requiredDashboardBankDataSnippets, 'dashboard bank data'),
   ...verify(pageSource, requiredFixedPrintTemplateSnippets, 'fixed print template module page'),
   ...verify(databaseSource, [['asset category schema', 'CREATE TABLE IF NOT EXISTS asset_categories']], 'database schema'),

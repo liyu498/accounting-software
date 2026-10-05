@@ -3947,8 +3947,8 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
     statusOptions: ['全部', '启用', '已通过', '待确认', '停用'],
     summary: [
       { label: '配置范围', value: '4 项', tone: 'blue' },
-      { label: '已配置', value: '4 项', tone: 'green' },
-      { label: '待补信息', value: '0 项', tone: 'gray' },
+      { label: '已配置', value: '1 项', tone: 'green' },
+      { label: '待补信息', value: '3 项', tone: 'amber' },
       { label: '固定模板', value: '5 套', tone: 'gray' },
     ],
     columns: [
@@ -3960,9 +3960,9 @@ const moduleConfigs: Record<ModuleKind, ModuleConfig> = {
       { key: 'updatedAt', label: '更新时间' },
     ],
     rows: [
-      { id: 'set-company', status: '启用', voucher: '-', attachment: '企业资料', values: { name: '账套主体', scope: '当前账套', currentValue: '已选择企业', source: '企业信息', boundary: '企业信息', updatedAt: '-' } },
-      { id: 'set-system', status: '启用', voucher: '-', attachment: '会计制度', values: { name: '会计制度', scope: '当前账套', currentValue: '已配置会计制度', source: '企业信息', boundary: '企业信息', updatedAt: '-' } },
-      { id: 'set-period', status: '待确认', voucher: '-', attachment: '账期', values: { name: '当前账期', scope: '当前账套', currentValue: '待选择账期', source: '账期管理', boundary: '账期管理', updatedAt: '-' } },
+      { id: 'set-company', status: '待确认', voucher: '-', attachment: '企业资料', values: { name: '账套主体', scope: '待选择账套', currentValue: '待维护企业资料', source: '企业信息尚未保存', boundary: '企业信息', updatedAt: '待维护' } },
+      { id: 'set-system', status: '待确认', voucher: '-', attachment: '会计制度', values: { name: '会计制度', scope: '待选择账套', currentValue: '待设置会计制度', source: '待维护所属行业', boundary: '企业信息', updatedAt: '待维护' } },
+      { id: 'set-period', status: '待确认', voucher: '-', attachment: '账期', values: { name: '当前账期', scope: '待选择账套', currentValue: '待选择账期', source: '账期管理尚未创建账期', boundary: '账期管理', updatedAt: '待维护' } },
       { id: 'set-output', status: '已通过', voucher: '-', attachment: '模板清单', values: { name: '固定输出模板', scope: '全局受控', currentValue: '5 套固定模板', source: '导出模板代码', boundary: '打印模板', updatedAt: '随应用版本发布' } },
     ],
     notes: ['设置总览仅聚合当前账套的配置边界；客户、供应商、项目和部门档案应在各自模块维护。', '固定输出模板随应用版本受控发布，不能在此页伪造可编辑的版式配置。'],
