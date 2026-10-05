@@ -2268,7 +2268,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                 <div key={item} className="rounded border border-slate-200 bg-white p-2 text-xs text-slate-700">
                   <div className="mb-1 flex items-center gap-1 font-medium text-slate-900">
                     {index === 0 ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> : <CheckCircle2 className="h-3.5 w-3.5 text-[#1f65a7]" />}
-                    {index + 1}. 待处理
+                    {index + 1}. {pageConfig.queueTitle}
                   </div>
                   {item}
                 </div>

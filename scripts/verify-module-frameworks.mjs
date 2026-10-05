@@ -120,6 +120,8 @@ const errors = [
   ...(!agencySource.includes("const agencyEmptyTitle = isFilteredAgencyListEmpty ? '没有符合当前条件的记录' : `暂无${pageConfig.title}`") ? ['agency empty-state titles must derive from the active module configuration'] : []),
   ...(!agencySource.includes('请通过“${agencyEmptyActionLabel}”开始当前工作。') ? ['agency empty states must guide users to the active module workflow'] : []),
   ...(!agencySource.includes('清除筛选并显示当前工作区记录') ? ['agency lists must let users recover from an empty filtered result'] : []),
+  ...(agencySource.includes('{index + 1}. 待处理') ? ['agency instruction cards must not present every module instruction as a pending task'] : []),
+  ...(!agencySource.includes('{index + 1}. {pageConfig.queueTitle}') ? ['agency instruction cards must identify the active module rule or control context'] : []),
   ...(!businessSource.includes('getModuleListMeta') ? ['business list metadata must be derived per module domain'] : []),
   ...(!businessSource.includes('const metadata: Record<ModuleKind, ModuleListMeta>') ? ['business list metadata must directly cover every module kind'] : []),
   ...(!businessSource.includes("kind === 'contractLedger' ? ['业务合同', '采购合同', '销售合同', '技术合同']") ? ['contract editor must use contract-specific business types'] : []),
