@@ -55,7 +55,7 @@ function formatCompanyTaxType(value: string | null | undefined) {
   return value || '待设置'
 }
 
-function formatAccountingSystem(value: string | null | undefined) {
+export function formatAccountingSystem(value: string | null | undefined) {
   if (value === 'small_enterprise') return '小企业会计准则'
   if (value === 'enterprise') return '企业会计准则'
   if (value === 'non_profit') return '民间非营利组织会计制度'

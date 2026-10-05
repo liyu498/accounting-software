@@ -1093,7 +1093,10 @@ const requiredAiTrainingReviewSnippets = [
 
 const requiredSettingsOverviewPageSnippets = [
   ['settings overview live scope', "const usesLiveSettingsOverviewData = Boolean(isTauri && selectedCompanyId && kind === 'settingsData')"],
-  ['settings overview live mapping', "if (kind === 'settingsData' && usesLiveSettingsOverviewData)"],
+  ['settings overview browser mapping', "if (kind === 'settingsData' && (usesLiveSettingsOverviewData || !isTauri))"],
+  ['settings overview preview company', 'const settingsCompany = isTauri ? selectedCompany : previewCompanyInfo ? buildPreviewCompanyInfo(previewCompanyInfo) : undefined'],
+  ['settings overview preview period', 'const settingsPeriod = isTauri ? currentPeriod : voucherEditorPeriod'],
+  ['settings overview accounting-system label', 'formatAccountingSystem(settingsCompany?.accounting_system)'],
   ['settings overview company row', "name: '账套主体'"],
   ['settings overview period row', "name: '当前账期'"],
   ['settings overview output row', "name: '固定输出模板'"],

@@ -74,6 +74,7 @@ import {
   mapLiveFinanceTaxReportRows,
   mapLiveFinancialOverviewRows,
   mapLiveVoucherTemplateRows,
+  formatAccountingSystem,
   summarizeLiveBalanceSheet,
   summarizeLiveEquityChange,
   summarizeLiveCashFlow,
@@ -8864,19 +8865,27 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'settingsData' && usesLiveSettingsOverviewData) {
+    if (kind === 'settingsData' && (usesLiveSettingsOverviewData || !isTauri)) {
+      const settingsCompany = isTauri ? selectedCompany : previewCompanyInfo ? buildPreviewCompanyInfo(previewCompanyInfo) : undefined
+      const settingsPeriod = isTauri ? currentPeriod : voucherEditorPeriod
+      const settingsPeriodLabel = settingsPeriod
+        ? `${settingsPeriod.period_year}-${String(settingsPeriod.period_month).padStart(2, '0')}`
+        : '待创建账期'
+      const settingsPeriodSource = settingsPeriod
+        ? `${settingsPeriodLabel}（${settingsPeriod.status === 'closed' ? '已结账' : '开放中'}）`
+        : '账期管理尚未创建账期'
       const settingsRows: ModuleRow[] = [
         {
-          id: 'setting-company', status: selectedCompany?.is_active ? '启用' : '停用', voucher: '-', attachment: '企业资料',
-          values: { name: '账套主体', scope: '当前账套', currentValue: selectedCompany?.name || '未选择企业', source: selectedCompany?.tax_id || '待维护纳税人识别号', boundary: '企业信息', updatedAt: selectedCompany?.updated_at || '-' },
+          id: 'setting-company', status: settingsCompany ? (settingsCompany.is_active ? '启用' : '停用') : '待确认', voucher: '-', attachment: '企业资料',
+          values: { name: '账套主体', scope: '当前账套', currentValue: settingsCompany?.name || '待维护企业资料', source: settingsCompany?.tax_id || '企业信息尚未保存', boundary: '企业信息', updatedAt: settingsCompany?.updated_at || '待维护' },
         },
         {
-          id: 'setting-system', status: selectedCompany?.accounting_system ? '启用' : '待确认', voucher: '-', attachment: '会计制度',
-          values: { name: '会计制度', scope: '当前账套', currentValue: selectedCompany?.accounting_system || '待维护会计制度', source: selectedCompany?.industry || '待维护行业', boundary: '企业信息', updatedAt: selectedCompany?.updated_at || '-' },
+          id: 'setting-system', status: settingsCompany?.accounting_system ? '启用' : '待确认', voucher: '-', attachment: '会计制度',
+          values: { name: '会计制度', scope: '当前账套', currentValue: formatAccountingSystem(settingsCompany?.accounting_system), source: settingsCompany?.industry || '待维护所属行业', boundary: '企业信息', updatedAt: settingsCompany?.updated_at || '待维护' },
         },
         {
-          id: 'setting-period', status: currentPeriod ? '启用' : '待确认', voucher: '-', attachment: '账期',
-          values: { name: '当前账期', scope: '当前账套', currentValue: currentPeriodLabel, source: currentPeriod ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}` : '未选择账期', boundary: '账期管理', updatedAt: currentPeriod?.updated_at || '-' },
+          id: 'setting-period', status: settingsPeriod ? '启用' : '待确认', voucher: '-', attachment: '账期',
+          values: { name: '当前账期', scope: '当前账套', currentValue: settingsPeriodLabel, source: settingsPeriodSource, boundary: '账期管理', updatedAt: settingsPeriod?.updated_at || '待维护' },
         },
         {
           id: 'setting-output', status: '已通过', voucher: '-', attachment: '模板清单',
