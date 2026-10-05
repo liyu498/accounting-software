@@ -1429,10 +1429,14 @@ function savePreviewInvoiceMatchCandidates(invoices: PreviewInvoiceMatchCandidat
 }
 
 function previewInvoiceVoucherCoreStorageKey() {
-  return 'accounting-preview-invoice-voucher-core-data-v1'
+  return 'accounting-preview-invoice-voucher-core-data-v2'
 }
 
-function clonePreviewInvoiceVoucherCoreData(data: PreviewInvoiceVoucherCoreData = previewInvoiceVoucherCoreSeed): PreviewInvoiceVoucherCoreData {
+function emptyPreviewInvoiceVoucherCoreData(): PreviewInvoiceVoucherCoreData {
+  return { invoices: [], vouchers: [], invoiceTagIds: {}, voucherTagIds: {} }
+}
+
+function clonePreviewInvoiceVoucherCoreData(data: PreviewInvoiceVoucherCoreData = emptyPreviewInvoiceVoucherCoreData()): PreviewInvoiceVoucherCoreData {
   return {
     invoices: data.invoices.map((invoice) => ({ ...invoice })),
     vouchers: data.vouchers.map((voucher) => ({ ...voucher, entries: voucher.entries.map((entry) => ({ ...entry })) })),
@@ -1454,16 +1458,7 @@ function loadPreviewInvoiceVoucherCoreData(): PreviewInvoiceVoucherCoreData {
     // Migrate the earlier matching-only preview state below when the core state is unavailable.
   }
 
-  const legacyMatches = loadPreviewInvoiceMatchCandidates()
-  const core = fallback()
-  return {
-    ...core,
-    invoices: core.invoices.map((invoice) => {
-      const legacy = legacyMatches.find((candidate) => candidate.id === invoice.id)
-      if (!legacy?.voucher_id) return invoice
-      return { ...invoice, voucher_id: legacy.voucher_id, status: 'matched' }
-    }),
-  }
+  return fallback()
 }
 
 function savePreviewInvoiceVoucherCoreData(data: PreviewInvoiceVoucherCoreData) {
@@ -1476,10 +1471,14 @@ function savePreviewInvoiceVoucherCoreData(data: PreviewInvoiceVoucherCoreData) 
 }
 
 function previewPeopleStorageKey() {
-  return 'accounting-preview-people-data-v1'
+  return 'accounting-preview-people-data-v2'
 }
 
-function clonePreviewPeopleData(data: PreviewPeopleData = previewPeopleSeed): PreviewPeopleData {
+function emptyPreviewPeopleData(): PreviewPeopleData {
+  return { employees: [], payrollRecords: [], socialSecurityRecords: [], specialDeductionRecords: [] }
+}
+
+function clonePreviewPeopleData(data: PreviewPeopleData = emptyPreviewPeopleData()): PreviewPeopleData {
   return {
     employees: data.employees.map((employee) => ({ ...employee })),
     payrollRecords: data.payrollRecords.map((record) => ({ ...record })),
@@ -6634,6 +6633,7 @@ function vatPreviewInputs(invoices: Invoice[]) {
 }
 
 function mapLiveVatTaxRows(invoices: Invoice[]): ModuleRow[] {
+  if (invoices.length === 0) return []
   const preview = vatPreviewInputs(invoices)
   return [
     {
