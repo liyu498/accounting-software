@@ -625,37 +625,6 @@ const previewInitialBalanceSeed: PreviewInitialBalanceRow[] = [
   { accountCode: '4001', accountName: '实收资本', accountType: '所有者权益类', isDetail: true, openingDebit: 0, openingCredit: 362000, sourceNote: '期初导入表' },
 ]
 
-const previewTaxDeclarationTaskSeed: TaxDeclarationTask[] = [
-  {
-    id: 'preview-tax-vat-2026-05', companyId: 'browser-preview', companyName: '科旋电气（上海）有限公司', period: '2026-05',
-    taxType: '增值税及附加', formName: '增值税及附加申报表', collectStatus: 'collected', validationStatus: 'passed', declarationStatus: 'confirmed',
-    sourceSnapshot: '销项发票、进项勾选已人工复核', taxableAmount: 680000, deductionAmount: 42860, payableAmount: 54210, riskCount: 0,
-    adapterCode: null, confirmedBy: '王会计', confirmedAt: '2026-06-26 09:30', receiptNo: null, paymentStatus: '待缴款', paymentNo: null,
-    receiptReceivedAt: null, createdAt: '2026-06-26 09:20', updatedAt: '2026-06-26 09:30',
-  },
-  {
-    id: 'preview-tax-income-2026-05', companyId: 'browser-preview', companyName: '科旋电气（上海）有限公司', period: '2026-05',
-    taxType: '企业所得税', formName: '企业所得税月（季）度预缴申报表', collectStatus: 'collected', validationStatus: 'passed', declarationStatus: 'archived',
-    sourceSnapshot: '利润表与纳税调整明细已人工复核', taxableAmount: 386200, deductionAmount: 0, payableAmount: 18420, riskCount: 0,
-    adapterCode: null, confirmedBy: '李会计', confirmedAt: '2026-06-26 09:35', receiptNo: 'PREVIEW-REC-202605-01', paymentStatus: '已缴款', paymentNo: 'PREVIEW-PAY-202605-01',
-    receiptReceivedAt: '2026-06-26 09:40', createdAt: '2026-06-26 09:25', updatedAt: '2026-06-26 09:40',
-  },
-  {
-    id: 'preview-tax-finance-2026-05', companyId: 'browser-preview', companyName: '科旋电气（上海）有限公司', period: '2026-05',
-    taxType: '财务报表报送', formName: '资产负债表（季报）', collectStatus: 'collected', validationStatus: 'passed', declarationStatus: 'draft',
-    sourceSnapshot: '资产负债表勾稽结果', taxableAmount: 0, deductionAmount: 0, payableAmount: 0, riskCount: 0,
-    adapterCode: null, confirmedBy: null, confirmedAt: null, receiptNo: null, paymentStatus: '无需缴款', paymentNo: null,
-    receiptReceivedAt: null, createdAt: '2026-06-26 09:28', updatedAt: '2026-06-26 09:28',
-  },
-  {
-    id: 'preview-tax-non-tax-2026-05', companyId: 'browser-preview', companyName: '科旋电气（上海）有限公司', period: '2026-05',
-    taxType: '工会经费', formName: '上海市工会经费计费口径', collectStatus: 'collected', validationStatus: 'pending', declarationStatus: 'draft',
-    sourceSnapshot: '工资表与费用台账待人工核验', taxableAmount: 103870, deductionAmount: 0, payableAmount: 2077.4, riskCount: 1,
-    adapterCode: null, confirmedBy: null, confirmedAt: null, receiptNo: null, paymentStatus: 'unrecorded', paymentNo: null,
-    receiptReceivedAt: null, createdAt: '2026-06-26 09:32', updatedAt: '2026-06-26 09:32',
-  },
-]
-
 const previewAiQueueJobSeed: AutomationJob[] = [
   {
     id: 'AI-20260626-001', companyId: 'browser-preview', companyName: null, period: '2026-05', jobType: 'voucher_suggestion',
@@ -1756,31 +1725,6 @@ function savePreviewAiQueueJobs(jobs: AutomationJob[]) {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(previewAiQueueJobStorageKey(), JSON.stringify(jobs))
-  } catch {
-    // The preview remains usable for the current view when local storage is unavailable.
-  }
-}
-
-function previewTaxDeclarationTaskStorageKey() {
-  return 'accounting-preview-tax-declaration-tasks-v1'
-}
-
-function loadPreviewTaxDeclarationTasks(): TaxDeclarationTask[] {
-  const fallback = () => previewTaxDeclarationTaskSeed.map((task) => ({ ...task }))
-  if (typeof window === 'undefined') return fallback()
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(previewTaxDeclarationTaskStorageKey()) || 'null')
-    if (!Array.isArray(parsed) || !parsed.every((task) => typeof task?.id === 'string' && typeof task.taxType === 'string' && typeof task.formName === 'string')) return fallback()
-    return parsed as TaxDeclarationTask[]
-  } catch {
-    return fallback()
-  }
-}
-
-function savePreviewTaxDeclarationTasks(tasks: TaxDeclarationTask[]) {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(previewTaxDeclarationTaskStorageKey(), JSON.stringify(tasks))
   } catch {
     // The preview remains usable for the current view when local storage is unavailable.
   }
@@ -7173,12 +7117,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const usesLiveBackupData = Boolean(isTauri && selectedCompanyId && kind === 'backupRestore')
   const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)
   const usesLiveVoucherRecycleData = Boolean(isTauri && selectedCompanyId && kind === 'voucherRecycle')
-  const usesLiveDeclarationReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'declarationReceipt')
-  const usesLiveDeclarationCalendarData = Boolean(isTauri && selectedCompanyId && kind === 'declarationCalendar')
-  const usesLiveTaxInitData = Boolean(isTauri && selectedCompanyId && kind === 'taxInit')
-  const usesLiveTaxReportData = Boolean(isTauri && selectedCompanyId && kind === 'taxReport')
-  const usesLiveFinanceTaxReportData = Boolean(isTauri && selectedCompanyId && kind === 'financeTaxReport')
-  const usesLiveNonTaxRevenueData = Boolean(isTauri && selectedCompanyId && kind === 'nonTaxRevenueReport')
+  const usesTaxDeclarationTaskData = Boolean((isTauri && selectedCompanyId) || !isTauri)
+  const usesLiveDeclarationReceiptData = Boolean(usesTaxDeclarationTaskData && kind === 'declarationReceipt')
+  const usesLiveDeclarationCalendarData = Boolean(usesTaxDeclarationTaskData && kind === 'declarationCalendar')
+  const usesLiveTaxInitData = Boolean(usesTaxDeclarationTaskData && kind === 'taxInit')
+  const usesLiveTaxReportData = Boolean(usesTaxDeclarationTaskData && kind === 'taxReport')
+  const usesLiveFinanceTaxReportData = Boolean(usesTaxDeclarationTaskData && kind === 'financeTaxReport')
+  const usesLiveNonTaxRevenueData = Boolean(usesTaxDeclarationTaskData && kind === 'nonTaxRevenueReport')
+  const taxTaskCompanyId = selectedCompanyId || 'browser-preview-company'
   const usesLiveFinancialOverviewData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'financialReport')
   const usesLiveClosingTaskData = Boolean(isTauri && selectedCompanyId && currentPeriodId && kind === 'closingTasks')
   const usesLiveInvoiceVoucherMatchingData = Boolean(isTauri && selectedCompanyId && kind === 'invoiceVoucherMatching')
@@ -7642,15 +7588,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [loadedVoucher, setLoadedVoucher] = useState<Voucher | null>(null)
   const [deletedVouchers, setDeletedVouchers] = useState<Voucher[]>([])
   const [taxDeclarationTasks, setTaxDeclarationTasks] = useState<TaxDeclarationTask[]>([])
-  const [previewTaxDeclarationTasks, setPreviewTaxDeclarationTasks] = useState(loadPreviewTaxDeclarationTasks)
-  const effectiveTaxDeclarationTasks = isTauri ? taxDeclarationTasks : previewTaxDeclarationTasks
-  const updatePreviewTaxDeclarationTasks = (update: (tasks: TaxDeclarationTask[]) => TaxDeclarationTask[]) => {
-    setPreviewTaxDeclarationTasks((tasks) => {
-      const nextTasks = update(tasks)
-      savePreviewTaxDeclarationTasks(nextTasks)
-      return nextTasks
-    })
-  }
+  const effectiveTaxDeclarationTasks = taxDeclarationTasks
   const [showDeclarationReceiptDialog, setShowDeclarationReceiptDialog] = useState(false)
   const [declarationReceiptDraft, setDeclarationReceiptDraft] = useState({ taskId: '', receiptNo: '', paymentStatus: '未记录', paymentNo: '', receivedAt: '' })
   const [showTaxInitDialog, setShowTaxInitDialog] = useState(false)
@@ -8242,16 +8180,41 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [getDeletedVouchers, selectedCompanyId, usesLiveVoucherRecycleData])
 
   useEffect(() => {
-    if (!(usesLiveDeclarationReceiptData || usesLiveDeclarationCalendarData || usesLiveTaxInitData || usesLiveTaxReportData || usesLiveFinanceTaxReportData || usesLiveNonTaxRevenueData) || !selectedCompanyId) return
+    if (!(usesLiveDeclarationReceiptData || usesLiveDeclarationCalendarData || usesLiveTaxInitData || usesLiveTaxReportData || usesLiveFinanceTaxReportData || usesLiveNonTaxRevenueData)) return
     let active = true
-    void automationApi.getTaxDeclarationTasks({ companyId: selectedCompanyId })
+    void automationApi.getTaxDeclarationTasks({ companyId: taxTaskCompanyId })
       .then((result) => {
         if (active) setTaxDeclarationTasks(result.success ? result.data || [] : [])
       })
     return () => {
       active = false
     }
-  }, [selectedCompanyId, usesLiveDeclarationReceiptData, usesLiveDeclarationCalendarData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveFinanceTaxReportData, usesLiveNonTaxRevenueData])
+  }, [taxTaskCompanyId, usesLiveDeclarationReceiptData, usesLiveDeclarationCalendarData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveFinanceTaxReportData, usesLiveNonTaxRevenueData])
+
+  const saveTaxDeclarationTask = async (input: {
+    period: string
+    taxType: string
+    formName: string
+    collectStatus?: string
+    validationStatus?: string
+    declarationStatus?: string
+    sourceSnapshot?: string
+    taxableAmount?: number
+    deductionAmount?: number
+    payableAmount?: number
+    riskCount?: number
+    adapterCode?: string
+    receiptNo?: string
+    paymentStatus?: string
+    paymentNo?: string
+    receiptReceivedAt?: string
+  }) => {
+    const result = await automationApi.upsertTaxDeclarationTask({ companyId: taxTaskCompanyId, ...input })
+    if (result.success && result.data) {
+      setTaxDeclarationTasks((tasks) => [result.data!, ...tasks.filter((task) => task.id !== result.data!.id)])
+    }
+    return result
+  }
 
   useEffect(() => {
     if (!usesLiveAutomationJobData || !selectedCompanyId) return
@@ -9667,47 +9630,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleSaveNonTaxRevenue = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const riskCount = Number(nonTaxRevenueDraft.riskCount || 0)
-    if (!isTauri) {
-      const timestamp = new Date().toLocaleString('zh-CN')
-      const task: TaxDeclarationTask = {
-        id: `preview-non-tax-${Date.now()}`,
-        companyId: 'browser-preview',
-        companyName: previewCompanyInfo?.name || '科旋电气（上海）有限公司',
-        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
-        taxType: nonTaxRevenueDraft.item,
-        formName: nonTaxRevenueDraft.policy.trim() || '待补地区政策',
-        collectStatus: 'collected',
-        validationStatus: riskCount > 0 ? 'pending' : 'passed',
-        declarationStatus: nonTaxRevenueDraft.receiptNo.trim() ? 'archived' : 'draft',
-        sourceSnapshot: nonTaxRevenueDraft.source.trim() || '待补计费依据',
-        taxableAmount: Number(nonTaxRevenueDraft.basisAmount || 0),
-        deductionAmount: 0,
-        payableAmount: Number(nonTaxRevenueDraft.payableAmount || 0),
-        riskCount,
-        adapterCode: null,
-        confirmedBy: null,
-        confirmedAt: null,
-        receiptNo: nonTaxRevenueDraft.receiptNo.trim() || null,
-        paymentStatus: 'unrecorded',
-        paymentNo: null,
-        receiptReceivedAt: null,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      }
-      updatePreviewTaxDeclarationTasks((tasks) => [task, ...tasks])
-      setShowNonTaxRevenueDialog(false)
-      setNonTaxRevenueDraft({ item: '工会经费', policy: '', source: '', basisAmount: '', payableAmount: '', receiptNo: '', riskCount: '0' })
-      writeModuleAudit('预览新增非税缴费事项', `${task.taxType}｜${task.period}`, '中', '成功')
-      setOperationNotice('非税缴费事项已保存到当前预览；金额、地区政策与缴款书仍需人工核验，系统不会提交申报、生成缴款书或发起扣款。')
-      return
-    }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') {
+    if (isTauri && (!selectedCompanyId || currentPeriodLabel === '当前账期')) {
       setOperationNotice('请先选择账套和账期，再登记非税缴费事项。')
       return
     }
-    const result = await automationApi.upsertTaxDeclarationTask({
-      companyId: selectedCompanyId,
-      period: currentPeriodLabel,
+    const result = await saveTaxDeclarationTask({
+      period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
       taxType: nonTaxRevenueDraft.item,
       formName: nonTaxRevenueDraft.policy.trim() || '待补地区政策',
       collectStatus: 'collected',
@@ -9723,7 +9651,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice(`保存非税缴费事项失败：${result.error || '未知错误'}`)
       return
     }
-    setTaxDeclarationTasks((tasks) => [result.data!, ...tasks.filter((task) => task.id !== result.data!.id)])
     setShowNonTaxRevenueDialog(false)
     setNonTaxRevenueDraft({ item: '工会经费', policy: '', source: '', basisAmount: '', payableAmount: '', receiptNo: '', riskCount: '0' })
     writeModuleAudit('新增非税缴费事项', `${result.data.taxType}｜${result.data.period}`, '中', '成功')
@@ -9748,33 +9675,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice('请选择需要归档的申报事项。')
       return
     }
-    if (!isTauri) {
-      const timestamp = new Date().toLocaleString('zh-CN')
-      const receiptNo = declarationReceiptDraft.receiptNo.trim() || null
-      const updatedTask: TaxDeclarationTask = {
-        ...task,
-        declarationStatus: receiptNo ? 'archived' : task.declarationStatus,
-        receiptNo,
-        paymentStatus: declarationReceiptDraft.paymentStatus === '未记录' ? 'unrecorded' : declarationReceiptDraft.paymentStatus,
-        paymentNo: declarationReceiptDraft.paymentNo.trim() || null,
-        receiptReceivedAt: declarationReceiptDraft.receivedAt ? declarationReceiptDraft.receivedAt.replace('T', ' ') : task.receiptReceivedAt,
-        updatedAt: timestamp,
-      }
-      updatePreviewTaxDeclarationTasks((tasks) => tasks.map((item) => item.id === updatedTask.id ? updatedTask : item))
-      setShowDeclarationReceiptDialog(false)
-      writeModuleAudit('预览归档回执缴款台账', `${updatedTask.taxType}｜${updatedTask.period}`, '中', '成功')
-      setOperationNotice('回执与缴款信息已保存到当前预览；不会发起税局申报、银行扣款或外部回执校验。')
-      return
-    }
-    if (!selectedCompanyId) return
-    const result = await automationApi.upsertTaxDeclarationTask({
-      companyId: task.companyId,
+    const result = await saveTaxDeclarationTask({
       period: task.period,
       taxType: task.taxType,
       formName: task.formName,
       collectStatus: task.collectStatus,
       validationStatus: task.validationStatus,
-      declarationStatus: task.declarationStatus,
+      declarationStatus: declarationReceiptDraft.receiptNo.trim() ? 'archived' : task.declarationStatus,
       sourceSnapshot: task.sourceSnapshot || undefined,
       taxableAmount: task.taxableAmount,
       deductionAmount: task.deductionAmount,
@@ -9790,7 +9697,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice(`保存回执缴款台账失败：${result.error || '未知错误'}`)
       return
     }
-    setTaxDeclarationTasks((tasks) => [result.data!, ...tasks.filter((item) => item.id !== result.data!.id)])
     setShowDeclarationReceiptDialog(false)
     writeModuleAudit('归档回执缴款台账', `${result.data.taxType}｜${result.data.period}`, '中', '成功')
     setOperationNotice('回执与缴款信息已登记到本地台账；外部申报、扣款和回执真实性仍需通过合法渠道人工核验。')
@@ -9806,46 +9712,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleSaveTaxInit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const existing = effectiveTaxDeclarationTasks.find((task) => task.id === taxInitDraft.taskId)
-    if (!isTauri) {
-      const timestamp = new Date().toLocaleString('zh-CN')
-      const task: TaxDeclarationTask = {
-        id: existing?.id || `preview-tax-init-${Date.now()}`,
-        companyId: 'browser-preview',
-        companyName: previewCompanyInfo?.name || '科旋电气（上海）有限公司',
-        period: existing?.period || (currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel),
-        taxType: taxInitDraft.taxType.trim(),
-        formName: taxInitDraft.formName.trim(),
-        collectStatus: taxInitDraft.collectStatus,
-        validationStatus: taxInitDraft.validationStatus,
-        declarationStatus: existing?.declarationStatus || 'draft',
-        sourceSnapshot: taxInitDraft.sourceSnapshot.trim() || null,
-        taxableAmount: Number(taxInitDraft.taxableAmount || 0),
-        deductionAmount: existing?.deductionAmount || 0,
-        payableAmount: Number(taxInitDraft.payableAmount || 0),
-        riskCount: Number(taxInitDraft.riskCount || 0),
-        adapterCode: taxInitDraft.adapterCode.trim() || null,
-        confirmedBy: existing?.confirmedBy || null,
-        confirmedAt: existing?.confirmedAt || null,
-        receiptNo: existing?.receiptNo || null,
-        paymentStatus: existing?.paymentStatus || 'unrecorded',
-        paymentNo: existing?.paymentNo || null,
-        receiptReceivedAt: existing?.receiptReceivedAt || null,
-        createdAt: existing?.createdAt || timestamp,
-        updatedAt: timestamp,
-      }
-      updatePreviewTaxDeclarationTasks((tasks) => [task, ...tasks.filter((item) => item.id !== task.id)])
-      setShowTaxInitDialog(false)
-      writeModuleAudit(existing ? '预览编辑申报认定事项' : '预览新增申报认定事项', `${task.taxType}｜${task.formName}`, '高', '成功')
-      setOperationNotice('申报认定事项已保存到当前预览；取数、确认、外部提交和缴款仍需分别人工核验，系统不会登录税局或提交申报。')
-      return
-    }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') {
+    if (isTauri && (!selectedCompanyId || currentPeriodLabel === '当前账期')) {
       setOperationNotice('请先选择账套和账期，再维护申报认定事项。')
       return
     }
-    const result = await automationApi.upsertTaxDeclarationTask({
-      companyId: selectedCompanyId,
-      period: existing?.period || currentPeriodLabel,
+    const result = await saveTaxDeclarationTask({
+      period: existing?.period || (currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel),
       taxType: taxInitDraft.taxType.trim(),
       formName: taxInitDraft.formName.trim(),
       collectStatus: taxInitDraft.collectStatus,
@@ -9866,7 +9738,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice(`保存申报认定事项失败：${result.error || '未知错误'}`)
       return
     }
-    setTaxDeclarationTasks((tasks) => [result.data!, ...tasks.filter((task) => task.id !== result.data!.id)])
     setShowTaxInitDialog(false)
     writeModuleAudit(existing ? '编辑申报认定事项' : '新增申报认定事项', `${result.data.taxType}｜${result.data.formName}`, '高', '成功')
     setOperationNotice('申报认定事项已保存到本地账套；取数、申报确认和外部提交仍需分别人工核验。')
@@ -10074,7 +9945,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'declarationCalendar') {
-      runDeclarationPlanning()
+      await runDeclarationPlanning()
       return
     }
     if (kind === 'socialSecurity') {
@@ -12328,22 +12199,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (!await requestBusinessRiskConfirmation('确认本地申报事项', `确认 ${task.taxType}（${task.period}）的本地申报事项吗？此操作仅记录人工确认，不会向税局提交或触发扣款。`, '确认本地事项')) return
-    if (!isTauri) {
-      const timestamp = new Date().toLocaleString('zh-CN')
-      const updatedTask: TaxDeclarationTask = {
-        ...task,
-        declarationStatus: 'confirmed',
-        confirmedBy: 'admin',
-        confirmedAt: timestamp,
-        updatedAt: timestamp,
-      }
-      updatePreviewTaxDeclarationTasks((tasks) => tasks.map((item) => item.id === updatedTask.id ? updatedTask : item))
-      writeModuleAudit('确认预览申报事项', `${updatedTask.taxType}｜${updatedTask.period}`, '高', '成功')
-      setOperationNotice(`${updatedTask.taxType}已完成当前预览的人工确认；不会向税局提交、发起扣款或收取外部回执。`)
-      return
-    }
-    if (!selectedCompanyId) return
-    const result = await automationApi.confirmTaxDeclarationTask({ id: task.id, companyId: selectedCompanyId, confirmedBy: 'admin' })
+    const result = await automationApi.confirmTaxDeclarationTask({
+      id: task.id,
+      companyId: task.companyId || taxTaskCompanyId,
+      confirmedBy: 'admin',
+    })
     if (!result.success || !result.data) {
       setOperationNotice(`确认申报事项失败：${result.error || '未知错误'}`)
       return
@@ -14124,23 +13984,39 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice('已登记税务取数复核。税务认定、发票勾选、工资社保、纳税调整和地区政策需完成校验后才能生成待确认申报包。')
   }
 
-  const runDeclarationPlanning = () => {
-    if (!isTauri) {
-      const timestamp = new Date().toLocaleString('zh-CN')
-      const planCount = effectiveTaxDeclarationTasks.filter((task) => task.declarationStatus === 'draft').length
-      if (planCount === 0) {
-        setOperationNotice('当前预览没有待生成计划的申报事项；已生成计划、已确认或已归档的任务请在对应清单中继续人工复核。')
-        return
-      }
-      updatePreviewTaxDeclarationTasks((tasks) => tasks.map((task) => task.declarationStatus === 'draft'
-        ? { ...task, declarationStatus: 'planned', updatedAt: timestamp }
-        : task))
-      writeModuleAudit('预览生成申报计划', `${currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel}｜${planCount} 项待办`, '高', '成功')
-      setOperationNotice(`已为当前预览生成 ${planCount} 项本地申报计划；计划仅整理税种、所属期与复核节点，不会向税务机关提交申报或发起扣款。`)
+  const runDeclarationPlanning = async () => {
+    const pendingTasks = effectiveTaxDeclarationTasks.filter((task) => task.declarationStatus === 'draft')
+    if (pendingTasks.length === 0) {
+      setOperationNotice('当前没有待生成计划的申报事项；已生成计划、已确认或已归档的任务请在对应清单中继续人工复核。')
       return
     }
-    writeModuleAudit('生成申报计划', `${currentPeriodLabel}｜税种认定与截止日`, '高', '待审批')
-    setOperationNotice('已生成当前账期本地申报计划复核记录。计划依据税种认定、所属期和截止日整理，不会自动向税务机关提交申报或发起扣款。')
+    const results = await Promise.all(pendingTasks.map((task) => saveTaxDeclarationTask({
+      period: task.period,
+      taxType: task.taxType,
+      formName: task.formName,
+      collectStatus: task.collectStatus,
+      validationStatus: task.validationStatus,
+      declarationStatus: 'planned',
+      sourceSnapshot: task.sourceSnapshot || undefined,
+      taxableAmount: task.taxableAmount,
+      deductionAmount: task.deductionAmount,
+      payableAmount: task.payableAmount,
+      riskCount: task.riskCount,
+      adapterCode: task.adapterCode || undefined,
+      receiptNo: task.receiptNo || undefined,
+      paymentStatus: task.paymentStatus,
+      paymentNo: task.paymentNo || undefined,
+      receiptReceivedAt: task.receiptReceivedAt || undefined,
+    })))
+    const savedCount = results.filter((result) => result.success && result.data).length
+    if (savedCount === 0) {
+      setOperationNotice(`生成本地申报计划失败：${results.find((result) => result.error)?.error || '未知错误'}`)
+      return
+    }
+    writeModuleAudit('生成申报计划', `${currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel}｜${savedCount} 项待办`, '高', savedCount === pendingTasks.length ? '成功' : '失败')
+    setOperationNotice(savedCount === pendingTasks.length
+      ? `已生成 ${savedCount} 项本地申报计划；计划仅整理税种、所属期与复核节点，不会向税务机关提交申报或发起扣款。`
+      : `已生成 ${savedCount}/${pendingTasks.length} 项本地申报计划；失败事项需刷新后复核，系统未向外部平台提交。`)
   }
 
   const prepareSocialSecurityVoucher = () => {

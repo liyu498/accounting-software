@@ -636,7 +636,10 @@ async function browserInvoke<T>(cmd: string, _args?: Record<string, unknown>): P
     const period = asPreviewText(input.period, new Date().toISOString().slice(0, 7))
     const taxType = asPreviewText(input.tax_type)
     const existing = data.taxDeclarationTasks.find((item) => (
-      item.company_id === companyId && item.period === period && item.tax_type === taxType
+      item.company_id === companyId
+      && item.period === period
+      && item.tax_type === taxType
+      && item.form_name === asPreviewText(input.form_name)
     ))
     const record: BrowserTaxDeclarationTask = {
       id: existing?.id || browserAgencyId('tax-declaration'),

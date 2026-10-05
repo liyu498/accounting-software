@@ -477,6 +477,11 @@ const requiredPageSnippets = [
   ['tax init live scope', 'usesLiveTaxInitData'],
   ['tax report mapping', 'mapLiveTaxReportRows(effectiveTaxDeclarationTasks)'],
   ['tax report live scope', 'usesLiveTaxReportData'],
+  ['shared browser tax task scope', "const usesTaxDeclarationTaskData = Boolean((isTauri && selectedCompanyId) || !isTauri)"],
+  ['shared browser tax task company', "const taxTaskCompanyId = selectedCompanyId || 'browser-preview-company'"],
+  ['shared browser tax task state', 'const effectiveTaxDeclarationTasks = taxDeclarationTasks'],
+  ['shared browser tax task refresh', 'automationApi.getTaxDeclarationTasks({ companyId: taxTaskCompanyId })'],
+  ['shared browser tax task upsert', 'const saveTaxDeclarationTask = async (input: {'],
   ['automation job refresh', 'automationApi.getAutomationJobs'],
   ['AI job queue mapping', "mapLiveAutomationJobRows(automationJobs, 'queue')"],
   ['AI recognition mapping', "mapLiveAutomationJobRows(automationJobs, 'recognition')"],
@@ -606,6 +611,13 @@ const forbiddenStaticTaxWorkspaceSnippets = [
   ['static tax risk rows', 'const riskRows: RiskRow[] = ['],
   ['static tax operation logs', 'const logs: RuleLog[] = ['],
   ['browser tax workspace mock company', "const companyId = selectedCompanyId ?? 'mock-1'"],
+]
+
+const forbiddenBusinessTaxPreviewSnippets = [
+  ['static business tax task seed', 'const previewTaxDeclarationTaskSeed: TaxDeclarationTask[] = ['],
+  ['separate business tax task browser storage', 'function previewTaxDeclarationTaskStorageKey()'],
+  ['separate business tax task browser loader', 'function loadPreviewTaxDeclarationTasks()'],
+  ['legacy business tax task updater', 'updatePreviewTaxDeclarationTasks'],
 ]
 
 const requiredBrowserTaxPreviewSnippets = [
@@ -1678,6 +1690,7 @@ const errors = [
   ...verify(localFileRegistrySource, requiredLocalFileRegistrySnippets, 'local file registry'),
   ...verify(taxWorkspaceSource, requiredTaxWorkspaceSnippets, 'tax workspace'),
   ...verifyAbsent(taxWorkspaceSource, forbiddenStaticTaxWorkspaceSnippets, 'tax workspace'),
+  ...verifyAbsent(pageSource, forbiddenBusinessTaxPreviewSnippets, 'business module page'),
   ...verify(tauriSource, requiredBrowserTaxPreviewSnippets, 'browser tax preview adapter'),
   ...verify(welcomeSource, requiredWelcomeSnippets, 'welcome page'),
   ...verify(companyStoreSource, requiredCompanyPersistenceSnippets.slice(0, 2), 'company store'),
