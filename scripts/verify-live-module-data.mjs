@@ -902,6 +902,10 @@ const requiredShellSnippets = [
   ['shell audit company label', 'const auditCompanyLabel = selectedCompany?.name ||'],
   ['shell audit period label', 'const auditPeriodLabel = currentPeriod'],
   ['shell audit scope binding', 'voucher: `${auditPeriodLabel}/${auditCompanyLabel}`'],
+  ['theme trigger expanded state', 'aria-expanded={showMenu}'],
+  ['theme menu semantic label', 'role="menu" aria-label="系统主题"'],
+  ['theme menu pointer layer', 'z-[80] pointer-events-auto'],
+  ['theme choice checked state', 'role="menuitemradio"'],
 ]
 
 const requiredRoleManagerSnippets = [

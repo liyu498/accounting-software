@@ -511,17 +511,22 @@ function ThemeToggle() {
         onClick={() => setShowMenu(!showMenu)}
         className="inline-flex h-8 w-8 items-center justify-center rounded text-white hover:bg-white/10"
         title="主题设置"
+        aria-label="主题设置"
+        aria-haspopup="menu"
+        aria-expanded={showMenu}
       >
         {currentIcon}
       </button>
       {showMenu && (
         <>
           <div className="fixed inset-0 z-[70]" onClick={() => setShowMenu(false)} />
-          <div className="absolute right-0 top-full z-[80] mt-1 min-w-[120px] rounded border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+          <div role="menu" aria-label="系统主题" className="absolute right-0 top-full z-[80] pointer-events-auto mt-1 min-w-[120px] rounded border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
             {themeOptions.map((option) => (
               <button
                 key={option.value}
                 type="button"
+                role="menuitemradio"
+                aria-checked={mode === option.value}
                 onClick={() => {
                   setMode(option.value)
                   setShowMenu(false)
