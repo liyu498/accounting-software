@@ -1655,14 +1655,18 @@ function savePreviewCompanyAccounts(accounts: CompanyAccount[]) {
 }
 
 function previewAuxiliaryArchiveStorageKey() {
-  return 'accounting-preview-auxiliary-archives-v1'
+  return 'accounting-preview-auxiliary-archives-v2'
+}
+
+function emptyPreviewAuxiliaryArchive(): PreviewAuxiliaryArchiveState {
+  return {
+    categories: previewAuxiliaryArchiveSeed.categories.map((category) => ({ ...category })),
+    items: [],
+  }
 }
 
 function loadPreviewAuxiliaryArchive(): PreviewAuxiliaryArchiveState {
-  const fallback = (): PreviewAuxiliaryArchiveState => ({
-    categories: previewAuxiliaryArchiveSeed.categories.map((category) => ({ ...category })),
-    items: previewAuxiliaryArchiveSeed.items.map((item) => ({ ...item })),
-  })
+  const fallback = () => emptyPreviewAuxiliaryArchive()
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewAuxiliaryArchiveStorageKey()) || 'null')
