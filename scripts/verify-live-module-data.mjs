@@ -1133,6 +1133,16 @@ const forbiddenStaticSettingsOverviewSnippets = [
   ['static accounting-system settings value', "currentValue: '已配置会计制度'"],
 ]
 
+const requiredBrowserCompanyInfoSnippets = [
+  ['browser company info empty-state mapping', "if (kind === 'companyInfo' && !isTauri) {\n      const company = previewCompanyInfo ? buildPreviewCompanyInfo(previewCompanyInfo) : undefined"],
+  ['browser company info blank new draft', "code: company?.code || '', name: company?.name || '', taxId: company?.tax_id || ''"],
+]
+
+const forbiddenStaticCompanyInfoPreviewSnippets = [
+  ['browser company info requires stored preview', "if (kind === 'companyInfo' && !isTauri && previewCompanyInfo)"],
+  ['browser company info preset company name', "name: company?.name || '科旋电气（上海）有限公司'"],
+]
+
 const requiredDashboardBankDataSnippets = [
   ['dashboard bank transaction API', 'bankTransactionApi.getBankTransactions'],
   ['dashboard bank transaction state', 'const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])'],
@@ -1697,6 +1707,8 @@ const errors = [
   ...verify(pageSource, requiredAiTrainingReviewSnippets, 'AI training review controls'),
   ...verify(pageSource, requiredSettingsOverviewPageSnippets, 'settings overview module page'),
   ...verifyAbsent(pageSource, forbiddenStaticSettingsOverviewSnippets, 'settings overview module page'),
+  ...verify(pageSource, requiredBrowserCompanyInfoSnippets, 'browser company info module page'),
+  ...verifyAbsent(pageSource, forbiddenStaticCompanyInfoPreviewSnippets, 'browser company info module page'),
   ...verify(readFileSync('src/pages/Dashboard.tsx', 'utf8'), requiredDashboardBankDataSnippets, 'dashboard bank data'),
   ...verify(pageSource, requiredFixedPrintTemplateSnippets, 'fixed print template module page'),
   ...verify(databaseSource, [['asset category schema', 'CREATE TABLE IF NOT EXISTS asset_categories']], 'database schema'),

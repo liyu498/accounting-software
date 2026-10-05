@@ -8396,8 +8396,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodId, fetchAuxiliaryBalance, kind, selectedAuxiliaryCategoryId, selectedCompanyId, usesLiveLedgerDetailData])
 
   const config = useMemo(() => {
-    if (kind === 'companyInfo' && !isTauri && previewCompanyInfo) {
-      const company = buildPreviewCompanyInfo(previewCompanyInfo)
+    if (kind === 'companyInfo' && !isTauri) {
+      const company = previewCompanyInfo ? buildPreviewCompanyInfo(previewCompanyInfo) : undefined
       return {
         ...baseConfig,
         rows: mapLiveCompanyInfoRows(company),
@@ -11276,7 +11276,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     const company = selectedCompany
     setCompanyInfoDraft({
       ...(previewCompanyInfo || {
-        code: company?.code || '20258497', name: company?.name || '科旋电气（上海）有限公司', taxId: company?.tax_id || '91310115MA1K3****X', taxpayerType: company?.tax_type || 'general', province: company?.province || '上海市', city: company?.city || '上海市', district: company?.district || '浦东新区', accountingSystem: company?.accounting_system || 'small_enterprise', enableYear: String(company?.enable_year || new Date().getFullYear()), enableMonth: String(company?.enable_month || new Date().getMonth() + 1), serviceStart: company?.service_start || '', serviceEnd: company?.service_end || '', industry: company?.industry || '', enterpriseType: company?.enterprise_type || '私营有限责任公司',
+        code: company?.code || '', name: company?.name || '', taxId: company?.tax_id || '', taxpayerType: company?.tax_type || 'general', province: company?.province || '', city: company?.city || '', district: company?.district || '', accountingSystem: company?.accounting_system || 'small_enterprise', enableYear: String(company?.enable_year || new Date().getFullYear()), enableMonth: String(company?.enable_month || new Date().getMonth() + 1), serviceStart: company?.service_start || '', serviceEnd: company?.service_end || '', industry: company?.industry || '', enterpriseType: company?.enterprise_type || '私营有限责任公司',
       }),
     })
     setShowCompanyInfoDialog(true)
