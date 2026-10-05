@@ -69,6 +69,18 @@ const summary = {
 }
 
 const errors = [
+  ...[
+    'const previewInitialBalanceSeed:',
+    'const previewAiQueueJobSeed:',
+    'const previewCompanyTodoSeed:',
+    'const previewInvoiceMatchCandidateSeed:',
+    'const previewInvoiceVoucherCoreSeed:',
+    'const previewPeopleSeed:',
+    'const previewCashflowSeed:',
+    'const previewDocumentBusinessSeed:',
+    'const previewAssetInventorySeed:',
+    'const previewCompanyAccountSeed:',
+  ].filter((snippet) => businessSource.includes(snippet)).map((snippet) => `inactive browser business seed must be removed: ${snippet}`),
   ...missingUnion.map((kind) => `businessPage kind '${kind}' is missing from ModuleKind`),
   ...missingConfig.map((kind) => `businessPage kind '${kind}' is missing from moduleConfigs`),
   ...unusedUnion.map((kind) => `ModuleKind '${kind}' is not used by any business route`),
