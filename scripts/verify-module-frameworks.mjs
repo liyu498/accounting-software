@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 const appSource = readFileSync('src/App.tsx', 'utf8')
 const shellSource = readFileSync('src/components/layout/AppShell.tsx', 'utf8')
@@ -53,6 +53,37 @@ const unusedAgencyUnion = agencyUnionKinds.filter((kind) => !agencyRouteKinds.in
 const agencyNavWithoutRoute = agencyNavPaths.filter((path) => !routePaths.includes(path))
 const duplicateAccountRoute = '<Route path="/agency/accounts" element={agencyPage(\'accountManagement\')} />'
 const accountRedirectRoute = '<Route path="/agency/accounts" element={<Navigate to="/" replace />} />'
+const legacyBusinessPageFiles = [
+  'src/pages/AccountList.tsx',
+  'src/pages/PeriodClosing.tsx',
+  'src/pages/VoucherDetail.tsx',
+  'src/pages/VoucherEditor.tsx',
+  'src/pages/VoucherList.tsx',
+  'src/pages/invoices/InputInvoices.tsx',
+  'src/pages/invoices/OutputInvoices.tsx',
+  'src/pages/reports/AccountSummary.tsx',
+  'src/pages/reports/AuxiliaryBalance.tsx',
+  'src/pages/reports/AuxiliaryLedger.tsx',
+  'src/pages/reports/BalanceSheet.tsx',
+  'src/pages/reports/CashFlowStatement.tsx',
+  'src/pages/reports/EquityChange.tsx',
+  'src/pages/reports/GeneralLedger.tsx',
+  'src/pages/reports/IncomeStatement.tsx',
+  'src/pages/reports/MultiColumnLedger.tsx',
+  'src/pages/reports/PeriodClosing.tsx',
+  'src/pages/reports/SubsidiaryLedger.tsx',
+  'src/pages/reports/TrialBalance.tsx',
+  'src/pages/settings/AccountCodes.tsx',
+  'src/pages/settings/AuxiliaryCategories.tsx',
+  'src/pages/settings/AuxiliaryItems.tsx',
+  'src/pages/settings/CommonDigests.tsx',
+  'src/pages/settings/CompanyInfo.tsx',
+  'src/pages/settings/CurrencyManager.tsx',
+  'src/pages/settings/CustomerContracts.tsx',
+  'src/pages/settings/InitialBalances.tsx',
+  'src/pages/settings/SettlementRules.tsx',
+  'src/pages/settings/VoucherRecycle.tsx',
+]
 
 const summary = {
   businessRoutes: routeKinds.length,
@@ -98,6 +129,7 @@ const errors = [
   ...(agencyNavSource.includes("path: '/agency/accounts'") ? ['duplicate account-management item is still in agency navigation'] : []),
   ...(appSource.includes(duplicateAccountRoute) ? ['agency accounts route still renders the duplicate page'] : []),
   ...(!appSource.includes(accountRedirectRoute) ? ['agency accounts route must redirect to the home account-management workspace'] : []),
+  ...legacyBusinessPageFiles.filter((file) => existsSync(file)).map((file) => `legacy page must be removed after migration to BusinessModulePage: ${file}`),
   ...(shellSource.includes('>\n              短信\n') ? ['SMS shortcut must not be rendered in the account shell'] : []),
   ...(shellSource.includes('handleSmsAction') ? ['SMS shell action must be removed'] : []),
   ...(shellSource.includes('to="/downloads"') ? ['duplicate download-center shortcut must not be rendered in the account header'] : []),
