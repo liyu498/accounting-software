@@ -532,6 +532,32 @@ type PreviewAuxiliaryArchiveState = {
   items: AuxiliaryItem[]
 }
 
+type AuxiliaryLedgerItemOption = {
+  id: string
+  code: string
+  name: string
+}
+
+const previewAuxiliaryCategoryCodeByType: Record<string, string> = {
+  customer: 'CUST',
+  '客户': 'CUST',
+  supplier: 'SUPP',
+  '供应商': 'SUPP',
+  employee: 'EMP',
+  other_contact: 'EMP',
+  '其他往来': 'EMP',
+  project: 'PROJ',
+  '项目': 'PROJ',
+  department: 'DEPT',
+  '部门': 'DEPT',
+  tax: 'TAX',
+  '税种': 'TAX',
+}
+
+function previewAuxiliaryCategoryCode(auxiliaryType: string | null) {
+  return previewAuxiliaryCategoryCodeByType[auxiliaryType?.trim().toLowerCase() || ''] || ''
+}
+
 function buildPreviewCompanyInfo(draft: PreviewCompanyInfo): Company {
   return {
     id: 'browser-preview-company',
@@ -1967,6 +1993,110 @@ function buildPreviewSubsidiaryLedger(
       balance_direction: entry.balance > 0 ? '借' : entry.balance < 0 ? '贷' : '',
     }
   })
+}
+
+function buildPreviewAuxiliaryCategoryOptions(
+  categories: AuxiliaryCategory[],
+  vouchers: Voucher[],
+  periodId: string | undefined,
+) {
+  const activeCategoryCodes = new Set(
+    vouchers
+      .filter((voucher) => voucher.is_deleted !== 1 && (!periodId || voucher.period_id === periodId))
+      .flatMap((voucher) => voucher.entries)
+      .map((entry) => previewAuxiliaryCategoryCode(entry.auxiliary_type))
+      .filter(Boolean),
+  )
+  return categories
+    .filter((category) => activeCategoryCodes.has(category.code))
+    .sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name))
+}
+
+function buildPreviewAuxiliaryItemOptions(
+  categories: AuxiliaryCategory[],
+  items: AuxiliaryItem[],
+  vouchers: Voucher[],
+  periodId: string | undefined,
+  categoryId: string,
+): AuxiliaryLedgerItemOption[] {
+  const category = categories.find((item) => item.id === categoryId)
+  if (!category) return []
+
+  const options = new Map<string, AuxiliaryLedgerItemOption>()
+  vouchers
+    .filter((voucher) => voucher.is_deleted !== 1 && (!periodId || voucher.period_id === periodId))
+    .sort((left, right) => left.voucher_date.localeCompare(right.voucher_date) || left.sequence_num - right.sequence_num)
+    .forEach((voucher) => voucher.entries.forEach((entry) => {
+      const auxiliaryId = entry.auxiliary_id?.trim()
+      if (!auxiliaryId || previewAuxiliaryCategoryCode(entry.auxiliary_type) !== category.code) return
+      const archiveItem = items.find((item) => item.category_id === category.id && (item.id === auxiliaryId || item.code === auxiliaryId))
+      options.set(auxiliaryId, {
+        id: auxiliaryId,
+        code: archiveItem?.code || auxiliaryId,
+        name: archiveItem?.name || `未匹配辅助项 ${auxiliaryId}`,
+      })
+    }))
+
+  return [...options.values()].sort((left, right) => left.code.localeCompare(right.code) || left.name.localeCompare(right.name))
+}
+
+function buildPreviewAuxiliaryLedger(
+  vouchers: Voucher[],
+  periodId: string | undefined,
+  categoryCode: string,
+  itemId: string,
+): AuxiliaryLedgerRow[] {
+  if (!categoryCode || !itemId) return []
+  return vouchers
+    .filter((voucher) => voucher.is_deleted !== 1 && (!periodId || voucher.period_id === periodId))
+    .sort((left, right) => left.voucher_date.localeCompare(right.voucher_date) || left.sequence_num - right.sequence_num)
+    .flatMap((voucher) => voucher.entries
+      .filter((entry) => previewAuxiliaryCategoryCode(entry.auxiliary_type) === categoryCode && entry.auxiliary_id === itemId)
+      .sort((left, right) => left.line_num - right.line_num)
+      .map((entry) => ({
+        date: voucher.voucher_date,
+        voucher_number: voucher.voucher_number,
+        summary: entry.summary || voucher.summary || '未记录摘要',
+        direction: entry.direction,
+        amount: entry.amount,
+      })))
+}
+
+function buildPreviewAuxiliaryBalance(
+  vouchers: Voucher[],
+  periodId: string | undefined,
+  categoryCode: string,
+  itemOptions: AuxiliaryLedgerItemOption[],
+): AuxiliaryBalanceRow[] {
+  if (!categoryCode) return []
+  const balances = new Map<string, { debit: number; credit: number }>()
+  vouchers
+    .filter((voucher) => voucher.is_deleted !== 1 && (!periodId || voucher.period_id === periodId))
+    .forEach((voucher) => voucher.entries.forEach((entry) => {
+      const auxiliaryId = entry.auxiliary_id?.trim()
+      if (!auxiliaryId || previewAuxiliaryCategoryCode(entry.auxiliary_type) !== categoryCode) return
+      const current = balances.get(auxiliaryId) || { debit: 0, credit: 0 }
+      if (entry.direction === 'debit' || entry.direction === '借') current.debit += entry.amount
+      else current.credit += entry.amount
+      balances.set(auxiliaryId, current)
+    }))
+
+  return [...balances.entries()]
+    .map(([auxiliaryId, balance]) => {
+      const item = itemOptions.find((option) => option.id === auxiliaryId)
+      const ending = balance.debit - balance.credit
+      return {
+        auxiliary_item_name: item?.name || `未匹配辅助项 ${auxiliaryId}`,
+        auxiliary_item_code: item?.code || auxiliaryId,
+        beginning_debit: 0,
+        beginning_credit: 0,
+        period_debit: balance.debit,
+        period_credit: balance.credit,
+        ending_debit: ending > 0 ? ending : 0,
+        ending_credit: ending < 0 ? Math.abs(ending) : 0,
+      }
+    })
+    .sort((left, right) => left.auxiliary_item_code.localeCompare(right.auxiliary_item_code))
 }
 
 function buildPreviewFinancialReports(rows: PreviewInitialBalanceRow[], vouchers: Voucher[], period: AccountingPeriod | undefined): {
@@ -7577,18 +7707,35 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     ? `${selectedLedgerAccount.code} ${selectedLedgerAccount.name}`
     : '当前选择科目'
   const templateAccounts = detailedAccounts.length > 0 ? detailedAccounts : [{ code: '1002', name: '银行存款' }, { code: '6001', name: '主营业务收入' }]
-  const selectedAuxiliaryCategory = useMemo(
-    () => auxiliaryCategories.find((category) => category.id === selectedAuxiliaryCategoryId),
-    [auxiliaryCategories, selectedAuxiliaryCategoryId],
+  const auxiliaryLedgerCategoryOptions = useMemo(
+    () => isTauri
+      ? auxiliaryCategories
+      : buildPreviewAuxiliaryCategoryOptions(previewAuxiliaryCategories, activeVouchers, voucherEditorPeriod?.id),
+    [activeVouchers, auxiliaryCategories, isTauri, previewAuxiliaryCategories, voucherEditorPeriod?.id],
   )
-  const selectedAuxiliaryItem = useMemo(
-    () => auxiliaryItems.find((item) => item.id === selectedAuxiliaryItemId),
-    [auxiliaryItems, selectedAuxiliaryItemId],
+  const effectiveAuxiliaryCategoryId = isTauri
+    ? selectedAuxiliaryCategoryId
+    : selectedAuxiliaryCategoryId || auxiliaryLedgerCategoryOptions[0]?.id || ''
+  const effectiveAuxiliaryCategory = auxiliaryLedgerCategoryOptions.find((category) => category.id === effectiveAuxiliaryCategoryId)
+  const effectiveAuxiliaryCategoryCode = effectiveAuxiliaryCategory?.code || ''
+  const auxiliaryLedgerItemOptions = useMemo(
+    () => isTauri
+      ? auxiliaryItems
+        .filter((item) => item.category_id === effectiveAuxiliaryCategoryId && item.is_enabled === 1)
+        .map((item) => ({ id: item.id, code: item.code, name: item.name }))
+      : buildPreviewAuxiliaryItemOptions(
+        previewAuxiliaryCategories,
+        previewAuxiliaryItems,
+        activeVouchers,
+        voucherEditorPeriod?.id,
+        effectiveAuxiliaryCategoryId,
+      ),
+    [activeVouchers, auxiliaryItems, effectiveAuxiliaryCategoryId, isTauri, previewAuxiliaryCategories, previewAuxiliaryItems, voucherEditorPeriod?.id],
   )
-  const selectableAuxiliaryItems = useMemo(
-    () => auxiliaryItems.filter((item) => item.category_id === selectedAuxiliaryCategoryId && item.is_enabled === 1),
-    [auxiliaryItems, selectedAuxiliaryCategoryId],
-  )
+  const effectiveAuxiliaryItemId = isTauri
+    ? selectedAuxiliaryItemId
+    : selectedAuxiliaryItemId || auxiliaryLedgerItemOptions[0]?.id || ''
+  const effectiveAuxiliaryItem = auxiliaryLedgerItemOptions.find((item) => item.id === effectiveAuxiliaryItemId)
   const selectedHistoryPeriod = useMemo(
     () => periods.find((period) => period.id === selectedHistoryPeriodId),
     [periods, selectedHistoryPeriodId],
@@ -8585,23 +8732,25 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'auxiliaryLedgerReport' && usesLiveLedgerDetailData) {
+    if (kind === 'auxiliaryLedgerReport' && (usesLiveLedgerDetailData || !isTauri)) {
+      const auxiliaryLedger = isTauri
+        ? liveReports.auxiliaryLedger || []
+        : buildPreviewAuxiliaryLedger(activeVouchers, voucherEditorPeriod?.id, effectiveAuxiliaryCategoryCode, effectiveAuxiliaryItemId)
       return {
         ...baseConfig,
-        rows: liveReports.auxiliaryLedger
-          ? mapLiveAuxiliaryLedgerRows(liveReports.auxiliaryLedger, selectedAuxiliaryCategory?.name || '', selectedAuxiliaryItem?.name || '')
-          : [],
-        summary: summarizeLiveAuxiliaryLedger(liveReports.auxiliaryLedger || [], selectedAuxiliaryCategory?.name || '', selectedAuxiliaryItem?.name || ''),
+        rows: mapLiveAuxiliaryLedgerRows(auxiliaryLedger, effectiveAuxiliaryCategory?.name || '', effectiveAuxiliaryItem?.name || ''),
+        summary: summarizeLiveAuxiliaryLedger(auxiliaryLedger, effectiveAuxiliaryCategory?.name || '', effectiveAuxiliaryItem?.name || ''),
       }
     }
 
-    if (kind === 'auxiliaryBalanceReport' && usesLiveLedgerDetailData) {
+    if (kind === 'auxiliaryBalanceReport' && (usesLiveLedgerDetailData || !isTauri)) {
+      const auxiliaryBalance = isTauri
+        ? liveReports.auxiliaryBalance || []
+        : buildPreviewAuxiliaryBalance(activeVouchers, voucherEditorPeriod?.id, effectiveAuxiliaryCategoryCode, auxiliaryLedgerItemOptions)
       return {
         ...baseConfig,
-        rows: liveReports.auxiliaryBalance
-          ? mapLiveAuxiliaryBalanceRows(liveReports.auxiliaryBalance, selectedAuxiliaryCategory?.name || '')
-          : [],
-        summary: summarizeLiveAuxiliaryBalance(liveReports.auxiliaryBalance || [], selectedAuxiliaryCategory?.name || ''),
+        rows: mapLiveAuxiliaryBalanceRows(auxiliaryBalance, effectiveAuxiliaryCategory?.name || ''),
+        summary: summarizeLiveAuxiliaryBalance(auxiliaryBalance, effectiveAuxiliaryCategory?.name || ''),
       }
     }
 
@@ -8978,7 +9127,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveBusinessTags, effectiveInvoiceTagIds, effectiveInvoices, effectiveLedgerAccountCode, effectiveLedgerSubjectLabel, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, effectiveVoucherTagIds, effectiveVouchers, employees, exportJobs, fixedAssets, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewClosingChecks, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedAuxiliaryCategory, selectedAuxiliaryItem, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveRiskCheckData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherData, usesLiveVoucherRecycleData, voucherEditorPeriod, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, activeVouchers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, auxiliaryLedgerItemOptions, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveAuxiliaryCategory, effectiveAuxiliaryCategoryCode, effectiveAuxiliaryItem, effectiveAuxiliaryItemId, effectiveBusinessTags, effectiveInvoiceTagIds, effectiveInvoices, effectiveLedgerAccountCode, effectiveLedgerSubjectLabel, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, effectiveVoucherTagIds, effectiveVouchers, employees, exportJobs, fixedAssets, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewClosingChecks, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveRiskCheckData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherData, usesLiveVoucherRecycleData, voucherEditorPeriod, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
   const tableMeta = getModuleTableMeta(kind)
@@ -14509,10 +14658,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 ))}
               </select>
             )}
-            {(kind === 'auxiliaryLedgerReport' || kind === 'auxiliaryBalanceReport') && usesLiveLedgerDetailData && (
+            {(kind === 'auxiliaryLedgerReport' || kind === 'auxiliaryBalanceReport') && (usesLiveLedgerDetailData || !isTauri) && (
               <select
                 aria-label="辅助账类别"
-                value={selectedAuxiliaryCategoryId}
+                value={effectiveAuxiliaryCategoryId}
                 onChange={(event) => {
                   setSelectedAuxiliaryCategoryId(event.target.value)
                   setSelectedAuxiliaryItemId('')
@@ -14520,21 +14669,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 className="h-8 max-w-44 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#1f65a7]"
               >
                 <option value="">选择辅助类别</option>
-                {auxiliaryCategories.map((category) => (
+                {auxiliaryLedgerCategoryOptions.map((category) => (
                   <option key={category.id} value={category.id}>{category.name}</option>
                 ))}
               </select>
             )}
-            {kind === 'auxiliaryLedgerReport' && usesLiveLedgerDetailData && (
+            {kind === 'auxiliaryLedgerReport' && (usesLiveLedgerDetailData || !isTauri) && (
               <select
                 aria-label="辅助账项目"
-                value={selectedAuxiliaryItemId}
+                value={effectiveAuxiliaryItemId}
                 onChange={(event) => setSelectedAuxiliaryItemId(event.target.value)}
-                disabled={!selectedAuxiliaryCategoryId}
+                disabled={!effectiveAuxiliaryCategoryId}
                 className="h-8 max-w-56 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none disabled:bg-slate-100 disabled:text-slate-400 focus:border-[#1f65a7]"
               >
                 <option value="">选择辅助项目</option>
-                {selectableAuxiliaryItems.map((item) => (
+                {auxiliaryLedgerItemOptions.map((item) => (
                   <option key={item.id} value={item.id}>{item.code} {item.name}</option>
                 ))}
               </select>
