@@ -215,36 +215,499 @@ type InvokeFn = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>
 
 let realInvoke: InvokeFn | null = null
 
+const AGENCY_PREVIEW_STORAGE_KEY = 'accounting-preview-agency-data-v1'
+const PREVIEW_COMPANY_INFO_STORAGE_KEY = 'accounting-preview-company-info-v1'
+
+type BrowserAgencyContract = {
+  id: string
+  company_id: string
+  company_name: string | null
+  contract_no: string
+  service_package: string
+  service_start: string
+  service_end: string
+  monthly_fee: number
+  renewal_status: string
+  owner: string | null
+  archive_status: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+type BrowserAgencyFee = {
+  id: string
+  company_id: string
+  company_name: string | null
+  period: string
+  receivable_amount: number
+  received_amount: number
+  arrears_amount: number
+  invoice_status: string
+  payment_status: string
+  collector: string | null
+  last_follow_up: string | null
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+type BrowserAgencyCollaboration = {
+  id: string
+  company_id: string
+  company_name: string | null
+  todo_title: string
+  material_type: string | null
+  customer_contact: string | null
+  reminder_count: number
+  last_contact_at: string | null
+  reply_status: string
+  owner: string | null
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+type BrowserAgencyBatchTask = {
+  id: string
+  task_type: string
+  task_name: string
+  period: string
+  customer_scope: string
+  status: string
+  progress_current: number
+  progress_total: number | null
+  result_summary: string | null
+  risk_level: string
+  operator: string | null
+  requires_approval: number
+  created_at: string
+  updated_at: string
+}
+
+type BrowserAutomationJob = {
+  id: string
+  company_id: string
+  company_name: string | null
+  period: string | null
+  job_type: string
+  source_module: string
+  source_id: string | null
+  source_file: string | null
+  suggestion_no: string | null
+  debit_subject: string | null
+  credit_subject: string | null
+  suggestion_amount: number | null
+  generated_voucher_id: string | null
+  generated_voucher_number: string | null
+  status: string
+  confidence: number | null
+  result_summary: string | null
+  risk_level: string
+  reviewer: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+type BrowserAdapterAuthorization = {
+  id: string
+  company_id: string
+  company_name: string | null
+  adapter_type: string
+  adapter_code: string
+  region: string | null
+  auth_status: string
+  account_mask: string | null
+  login_identity: string | null
+  capability_scope: string | null
+  last_checked_at: string | null
+  expires_at: string | null
+  risk_message: string | null
+  created_at: string
+  updated_at: string
+}
+
+type BrowserAgencyPreviewData = {
+  contracts: BrowserAgencyContract[]
+  fees: BrowserAgencyFee[]
+  collaborations: BrowserAgencyCollaboration[]
+  batchTasks: BrowserAgencyBatchTask[]
+  automationJobs: BrowserAutomationJob[]
+  authorizations: BrowserAdapterAuthorization[]
+}
+
+function browserStorage() {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function emptyBrowserAgencyPreviewData(): BrowserAgencyPreviewData {
+  return { contracts: [], fees: [], collaborations: [], batchTasks: [], automationJobs: [], authorizations: [] }
+}
+
+function loadBrowserAgencyPreviewData(): BrowserAgencyPreviewData {
+  const storage = browserStorage()
+  if (!storage) return emptyBrowserAgencyPreviewData()
+  try {
+    const parsed = JSON.parse(storage.getItem(AGENCY_PREVIEW_STORAGE_KEY) || 'null') as Partial<BrowserAgencyPreviewData> | null
+    if (!parsed || typeof parsed !== 'object') return emptyBrowserAgencyPreviewData()
+    return {
+      contracts: Array.isArray(parsed.contracts) ? parsed.contracts as BrowserAgencyContract[] : [],
+      fees: Array.isArray(parsed.fees) ? parsed.fees as BrowserAgencyFee[] : [],
+      collaborations: Array.isArray(parsed.collaborations) ? parsed.collaborations as BrowserAgencyCollaboration[] : [],
+      batchTasks: Array.isArray(parsed.batchTasks) ? parsed.batchTasks as BrowserAgencyBatchTask[] : [],
+      automationJobs: Array.isArray(parsed.automationJobs) ? parsed.automationJobs as BrowserAutomationJob[] : [],
+      authorizations: Array.isArray(parsed.authorizations) ? parsed.authorizations as BrowserAdapterAuthorization[] : [],
+    }
+  } catch {
+    return emptyBrowserAgencyPreviewData()
+  }
+}
+
+function saveBrowserAgencyPreviewData(data: BrowserAgencyPreviewData) {
+  const storage = browserStorage()
+  if (!storage) return
+  try {
+    storage.setItem(AGENCY_PREVIEW_STORAGE_KEY, JSON.stringify(data))
+  } catch {
+    // Browser preview remains read-only when local storage is unavailable.
+  }
+}
+
+function asPreviewText(value: unknown, fallback = '') {
+  return typeof value === 'string' && value.trim() ? value : fallback
+}
+
+function asPreviewNumber(value: unknown, fallback = 0) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function readBrowserPreviewCompanies() {
+  const storage = browserStorage()
+  if (!storage) return []
+  try {
+    const draft = JSON.parse(storage.getItem(PREVIEW_COMPANY_INFO_STORAGE_KEY) || 'null') as Record<string, unknown> | null
+    if (!draft || typeof draft.name !== 'string' || !draft.name.trim()) return []
+    const now = new Date().toISOString()
+    return [{
+      id: 'browser-preview-company',
+      code: asPreviewText(draft.code, 'PREVIEW'),
+      name: draft.name.trim(),
+      tax_id: asPreviewText(draft.taxId) || null,
+      contact: null,
+      phone: null,
+      email: null,
+      address: null,
+      bank_name: null,
+      bank_account: null,
+      tax_type: asPreviewText(draft.taxpayerType) || null,
+      industry: asPreviewText(draft.industry) || null,
+      accounting_system: asPreviewText(draft.accountingSystem) || null,
+      province: asPreviewText(draft.province) || null,
+      city: asPreviewText(draft.city) || null,
+      district: asPreviewText(draft.district) || null,
+      enterprise_type: asPreviewText(draft.enterpriseType) || null,
+      service_start: asPreviewText(draft.serviceStart) || null,
+      service_end: asPreviewText(draft.serviceEnd) || null,
+      enable_year: asPreviewNumber(draft.enableYear) || null,
+      enable_month: asPreviewNumber(draft.enableMonth) || null,
+      is_active: 1,
+      is_deleted: 0,
+      deleted_at: null,
+      created_at: now,
+      updated_at: now,
+    }]
+  } catch {
+    return []
+  }
+}
+
+function browserAgencyCompanyName(companyId: string, storedName: string | null = null) {
+  return readBrowserPreviewCompanies().find((company) => company.id === companyId)?.name || storedName || '未关联客户'
+}
+
+function browserAgencyId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+}
+
+function upsertBrowserAgencyRecord<T extends { id: string }>(records: T[], record: T) {
+  return [record, ...records.filter((item) => item.id !== record.id)]
+}
+
+const browserBatchTaskTemplates = [
+  ['invoice_collection', '批量采集发票', '全部已授权税务客户', '检查税务授权后执行', 'medium', 0],
+  ['bank_collection', '批量采集银行流水', '已授权银行客户', '检查银行授权后执行', 'medium', 0],
+  ['voucher_generation_precheck', '批量生成凭证预检', '已完成资料核验客户', '只生成凭证建议与待确认草稿', 'medium', 0],
+  ['closing_precheck', '批量结账预检', '待结账客户', '需完成风险检查', 'high', 1],
+  ['tax_declaration_precheck', '批量申报预检', '待申报税种', '只生成申报包，不自动提交税局', 'high', 1],
+  ['declaration_receipt_archive', '申报回执归档预检', '已确认申报事项', '只核验本地回执和缴款书归档条件', 'high', 1],
+] as const
+
 async function browserInvoke<T>(cmd: string, _args?: Record<string, unknown>): Promise<T> {
   const input = (_args?.input ?? {}) as Record<string, unknown>
+  const filters = (_args ?? {}) as Record<string, unknown>
   const now = new Date().toISOString()
+  const data = loadBrowserAgencyPreviewData()
+  const firstCompanyId = readBrowserPreviewCompanies()[0]?.id || 'browser-preview-company'
+
+  if (cmd === 'get_companies') return readBrowserPreviewCompanies() as T
+
+  if (cmd === 'get_agency_service_contracts') {
+    const companyId = asPreviewText(filters.companyId)
+    const status = asPreviewText(filters.status)
+    return data.contracts.filter((item) => (!companyId || item.company_id === companyId) && (!status || item.status === status)) as T
+  }
   if (cmd === 'create_agency_service_contract' || cmd === 'update_agency_service_contract') {
-    return {
-      id: String(input.id ?? 'agency-contract-preview'), company_id: String(input.company_id ?? 'mock-1'), company_name: '浏览器预览客户',
-      contract_no: String(input.contract_no ?? 'HT-PREVIEW-001'), service_package: String(input.service_package ?? '标准代理记账服务'),
-      service_start: String(input.service_start ?? '2026-01-01'), service_end: String(input.service_end ?? '2026-12-31'),
-      monthly_fee: Number(input.monthly_fee ?? 0), renewal_status: String(input.renewal_status ?? 'normal'), owner: input.owner ?? null,
-      archive_status: String(input.archive_status ?? 'pending'), status: String(input.status ?? 'active'), created_at: now, updated_at: now,
-    } as T
+    const existing = data.contracts.find((item) => item.id === asPreviewText(input.id))
+    const companyId = asPreviewText(input.company_id, existing?.company_id || firstCompanyId)
+    const record: BrowserAgencyContract = {
+      id: existing?.id || browserAgencyId('agency-contract'),
+      company_id: companyId,
+      company_name: browserAgencyCompanyName(companyId, existing?.company_name || null),
+      contract_no: asPreviewText(input.contract_no, existing?.contract_no || ''),
+      service_package: asPreviewText(input.service_package, existing?.service_package || ''),
+      service_start: asPreviewText(input.service_start, existing?.service_start || ''),
+      service_end: asPreviewText(input.service_end, existing?.service_end || ''),
+      monthly_fee: asPreviewNumber(input.monthly_fee, existing?.monthly_fee || 0),
+      renewal_status: asPreviewText(input.renewal_status, existing?.renewal_status || 'normal'),
+      owner: asPreviewText(input.owner, existing?.owner || '') || null,
+      archive_status: asPreviewText(input.archive_status, existing?.archive_status || 'pending'),
+      status: asPreviewText(input.status, existing?.status || 'active'),
+      created_at: existing?.created_at || now,
+      updated_at: now,
+    }
+    data.contracts = upsertBrowserAgencyRecord(data.contracts, record)
+    saveBrowserAgencyPreviewData(data)
+    return record as T
+  }
+
+  if (cmd === 'get_agency_fee_collections') {
+    const companyId = asPreviewText(filters.companyId)
+    const period = asPreviewText(filters.period)
+    const status = asPreviewText(filters.status)
+    return data.fees.filter((item) => (!companyId || item.company_id === companyId) && (!period || item.period === period) && (!status || item.status === status)) as T
   }
   if (cmd === 'create_agency_fee_collection' || cmd === 'update_agency_fee_collection') {
-    const receivable = Number(input.receivable_amount ?? 0)
-    const received = Number(input.received_amount ?? 0)
-    return {
-      id: String(input.id ?? 'agency-fee-preview'), company_id: String(input.company_id ?? 'mock-1'), company_name: '浏览器预览客户',
-      period: String(input.period ?? '2026-05'), receivable_amount: receivable, received_amount: received, arrears_amount: receivable - received,
-      invoice_status: String(input.invoice_status ?? 'pending'), payment_status: String(input.payment_status ?? 'pending'),
-      collector: input.collector ?? null, last_follow_up: input.last_follow_up ?? null, status: String(input.status ?? 'pending'), created_at: now, updated_at: now,
-    } as T
+    const existing = data.fees.find((item) => item.id === asPreviewText(input.id))
+    const companyId = asPreviewText(input.company_id, existing?.company_id || firstCompanyId)
+    const receivable = asPreviewNumber(input.receivable_amount, existing?.receivable_amount || 0)
+    const received = asPreviewNumber(input.received_amount, existing?.received_amount || 0)
+    const record: BrowserAgencyFee = {
+      id: existing?.id || browserAgencyId('agency-fee'),
+      company_id: companyId,
+      company_name: browserAgencyCompanyName(companyId, existing?.company_name || null),
+      period: asPreviewText(input.period, existing?.period || new Date().toISOString().slice(0, 7)),
+      receivable_amount: receivable,
+      received_amount: received,
+      arrears_amount: Math.max(0, receivable - received),
+      invoice_status: asPreviewText(input.invoice_status, existing?.invoice_status || 'pending'),
+      payment_status: asPreviewText(input.payment_status, existing?.payment_status || 'pending'),
+      collector: asPreviewText(input.collector, existing?.collector || '') || null,
+      last_follow_up: asPreviewText(input.last_follow_up, existing?.last_follow_up || '') || null,
+      status: asPreviewText(input.status, existing?.status || 'pending'),
+      created_at: existing?.created_at || now,
+      updated_at: now,
+    }
+    data.fees = upsertBrowserAgencyRecord(data.fees, record)
+    saveBrowserAgencyPreviewData(data)
+    return record as T
+  }
+
+  if (cmd === 'get_agency_collaboration_items') {
+    const companyId = asPreviewText(filters.companyId)
+    const status = asPreviewText(filters.status)
+    return data.collaborations.filter((item) => (!companyId || item.company_id === companyId) && (!status || item.status === status)) as T
   }
   if (cmd === 'create_agency_collaboration_item' || cmd === 'update_agency_collaboration_item') {
+    const existing = data.collaborations.find((item) => item.id === asPreviewText(input.id))
+    const companyId = asPreviewText(input.company_id, existing?.company_id || firstCompanyId)
+    const record: BrowserAgencyCollaboration = {
+      id: existing?.id || browserAgencyId('agency-collaboration'),
+      company_id: companyId,
+      company_name: browserAgencyCompanyName(companyId, existing?.company_name || null),
+      todo_title: asPreviewText(input.todo_title, existing?.todo_title || ''),
+      material_type: asPreviewText(input.material_type, existing?.material_type || '') || null,
+      customer_contact: asPreviewText(input.customer_contact, existing?.customer_contact || '') || null,
+      reminder_count: asPreviewNumber(input.reminder_count, existing?.reminder_count || 0),
+      last_contact_at: asPreviewText(input.last_contact_at, existing?.last_contact_at || '') || null,
+      reply_status: asPreviewText(input.reply_status, existing?.reply_status || 'pending'),
+      owner: asPreviewText(input.owner, existing?.owner || '') || null,
+      status: asPreviewText(input.status, existing?.status || 'pending'),
+      created_at: existing?.created_at || now,
+      updated_at: now,
+    }
+    data.collaborations = upsertBrowserAgencyRecord(data.collaborations, record)
+    saveBrowserAgencyPreviewData(data)
+    return record as T
+  }
+
+  if (cmd === 'get_agency_batch_tasks') {
+    const period = asPreviewText(filters.period)
+    const status = asPreviewText(filters.status)
+    return data.batchTasks.filter((item) => (!period || item.period === period) && (!status || item.status === status)) as T
+  }
+  if (cmd === 'create_agency_batch_tasks') {
+    const period = asPreviewText(input.period, new Date().toISOString().slice(0, 7))
+    const taskTypes = Array.isArray(input.task_types) ? input.task_types.filter((item): item is string => typeof item === 'string') : browserBatchTaskTemplates.map(([taskType]) => taskType)
+    const operator = asPreviewText(input.operator, 'admin')
+    let created = 0
+    let skipped = 0
+    for (const [taskType, taskName, scope, summary, riskLevel, requiresApproval] of browserBatchTaskTemplates) {
+      if (!taskTypes.includes(taskType)) continue
+      const activeTask = data.batchTasks.some((item) => item.period === period && item.task_type === taskType && !['completed', 'cancelled'].includes(item.status))
+      if (activeTask) {
+        skipped += 1
+        continue
+      }
+      data.batchTasks.unshift({
+        id: browserAgencyId('agency-batch'), task_type: taskType, task_name: taskName, period, customer_scope: scope,
+        status: 'queued', progress_current: 0, progress_total: null, result_summary: summary, risk_level: riskLevel,
+        operator, requires_approval: requiresApproval, created_at: now, updated_at: now,
+      })
+      created += 1
+    }
+    saveBrowserAgencyPreviewData(data)
+    return { created, skipped } as T
+  }
+  if (cmd === 'run_agency_batch_task_precheck') {
+    const task = data.batchTasks.find((item) => item.id === asPreviewText(input.id))
+    if (!task || task.status !== 'queued') throw new Error('当前任务状态不允许重复执行预检')
+    task.status = task.requires_approval ? 'awaiting_approval' : 'prechecked'
+    task.progress_current = 1
+    task.progress_total = task.progress_total || 1
+    task.operator = asPreviewText(input.operator, task.operator || 'admin')
+    task.result_summary = task.requires_approval
+      ? '本地预检完成，不会登录或调用税局、银行等外部系统；高风险任务待人工审批。'
+      : '本地预检完成，不会登录或调用税局、银行等外部系统；后续采集需人工发起。'
+    task.updated_at = now
+    saveBrowserAgencyPreviewData(data)
+    return task as T
+  }
+  if (cmd === 'review_agency_batch_task') {
+    const task = data.batchTasks.find((item) => item.id === asPreviewText(input.id))
+    if (!task || !task.requires_approval || task.status !== 'awaiting_approval') throw new Error('当前任务不在待审批状态')
+    const approved = input.decision === 'approved'
+    task.status = approved ? 'prechecked' : 'blocked'
+    task.operator = asPreviewText(input.operator, task.operator || 'admin')
+    task.result_summary = approved
+      ? '本地预检已人工通过；未登录或调用税局、银行等外部系统，后续动作仍需人工发起。'
+      : '本地预检已驳回并阻断后续操作；未登录或调用税局、银行等外部系统。'
+    task.updated_at = now
+    saveBrowserAgencyPreviewData(data)
+    return task as T
+  }
+
+  if (cmd === 'get_agency_adapter_authorizations' || cmd === 'get_adapter_authorizations') {
+    const companyId = asPreviewText(filters.companyId)
+    const adapterType = asPreviewText(filters.adapterType)
+    return data.authorizations.filter((item) => (!companyId || item.company_id === companyId) && (!adapterType || item.adapter_type === adapterType)) as T
+  }
+  if (cmd === 'upsert_adapter_authorization') {
+    const existing = data.authorizations.find((item) => item.company_id === asPreviewText(input.company_id, firstCompanyId) && item.adapter_type === asPreviewText(input.adapter_type, 'tax'))
+    const companyId = asPreviewText(input.company_id, existing?.company_id || firstCompanyId)
+    const record: BrowserAdapterAuthorization = {
+      id: existing?.id || browserAgencyId('agency-authorization'),
+      company_id: companyId,
+      company_name: browserAgencyCompanyName(companyId, existing?.company_name || null),
+      adapter_type: asPreviewText(input.adapter_type, existing?.adapter_type || 'tax'),
+      adapter_code: asPreviewText(input.adapter_code, existing?.adapter_code || ''),
+      region: asPreviewText(input.region, existing?.region || '') || null,
+      auth_status: asPreviewText(input.auth_status, existing?.auth_status || 'pending'),
+      account_mask: asPreviewText(input.account_mask, existing?.account_mask || '') || null,
+      login_identity: asPreviewText(input.login_identity, existing?.login_identity || '') || null,
+      capability_scope: asPreviewText(input.capability_scope, existing?.capability_scope || '') || null,
+      last_checked_at: asPreviewText(input.last_checked_at, existing?.last_checked_at || now) || null,
+      expires_at: asPreviewText(input.expires_at, existing?.expires_at || '') || null,
+      risk_message: asPreviewText(input.risk_message, existing?.risk_message || '') || null,
+      created_at: existing?.created_at || now,
+      updated_at: now,
+    }
+    data.authorizations = upsertBrowserAgencyRecord(data.authorizations, record)
+    saveBrowserAgencyPreviewData(data)
+    return record as T
+  }
+
+  if (cmd === 'get_agency_automation_jobs' || cmd === 'get_automation_jobs') {
+    const companyId = asPreviewText(filters.companyId)
+    const period = asPreviewText(filters.period)
+    const status = asPreviewText(filters.status)
+    return data.automationJobs.filter((item) => (!companyId || item.company_id === companyId) && (!period || item.period === period) && (!status || item.status === status)) as T
+  }
+  if (cmd === 'create_automation_job' || cmd === 'update_automation_job_status') {
+    const existing = data.automationJobs.find((item) => item.id === asPreviewText(input.id))
+    const companyId = asPreviewText(input.company_id, existing?.company_id || firstCompanyId)
+    const record: BrowserAutomationJob = {
+      id: existing?.id || browserAgencyId('automation-job'),
+      company_id: companyId,
+      company_name: browserAgencyCompanyName(companyId, existing?.company_name || null),
+      period: asPreviewText(input.period, existing?.period || '') || null,
+      job_type: asPreviewText(input.job_type, existing?.job_type || 'voucher_suggestion'),
+      source_module: asPreviewText(input.source_module, existing?.source_module || 'manual'),
+      source_id: asPreviewText(input.source_id, existing?.source_id || '') || null,
+      source_file: asPreviewText(input.source_file, existing?.source_file || '') || null,
+      suggestion_no: asPreviewText(input.suggestion_no, existing?.suggestion_no || '') || null,
+      debit_subject: asPreviewText(input.debit_subject, existing?.debit_subject || '') || null,
+      credit_subject: asPreviewText(input.credit_subject, existing?.credit_subject || '') || null,
+      suggestion_amount: input.suggestion_amount === undefined ? existing?.suggestion_amount || null : asPreviewNumber(input.suggestion_amount),
+      generated_voucher_id: existing?.generated_voucher_id || null,
+      generated_voucher_number: existing?.generated_voucher_number || null,
+      status: asPreviewText(input.status, existing?.status || 'queued'),
+      confidence: input.confidence === undefined ? existing?.confidence || null : asPreviewNumber(input.confidence),
+      result_summary: asPreviewText(input.result_summary, existing?.result_summary || '') || null,
+      risk_level: asPreviewText(input.risk_level, existing?.risk_level || 'normal'),
+      reviewer: asPreviewText(input.reviewer, existing?.reviewer || '') || null,
+      created_by: asPreviewText(input.created_by, existing?.created_by || 'admin') || null,
+      created_at: existing?.created_at || now,
+      updated_at: now,
+    }
+    data.automationJobs = upsertBrowserAgencyRecord(data.automationJobs, record)
+    saveBrowserAgencyPreviewData(data)
+    return record as T
+  }
+
+  if (cmd === 'get_agency_health_checks') {
+    const period = asPreviewText(filters.period)
+    const feeRisks = data.fees.filter((item) => (!period || item.period === period) && (item.payment_status === 'overdue' || item.arrears_amount > 0)).map((item) => ({
+      id: `fee-${item.id}`, company_id: item.company_id, company_name: browserAgencyCompanyName(item.company_id, item.company_name), module_name: '服务费开票',
+      risk_message: `服务费欠费 ${item.arrears_amount.toFixed(2)} 元`, risk_level: item.payment_status === 'overdue' ? '高' : '中', owner: item.collector, resolution_status: item.payment_status === 'paid' ? '已完成' : '待跟进',
+    }))
+    const collaborationRisks = data.collaborations.filter((item) => item.reply_status === 'overdue' || item.status === 'overdue').map((item) => ({
+      id: `collaboration-${item.id}`, company_id: item.company_id, company_name: browserAgencyCompanyName(item.company_id, item.company_name), module_name: '交付协同',
+      risk_message: `客户协同超时：${item.todo_title}`, risk_level: '中', owner: item.owner, resolution_status: '待跟进',
+    }))
+    const batchRisks = data.batchTasks.filter((item) => item.status === 'blocked').map((item) => ({
+      id: `batch-${item.id}`, company_id: firstCompanyId, company_name: browserAgencyCompanyName(firstCompanyId), module_name: '批量操作',
+      risk_message: `预检已阻断：${item.task_name}`, risk_level: '高', owner: item.operator, resolution_status: '待审批',
+    }))
+    return [...feeRisks, ...collaborationRisks, ...batchRisks] as T
+  }
+
+  if (cmd === 'get_agency_operation_overview') {
+    const period = asPreviewText(filters.period)
+    const expiring = data.contracts.filter((item) => item.renewal_status !== 'normal' || item.status === 'overdue')
+    const scopedFees = data.fees.filter((item) => !period || item.period === period)
+    const pendingCollaboration = data.collaborations.filter((item) => item.status !== 'completed' && item.reply_status !== 'replied')
+    const overdueCollaboration = data.collaborations.filter((item) => item.status === 'overdue' || item.reply_status === 'overdue')
+    const openTasks = data.batchTasks.filter((item) => !['completed', 'cancelled', 'blocked'].includes(item.status))
+    const blockedTasks = data.batchTasks.filter((item) => item.status === 'blocked')
     return {
-      id: String(input.id ?? 'agency-collaboration-preview'), company_id: String(input.company_id ?? 'mock-1'), company_name: '浏览器预览客户',
-      todo_title: String(input.todo_title ?? '补充客户资料'), material_type: input.material_type ?? null, customer_contact: input.customer_contact ?? null,
-      reminder_count: Number(input.reminder_count ?? 0), last_contact_at: input.last_contact_at ?? null, reply_status: String(input.reply_status ?? 'pending'),
-      owner: input.owner ?? null, status: String(input.status ?? 'pending'), created_at: now, updated_at: now,
+      service_contracts: data.contracts.filter((item) => item.status === 'active').length,
+      expiring_contracts: expiring.length,
+      receivable_amount: scopedFees.reduce((sum, item) => sum + item.receivable_amount, 0),
+      arrears_amount: scopedFees.reduce((sum, item) => sum + item.arrears_amount, 0),
+      pending_collaboration: pendingCollaboration.length,
+      overdue_collaboration: overdueCollaboration.length,
+      open_tickets: openTasks.length,
+      blocked_tickets: blockedTasks.length,
     } as T
   }
+
   const empty = EMPTY_RESULTS[cmd]
   if (empty !== undefined) {
     return empty as T

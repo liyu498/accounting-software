@@ -112,10 +112,10 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     primaryAction: '新增客户',
     keywordPlaceholder: '搜索客户名称、编码、税号、负责人',
     summary: [
-      { label: '客户数', value: '128 户', tone: 'blue' },
-      { label: '待做账', value: '27 户', tone: 'amber' },
-      { label: '待申报', value: '12 户', tone: 'red' },
-      { label: '已结账', value: '86 户', tone: 'green' },
+      { label: '本地客户', value: '0 户', tone: 'blue' },
+      { label: '启用账套', value: '0 户', tone: 'green' },
+      { label: '一般纳税人', value: '0 户', tone: 'amber' },
+      { label: '已停用', value: '0 户', tone: 'red' },
     ],
     columns: [
       { key: 'code', label: '客户编码' },
@@ -128,14 +128,10 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { key: 'tax', label: '申报' },
       { key: 'owner', label: '负责人' },
     ],
-    rows: [
-      { id: 'c-01460', status: '待确认', values: { code: '01460', name: '科旋电气（上海）有限公司', taxType: '一般纳税人', period: '2026-05', invoice: '126/138', voucher: '82 张', report: '已生成', tax: '待确认', owner: '张会计' } },
-      { id: 'c-02018', status: '进行中', values: { code: '02018', name: '上海云启科技有限公司', taxType: '小规模', period: '2026-05', invoice: '84/91', voucher: '47 张', report: '待复核', tax: '未取数', owner: '李会计' } },
-      { id: 'c-03009', status: '异常', values: { code: '03009', name: '杭州辰光贸易有限公司', taxType: '一般纳税人', period: '2026-05', invoice: '38/70', voucher: '19 张', report: '未生成', tax: '未开始', owner: '王会计' } },
-    ],
-    queueTitle: '待办队列',
-    queue: ['杭州辰光贸易缺少 32 张销项票', '上海云启利润表需复核管理费用', '12 户客户增值税申报待确认'],
-    notes: ['这里是机构层客户总览，不替代单账套内的业务处理页面。', '点击客户后进入单账套工作台，保持竞品同类“客户列表 -> 账套内页”的操作路径。'],
+    rows: [],
+    queueTitle: '客户说明',
+    queue: ['客户总览只列出本地已保存的企业资料与启用状态。', '进入账套后继续处理该客户的发票、凭证、报表和税务事项。'],
+    notes: ['这里是机构层客户总览，不替代单账套内的业务处理页面。', '浏览器预览会读取已保存的企业资料，不再以静态客户样例填充。'],
   },
   authorizationCenter: {
     title: '授权中心',
@@ -144,10 +140,10 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     primaryAction: '新增授权',
     keywordPlaceholder: '搜索客户、授权类型、登录人员、到期时间、异常原因',
     summary: [
-      { label: '授权客户', value: '116 户', tone: 'blue' },
-      { label: '授权正常', value: '92 户', tone: 'green' },
-      { label: '即将到期', value: '17 户', tone: 'amber' },
-      { label: '授权异常', value: '7 户', tone: 'red' },
+      { label: '授权记录', value: '0 条', tone: 'blue' },
+      { label: '授权有效', value: '0 条', tone: 'green' },
+      { label: '待确认', value: '0 条', tone: 'amber' },
+      { label: '授权异常', value: '0 条', tone: 'red' },
     ],
     columns: [
       { key: 'customer', label: '客户名称' },
@@ -161,11 +157,7 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { key: 'lastCollect', label: '最近采集' },
       { key: 'risk', label: '异常原因' },
     ],
-    rows: [
-      { id: 'auth-001', status: '已完成', values: { customer: '科旋电气（上海）有限公司', taxNo: '91310115MA1K3****X', type: '电子税务局', loginPerson: '办税员', identity: '代理记账人员', method: '账号密码+短信', statusText: '正常', expireAt: '2026-12-31', lastCollect: '06-26 18:09', risk: '无' } },
-      { id: 'auth-002', status: '待确认', values: { customer: '上海云启科技有限公司', taxNo: '91310113MA1G****2Q', type: '银行流水', loginPerson: '财务负责人', identity: '企业网银授权', method: '银行 adapter', statusText: '待确认', expireAt: '2026-07-15', lastCollect: '06-26 17:58', risk: '需客户确认授权范围' } },
-      { id: 'auth-003', status: '异常', values: { customer: '杭州辰光贸易有限公司', taxNo: '91330106MA2H****8P', type: '自然人税收', loginPerson: '办税员', identity: '扣缴客户端', method: '申报密码登录', statusText: '失败', expireAt: '已过期', lastCollect: '06-25 21:40', risk: '申报密码失效' } },
-    ],
+    rows: [],
     queueTitle: '授权检查',
     queue: ['批量采集发票、流水、税种和主管税务机关前先检查授权状态', '授权中心只保存状态、掩码账号、adapter 参数和审计日志，不保存明文敏感信息', '授权异常客户自动进入批量任务跳过队列并提示补授权'],
     notes: ['授权中心是机构层模块，服务所有客户账套的采集、申报和自动化任务。', '单账套内只展示当前公司的授权结果和使用记录，不放跨客户批量授权入口。'],
@@ -177,10 +169,10 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     primaryAction: '新增合同',
     keywordPlaceholder: '搜索客户、合同编号、收费状态、协同事项和服务套餐',
     summary: [
-      { label: '服务中合同', value: '118 份', tone: 'blue' },
-      { label: '待收服务费', value: '¥92,600', tone: 'amber' },
-      { label: '待客户协同', value: '42 项', tone: 'red' },
-      { label: '已归档', value: '96 份', tone: 'green' },
+      { label: '服务中合同', value: '0 份', tone: 'blue' },
+      { label: '待续签/待确认', value: '0 份', tone: 'amber' },
+      { label: '异常/到期', value: '0 份', tone: 'red' },
+      { label: '已归档', value: '0 份', tone: 'green' },
     ],
     columns: [
       { key: 'contractNo', label: '合同编号' },
@@ -194,13 +186,9 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { key: 'owner', label: '负责人' },
       { key: 'archive', label: '归档' },
     ],
-    rows: [
-      { id: 'sc-001', status: '进行中', values: { contractNo: 'FW-2026-0018', customer: '科旋电气（上海）有限公司', package: '一般纳税人标准包', period: '2026-01 至 2026-12', fee: '¥2,800.00', payment: '已收款/已开票', collaboration: '无待办', renewal: '正常', owner: '张会计', archive: '合同PDF' } },
-      { id: 'sc-002', status: '待确认', values: { contractNo: 'FW-2026-0042', customer: '上海云启科技有限公司', package: '小规模基础包', period: '2026-06 至 2027-05', fee: '¥1,200.00', payment: '待开票/待收款', collaboration: '确认管理费用差异', renewal: '待签署', owner: '李会计', archive: '待上传' } },
-      { id: 'sc-003', status: '异常', values: { contractNo: 'FW-2025-0091', customer: '杭州辰光贸易有限公司', package: '一般纳税人含申报', period: '2025-07 至 2026-06', fee: '¥3,200.00', payment: '逾期欠费 ¥6,400', collaboration: '补传销项发票', renewal: '30天内到期', owner: '王会计', archive: '缺附件' } },
-    ],
+    rows: [],
     queueTitle: '合同待办',
-    queue: ['杭州辰光贸易合同 30 天内到期且欠费 2 个月', '上海云启新合同待签署，服务费发票待开具', '客户协同待办统一在合同客户视图处理', '套餐、收费、催办和归档都以同一份服务合同为准'],
+    queue: ['客户协同待办统一在合同客户视图处理。', '套餐、收费、催办和归档都以同一份服务合同为准。', '尚未创建合同或收费记录时会显示空台账，不伪造交付数据。'],
     notes: ['服务合同承接收费管理、客户协同、套餐和归档，避免机构首页入口过散。', '角色权限在专用权限管理页面维护；尚未接入持久化的数据项不在合同页伪造入口。'],
   },
   downloadCenter: {
@@ -395,7 +383,7 @@ function summarizeAgencyDownloadJobs(rows: AgencyRow[]) {
   ]
 }
 
-function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLiveDesktopData: boolean): AgencyConfig {
+function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string): AgencyConfig {
   if (baseConfig.title === '下载中心') {
     const rows = baseConfig.rows.filter((row) => {
       if (activeTab === 'Excel') return row.values.type === 'Excel'
@@ -408,7 +396,7 @@ function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLive
     return { ...baseConfig, rows }
   }
 
-  if (useLiveDesktopData && baseConfig.title === '授权中心') {
+  if (baseConfig.title === '授权中心') {
     return {
       ...baseConfig,
       description: '集中查看本地保存的税务、个税、银行、工商和票池授权状态；仅展示掩码账号和授权元数据。',
@@ -438,7 +426,7 @@ function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLive
     }
   }
 
-  if (useLiveDesktopData && baseConfig.title === '客户总览') {
+  if (baseConfig.title === '客户总览') {
     return {
       ...baseConfig,
       description: '集中查看本地客户账套、纳税人性质、启用账期和账套状态；业务进度在进入对应账套后处理。完整企业建档和批量管理只在首页进行。',
@@ -462,7 +450,7 @@ function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLive
       rows: [],
       queueTitle: '客户说明',
       queue: ['客户总览只列出本地企业事实，不伪造发票、凭证、申报或风险数量。', '进入账套后查看该客户的发票、凭证、报表和税务处理。'],
-      notes: ['桌面端无企业记录时显示空表，浏览器预览使用现有静态布局样例。'],
+      notes: ['无企业记录时显示空表，浏览器预览读取本机已保存的企业资料。'],
     }
   }
 
@@ -549,10 +537,7 @@ function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLive
         { key: 'collector', label: '收款负责人' },
         { key: 'followUp', label: '最近催收' },
       ],
-      rows: [
-        { id: 'preview-fee-001', status: '已完成', values: { customer: '科旋电气（上海）有限公司', period: '2026-05', receivable: '¥2,800.00', received: '¥2,800.00', arrears: '¥0.00', invoice: '已开票', payment: '已收款', collector: '张会计', followUp: '2026-05-31' } },
-        { id: 'preview-fee-002', status: '待确认', values: { customer: '上海云启科技有限公司', period: '2026-05', receivable: '¥1,200.00', received: '¥0.00', arrears: '¥1,200.00', invoice: '待开票', payment: '待催收', collector: '李会计', followUp: '2026-06-18' } },
-      ],
+      rows: [],
       queueTitle: '收费待办',
       queue: ['欠费、开票和客户催收由收费记录驱动，不在客户账套内重复维护。', '收款与开票状态变更需要留存对应的客户、账期和操作人。'],
       notes: ['收费管理属于机构服务交付，不与客户经营发票混用。', '桌面端仅展示本地收费记录；税务和银行外部动作需要授权 adapter。'],
@@ -582,10 +567,7 @@ function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string, useLive
         { key: 'reply', label: '客户答复' },
         { key: 'owner', label: '负责人' },
       ],
-      rows: [
-        { id: 'preview-collaboration-001', status: '待确认', values: { customer: '上海云启科技有限公司', todo: '补充管理费用合同', material: '合同附件', contact: '王女士', reminder: '2 次', lastContact: '2026-06-18 10:30', reply: '待客户答复', owner: '李会计' } },
-        { id: 'preview-collaboration-002', status: '异常', values: { customer: '杭州辰光贸易有限公司', todo: '补传销项发票影像', material: '发票附件', contact: '陈先生', reminder: '4 次', lastContact: '2026-06-17 16:20', reply: '超时', owner: '王会计' } },
-      ],
+      rows: [],
       queueTitle: '协同待办',
       queue: ['资料补充、催办和客户答复在机构层统一跟进。', '资料进入账套后由对应的发票、单据或凭证模块继续处理。'],
       notes: ['协同事项不替代单账套业务处理，只保存跨客户服务交付跟进。', '桌面端仅展示本地协同事项和审计留痕。'],
@@ -824,7 +806,6 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [pageSize, setPageSize] = useState(20)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
   const importFileRef = useRef<HTMLInputElement>(null)
-  const [localRows, setLocalRows] = useState<AgencyRow[]>([])
   const [detailRow, setDetailRow] = useState<AgencyRow | null>(null)
   const [showBatchTaskDialog, setShowBatchTaskDialog] = useState(false)
   const [selectedBatchTaskTypes, setSelectedBatchTaskTypes] = useState<string[]>(() => agencyBatchTaskOptions.map((option) => option.id))
@@ -885,29 +866,24 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     reviewer: 'admin',
     resultSummary: '',
   })
-  const pageConfig = useMemo(() => getAgencyTabConfig(config, activeTab, isTauri), [activeTab, config])
+  const pageConfig = useMemo(() => getAgencyTabConfig(config, activeTab), [activeTab, config])
   const overviewRows = useMemo(
     () => agencyOverview ? mapAgencyOverviewRows(agencyOverview, activeTab) : [],
     [activeTab, agencyOverview]
   )
-  const visibleLocalRows = useMemo(
-    () => kind === 'batchOps' ? filterAgencyBatchTaskRows(localRows, activeTab) : localRows,
-    [activeTab, kind, localRows],
-  )
   const rows = [
-    ...visibleLocalRows,
-    ...(kind === 'downloadCenter' ? pageConfig.rows : isTauri && kind === 'dataStats'
+    ...(kind === 'downloadCenter' ? pageConfig.rows : kind === 'dataStats'
       ? overviewRows
-      : isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows),
+      : remoteRows ?? []),
   ]
   const summary = useMemo(
     () => {
-      if (isTauri && kind === 'dataStats' && agencyOverview) return summarizeAgencyOverview(agencyOverview)
-      return isTauri && remoteRows !== null ? summarizeAgencyTabRows(pageConfig, remoteRows) : pageConfig.summary
+      if (kind === 'dataStats' && agencyOverview) return summarizeAgencyOverview(agencyOverview)
+      return remoteRows !== null ? summarizeAgencyTabRows(pageConfig, remoteRows) : pageConfig.summary
     },
     [agencyOverview, kind, pageConfig, remoteRows]
   )
-  const usesAgencyPreviewRows = Boolean(!isTauri && remoteRows === null && kind !== 'downloadCenter' && pageConfig.rows.length > 0)
+  const usesAgencyPreviewRows = Boolean(!isTauri && remoteRows !== null && kind !== 'downloadCenter')
   const availableStatuses = useMemo(
     () => ['全部', ...Array.from(new Set(rows.map((row) => row.status).filter(Boolean)))],
     [rows],
@@ -941,10 +917,6 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     setIsLoadingRows(true)
     try {
       if (kind === 'clients') {
-        if (!isTauri) {
-          setRemoteRows(null)
-          return
-        }
         await fetchCompanies()
         const liveCompanies = useCompanyStore.getState().companies
         const companyRows = liveCompanies.map((item) => mapAgencyCompanyRow(item))
@@ -953,11 +925,6 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       }
 
       if (kind === 'dataStats') {
-        if (!isTauri) {
-          setAgencyOverview(null)
-          setRemoteRows(null)
-          return
-        }
         const response = await agencyApi.getOverview(agencyPeriodLabel)
         if (!response.success) throw new Error(response.error || '机构统计读取失败')
         setAgencyOverview(response.data ?? null)
@@ -966,11 +933,6 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       }
 
       if (kind === 'downloadCenter') {
-        setRemoteRows(null)
-        return
-      }
-
-      if (!isTauri) {
         setRemoteRows(null)
         return
       }
@@ -992,7 +954,6 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }, [activeTab, agencyPeriodLabel, fetchCompanies, kind])
 
   useEffect(() => {
-    setLocalRows([])
     setOperationNotice(null)
   }, [kind])
 
@@ -1049,7 +1010,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }
 
   const openContractEditor = async (row?: AgencyRow) => {
-    if (isTauri && companies.length === 0) await fetchCompanies()
+    if (companies.length === 0) await fetchCompanies()
     if (!row) {
       resetContractEditor()
       setShowContractDialog(true)
@@ -1077,7 +1038,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }
 
   const openFeeEditor = async (row?: AgencyRow) => {
-    if (isTauri && companies.length === 0) await fetchCompanies()
+    if (companies.length === 0) await fetchCompanies()
     if (!row) {
       resetFeeEditor()
       setShowFeeDialog(true)
@@ -1104,7 +1065,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }
 
   const openCollaborationEditor = async (row?: AgencyRow) => {
-    if (isTauri && companies.length === 0) await fetchCompanies()
+    if (companies.length === 0) await fetchCompanies()
     if (!row) {
       resetCollaborationEditor()
       setShowCollaborationDialog(true)
@@ -1131,7 +1092,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }
 
   const openAuthorizationEditor = async (row?: AgencyRow) => {
-    if (isTauri && companies.length === 0) await fetchCompanies()
+    if (companies.length === 0) await fetchCompanies()
     if (!row) {
       resetAuthorizationEditor()
       setAuthorizationDraft((draft) => ({ ...draft, adapterType: agencyAuthorizationAdapterType(activeTab) || 'tax' }))
@@ -1175,33 +1136,14 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         setOperationNotice(`${object} 当前不在待预检状态，请按任务状态继续处理。`)
         return
       }
-      if (isTauri) {
-        const response = await agencyApi.runBatchTaskPrecheck({ id: row.id, operator: 'admin' })
-        if (!response.success || !response.data) {
-          setOperationNotice(response.error || '批量任务本地预检失败。')
-          return
-        }
-        writeAgencyAudit('执行批量预检', `${pageConfig.title}-${object}`, response.data.requiresApproval ? '高' : '中', response.data.requiresApproval ? '待审批' : '成功')
-        await loadRemoteRows()
-        setOperationNotice(`${object} 本地预检完成，不会登录或调用税局、银行等外部系统；${response.data.requiresApproval ? '当前任务已进入人工审批队列。' : '后续采集仍需人工发起。'}`)
+      const response = await agencyApi.runBatchTaskPrecheck({ id: row.id, operator: 'admin' })
+      if (!response.success || !response.data) {
+        setOperationNotice(response.error || '批量任务本地预检失败。')
         return
       }
-
-      setLocalRows((rows) => rows.map((item) => item.id === row.id
-        ? {
-            ...item,
-            status: item.values.approval === '需审批' ? '待确认' : '已完成',
-            values: {
-              ...item.values,
-              progress: '1/1',
-              result: item.values.approval === '需审批'
-                ? '本地预检完成，待人工审批；未调用外部系统'
-                : '本地预检完成；未调用外部系统',
-            },
-          }
-        : item))
-      writeAgencyAudit('执行批量预检', `${pageConfig.title}-${object}`, '高', '待审批')
-      setOperationNotice(`${object} 本地预检完成，不会登录或调用税局、银行等外部系统；当前仅更新预览任务状态。`)
+      writeAgencyAudit('执行批量预检', `${pageConfig.title}-${object}`, response.data.requiresApproval ? '高' : '中', response.data.requiresApproval ? '待审批' : '成功')
+      await loadRemoteRows()
+      setOperationNotice(`${object} 本地预检完成，不会登录或调用税局、银行等外部系统；${response.data.requiresApproval ? '当前任务已进入人工审批队列。' : '后续采集仍需人工发起。'}`)
       return
     }
 
@@ -1266,39 +1208,17 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     }
 
     const action = decision === 'approved' ? '通过预检' : '驳回预检'
-    if (isTauri) {
-      const response = await agencyApi.reviewBatchTask({ id: row.id, decision, operator: 'admin' })
-      if (!response.success || !response.data) {
-        setOperationNotice(response.error || `${action}失败。`)
-        return
-      }
-      writeAgencyAudit(action, `${pageConfig.title}-${object}`, '高', decision === 'approved' ? '成功' : '失败')
-      await loadRemoteRows()
-      setOperationNotice(
-        decision === 'approved'
-          ? `${object} 的本地预检已通过；仍未登录或调用税局、银行等外部系统，后续动作需人工发起。`
-          : `${object} 的本地预检已驳回并阻断后续操作；未调用任何外部系统。`,
-      )
+    const response = await agencyApi.reviewBatchTask({ id: row.id, decision, operator: 'admin' })
+    if (!response.success || !response.data) {
+      setOperationNotice(response.error || `${action}失败。`)
       return
     }
-
-    setLocalRows((rows) => rows.map((item) => item.id === row.id
-      ? {
-          ...item,
-          status: decision === 'approved' ? '已完成' : '异常',
-          values: {
-            ...item.values,
-            result: decision === 'approved'
-              ? '本地预检已人工通过；未调用外部系统'
-              : '本地预检已驳回并阻断后续操作；未调用外部系统',
-          },
-        }
-      : item))
     writeAgencyAudit(action, `${pageConfig.title}-${object}`, '高', decision === 'approved' ? '成功' : '失败')
+    await loadRemoteRows()
     setOperationNotice(
       decision === 'approved'
-        ? `${object} 的本地预检已通过；当前仅更新预览任务状态。`
-        : `${object} 的本地预检已驳回；当前仅更新预览任务状态。`,
+        ? `${object} 的本地预检已通过；仍未登录或调用税局、银行等外部系统，后续动作需人工发起。`
+        : `${object} 的本地预检已驳回并阻断后续操作；未调用任何外部系统。`,
     )
   }
 
@@ -1438,49 +1358,17 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       return
     }
 
-    if (isTauri) {
-      const response = await agencyApi.createBatchTasks({ period: agencyPeriodLabel, taskTypes: selectedBatchTaskTypes, operator: 'admin' })
-      if (!response.success) {
-        setOperationNotice(response.error || '批量预检任务创建失败。')
-        return
-      }
-      await loadRemoteRows()
-      setShowBatchTaskDialog(false)
-      const created = response.data?.created ?? 0
-      const skipped = response.data?.skipped ?? 0
-      writeAgencyAudit('新建批量任务', `${selectedBatchTaskTypes.length} 类任务 / 新建${created} / 跳过${skipped}`, '高', '待审批')
-      setOperationNotice(`已写入本地批量预检队列：新建 ${created} 个，跳过 ${skipped} 个未完成同类任务。采集、结账、申报和回执归档均需后续人工确认，不会自动提交税局或银行。`)
+    const response = await agencyApi.createBatchTasks({ period: agencyPeriodLabel, taskTypes: selectedBatchTaskTypes, operator: 'admin' })
+    if (!response.success) {
+      setOperationNotice(response.error || '批量预检任务创建失败。')
       return
     }
-
-    const started = new Date().toLocaleString('zh-CN')
-    const existingTaskTypes = new Set(
-      agencyBatchTaskOptions
-        .filter((option) => localRows.some((row) => row.id.startsWith(`local-batch-${option.id}-`)))
-        .map((option) => option.id),
-    )
-    const selectedOptions = agencyBatchTaskOptions.filter((option) => selectedBatchTaskTypes.includes(option.id))
-    const nextRows = selectedOptions
-      .filter((option) => !existingTaskTypes.has(option.id))
-      .map((option, index): AgencyRow => ({
-        id: `local-batch-${option.id}-${Date.now()}-${index}`,
-        status: '待处理',
-        values: {
-          task: option.label,
-          scope: option.scope,
-          period: agencyPeriodLabel,
-          progress: '待预检',
-          operator: 'admin',
-          started,
-          result: `${option.detail} 当前仅创建本地预检队列。`,
-          approval: option.requiresApproval ? '需审批' : '无需审批',
-        },
-      }))
-    const skipped = selectedOptions.length - nextRows.length
-    setLocalRows((current) => [...nextRows, ...current].slice(0, 18))
+    await loadRemoteRows()
     setShowBatchTaskDialog(false)
-    writeAgencyAudit('新建批量任务', `${selectedOptions.length} 类任务 / 新建${nextRows.length} / 跳过${skipped}`, '高', '待审批')
-    setOperationNotice(`已创建 ${nextRows.length} 个本地批量预检任务，跳过 ${skipped} 个未完成同类任务；不会自动提交税局、银行或外部系统。`)
+    const created = response.data?.created ?? 0
+    const skipped = response.data?.skipped ?? 0
+    writeAgencyAudit('新建批量任务', `${selectedBatchTaskTypes.length} 类任务 / 新建${created} / 跳过${skipped}`, '高', '待审批')
+    setOperationNotice(`已写入本地批量预检队列：新建 ${created} 个，跳过 ${skipped} 个未完成同类任务。采集、结账、申报和回执归档均需后续人工确认，不会自动提交税局或银行。`)
   }
 
   const handleExportExcel = async () => {
@@ -2170,7 +2058,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           <div className="min-w-0">
             <h1 className="text-base font-semibold">{pageConfig.title}</h1>
             <p className="text-xs text-slate-500">{pageConfig.description}</p>
-            {usesAgencyPreviewRows && <p className="mt-1 text-xs text-amber-700">浏览器预览数据：列表与汇总来自本机示例记录，不会写入客户账套。</p>}
+            {usesAgencyPreviewRows && <p className="mt-1 text-xs text-sky-700">浏览器本地台账：列表与汇总读取本机保存的预览记录，可在当前模块继续维护。</p>}
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolButton icon={<RefreshCw className={cn('h-3.5 w-3.5', isLoadingRows && 'animate-spin')} />} label={toolbarMeta.refreshLabel} onClick={handleRefresh} />
@@ -2293,6 +2181,13 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                       </td>
                     </tr>
                   ))}
+                  {pagedRows.length === 0 && (
+                    <tr>
+                      <td colSpan={pageConfig.columns.length + 3} className="border-b border-slate-200 px-3 py-10 text-center text-xs text-slate-500">
+                        当前没有已保存的{pageConfig.title}记录。请通过本页操作或对应客户账套补充数据。
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
                 <tfoot className="bg-[#f8fafc]">
                   <tr>

@@ -99,6 +99,7 @@ const companyAccountCommandSource = existsSync('src-tauri/src/commands/company_a
 const automationCommandSource = readFileSync('src-tauri/src/commands/automation.rs', 'utf8')
 const voucherCommandSource = readFileSync('src-tauri/src/commands/vouchers.rs', 'utf8')
 const localFileRegistrySource = readFileSync('src/lib/localFileRegistry.ts', 'utf8')
+const tauriSource = readFileSync('src/lib/tauri.ts', 'utf8')
 
 const requiredCompanyTodoSnippets = [
   ['company todo schema', 'CREATE TABLE IF NOT EXISTS company_todos'],
@@ -701,7 +702,7 @@ const requiredAgencyModuleSnippets = [
   ['agency download live rows', "kind === 'downloadCenter' ? pageConfig.rows"],
   ['agency download summary mapper', 'function summarizeAgencyDownloadJobs(rows: AgencyRow[])'],
   ['agency download period mapper', 'function extractAgencyExportPeriod(job: ExportJob)'],
-  ['agency Tauri empty-state boundary', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
+  ['agency persistent empty-state boundary', ': remoteRows ?? []),'],
   ['agency selected period store', 'const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)'],
   ['agency dynamic period label', 'const agencyPeriodLabel = currentPeriod'],
   ['agency batch task period binding', 'agencyApi.createBatchTasks({ period: agencyPeriodLabel, taskTypes: selectedBatchTaskTypes, operator: \'admin\' })'],
@@ -771,21 +772,40 @@ const requiredAgencyBatchTaskPageSnippets = [
   ['agency status filter state', "const [showAgencyFilterDialog, setShowAgencyFilterDialog] = useState(false)"],
   ['agency status filter row binding', 'const matchesStatusFilter ='],
   ['agency status filter dialog', '机构筛选条件'],
-  ['agency preview row state', "const usesAgencyPreviewRows = Boolean(!isTauri && remoteRows === null && kind !== 'downloadCenter' && pageConfig.rows.length > 0)"],
-  ['agency preview row disclosure', '浏览器预览数据：列表与汇总来自本机示例记录，不会写入客户账套。'],
+  ['agency preview row state', "const usesAgencyPreviewRows = Boolean(!isTauri && remoteRows !== null && kind !== 'downloadCenter')"],
+  ['agency preview row disclosure', '浏览器本地台账：列表与汇总读取本机保存的预览记录，可在当前模块继续维护。'],
   ['agency batch task selection dialog', '选择批量预检任务'],
   ['agency batch task selection state', 'selectedBatchTaskTypes'],
   ['agency batch task selected API call', 'taskTypes: selectedBatchTaskTypes'],
   ['agency batch task review handler', 'handleReviewBatchTask'],
   ['agency batch task approval action', '通过预检'],
   ['agency batch task rejection action', '驳回预检'],
-  ['agency batch task local tab filter', 'filterAgencyBatchTaskRows(localRows, activeTab)'],
-  ['agency batch task local row lifecycle', 'setLocalRows([])\n    setOperationNotice(null)\n  }, [kind])'],
+  ['agency batch task browser adapter create', "const response = await agencyApi.createBatchTasks({ period: agencyPeriodLabel, taskTypes: selectedBatchTaskTypes, operator: 'admin' })"],
+  ['agency batch task browser adapter refresh', 'await loadRemoteRows()'],
   ['agency account import handoff', "navigate('/?importCompanies=1')"],
   ['agency overview period binding', 'agencyApi.getOverview(agencyPeriodLabel)'],
   ['agency module period binding', 'fetchAgencyRows(kind, activeTab, agencyPeriodLabel)'],
   ['agency row detail state', 'const [detailRow, setDetailRow] = useState<AgencyRow | null>(null)'],
   ['agency row detail dialog', '机构级明细'],
+]
+
+const requiredAgencyBrowserPreviewSnippets = [
+  ['agency browser preview storage', "const AGENCY_PREVIEW_STORAGE_KEY = 'accounting-preview-agency-data-v1'"],
+  ['agency browser preview loader', 'function loadBrowserAgencyPreviewData()'],
+  ['agency browser company projection', "if (cmd === 'get_companies')"],
+  ['agency browser contract list', "if (cmd === 'get_agency_service_contracts')"],
+  ['agency browser fee list', "if (cmd === 'get_agency_fee_collections')"],
+  ['agency browser collaboration list', "if (cmd === 'get_agency_collaboration_items')"],
+  ['agency browser batch task list', "if (cmd === 'get_agency_batch_tasks')"],
+  ['agency browser authorization list', "cmd === 'get_agency_adapter_authorizations'"],
+  ['agency browser overview derivation', "if (cmd === 'get_agency_operation_overview')"],
+  ['agency browser health derivation', "if (cmd === 'get_agency_health_checks')"],
+]
+
+const forbiddenAgencyStaticPreviewSnippets = [
+  ['agency static fee preview row', 'preview-fee-001'],
+  ['agency static collaboration preview row', 'preview-collaboration-001'],
+  ['agency static browser fallback', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
 ]
 
 const requiredWelcomeImportHandoffSnippets = [
@@ -1626,6 +1646,8 @@ const errors = [
   ...verify(apiSource, requiredAgencyBatchTaskApiSnippets, 'agency batch task api bindings'),
   ...verify(agencyCommandSource, requiredAgencyBatchTaskCommandSnippets, 'agency batch task commands'),
   ...verify(agencyModuleSource, requiredAgencyBatchTaskPageSnippets, 'agency batch task page'),
+  ...verify(tauriSource, requiredAgencyBrowserPreviewSnippets, 'browser agency preview adapter'),
+  ...verifyAbsent(agencyModuleSource, forbiddenAgencyStaticPreviewSnippets, 'agency module page'),
   ...verify(welcomeSource, requiredWelcomeImportHandoffSnippets, 'welcome company import handoff'),
   ...verify(pageSource, requiredMeasurementUnitEntryPageSnippets, 'measurement unit entry page'),
   ...verify(pageSource, requiredInventoryItemEntryPageSnippets, 'inventory item entry page'),
@@ -1867,5 +1889,5 @@ console.log('Live data adapter verification passed:')
 console.log(JSON.stringify({
   modules: ['outputInvoice', 'inputInvoice', 'voucher', 'riskCheck', 'closingTasks', 'invoiceVoucherMatching', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'financialReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger', 'settlementRules', 'currencySettings', 'commonDigests', 'voucherTemplateSettings', 'reportFormulaSettings', 'taxAdapterSettings', 'bankAdapterSettings', 'auditLog', 'auxiliaryCategories', 'auxiliaryItems', 'voucherRecycle', 'declarationReceipt', 'taxInit', 'taxReport', 'aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'financeTaxReport'],
   scope: 'selected company and accounting period',
-  browserFallback: 'existing mock rows',
+  browserFallback: 'persisted browser preview records',
 }, null, 2))
