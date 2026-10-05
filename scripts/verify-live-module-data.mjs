@@ -11,7 +11,17 @@ const appSource = readFileSync('src/App.tsx', 'utf8')
 const dashboardSource = readFileSync('src/pages/Dashboard.tsx', 'utf8')
 const shellSource = readFileSync('src/components/layout/AppShell.tsx', 'utf8')
 const roleManagerSource = readFileSync('src/pages/settings/RoleManager.tsx', 'utf8')
-const legacyAIBookkeepingPageExists = existsSync('src/pages/AIBookkeeping.tsx')
+const retiredLegacyPagePaths = [
+  'src/pages/AIBookkeeping.tsx',
+  'src/pages/BankReconciliation.tsx',
+  'src/pages/CustomerList.tsx',
+  'src/pages/InventoryList.tsx',
+  'src/pages/settings/AccountRegistration.tsx',
+  'src/pages/settings/ImportHistory.tsx',
+  'src/pages/settings/OtherContacts.tsx',
+  'src/pages/settings/Suppliers.tsx',
+]
+const existingRetiredLegacyPagePaths = retiredLegacyPagePaths.filter((path) => existsSync(path))
 const companyStoreSource = readFileSync('src/stores/companyStore.ts', 'utf8')
 const companyCommandSource = readFileSync('src-tauri/src/commands/companies.rs', 'utf8')
 const companyTodoCommandSource = existsSync('src-tauri/src/commands/company_todos.rs')
@@ -1638,7 +1648,7 @@ function verifyAbsent(source, checks, sourceName) {
 }
 
 const errors = [
-  ...(legacyAIBookkeepingPageExists ? ['legacy AI bookkeeping page still exists; use the consolidated AI automation modules instead'] : []),
+  ...existingRetiredLegacyPagePaths.map((path) => `retired static page still exists: ${path}`),
   ...verify(adapterSource, requiredAdapterSnippets, 'live module adapter'),
   ...verify(pageSource, requiredPageSnippets, 'business module page'),
   ...verify(localFileRegistrySource, requiredLocalFileRegistrySnippets, 'local file registry'),
