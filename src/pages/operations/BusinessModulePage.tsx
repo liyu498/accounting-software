@@ -7682,10 +7682,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [selectedAuxiliaryItemId, setSelectedAuxiliaryItemId] = useState('')
   const [selectedHistoryPeriodId, setSelectedHistoryPeriodId] = useState('')
   const [selectedHistoryLedgerAccountCode, setSelectedHistoryLedgerAccountCode] = useState('')
-  const selectedHistoryLedgerAccount = useMemo(
-    () => accounts.find((account) => account.code === selectedHistoryLedgerAccountCode),
-    [accounts, selectedHistoryLedgerAccountCode],
-  )
   const detailedAccounts = useMemo(
     () => accounts.filter((account) => account.is_enabled === 1 && account.is_detail === 1),
     [accounts],
@@ -7743,6 +7739,32 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const selectedHistoryPeriodLabel = selectedHistoryPeriod
     ? `${selectedHistoryPeriod.period_year}-${String(selectedHistoryPeriod.period_month).padStart(2, '0')}`
     : ''
+  const historyPeriodOptions = isTauri
+    ? periods
+    : effectivePeriods.filter((period) => period.status === 'closed')
+  const effectiveHistoryPeriodId = isTauri
+    ? selectedHistoryPeriodId
+    : selectedHistoryPeriodId || historyPeriodOptions[0]?.id || ''
+  const effectiveHistoryPeriod = historyPeriodOptions.find((period) => period.id === effectiveHistoryPeriodId)
+  const effectiveHistoryPeriodLabel = effectiveHistoryPeriod
+    ? `${effectiveHistoryPeriod.period_year}-${String(effectiveHistoryPeriod.period_month).padStart(2, '0')}`
+    : ''
+  const previewHistoryVouchers = !isTauri && effectiveHistoryPeriod?.status === 'closed'
+    ? activeVouchers.filter((voucher) => voucher.period_id === effectiveHistoryPeriodId)
+    : []
+  const historyLedgerAccountOptions = useMemo(
+    () => isTauri
+      ? detailedAccounts.map((account) => ({ code: account.code, name: account.name }))
+      : buildPreviewGeneralLedger(previewInitialBalanceRows, previewHistoryVouchers, effectiveHistoryPeriodId)
+        .filter((account) => account.entries.length > 0)
+        .map((account) => ({ code: account.account_code, name: account.account_name })),
+    [detailedAccounts, effectiveHistoryPeriodId, isTauri, previewHistoryVouchers, previewInitialBalanceRows],
+  )
+  const effectiveHistoryLedgerAccountCode = isTauri
+    ? selectedHistoryLedgerAccountCode
+    : selectedHistoryLedgerAccountCode || historyLedgerAccountOptions[0]?.code || ''
+  const effectiveHistoryLedgerAccount = historyLedgerAccountOptions
+    .find((account) => account.code === effectiveHistoryLedgerAccountCode)
 
   useEffect(() => {
     if (!usesLiveModuleData || !selectedCompanyId) return
@@ -8956,14 +8978,19 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'historyBalance' && usesLiveHistoryReportData) {
+    if (kind === 'historyBalance' && (usesLiveHistoryReportData || !isTauri)) {
+      const historyBalance = isTauri
+        ? liveReports.historyBalance
+        : previewHistoryVouchers.length > 0
+          ? buildPreviewPeriodTrialBalance(previewInitialBalanceRows, previewHistoryVouchers, effectiveHistoryPeriodId)
+          : buildPreviewPeriodTrialBalance([], [], effectiveHistoryPeriodId)
       return {
         ...baseConfig,
-        rows: liveReports.historyBalance
-          ? mapLiveHistoryBalanceRows(liveReports.historyBalance, selectedHistoryPeriodLabel)
+        rows: historyBalance
+          ? mapLiveHistoryBalanceRows(historyBalance, effectiveHistoryPeriodLabel)
           : [],
-        summary: liveReports.historyBalance
-          ? summarizeLiveHistoryBalance(liveReports.historyBalance, selectedHistoryPeriodLabel)
+        summary: historyBalance
+          ? summarizeLiveHistoryBalance(historyBalance, effectiveHistoryPeriodLabel)
           : summarizeLiveHistoryBalance({
             items: [],
             total_opening_debit: 0,
@@ -8975,38 +9002,49 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
             total_closing_debit: 0,
             total_closing_credit: 0,
             is_balanced: true,
-          }, selectedHistoryPeriodLabel),
+          }, effectiveHistoryPeriodLabel),
       }
     }
 
-    if (kind === 'historyVoucher' && usesLiveHistoryReportData) {
+    if (kind === 'historyVoucher' && (usesLiveHistoryReportData || !isTauri)) {
+      const historyVouchers = isTauri ? liveReports.historyVouchers || [] : previewHistoryVouchers
       return {
         ...baseConfig,
-        rows: liveReports.historyVouchers
-          ? mapLiveHistoryVoucherRows(liveReports.historyVouchers, selectedHistoryPeriodLabel)
-          : [],
-        summary: summarizeLiveHistoryVouchers(liveReports.historyVouchers || [], selectedHistoryPeriodLabel),
+        rows: mapLiveHistoryVoucherRows(historyVouchers, effectiveHistoryPeriodLabel),
+        summary: summarizeLiveHistoryVouchers(historyVouchers, effectiveHistoryPeriodLabel),
       }
     }
 
-    if (kind === 'historyGeneralLedger' && usesLiveHistoryReportData) {
+    if (kind === 'historyGeneralLedger' && (usesLiveHistoryReportData || !isTauri)) {
+      const historyGeneralLedger = isTauri
+        ? liveReports.historyGeneralLedger || []
+        : previewHistoryVouchers.length > 0
+          ? buildPreviewGeneralLedger(previewInitialBalanceRows, previewHistoryVouchers, effectiveHistoryPeriodId)
+          : []
       return {
         ...baseConfig,
-        rows: liveReports.historyGeneralLedger
-          ? mapLiveHistoryGeneralLedgerRows(liveReports.historyGeneralLedger, selectedHistoryPeriodLabel)
-          : [],
-        summary: summarizeLiveHistoryGeneralLedger(liveReports.historyGeneralLedger || [], selectedHistoryPeriodLabel),
+        rows: mapLiveHistoryGeneralLedgerRows(historyGeneralLedger, effectiveHistoryPeriodLabel),
+        summary: summarizeLiveHistoryGeneralLedger(historyGeneralLedger, effectiveHistoryPeriodLabel),
       }
     }
 
-    if (kind === 'historySubsidiaryLedger' && usesLiveHistoryReportData) {
-      const hasSelection = Boolean(selectedHistoryPeriodId && selectedHistoryLedgerAccountCode)
+    if (kind === 'historySubsidiaryLedger' && (usesLiveHistoryReportData || !isTauri)) {
+      const hasSelection = Boolean(effectiveHistoryPeriodId && effectiveHistoryLedgerAccountCode)
+      const historySubsidiaryLedger = isTauri
+        ? liveReports.historySubsidiaryLedger || []
+        : buildPreviewSubsidiaryLedger(
+          previewInitialBalanceRows,
+          previewHistoryVouchers,
+          effectiveHistoryPeriodId,
+          effectiveHistoryLedgerAccountCode,
+        )
       return {
         ...baseConfig,
-        rows: liveReports.historySubsidiaryLedger
-          ? mapLiveHistorySubsidiaryLedgerRows(liveReports.historySubsidiaryLedger, selectedHistoryLedgerAccount ? `${selectedHistoryLedgerAccount.code} ${selectedHistoryLedgerAccount.name}` : '')
-          : [],
-        summary: summarizeLiveHistorySubsidiaryLedger(liveReports.historySubsidiaryLedger || [], hasSelection),
+        rows: mapLiveHistorySubsidiaryLedgerRows(
+          historySubsidiaryLedger,
+          effectiveHistoryLedgerAccount ? `${effectiveHistoryLedgerAccount.code} ${effectiveHistoryLedgerAccount.name}` : '',
+        ),
+        summary: summarizeLiveHistorySubsidiaryLedger(historySubsidiaryLedger, hasSelection),
       }
     }
 
@@ -9127,7 +9165,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         return item
       }),
     }
-  }, [accounts, accountTransfers, activeVouchers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, auxiliaryLedgerItemOptions, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveAuxiliaryCategory, effectiveAuxiliaryCategoryCode, effectiveAuxiliaryItem, effectiveAuxiliaryItemId, effectiveBusinessTags, effectiveInvoiceTagIds, effectiveInvoices, effectiveLedgerAccountCode, effectiveLedgerSubjectLabel, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, effectiveVoucherTagIds, effectiveVouchers, employees, exportJobs, fixedAssets, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewClosingChecks, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedCompany, selectedCompanyId, selectedHistoryLedgerAccount, selectedHistoryLedgerAccountCode, selectedHistoryPeriodId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveRiskCheckData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherData, usesLiveVoucherRecycleData, voucherEditorPeriod, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
+  }, [accounts, accountTransfers, activeVouchers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, auxiliaryLedgerItemOptions, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveAuxiliaryCategory, effectiveAuxiliaryCategoryCode, effectiveAuxiliaryItem, effectiveAuxiliaryItemId, effectiveBusinessTags, effectiveHistoryLedgerAccount, effectiveHistoryLedgerAccountCode, effectiveHistoryPeriodId, effectiveHistoryPeriodLabel, effectiveInvoiceTagIds, effectiveInvoices, effectiveLedgerAccountCode, effectiveLedgerSubjectLabel, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, effectiveVoucherTagIds, effectiveVouchers, employees, exportJobs, fixedAssets, historyLedgerAccountOptions, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewClosingChecks, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewHistoryVouchers, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedCompany, selectedCompanyId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveRiskCheckData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherData, usesLiveVoucherRecycleData, voucherEditorPeriod, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
   const tableMeta = getModuleTableMeta(kind)
@@ -14688,30 +14726,30 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 ))}
               </select>
             )}
-            {(kind === 'historyVoucher' || kind === 'historyBalance' || kind === 'historyGeneralLedger' || kind === 'historySubsidiaryLedger') && usesLiveHistoryReportData && (
+            {(kind === 'historyVoucher' || kind === 'historyBalance' || kind === 'historyGeneralLedger' || kind === 'historySubsidiaryLedger') && (usesLiveHistoryReportData || !isTauri) && (
               <select
                 aria-label="历史账期"
-                value={selectedHistoryPeriodId}
+                value={effectiveHistoryPeriodId}
                 onChange={(event) => setSelectedHistoryPeriodId(event.target.value)}
                 className="h-8 max-w-44 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#1f65a7]"
               >
                 <option value="">选择历史账期</option>
-                {periods.map((period) => (
+                {historyPeriodOptions.map((period) => (
                   <option key={period.id} value={period.id}>
                     {period.period_year}-{String(period.period_month).padStart(2, '0')}{period.status === 'closed' ? '（已结账）' : ''}
                   </option>
                 ))}
               </select>
             )}
-            {kind === 'historySubsidiaryLedger' && usesLiveHistoryReportData && (
+            {kind === 'historySubsidiaryLedger' && (usesLiveHistoryReportData || !isTauri) && (
               <select
                 aria-label="历史明细账科目"
-                value={selectedHistoryLedgerAccountCode}
+                value={effectiveHistoryLedgerAccountCode}
                 onChange={(event) => setSelectedHistoryLedgerAccountCode(event.target.value)}
                 className="h-8 max-w-56 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#1f65a7]"
               >
                 <option value="">选择历史明细账科目</option>
-                {detailedAccounts.map((account) => (
+                {historyLedgerAccountOptions.map((account) => (
                   <option key={account.code} value={account.code}>{account.code} {account.name}</option>
                 ))}
               </select>
