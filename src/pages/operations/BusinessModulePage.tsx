@@ -1513,10 +1513,14 @@ function savePreviewPeopleData(data: PreviewPeopleData) {
 }
 
 function previewCashflowStorageKey() {
-  return 'accounting-preview-cashflow-data-v1'
+  return 'accounting-preview-cashflow-data-v2'
 }
 
-function clonePreviewCashflowData(data: PreviewCashflowData = previewCashflowSeed): PreviewCashflowData {
+function emptyPreviewCashflowData(): PreviewCashflowData {
+  return { bankTransactions: [], settlementRecords: [], bankReconciliationRecords: [], accountTransfers: [] }
+}
+
+function clonePreviewCashflowData(data: PreviewCashflowData = emptyPreviewCashflowData()): PreviewCashflowData {
   return {
     bankTransactions: data.bankTransactions.map((record) => ({ ...record })),
     settlementRecords: data.settlementRecords.map((record) => ({ ...record })),
@@ -1551,10 +1555,14 @@ function savePreviewCashflowData(data: PreviewCashflowData) {
 }
 
 function previewDocumentBusinessStorageKey() {
-  return 'accounting-preview-document-business-data-v1'
+  return 'accounting-preview-document-business-data-v2'
 }
 
-function clonePreviewDocumentBusinessData(data: PreviewDocumentBusinessData = previewDocumentBusinessSeed): PreviewDocumentBusinessData {
+function emptyPreviewDocumentBusinessData(): PreviewDocumentBusinessData {
+  return { documentRecords: [], businessOrders: [] }
+}
+
+function clonePreviewDocumentBusinessData(data: PreviewDocumentBusinessData = emptyPreviewDocumentBusinessData()): PreviewDocumentBusinessData {
   return {
     documentRecords: data.documentRecords.map((record) => ({ ...record })),
     businessOrders: data.businessOrders.map((order) => ({ ...order })),
@@ -1585,10 +1593,14 @@ function savePreviewDocumentBusinessData(data: PreviewDocumentBusinessData) {
 }
 
 function previewAssetInventoryStorageKey() {
-  return 'accounting-preview-asset-inventory-data-v1'
+  return 'accounting-preview-asset-inventory-data-v2'
 }
 
-function clonePreviewAssetInventoryData(data: PreviewAssetInventoryData = previewAssetInventorySeed): PreviewAssetInventoryData {
+function emptyPreviewAssetInventoryData(): PreviewAssetInventoryData {
+  return { fixedAssets: [], inventoryItems: [], inventoryMovements: [], costCarryoverRecords: [] }
+}
+
+function clonePreviewAssetInventoryData(data: PreviewAssetInventoryData = emptyPreviewAssetInventoryData()): PreviewAssetInventoryData {
   return {
     fixedAssets: data.fixedAssets.map((asset) => ({ ...asset })),
     inventoryItems: data.inventoryItems.map((item) => ({ ...item })),
