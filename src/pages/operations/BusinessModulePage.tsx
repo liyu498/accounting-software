@@ -9010,6 +9010,14 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const pageStart = filteredRows.length === 0 ? 0 : (page - 1) * pageSize + 1
   const pageEnd = Math.min(page * pageSize, filteredRows.length)
   const pagedRows = useMemo(() => filteredRows.slice((page - 1) * pageSize, page * pageSize), [filteredRows, page, pageSize])
+  const supportsFileImport = /导入|采集|上传/.test(config.importLabel)
+  const isFilteredListEmpty = filteredRows.length === 0 && config.rows.length > 0
+  const emptyListTitle = isFilteredListEmpty ? '没有符合当前条件的记录' : `暂无${listMeta.title.replace(/清单$/, '')}`
+  const moduleEmptyActionLabel = supportsFileImport ? config.importLabel : config.primaryAction
+  const emptyListActionLabel = isFilteredListEmpty ? '清除筛选并返回完整列表' : moduleEmptyActionLabel
+  const emptyListDescription = isFilteredListEmpty
+    ? '可以清除当前筛选和工作区条件，返回完整列表继续查看。'
+    : `${listMeta.hint} 请通过“${emptyListActionLabel}”补充当前模块的业务记录。`
 
   useEffect(() => {
     setPage(1)
@@ -9025,7 +9033,6 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     advancedFilters.attachment !== '全部' && `附件=${advancedFilters.attachment}`,
   ].filter(Boolean).join('；')
   const auditScope = [status, keyword.trim() || '全部', businessTagFilter !== '全部' ? `标签=${businessTagFilter}` : '', advancedFilterScope].filter(Boolean).join('/')
-  const supportsFileImport = /导入|采集|上传/.test(config.importLabel)
   const primaryActionHandlesImport = /导入|采集|上传/.test(config.primaryAction)
   const exportPeriodLabel = currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel
   const exportDocumentContext = {
@@ -9100,6 +9107,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setShowAdvancedFilters(false)
     writeModuleAudit('应用高级筛选', `${title}-${advancedFiltersDraft.voucher}/${advancedFiltersDraft.attachment}`)
     setOperationNotice(`已应用高级筛选：凭证${advancedFiltersDraft.voucher}，附件${advancedFiltersDraft.attachment}。`)
+  }
+
+  const resetListFilters = () => {
+    setKeyword('')
+    setStatus('全部')
+    setBusinessTagFilter('全部')
+    setAdvancedFilters({ voucher: '全部', attachment: '全部' })
+    setAdvancedFiltersDraft({ voucher: '全部', attachment: '全部' })
+    setActiveTab(workspaceTabs[0])
+    setOperationNotice('已清除列表筛选并返回完整列表。')
   }
 
   const openModuleColumnSettings = () => {
@@ -14573,6 +14590,33 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                 </tr>
               </thead>
               <tbody>
+                {pagedRows.length === 0 && (
+                  <tr>
+                    <td colSpan={visibleColumns.length + 3 + Number(tableMeta.showVoucher) + Number(tableMeta.showAttachment)} className="border-b border-slate-100 px-4 py-12 text-center">
+                      <div className="mx-auto flex max-w-xl flex-col items-center gap-2">
+                        <p className="text-sm font-semibold text-slate-700">{emptyListTitle}</p>
+                        <p className="max-w-lg text-xs leading-5 text-slate-500">{emptyListDescription}</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isFilteredListEmpty) {
+                              resetListFilters()
+                              return
+                            }
+                            if (supportsFileImport) {
+                              handleImportAction()
+                              return
+                            }
+                            void handlePrimaryAction()
+                          }}
+                          className="mt-1 h-8 border border-[#1f65a7] px-3 text-xs font-medium text-[#1f65a7] hover:bg-blue-50"
+                        >
+                          {emptyListActionLabel}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {pagedRows.map((row) => {
                   const isLocalRegistryRow = kind === 'attachmentCenter'
                     ? localAttachmentRecords.some((item) => item.id === row.id)

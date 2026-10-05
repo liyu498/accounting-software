@@ -900,6 +900,12 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const pageStart = filteredRows.length === 0 ? 0 : (page - 1) * pageSize + 1
   const pageEnd = Math.min(page * pageSize, filteredRows.length)
   const pagedRows = useMemo(() => filteredRows.slice((page - 1) * pageSize, page * pageSize), [filteredRows, page, pageSize])
+  const isFilteredAgencyListEmpty = filteredRows.length === 0 && rows.length > 0
+  const agencyEmptyTitle = isFilteredAgencyListEmpty ? '没有符合当前条件的记录' : `暂无${pageConfig.title}`
+  const agencyEmptyActionLabel = isFilteredAgencyListEmpty ? '清除筛选并显示当前工作区记录' : pageConfig.primaryAction
+  const agencyEmptyDescription = isFilteredAgencyListEmpty
+    ? '可以清除关键词和状态筛选，返回当前工作区的完整本地台账。'
+    : `${pageConfig.description} ${pageConfig.notes[0]} 请通过“${agencyEmptyActionLabel}”开始当前工作。`
 
   useEffect(() => {
     setPage(1)
@@ -992,6 +998,13 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     setShowAgencyFilterDialog(false)
     writeAgencyAudit('机构列表筛选', `${pageConfig.title}-${statusFilterDraft}`)
     setOperationNotice(statusFilterDraft === '全部' ? '已清除机构状态筛选。' : `已按“${statusFilterDraft}”筛选当前列表。`)
+  }
+
+  const resetAgencyListFilters = () => {
+    setQuery('')
+    setStatusFilter('全部')
+    setStatusFilterDraft('全部')
+    setOperationNotice('已清除筛选并返回当前工作区完整列表。')
   }
 
   const rowObjectLabel = (row: AgencyRow) => {
@@ -2183,8 +2196,24 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                   ))}
                   {pagedRows.length === 0 && (
                     <tr>
-                      <td colSpan={pageConfig.columns.length + 3} className="border-b border-slate-200 px-3 py-10 text-center text-xs text-slate-500">
-                        当前没有已保存的{pageConfig.title}记录。请通过本页操作或对应客户账套补充数据。
+                      <td colSpan={pageConfig.columns.length + 3} className="border-b border-slate-200 px-3 py-12 text-center">
+                        <div className="mx-auto flex max-w-xl flex-col items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-700">{agencyEmptyTitle}</p>
+                          <p className="max-w-lg text-xs leading-5 text-slate-500">{agencyEmptyDescription}</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isFilteredAgencyListEmpty) {
+                                resetAgencyListFilters()
+                                return
+                              }
+                              void handlePrimaryAction()
+                            }}
+                            className="mt-1 h-8 border border-[#1f65a7] px-3 text-xs font-medium text-[#1f65a7] hover:bg-blue-50"
+                          >
+                            {agencyEmptyActionLabel}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )}
