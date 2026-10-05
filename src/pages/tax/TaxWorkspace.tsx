@@ -21,90 +21,22 @@ import { automationApi, type OperationAuditLog, type TaxDeclarationTask } from '
 import { useCompanyStore } from '../../stores/companyStore'
 import { usePeriodStore } from '../../stores/periodStore'
 
-const declarationRows = [
-  {
-    id: 'VAT-202605',
-    category: '增值税及附加',
-    form: '增值税及附加税费申报表',
-    period: '2026-05',
-    collectStatus: '已取数',
-    checkStatus: '待确认',
-    declareStatus: '未申报',
-    source: '销项发票 58 张 / 进项发票 72 张 / 凭证 82 张',
-    sales: '680,000.00',
-    deduction: '42,860.00',
-    payable: '54,210.00',
-    risk: '2 张进项未勾选',
-    owner: '王会计',
-    updated: '06-22 09:32',
-  },
-  {
-    id: 'IIT-202605',
-    category: '扣缴所得税',
-    form: '个人所得税扣缴申报表',
-    period: '2026-05',
-    collectStatus: '已取数',
-    checkStatus: '待确认',
-    declareStatus: '未申报',
-    source: '薪酬表 42 人 / 专项附加扣除 26 条',
-    sales: '386,200.00',
-    deduction: '52,000.00',
-    payable: '18,420.00',
-    risk: '1 人扣除资料不完整',
-    owner: '李会计',
-    updated: '06-22 09:35',
-  },
-  {
-    id: 'CIT-Q2',
-    category: '企业所得税',
-    form: '企业所得税月季度预缴纳税申报表',
-    period: '2026-Q2',
-    collectStatus: '已取数',
-    checkStatus: '校验通过',
-    declareStatus: '待申报',
-    source: '利润表 / 纳税调整 / 历史亏损',
-    sales: '126,000.00',
-    deduction: '0.00',
-    payable: '6,300.00',
-    risk: '无',
-    owner: '赵会计',
-    updated: '06-22 09:38',
-  },
-  {
-    id: 'STAMP-202605',
-    category: '印花税',
-    form: '财产和行为税纳税申报表',
-    period: '2026-05',
-    collectStatus: '待补资料',
-    checkStatus: '需复核',
-    declareStatus: '未申报',
-    source: '合同台账 / 单据登记',
-    sales: '980,000.00',
-    deduction: '0.00',
-    payable: '490.00',
-    risk: '合同金额与单据金额不一致',
-    owner: '王会计',
-    updated: '06-22 09:41',
-  },
-  {
-    id: 'SSF-202605',
-    category: '社保费',
-    form: '社会保险费申报表',
-    period: '2026-05',
-    collectStatus: '已取数',
-    checkStatus: '校验通过',
-    declareStatus: '待申报',
-    source: '人员登记 42 人 / 社保公积金明细',
-    sales: '103,870.00',
-    deduction: '0.00',
-    payable: '103,870.00',
-    risk: '无',
-    owner: '李会计',
-    updated: '06-22 09:43',
-  },
-]
-
-type DeclarationRow = (typeof declarationRows)[number]
+type DeclarationRow = {
+  id: string
+  category: string
+  form: string
+  period: string
+  collectStatus: string
+  checkStatus: string
+  declareStatus: string
+  source: string
+  sales: string
+  deduction: string
+  payable: string
+  risk: string
+  owner: string
+  updated: string
+}
 type RiskRow = [level: string, module: string, description: string, link: string]
 type RuleLog = [time: string, action: string, detail: string]
 type DeclarationDraft = {
@@ -135,19 +67,6 @@ type TaxInitializationImportCandidate = {
   sourceSnapshot: string
   adapterCode: string
 }
-
-const riskRows: RiskRow[] = [
-  ['阻断', '增值税及附加', '进项发票未完成勾选，抵扣税额不能进入申报主表', '发票勾选'],
-  ['提示', '扣缴所得税', '员工王五专项附加扣除缺少结束月份', '专项附加扣除'],
-  ['复核', '印花税', '合同台账金额与单据登记金额差异 20,000.00', '单据登记'],
-]
-
-const logs: RuleLog[] = [
-  ['09:30', '重新取数', '系统从发票、凭证、工资和账簿生成本期申报快照'],
-  ['09:32', '风险校验', '发现 1 条阻断、2 条需复核事项'],
-  ['09:38', '人工确认', '企业所得税和社保费标记为待申报'],
-  ['09:43', '导出申报包', '生成 Excel、PDF、取数说明和操作日志'],
-]
 
 const tabs = ['申报清单', '增值税', '企业所得税', '扣缴所得税', '印花税', '社保费', '财报报送', '回执缴款书']
 
@@ -382,7 +301,7 @@ function saveTaxColumnSettings(companyId: string, settings: TaxColumnSettings) {
 export function TaxWorkspace() {
   const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
   const companies = useCompanyStore((state) => state.companies)
-  const companyId = selectedCompanyId ?? 'mock-1'
+  const companyId = selectedCompanyId ?? 'browser-preview-company'
   const periods = usePeriodStore((state) => state.periods)
   const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
   const currentPeriodRecord = useMemo(() => periods.find((period) => period.id === currentPeriodId), [currentPeriodId, periods])
@@ -396,7 +315,7 @@ export function TaxWorkspace() {
     taxId: selectedCompany?.tax_id || '未维护',
     period: currentPeriod,
   }), [currentPeriod, selectedCompany])
-  const usesLiveTaxDeclarationData = Boolean(isTauri && selectedCompanyId && currentPeriodId)
+  const usesTaxDeclarationData = Boolean((isTauri && selectedCompanyId && currentPeriodId) || !isTauri)
   const [showRulesLog, setShowRulesLog] = useState(false)
   const [showColumnSettings, setShowColumnSettings] = useState(false)
   const [taxColumnSettings, setTaxColumnSettings] = useState<TaxColumnSettings>(() => loadTaxColumnSettings(companyId))
@@ -465,10 +384,8 @@ export function TaxWorkspace() {
     }
   }, [companyId, currentPeriod])
 
-  const visibleDeclarationRows = usesLiveTaxDeclarationData
-    ? taxDeclarationTasks.map(mapTaxDeclarationTaskToRow)
-    : declarationRows
-  const currentRows = usesLiveTaxDeclarationData ? visibleDeclarationRows : declarationRows
+  const visibleDeclarationRows = taxDeclarationTasks.map(mapTaxDeclarationTaskToRow)
+  const currentRows = visibleDeclarationRows
   const filteredDeclarationRows = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
     return currentRows.filter((row) => {
@@ -489,8 +406,6 @@ export function TaxWorkspace() {
   }, [currentRowIdSignature])
   const scopedOperationAuditLogs = useMemo(() => operationAuditLogs.filter((log) => log.objectRef?.includes(currentPeriod)), [currentPeriod, operationAuditLogs])
   const visibleRiskRows = useMemo<RiskRow[]>(() => {
-    if (!usesLiveTaxDeclarationData) return riskRows
-
     return visibleDeclarationRows
       .filter((row) => row.risk !== '无' || row.collectStatus === '待补资料' || row.checkStatus !== '校验通过')
       .map((row) => [
@@ -501,16 +416,14 @@ export function TaxWorkspace() {
           : row.risk,
         '申报清单',
       ] as RiskRow)
-  }, [usesLiveTaxDeclarationData, visibleDeclarationRows])
+  }, [visibleDeclarationRows])
   const visibleRuleLogs = useMemo<RuleLog[]>(() => {
-    if (!usesLiveTaxDeclarationData) return logs
-
     return scopedOperationAuditLogs.map((log) => [
       log.createdAt.replace('T', ' ').slice(5, 16),
       log.action,
       log.detail || log.objectRef || '未记录说明',
     ])
-  }, [scopedOperationAuditLogs, usesLiveTaxDeclarationData])
+  }, [scopedOperationAuditLogs])
   const declarationMetrics = {
     total: visibleDeclarationRows.length,
     collected: visibleDeclarationRows.filter((row) => row.collectStatus === '已取数').length,
@@ -632,8 +545,8 @@ export function TaxWorkspace() {
       return
     }
 
-    if (!usesLiveTaxDeclarationData) {
-      setOperationNotice('浏览器预览只展示申报流程；请在桌面端选择账套和账期后执行本地确认。')
+    if (isTauri && (!usesTaxDeclarationData || !selectedCompanyId)) {
+      setOperationNotice('请先在桌面端选择账套和账期后执行本地确认。')
       return
     }
 
@@ -767,8 +680,8 @@ export function TaxWorkspace() {
   }
 
   const confirmTaxInitializationImport = async () => {
-    if (!usesLiveTaxDeclarationData || !selectedCompanyId) {
-      setOperationNotice('浏览器预览只展示模板解析；请在桌面端选择账套和账期后确认写入本地申报事项。')
+    if (isTauri && (!usesTaxDeclarationData || !selectedCompanyId)) {
+      setOperationNotice('请先在桌面端选择账套和账期后确认写入本地申报事项。')
       return
     }
     if (taxInitializationImportPreview.length === 0 || taxInitializationImportErrors.length > 0) {
@@ -954,8 +867,8 @@ export function TaxWorkspace() {
 
   const saveDeclarationDetail = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!usesLiveTaxDeclarationData || !selectedCompanyId) {
-      setOperationNotice('浏览器预览只展示申报事项；请在桌面端选择账套和账期后保存本地修改。')
+    if (isTauri && (!usesTaxDeclarationData || !selectedCompanyId)) {
+      setOperationNotice('请先在桌面端选择账套和账期后保存本地修改。')
       return
     }
     const task = taxDeclarationTasks.find((item) => item.id === declarationDraft.id)

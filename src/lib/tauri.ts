@@ -117,51 +117,6 @@ const EMPTY_RESULTS: Record<string, unknown> = {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
-  get_tax_declaration_tasks: [],
-  upsert_tax_declaration_task: {
-    id: 'tax-dev-1',
-    company_id: 'mock-1',
-    company_name: '示例公司',
-    period: '2026-05',
-    tax_type: '增值税',
-    form_name: '增值税及附加税费申报表',
-    collect_status: 'collected',
-    validation_status: 'pending',
-    declaration_status: 'draft',
-    source_snapshot: null,
-    taxable_amount: 0,
-    deduction_amount: 0,
-    payable_amount: 0,
-    risk_count: 0,
-    adapter_code: null,
-    confirmed_by: null,
-    confirmed_at: null,
-    receipt_no: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  confirm_tax_declaration_task: {
-    id: 'tax-dev-1',
-    company_id: 'mock-1',
-    company_name: '示例公司',
-    period: '2026-05',
-    tax_type: '增值税',
-    form_name: '增值税及附加税费申报表',
-    collect_status: 'collected',
-    validation_status: 'passed',
-    declaration_status: 'confirmed',
-    source_snapshot: null,
-    taxable_amount: 0,
-    deduction_amount: 0,
-    payable_amount: 0,
-    risk_count: 0,
-    adapter_code: null,
-    confirmed_by: 'dev',
-    confirmed_at: new Date().toISOString(),
-    receipt_no: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
   get_adapter_authorizations: [],
   upsert_adapter_authorization: {
     id: 'adapter-dev-1',
@@ -180,20 +135,6 @@ const EMPTY_RESULTS: Record<string, unknown> = {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
-  write_operation_audit_log: {
-    id: 'audit-dev-1',
-    company_id: 'mock-1',
-    company_name: '示例公司',
-    module_name: 'automation',
-    action: 'preview',
-    object_ref: null,
-    risk_level: 'normal',
-    result: 'success',
-    detail: '浏览器预览 mock',
-    operator: 'dev',
-    created_at: new Date().toISOString(),
-  },
-  get_operation_audit_logs: [],
   create_local_backup: { id: 'backup-dev-1', file_name: 'accounting-preview.db', created_at: new Date().toISOString(), size_bytes: 0 },
   list_local_backups: [],
   verify_local_backup: { id: 'backup-dev-1', file_name: 'accounting-preview.db', valid: true, message: '浏览器预览 mock' },
@@ -328,6 +269,46 @@ type BrowserAdapterAuthorization = {
   updated_at: string
 }
 
+type BrowserTaxDeclarationTask = {
+  id: string
+  company_id: string
+  company_name: string | null
+  period: string
+  tax_type: string
+  form_name: string
+  collect_status: string
+  validation_status: string
+  declaration_status: string
+  source_snapshot: string | null
+  taxable_amount: number
+  deduction_amount: number
+  payable_amount: number
+  risk_count: number
+  adapter_code: string | null
+  confirmed_by: string | null
+  confirmed_at: string | null
+  receipt_no: string | null
+  payment_status: string
+  payment_no: string | null
+  receipt_received_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+type BrowserOperationAuditLog = {
+  id: string
+  company_id: string | null
+  company_name: string | null
+  module_name: string
+  action: string
+  object_ref: string | null
+  risk_level: string
+  result: string
+  detail: string | null
+  operator: string | null
+  created_at: string
+}
+
 type BrowserAgencyPreviewData = {
   contracts: BrowserAgencyContract[]
   fees: BrowserAgencyFee[]
@@ -335,6 +316,8 @@ type BrowserAgencyPreviewData = {
   batchTasks: BrowserAgencyBatchTask[]
   automationJobs: BrowserAutomationJob[]
   authorizations: BrowserAdapterAuthorization[]
+  taxDeclarationTasks: BrowserTaxDeclarationTask[]
+  operationAuditLogs: BrowserOperationAuditLog[]
 }
 
 function browserStorage() {
@@ -347,7 +330,10 @@ function browserStorage() {
 }
 
 function emptyBrowserAgencyPreviewData(): BrowserAgencyPreviewData {
-  return { contracts: [], fees: [], collaborations: [], batchTasks: [], automationJobs: [], authorizations: [] }
+  return {
+    contracts: [], fees: [], collaborations: [], batchTasks: [], automationJobs: [], authorizations: [],
+    taxDeclarationTasks: [], operationAuditLogs: [],
+  }
 }
 
 function loadBrowserAgencyPreviewData(): BrowserAgencyPreviewData {
@@ -363,6 +349,8 @@ function loadBrowserAgencyPreviewData(): BrowserAgencyPreviewData {
       batchTasks: Array.isArray(parsed.batchTasks) ? parsed.batchTasks as BrowserAgencyBatchTask[] : [],
       automationJobs: Array.isArray(parsed.automationJobs) ? parsed.automationJobs as BrowserAutomationJob[] : [],
       authorizations: Array.isArray(parsed.authorizations) ? parsed.authorizations as BrowserAdapterAuthorization[] : [],
+      taxDeclarationTasks: Array.isArray(parsed.taxDeclarationTasks) ? parsed.taxDeclarationTasks as BrowserTaxDeclarationTask[] : [],
+      operationAuditLogs: Array.isArray(parsed.operationAuditLogs) ? parsed.operationAuditLogs as BrowserOperationAuditLog[] : [],
     }
   } catch {
     return emptyBrowserAgencyPreviewData()
@@ -629,6 +617,96 @@ async function browserInvoke<T>(cmd: string, _args?: Record<string, unknown>): P
       updated_at: now,
     }
     data.authorizations = upsertBrowserAgencyRecord(data.authorizations, record)
+    saveBrowserAgencyPreviewData(data)
+    return record as T
+  }
+
+  if (cmd === 'get_tax_declaration_tasks') {
+    const companyId = asPreviewText(filters.companyId)
+    const period = asPreviewText(filters.period)
+    const declarationStatus = asPreviewText(filters.declarationStatus)
+    return data.taxDeclarationTasks.filter((item) => (
+      (!companyId || item.company_id === companyId)
+      && (!period || item.period === period)
+      && (!declarationStatus || item.declaration_status === declarationStatus)
+    )) as T
+  }
+  if (cmd === 'upsert_tax_declaration_task') {
+    const companyId = asPreviewText(input.company_id, firstCompanyId)
+    const period = asPreviewText(input.period, new Date().toISOString().slice(0, 7))
+    const taxType = asPreviewText(input.tax_type)
+    const existing = data.taxDeclarationTasks.find((item) => (
+      item.company_id === companyId && item.period === period && item.tax_type === taxType
+    ))
+    const record: BrowserTaxDeclarationTask = {
+      id: existing?.id || browserAgencyId('tax-declaration'),
+      company_id: companyId,
+      company_name: browserAgencyCompanyName(companyId, existing?.company_name || null),
+      period,
+      tax_type: taxType,
+      form_name: asPreviewText(input.form_name, existing?.form_name || ''),
+      collect_status: asPreviewText(input.collect_status, existing?.collect_status || '未取数'),
+      validation_status: asPreviewText(input.validation_status, existing?.validation_status || 'pending'),
+      declaration_status: asPreviewText(input.declaration_status, existing?.declaration_status || 'draft'),
+      source_snapshot: asPreviewText(input.source_snapshot, existing?.source_snapshot || '') || null,
+      taxable_amount: asPreviewNumber(input.taxable_amount, existing?.taxable_amount || 0),
+      deduction_amount: asPreviewNumber(input.deduction_amount, existing?.deduction_amount || 0),
+      payable_amount: asPreviewNumber(input.payable_amount, existing?.payable_amount || 0),
+      risk_count: asPreviewNumber(input.risk_count, existing?.risk_count || 0),
+      adapter_code: asPreviewText(input.adapter_code, existing?.adapter_code || '') || null,
+      confirmed_by: existing?.confirmed_by || null,
+      confirmed_at: existing?.confirmed_at || null,
+      receipt_no: asPreviewText(input.receipt_no, existing?.receipt_no || '') || null,
+      payment_status: asPreviewText(input.payment_status, existing?.payment_status || 'unrecorded'),
+      payment_no: asPreviewText(input.payment_no, existing?.payment_no || '') || null,
+      receipt_received_at: asPreviewText(input.receipt_received_at, existing?.receipt_received_at || '') || null,
+      created_at: existing?.created_at || now,
+      updated_at: now,
+    }
+    data.taxDeclarationTasks = upsertBrowserAgencyRecord(data.taxDeclarationTasks, record)
+    saveBrowserAgencyPreviewData(data)
+    return record as T
+  }
+  if (cmd === 'confirm_tax_declaration_task') {
+    const task = data.taxDeclarationTasks.find((item) => (
+      item.id === asPreviewText(input.id) && item.company_id === asPreviewText(input.company_id)
+    ))
+    if (!task) throw new Error('未找到需要确认的本地申报事项')
+    if (task.validation_status !== 'passed' || task.risk_count > 0) {
+      throw new Error('申报事项未通过校验或仍有风险，不能确认')
+    }
+    task.declaration_status = 'confirmed'
+    task.confirmed_by = asPreviewText(input.confirmed_by, 'admin')
+    task.confirmed_at = now
+    task.updated_at = now
+    saveBrowserAgencyPreviewData(data)
+    return task as T
+  }
+
+  if (cmd === 'get_operation_audit_logs') {
+    const companyId = asPreviewText(filters.companyId)
+    const moduleName = asPreviewText(filters.moduleName)
+    return data.operationAuditLogs.filter((item) => (
+      (!companyId || item.company_id === companyId)
+      && (!moduleName || item.module_name === moduleName)
+    )) as T
+  }
+  if (cmd === 'write_operation_audit_log') {
+    const companyId = asPreviewText(input.company_id) || null
+    const record: BrowserOperationAuditLog = {
+      id: browserAgencyId('operation-audit'),
+      company_id: companyId,
+      company_name: companyId ? browserAgencyCompanyName(companyId) : null,
+      module_name: asPreviewText(input.module_name),
+      action: asPreviewText(input.action),
+      object_ref: asPreviewText(input.object_ref) || null,
+      risk_level: asPreviewText(input.risk_level, 'normal'),
+      result: asPreviewText(input.result, 'success'),
+      detail: asPreviewText(input.detail) || null,
+      operator: asPreviewText(input.operator, 'admin'),
+      created_at: now,
+    }
+    data.operationAuditLogs.unshift(record)
     saveBrowserAgencyPreviewData(data)
     return record as T
   }

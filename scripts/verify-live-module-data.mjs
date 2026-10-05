@@ -555,14 +555,14 @@ const requiredLocalFileRegistrySnippets = [
 ]
 
 const requiredTaxWorkspaceSnippets = [
-  ['tax workspace live scope', 'usesLiveTaxDeclarationData'],
+  ['tax workspace persisted data scope', 'usesTaxDeclarationData'],
   ['tax workspace task state', 'setTaxDeclarationTasks'],
   ['tax workspace task mapping', 'mapTaxDeclarationTaskToRow'],
   ['tax workspace visible rows', 'visibleDeclarationRows'],
   ['tax workspace live list refresh', 'getTaxDeclarationTasks({ companyId, period: currentPeriod })'],
   ['tax workspace selected period store', 'const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)'],
   ['tax workspace selected period label', 'const currentPeriodLabel = currentPeriodRecord'],
-  ['tax workspace live period scope', 'Boolean(isTauri && selectedCompanyId && currentPeriodId)'],
+  ['tax workspace cross-environment period scope', 'Boolean((isTauri && selectedCompanyId && currentPeriodId) || !isTauri)'],
   ['tax workspace dynamic export file', '税务申报包-${currentPeriod}.pdf'],
   ['tax workspace table binding', 'filteredDeclarationRows.map((row) =>'],
   ['tax workspace active tax tab', "const [activeTab, setActiveTab] = useState('申报清单')"],
@@ -596,6 +596,26 @@ const requiredTaxWorkspaceSnippets = [
   ['tax workspace visible column binding', 'const visibleTaxColumns = useMemo(() =>'],
   ['tax workspace column settings dialog', '申报清单列设置'],
   ['tax workspace frozen key columns', '冻结选择列与税种'],
+  ['tax workspace browser task scope', "const usesTaxDeclarationData = Boolean((isTauri && selectedCompanyId && currentPeriodId) || !isTauri)"],
+  ['tax workspace browser task rows', 'const visibleDeclarationRows = taxDeclarationTasks.map(mapTaxDeclarationTaskToRow)'],
+  ['tax workspace browser confirmation support', "if (isTauri && (!usesTaxDeclarationData || !selectedCompanyId))"],
+]
+
+const forbiddenStaticTaxWorkspaceSnippets = [
+  ['static tax declaration rows', 'const declarationRows = ['],
+  ['static tax risk rows', 'const riskRows: RiskRow[] = ['],
+  ['static tax operation logs', 'const logs: RuleLog[] = ['],
+  ['browser tax workspace mock company', "const companyId = selectedCompanyId ?? 'mock-1'"],
+]
+
+const requiredBrowserTaxPreviewSnippets = [
+  ['browser tax preview storage field', 'taxDeclarationTasks: BrowserTaxDeclarationTask[]'],
+  ['browser tax preview load field', 'taxDeclarationTasks: Array.isArray(parsed.taxDeclarationTasks)'],
+  ['browser tax task list command', "if (cmd === 'get_tax_declaration_tasks')"],
+  ['browser tax task upsert command', "if (cmd === 'upsert_tax_declaration_task')"],
+  ['browser tax task confirmation command', "if (cmd === 'confirm_tax_declaration_task')"],
+  ['browser tax audit list command', "if (cmd === 'get_operation_audit_logs')"],
+  ['browser tax audit write command', "if (cmd === 'write_operation_audit_log')"],
 ]
 
 const requiredWelcomeSnippets = [
@@ -1657,6 +1677,8 @@ const errors = [
   ...verify(pageSource, requiredPageSnippets, 'business module page'),
   ...verify(localFileRegistrySource, requiredLocalFileRegistrySnippets, 'local file registry'),
   ...verify(taxWorkspaceSource, requiredTaxWorkspaceSnippets, 'tax workspace'),
+  ...verifyAbsent(taxWorkspaceSource, forbiddenStaticTaxWorkspaceSnippets, 'tax workspace'),
+  ...verify(tauriSource, requiredBrowserTaxPreviewSnippets, 'browser tax preview adapter'),
   ...verify(welcomeSource, requiredWelcomeSnippets, 'welcome page'),
   ...verify(companyStoreSource, requiredCompanyPersistenceSnippets.slice(0, 2), 'company store'),
   ...verify(companyCommandSource, requiredCompanyPersistenceSnippets.slice(2, 3), 'company commands'),
