@@ -977,25 +977,20 @@ const previewAuxiliaryArchiveSeed: PreviewAuxiliaryArchiveState = {
 }
 
 function previewAiQueueJobStorageKey() {
-  return 'accounting-preview-ai-queue-jobs-v1'
+  return 'accounting-preview-ai-queue-jobs-v2'
 }
 
 function previewCompanyTodoStorageKey() {
-  return 'accounting-preview-company-todos-v1'
-}
-
-function mergePreviewCompanyTodoSeed(todos: CompanyTodo[]) {
-  const knownIds = new Set(todos.map((todo) => todo.id))
-  return [...todos, ...previewCompanyTodoSeed.filter((todo) => !knownIds.has(todo.id)).map((todo) => ({ ...todo }))]
+  return 'accounting-preview-company-todos-v2'
 }
 
 function loadPreviewCompanyTodos(): CompanyTodo[] {
-  const fallback = () => previewCompanyTodoSeed.map((todo) => ({ ...todo }))
+  const fallback = () => [] as CompanyTodo[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewCompanyTodoStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((todo) => typeof todo?.id === 'string' && typeof todo.title === 'string' && typeof todo.status === 'string')) return fallback()
-    return mergePreviewCompanyTodoSeed(parsed as CompanyTodo[])
+    return parsed as CompanyTodo[]
   } catch {
     return fallback()
   }
@@ -1635,11 +1630,11 @@ function savePreviewAssetInventoryData(data: PreviewAssetInventoryData) {
 }
 
 function previewCompanyAccountStorageKey() {
-  return 'accounting-preview-company-accounts-v1'
+  return 'accounting-preview-company-accounts-v2'
 }
 
 function loadPreviewCompanyAccounts(): CompanyAccount[] {
-  const fallback = () => previewCompanyAccountSeed.map((account) => ({ ...account }))
+  const fallback = () => [] as CompanyAccount[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewCompanyAccountStorageKey()) || 'null')
@@ -1691,11 +1686,11 @@ function savePreviewAuxiliaryArchive(archive: PreviewAuxiliaryArchiveState) {
 }
 
 function previewInitialBalanceStorageKey() {
-  return 'accounting-preview-initial-balances-v1'
+  return 'accounting-preview-initial-balances-v2'
 }
 
 function loadPreviewInitialBalanceRows(): PreviewInitialBalanceRow[] {
-  const fallback = () => previewInitialBalanceSeed.map((row) => ({ ...row }))
+  const fallback = () => [] as PreviewInitialBalanceRow[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewInitialBalanceStorageKey()) || 'null')
@@ -1715,18 +1710,13 @@ function savePreviewInitialBalanceRows(rows: PreviewInitialBalanceRow[]) {
   }
 }
 
-function mergePreviewAiQueueJobSeed(jobs: AutomationJob[]) {
-  const knownIds = new Set(jobs.map((job) => job.id))
-  return [...jobs, ...previewAiQueueJobSeed.filter((job) => !knownIds.has(job.id)).map((job) => ({ ...job }))]
-}
-
 function loadPreviewAiQueueJobs(): AutomationJob[] {
-  const fallback = () => previewAiQueueJobSeed.map((job) => ({ ...job }))
+  const fallback = () => [] as AutomationJob[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewAiQueueJobStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((job) => typeof job?.id === 'string' && typeof job.jobType === 'string' && typeof job.status === 'string')) return fallback()
-    return mergePreviewAiQueueJobSeed(parsed as AutomationJob[])
+    return parsed as AutomationJob[]
   } catch {
     return fallback()
   }
