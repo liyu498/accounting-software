@@ -503,7 +503,8 @@ const requiredPageSnippets = [
   ['export center live scope', "const usesLiveExportData = Boolean(isTauri && selectedCompanyId && kind === 'exportCenter')"],
   ['export center audit mapper', 'function mapOperationAuditExportRows(logs: OperationAuditLog[]): ModuleRow[]'],
   ['export center audit filter', 'function isExportOperationAudit(log: OperationAuditLog)'],
-  ['export center live rows', 'if (kind === \'exportCenter\' && usesLiveExportData)'],
+  ['export center browser rows', "if (kind === 'exportCenter' && (usesLiveExportData || !isTauri))"],
+  ['export center browser jobs', 'const dynamicRows = isTauri'],
   ['export center audit fetch', "kind === 'auditLog' || kind === 'exportCenter'"],
   ['import center live scope', "const usesLiveImportData = Boolean(isTauri && selectedCompanyId && kind === 'importCenter')"],
   ['import center audit mapper', 'function mapOperationAuditImportRows(logs: OperationAuditLog[]): ModuleRow[]'],
@@ -899,6 +900,7 @@ const forbiddenBusinessModulePageSnippets = [
   ['invoice dialog duplicated company and period', "登记到当前账套 ${selectedCompany?.name || ''} 与账期 ${currentPeriodLabel}"],
   ['generic import follow-up promise', '后续接入文件选择、字段映射、错误清单和回滚记录'],
   ['generic primary-action follow-up promise', '后续会接入对应表单、规则校验和附件快照'],
+  ['export center static-sample fallback', "if (kind !== 'exportCenter') return baseConfig\n    const dynamicRows = exportJobs.map(exportJobToModuleRow)"],
 ]
 
 const requiredBackupCommandSnippets = [

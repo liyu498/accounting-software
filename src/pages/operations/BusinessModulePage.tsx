@@ -9148,8 +9148,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'exportCenter' && usesLiveExportData) {
-      const dynamicRows = mapOperationAuditExportRows(operationAuditLogs)
+    if (kind === 'exportCenter' && (usesLiveExportData || !isTauri)) {
+      const dynamicRows = isTauri
+        ? mapOperationAuditExportRows(operationAuditLogs)
+        : exportJobs.map(exportJobToModuleRow)
       return {
         ...baseConfig,
         rows: dynamicRows,
@@ -9163,17 +9165,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind !== 'exportCenter') return baseConfig
-    const dynamicRows = exportJobs.map(exportJobToModuleRow)
-    return {
-      ...baseConfig,
-      rows: [...dynamicRows, ...baseConfig.rows],
-      summary: baseConfig.summary.map((item) => {
-        if (item.label === '导出任务') return { ...item, value: `${dynamicRows.length + baseConfig.rows.length} 个` }
-        if (item.label === '已生成') return { ...item, value: `${dynamicRows.filter((row) => row.status === '已通过').length + 28} 个` }
-        return item
-      }),
+    if (kind === 'exportCenter') {
+      return {
+        ...baseConfig,
+        rows: [],
+        summary: baseConfig.summary.map((item) => {
+          if (item.label === '导出任务' || item.label === '已完成' || item.label === '待下载' || item.label === '失败') return { ...item, value: '0 个', tone: 'gray' as const }
+          return item
+        }),
+      }
     }
+
+    return baseConfig
   }, [accounts, accountTransfers, activeVouchers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, auxiliaryLedgerItemOptions, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveAuxiliaryCategory, effectiveAuxiliaryCategoryCode, effectiveAuxiliaryItem, effectiveAuxiliaryItemId, effectiveBusinessTags, effectiveHistoryLedgerAccount, effectiveHistoryLedgerAccountCode, effectiveHistoryPeriodId, effectiveHistoryPeriodLabel, effectiveInvoiceTagIds, effectiveInvoices, effectiveLedgerAccountCode, effectiveLedgerSubjectLabel, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, effectiveVoucherTagIds, effectiveVouchers, employees, exportJobs, fixedAssets, historyLedgerAccountOptions, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewClosingChecks, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewHistoryVouchers, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedCompany, selectedCompanyId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveRiskCheckData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherData, usesLiveVoucherRecycleData, voucherEditorPeriod, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
