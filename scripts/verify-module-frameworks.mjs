@@ -4,6 +4,7 @@ const appSource = readFileSync('src/App.tsx', 'utf8')
 const shellSource = readFileSync('src/components/layout/AppShell.tsx', 'utf8')
 const dashboardSource = readFileSync('src/pages/Dashboard.tsx', 'utf8')
 const businessSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', 'utf8')
+const taxWorkspaceSource = readFileSync('src/pages/tax/TaxWorkspace.tsx', 'utf8')
 const roleManagerSource = readFileSync('src/pages/settings/RoleManager.tsx', 'utf8')
 const agencyNavSource = readFileSync('src/pages/agency/agencyNav.tsx', 'utf8')
 const agencySource = readFileSync('src/pages/agency/AgencyModulePage.tsx', 'utf8')
@@ -84,6 +85,11 @@ const legacyBusinessPageFiles = [
   'src/pages/settings/SettlementRules.tsx',
   'src/pages/settings/VoucherRecycle.tsx',
 ]
+const retiredMockStoreFiles = [
+  'src/stores/bankReconciliationStore.ts',
+  'src/stores/customerStore.ts',
+  'src/stores/inventoryStore.ts',
+]
 
 const summary = {
   businessRoutes: routeKinds.length,
@@ -99,6 +105,18 @@ const summary = {
   appRoutes: routePaths.length,
 }
 
+function sourceSection(source, startMarker, endMarker) {
+  const start = source.indexOf(startMarker)
+  const end = source.indexOf(endMarker, start)
+  return start < 0 ? '' : source.slice(start, end < 0 ? undefined : end)
+}
+
+const aiSuggestionSaveSource = sourceSection(businessSource, 'const handleCreateAiVoucherSuggestion', 'const handleSaveAiJob')
+const aiJobSaveSource = sourceSection(businessSource, 'const handleSaveAiJob', 'function requestBusinessRiskConfirmation')
+const nonTaxRevenueSaveSource = sourceSection(businessSource, 'const handleSaveNonTaxRevenue', 'const openDeclarationReceiptEditor')
+const taxInitSaveSource = sourceSection(businessSource, 'const handleSaveTaxInit', 'const openCompanyTodoEditor')
+const companyTodoSaveSource = sourceSection(businessSource, 'const handleSaveCompanyTodo', 'const completeCompanyTodo')
+
 const errors = [
   ...[
     'const previewInitialBalanceSeed:',
@@ -112,6 +130,21 @@ const errors = [
     'const previewAssetInventorySeed:',
     'const previewCompanyAccountSeed:',
   ].filter((snippet) => businessSource.includes(snippet)).map((snippet) => `inactive browser business seed must be removed: ${snippet}`),
+  ...[
+    'const previewMatchingRuleSeed:',
+    'const previewSubjectSeed:',
+    'const previewCurrencySeed:',
+    'const previewCommonDigestSeed:',
+    'const previewVoucherTemplateSeed:',
+    'const previewSettlementRuleSeed:',
+    'const previewAssetCategorySeed:',
+    'const previewBusinessTagSeed:',
+    'const previewAdapterAuthorizationSeed:',
+    'const previewReportItemSeed:',
+    'const previewPeriodSeed:',
+    'function mergePreviewMatchingRuleSeed',
+    'function mergePreviewSubjectSeed',
+  ].filter((snippet) => businessSource.includes(snippet)).map((snippet) => `editable browser preview must not fall back to sample records: ${snippet}`),
   ...missingUnion.map((kind) => `businessPage kind '${kind}' is missing from ModuleKind`),
   ...missingConfig.map((kind) => `businessPage kind '${kind}' is missing from moduleConfigs`),
   ...unusedUnion.map((kind) => `ModuleKind '${kind}' is not used by any business route`),
@@ -130,15 +163,74 @@ const errors = [
   ...(appSource.includes(duplicateAccountRoute) ? ['agency accounts route still renders the duplicate page'] : []),
   ...(!appSource.includes(accountRedirectRoute) ? ['agency accounts route must redirect to the home account-management workspace'] : []),
   ...legacyBusinessPageFiles.filter((file) => existsSync(file)).map((file) => `legacy page must be removed after migration to BusinessModulePage: ${file}`),
+  ...retiredMockStoreFiles.filter((file) => existsSync(file)).map((file) => `unused mock store must be removed after migration to persisted preview data: ${file}`),
   ...(shellSource.includes('>\n              短信\n') ? ['SMS shortcut must not be rendered in the account shell'] : []),
   ...(shellSource.includes('handleSmsAction') ? ['SMS shell action must be removed'] : []),
+  ...(readFileSync('src/components/settings/CompanySelector.tsx', 'utf8').includes('const DEMO_COMPANY') ? ['company selector must not fall back to a demonstration company'] : []),
+  ...(readFileSync('src/components/settings/CompanySelector.tsx', 'utf8').includes(": '2026-05'") ? ['company selector must not fall back to a fabricated accounting period'] : []),
+  ...(!readFileSync('src/components/settings/CompanySelector.tsx', 'utf8').includes('function loadBrowserPreviewOpenPeriod(') ? ['company selector must read the active persisted browser preview period'] : []),
+  ...(!readFileSync('src/components/settings/CompanySelector.tsx', 'utf8').includes("const hasBrowserPreviewPeriod = Boolean(!isTauri && browserPreviewPeriod)") ? ['company selector must distinguish an active browser preview period from an empty state'] : []),
+  ...(!readFileSync('src/components/settings/CompanySelector.tsx', 'utf8').includes("? '浏览器预览账套'") ? ['company selector must label the active browser preview account explicitly'] : []),
+  ...(!readFileSync('src/components/settings/CompanySelector.tsx', 'utf8').includes("browserPreviewPeriod\n      ? `${browserPreviewPeriod.period_year}-${String(browserPreviewPeriod.period_month).padStart(2, '0')}`\n      : '未选择账期'") ? ['company selector must display the active browser preview period'] : []),
+  ...(shellSource.includes('>已结账</span>') || shellSource.includes('>风险 5</span>') ? ['account header must not display fabricated closed-period or risk statuses'] : []),
+  ...(!shellSource.includes("const periodStatusLabel = currentPeriod ? (currentPeriod.status === 'closed' ? '已结账' : '开放中') : null") ? ['account header must derive its period status from the selected accounting period'] : []),
+  ...['const PREVIEW_ROLES:', 'const PREVIEW_USERS:', 'const PREVIEW_SCOPE_COMPANIES:'].filter((snippet) => roleManagerSource.includes(snippet)).map((snippet) => `role manager must not render hard-coded browser preview data: ${snippet}`),
+  ...(!roleManagerSource.includes("const ROLE_PREVIEW_STORAGE_KEY = 'accounting-preview-role-manager-v1'") ? ['role manager browser preview must persist local role data'] : []),
+  ...(!roleManagerSource.includes('function loadPreviewRoleManagerData()') ? ['role manager browser preview must load persisted role data'] : []),
   ...(shellSource.includes('to="/downloads"') ? ['duplicate download-center shortcut must not be rendered in the account header'] : []),
   ...(shellSource.includes("label: 'AI做账工作台'") ? ['duplicate AI accounting workbench entry must be removed from navigation'] : []),
   ...(!shellSource.includes("label: 'AI自动化'") ? ['AI automation navigation must be grouped under one heading'] : []),
   ...(!shellSource.includes("path: '/ai/jobs'") ? ['AI task queue must be the sole navigation entry for AI processing'] : []),
+  ...(!businessSource.includes('function emptyRuntimeModuleConfig(baseConfig: ModuleConfig): ModuleConfig') ? ['business module fallback must explicitly clear static demonstration data'] : []),
+  ...(!businessSource.includes("return kind === 'printTemplateSettings' ? baseConfig : emptyRuntimeModuleConfig(baseConfig)") ? ['business module fallback must only retain fixed print-template definitions'] : []),
+  ...[
+    "mapLiveCompanyTodoRows(previewCompanyTodos, '科旋电气')",
+    "selectedCompany?.name || '科旋电气（上海）有限公司'",
+    "previewCompanyInfo?.name || '科旋电气（上海）有限公司'",
+    "companyName: '科旋电气'",
+  ].filter((snippet) => businessSource.includes(snippet)).map((snippet) => `browser runtime must not use a hard-coded demonstration company name: ${snippet}`),
+  ...['const browserStatusCards:', 'const browserTodoRows:', 'const browserProgress:'].filter((snippet) => dashboardSource.includes(snippet)).map((snippet) => `dashboard must not render hard-coded browser demonstration data: ${snippet}`),
+  ...(!dashboardSource.includes("sub: '当前账期暂无数据'") ? ['dashboard must render a zero-data state until a current-account data source is available'] : []),
+  ...(!dashboardSource.includes('const todoRows = useMemo<DashboardTodo[]>(() => {\n    if (!usesLiveDashboardData) return []') ? ['dashboard must not fabricate browser preview todos'] : []),
+  ...(readFileSync('src/pages/Welcome.tsx', 'utf8').includes('const demoCompanies: AccountRow[]') ? ['welcome page must not fall back to fabricated demonstration companies'] : []),
   ...(dashboardSource.includes("path: '/ai'") || dashboardSource.includes('to="/ai"') ? ['dashboard AI entry must link directly to the AI task queue'] : []),
   ...(!dashboardSource.includes('AI任务队列') ? ['dashboard must name the AI task queue consistently'] : []),
   ...(!appSource.includes('<Route path="/ai" element={<Navigate to="/ai/jobs" replace />} />') ? ['legacy AI root route must redirect to the AI task queue'] : []),
+  ...(!businessSource.includes('function scopeBrowserPreviewRecords') ? ['browser preview records must be scoped by the active company'] : []),
+  ...(!businessSource.includes("const browserPreviewCompanyId = selectedCompanyId || 'browser-preview-company'") ? ['browser preview must define a stable active-company fallback'] : []),
+  ...(!businessSource.includes('function scopeBrowserPreviewPeriodRecords') ? ['browser preview transaction records must be scoped by the active accounting period'] : []),
+  ...(!businessSource.includes('const browserPreviewPeriodLabel = voucherEditorPeriod') ? ['browser preview must derive an active accounting-period label'] : []),
+  ...(!businessSource.includes('scopeBrowserPreviewPeriodRecords(companyBankTransactions, browserPreviewPeriodLabel)') ? ['browser bank transactions must be scoped by the active accounting period'] : []),
+  ...(businessSource.includes(": effectivePeriods.find((period) => period.status !== 'closed') || effectivePeriods[0]") ? ['browser preview must not treat a closed accounting period as writable'] : []),
+  ...(!businessSource.includes('periodId?: string') ? ['browser preview initial balances must record their accounting-period ownership'] : []),
+  ...(!businessSource.includes('companyPreviewInitialBalanceRows.filter((row) => row.periodId === voucherEditorPeriod?.id)') ? ['browser preview initial balances must be scoped by the active accounting period'] : []),
+  ...(!businessSource.includes('periodId: voucherEditorPeriod?.id') ? ['browser preview initial-balance writes must retain their active accounting period'] : []),
+  ...(!businessSource.includes('label="登记期初"') ? ['browser preview initial-balance workspace must expose a registration action'] : []),
+  ...(!businessSource.includes('const initialBalanceAccountOptions = isTauri ? accounts : scopedPreviewSubjects') ? ['browser preview initial-balance editor must offer the active company\'s saved account subjects'] : []),
+  ...(businessSource.includes("accounts.length > 0 ? accounts.map((account) => ({ code: account.code, name: account.name })) : config.rows.map") ? ['initial-balance editor must not fall back to generic module rows instead of saved account subjects'] : []),
+  ...(!businessSource.includes('const localFilePeriodLabel = isTauri ? currentPeriodLabel : browserPreviewFilePeriodLabel') ? ['browser import and attachment registries must use the active preview accounting period'] : []),
+  ...(!businessSource.includes('const targetPeriodLabel = isHistoryMigration ? selectedHistoryPeriodLabel : activeBusinessPeriodLabel') ? ['browser file writes must retain the active preview accounting-period label'] : []),
+  ...(!businessSource.includes('if (!targetPeriodId || !targetPeriodLabel)') ? ['file imports and attachments must require a concrete accounting period'] : []),
+  ...(businessSource.includes("currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel") ? ['browser transaction writes must not fall back to a fabricated accounting period'] : []),
+  ...(businessSource.includes("currentPeriodLabel === '当前账期' ? new Date().toISOString().slice(0, 7) : currentPeriodLabel") ? ['browser transaction writes must not fabricate a calendar-month fallback when no accounting period is open'] : []),
+  ...(!businessSource.includes('const hasActiveBusinessPeriod = Boolean(activeBusinessPeriodLabel)') ? ['business modules must expose one runtime-neutral active-period guard'] : []),
+  ...(businessSource.includes("currentPeriodLabel === '当前账期'") ? ['business modules must not use a display label as the accounting-period guard'] : []),
+  ...(!businessSource.includes('if (!ensureActiveBusinessPeriod()) return\n    if (!isTauri) {') ? ['period-bound browser writes must reject an empty accounting period before persistence'] : []),
+  ...(!aiSuggestionSaveSource.includes('if (!ensureActiveBusinessPeriod()) return') ? ['AI voucher suggestions must require an active accounting period'] : []),
+  ...(!aiSuggestionSaveSource.includes('period: activeBusinessPeriodLabel') ? ['AI voucher suggestions must retain the active accounting-period label'] : []),
+  ...(!aiJobSaveSource.includes('if (!ensureActiveBusinessPeriod()) return') ? ['AI processing jobs must require an active accounting period'] : []),
+  ...(!nonTaxRevenueSaveSource.includes('if (!ensureActiveBusinessPeriod()) return') ? ['non-tax revenue registrations must require an active accounting period'] : []),
+  ...(!taxInitSaveSource.includes('if (!existing && !ensureActiveBusinessPeriod()) return') ? ['new tax recognition registrations must require an active accounting period'] : []),
+  ...(!companyTodoSaveSource.includes('if (!ensureActiveBusinessPeriod()) return') ? ['company todos must require an active accounting period'] : []),
+  ...(!companyTodoSaveSource.includes('period: activeBusinessPeriodLabel') ? ['company todos must retain the active accounting-period label'] : []),
+  ...(!businessSource.includes('label="新增账期"') || !businessSource.includes('company_id: browserPreviewCompanyId') ? ['browser preview must allow an active company to create its first accounting period'] : []),
+  ...(taxWorkspaceSource.includes(": '2026-05'") ? ['tax workspace must not fall back to a fabricated accounting period'] : []),
+  ...(!taxWorkspaceSource.includes('function loadTaxWorkspacePreviewPeriods()') ? ['tax workspace must load persisted browser preview periods'] : []),
+  ...(!taxWorkspaceSource.includes("const currentPeriodDisplayLabel = currentPeriodLabel || '未选择账期'") ? ['tax workspace must show an explicit no-period state'] : []),
+  ...(!taxWorkspaceSource.includes('const ensureTaxWorkspacePeriod = () => {') ? ['tax workspace writes must require an active accounting period'] : []),
+  ...(!taxWorkspaceSource.includes('if (!usesTaxDeclarationData) {') ? ['tax workspace must not query declaration records without an active accounting period'] : []),
+  ...(!taxWorkspaceSource.includes('if (!ensureTaxWorkspacePeriod()) return') ? ['tax workspace actions must reject missing accounting periods'] : []),
+  ...(!businessSource.includes("if (!isTauri && selectedCompanyId) {") || !businessSource.includes('const company = await updateCompany(selectedCompanyId, {') ? ['browser company-info saves must update the selected persisted company'] : []),
   ...(!shellSource.includes('z-[80]') ? ['theme menu must render above the account header overlay'] : []),
   ...(businessSource.includes('支持导出和打印') ? ['business list headers must not use one generic export/print hint'] : []),
   ...(!businessSource.includes('const isFilteredListEmpty = filteredRows.length === 0 && config.rows.length > 0') ? ['business lists must distinguish empty source data from empty filtered results'] : []),
@@ -149,6 +241,12 @@ const errors = [
   ...(!businessSource.includes('if (supportsFileImport) {\n                              handleImportAction()') ? ['business empty-state actions must invoke the module import or collection workflow'] : []),
   ...(!businessSource.includes('清除筛选并返回完整列表') ? ['business lists must let users recover from an empty filtered result'] : []),
   ...(!agencySource.includes('const isFilteredAgencyListEmpty = filteredRows.length === 0 && rows.length > 0') ? ['agency lists must distinguish empty source data from empty filtered results'] : []),
+  ...(agencySource.includes(": new Date().toISOString().slice(0, 7)") ? ['agency workspaces must not fabricate the current calendar month as an accounting period'] : []),
+  ...(!agencySource.includes("const agencyPeriodDisplayLabel = agencyPeriodLabel || '未选择账期'") ? ['agency workspaces must expose an explicit no-period state'] : []),
+  ...(!agencySource.includes('const requireAgencyPeriod = () => {') ? ['agency period-dependent actions must require an accounting period'] : []),
+  ...(!agencySource.includes("if (!agencyPeriodLabel && (kind === 'dataStats' || kind === 'batchOps'))") ? ['agency period-dependent views must stay empty until an accounting period is selected'] : []),
+  ...(!agencySource.includes("if (kind === 'batchOps') {\n      if (!requireAgencyPeriod()) return") ? ['batch task creation must require an accounting period before opening its editor'] : []),
+  ...(!agencySource.includes("if (!requireAgencyPeriod()) return\n    if (selectedBatchTaskTypes.length === 0)") ? ['batch task persistence must require an accounting period'] : []),
   ...(!agencySource.includes("const agencyEmptyTitle = isFilteredAgencyListEmpty ? '没有符合当前条件的记录' : `暂无${pageConfig.title}`") ? ['agency empty-state titles must derive from the active module configuration'] : []),
   ...(!agencySource.includes('请通过“${agencyEmptyActionLabel}”开始当前工作。') ? ['agency empty states must guide users to the active module workflow'] : []),
   ...(!agencySource.includes('清除筛选并显示当前工作区记录') ? ['agency lists must let users recover from an empty filtered result'] : []),
@@ -271,8 +369,8 @@ const errors = [
   ...(!businessSource.includes("if (kind === 'historySubsidiaryLedger' && (usesLiveHistoryReportData || !isTauri))") ? ['history subsidiary ledger must avoid browser static samples'] : []),
   ...(!businessSource.includes("if (kind === 'equityChangeReport' && ((usesLiveReportData && liveReports.balanceSheet && liveReports.incomeStatement) || !isTauri))") ? ['equity statement must render browser preview balances rather than static rows'] : []),
   ...(!businessSource.includes("if (kind === 'financialReport' && ((usesLiveFinancialOverviewData && liveReports.balanceSheet && liveReports.incomeStatement && liveReports.cashFlow) || !isTauri))") ? ['financial overview must render browser preview reports rather than static rows'] : []),
-  ...(!businessSource.includes("const effectiveVoucherWords = isTauri ? voucherWords : previewVoucherWordSeed") ? ['voucher editor must provide browser preview voucher words'] : []),
-  ...(!businessSource.includes("const voucherEditorAccounts = isTauri ? detailedAccounts : previewSubjects.filter((account) => account.is_enabled === 1 && account.is_detail === 1)") ? ['voucher editor must provide browser preview account candidates'] : []),
+  ...(!businessSource.includes("const effectiveVoucherWords = isTauri ? voucherWords : previewVoucherWords") ? ['voucher editor must provide browser preview voucher words'] : []),
+  ...(!businessSource.includes("const voucherEditorAccounts = isTauri ? detailedAccounts : scopedPreviewSubjects.filter((account) => account.is_enabled === 1 && account.is_detail === 1)") ? ['voucher editor must provide active-company browser preview account candidates'] : []),
   ...(!businessSource.includes("if (!isTauri && ['voucherEdit', 'voucherDetail'].includes(kind) && voucherId)") ? ['voucher editor must load browser preview records by route id'] : []),
   ...(!businessSource.includes("writeModuleAudit(kind === 'voucherEdit' ? '预览保存凭证修改' : '预览保存凭证草稿'") ? ['voucher editor must persist browser preview create and edit changes'] : []),
   ...(!businessSource.includes('const sequenceNum = existing?.sequence_num ?? Math.max') || !businessSource.includes('quantity: existingEntry?.quantity ?? null') || !businessSource.includes('exchange_rate: existingEntry?.exchange_rate ?? null') ? ['voucher preview edits must preserve valid zero-valued fields'] : []),
@@ -317,7 +415,7 @@ const errors = [
   ...(!businessSource.includes('previewAuxiliaryArchiveStorageKey') ? ['preview auxiliary archives must survive navigation between archive workspaces'] : []),
   ...(!businessSource.includes("return 'accounting-preview-auxiliary-archives-v2'") ? ['auxiliary archive browser preview storage must not reuse seeded sample data'] : []),
   ...(!businessSource.includes('function emptyPreviewAuxiliaryArchive()') ? ['auxiliary archive browser preview must retain only an empty editable baseline'] : []),
-  ...(businessSource.includes('items: previewAuxiliaryArchiveSeed.items.map') ? ['auxiliary archive browser preview must not fall back to static customer and supplier records'] : []),
+  ...(businessSource.includes('items: previewAuxiliaryArchiveBaseline.items.map') ? ['auxiliary archive browser preview must not fall back to static customer and supplier records'] : []),
   ...(!businessSource.includes('updatePreviewAuxiliaryArchive') ? ['preview auxiliary archives must retain additions, edits, and status changes in local storage'] : []),
   ...(!businessSource.includes('previewVoucherTemplateStorageKey') ? ['preview voucher templates must survive navigation between template-setting workspaces'] : []),
   ...(!businessSource.includes('updatePreviewVoucherTemplates') ? ['preview voucher templates must retain additions, edits, and removals in local storage'] : []),
@@ -533,7 +631,7 @@ const errors = [
   ...(!businessSource.includes('reviewFoundationConfiguration') ? ['foundation workflow must register a review'] : []),
   ...(!businessSource.includes('账套设置导航与生效范围') ? ['settings overview must render a dedicated workflow'] : []),
   ...(!roleManagerSource.includes('机构角色与成员授权') ? ['role manager must expose an agency authorization workspace'] : []),
-  ...(!roleManagerSource.includes('PREVIEW_ROLES') ? ['role manager must provide browser preview role data'] : []),
+  ...(!roleManagerSource.includes('loadPreviewRoleManagerData') ? ['role manager must provide persisted browser preview role data'] : []),
   ...(!roleManagerSource.includes('权限矩阵') ? ['role manager must render a permission matrix view'] : []),
 ]
 

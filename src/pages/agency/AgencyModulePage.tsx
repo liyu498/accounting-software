@@ -779,7 +779,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const currentPeriod = useMemo(() => periods.find((period) => period.id === currentPeriodId), [currentPeriodId, periods])
   const agencyPeriodLabel = currentPeriod
     ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}`
-    : new Date().toISOString().slice(0, 7)
+    : ''
+  const agencyPeriodDisplayLabel = agencyPeriodLabel || '未选择账期'
   const baseConfig = configs[kind]
   const detailMeta = getAgencyDetailMeta(kind)
   const toolbarMeta = getAgencyToolbarMeta(kind)
@@ -906,6 +907,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const agencyEmptyDescription = isFilteredAgencyListEmpty
     ? '可以清除关键词和状态筛选，返回当前工作区的完整本地台账。'
     : `${pageConfig.description} ${pageConfig.notes[0]} 请通过“${agencyEmptyActionLabel}”开始当前工作。`
+  const requireAgencyPeriod = () => {
+    if (agencyPeriodLabel) return true
+    setOperationNotice('请先在顶部选择账套和开放账期，再处理机构统计或批量任务。')
+    return false
+  }
 
   useEffect(() => {
     setPage(1)
@@ -922,6 +928,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const loadRemoteRows = async () => {
     setIsLoadingRows(true)
     try {
+      if (!agencyPeriodLabel && (kind === 'dataStats' || kind === 'batchOps')) {
+        setAgencyOverview(null)
+        setRemoteRows([])
+        return
+      }
       if (kind === 'clients') {
         await fetchCompanies()
         const liveCompanies = useCompanyStore.getState().companies
@@ -1358,6 +1369,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     }
 
     if (kind === 'batchOps') {
+      if (!requireAgencyPeriod()) return
       setShowBatchTaskDialog(true)
       return
     }
@@ -1366,6 +1378,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   }
 
   const handleCreateBatchTasks = async () => {
+    if (!requireAgencyPeriod()) return
     if (selectedBatchTaskTypes.length === 0) {
       setOperationNotice('请选择至少一个批量预检任务。')
       return
@@ -1622,7 +1635,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">统计口径与范围</h2>
-                <p className="mt-1 text-xs text-slate-500">当前账期 {agencyPeriodLabel}，视图“{activeTab}”。仅统计本地已保存的机构服务与交付记录。</p>
+                <p className="mt-1 text-xs text-slate-500">当前账期 {agencyPeriodDisplayLabel}，视图“{activeTab}”。仅统计本地已保存的机构服务与交付记录。</p>
               </div>
               <button type="button" onClick={() => setShowDataStatsScopeDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
             </div>
@@ -1999,7 +2012,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">选择批量预检任务</h2>
-                <p className="mt-1 text-xs text-slate-500">按当前账期 {agencyPeriodLabel} 创建本地预检队列。未完成的同类型任务不会重复入队。</p>
+                <p className="mt-1 text-xs text-slate-500">按当前账期 {agencyPeriodDisplayLabel} 创建本地预检队列。未完成的同类型任务不会重复入队。</p>
               </div>
               <button type="button" onClick={() => setShowBatchTaskDialog(false)} className="text-sm text-slate-400 hover:text-slate-700">关闭</button>
             </div>

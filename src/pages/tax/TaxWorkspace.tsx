@@ -19,7 +19,7 @@ import { recordAuditLog, recordExportJob } from '../../lib/exportJobs'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { automationApi, type OperationAuditLog, type TaxDeclarationTask } from '../../lib/api'
 import { useCompanyStore } from '../../stores/companyStore'
-import { usePeriodStore } from '../../stores/periodStore'
+import { usePeriodStore, type AccountingPeriod } from '../../stores/periodStore'
 
 type DeclarationRow = {
   id: string
@@ -298,24 +298,56 @@ function saveTaxColumnSettings(companyId: string, settings: TaxColumnSettings) {
   window.localStorage.setItem(taxColumnSettingsStorageKey(companyId), JSON.stringify(settings))
 }
 
+function loadTaxWorkspacePreviewPeriods(): AccountingPeriod[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem('accounting-preview-periods-v1') || 'null') as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((period): period is AccountingPeriod => Boolean(
+      period
+      && typeof period === 'object'
+      && typeof (period as AccountingPeriod).id === 'string'
+      && typeof (period as AccountingPeriod).company_id === 'string'
+      && Number.isInteger((period as AccountingPeriod).period_year)
+      && Number.isInteger((period as AccountingPeriod).period_month)
+      && typeof (period as AccountingPeriod).status === 'string',
+    ))
+  } catch {
+    return []
+  }
+}
+
 export function TaxWorkspace() {
   const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
   const companies = useCompanyStore((state) => state.companies)
-  const companyId = selectedCompanyId ?? 'browser-preview-company'
+  const browserPreviewCompanyId = selectedCompanyId ?? 'browser-preview-company'
+  const companyId = selectedCompanyId ?? browserPreviewCompanyId
   const periods = usePeriodStore((state) => state.periods)
   const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
   const currentPeriodRecord = useMemo(() => periods.find((period) => period.id === currentPeriodId), [currentPeriodId, periods])
-  const currentPeriodLabel = currentPeriodRecord
-    ? `${currentPeriodRecord.period_year}-${String(currentPeriodRecord.period_month).padStart(2, '0')}`
-    : '2026-05'
+  const browserPreviewPeriod = useMemo(() => {
+    if (isTauri) return undefined
+    return loadTaxWorkspacePreviewPeriods().find((period) => (
+      (period.company_id === browserPreviewCompanyId || (!selectedCompanyId && ['browser-preview', 'preview-company'].includes(period.company_id)))
+      && period.status !== 'closed'
+    ))
+  }, [browserPreviewCompanyId, selectedCompanyId])
+  const activeTaxPeriod = isTauri ? currentPeriodRecord : browserPreviewPeriod
+  const currentPeriodLabel = activeTaxPeriod
+    ? `${activeTaxPeriod.period_year}-${String(activeTaxPeriod.period_month).padStart(2, '0')}`
+    : ''
+  const currentPeriodDisplayLabel = currentPeriodLabel || '未选择账期'
   const currentPeriod = currentPeriodLabel
   const selectedCompany = useMemo(() => companies.find((company) => company.id === selectedCompanyId), [companies, selectedCompanyId])
   const taxPackageMetadata = useMemo(() => ({
     companyName: selectedCompany?.name || '当前账套',
     taxId: selectedCompany?.tax_id || '未维护',
-    period: currentPeriod,
-  }), [currentPeriod, selectedCompany])
-  const usesTaxDeclarationData = Boolean((isTauri && selectedCompanyId && currentPeriodId) || !isTauri)
+    period: currentPeriodDisplayLabel,
+  }), [currentPeriodDisplayLabel, selectedCompany])
+  const usesTaxDeclarationData = Boolean((isTauri && selectedCompanyId && currentPeriodId) || (!isTauri && browserPreviewPeriod))
+  const taxPeriodStatusLabel = activeTaxPeriod
+    ? activeTaxPeriod.status === 'closed' ? '已结账' : '开放中'
+    : '未选择账期'
   const [showRulesLog, setShowRulesLog] = useState(false)
   const [showColumnSettings, setShowColumnSettings] = useState(false)
   const [taxColumnSettings, setTaxColumnSettings] = useState<TaxColumnSettings>(() => loadTaxColumnSettings(companyId))
@@ -341,6 +373,13 @@ export function TaxWorkspace() {
   const [declarationDraft, setDeclarationDraft] = useState<DeclarationDraft>({
     id: '', category: '', form: '', period: '', source: '', taxableAmount: '', deductionAmount: '', payableAmount: '', collectStatus: '已取数', validationStatus: '待确认', riskCount: '0',
   })
+  const ensureTaxWorkspacePeriod = () => {
+    if (usesTaxDeclarationData && currentPeriod) return true
+    setOperationNotice(isTauri
+      ? '请先在顶部选择账套和账期，再处理税务申报事项。'
+      : '请先在结账管理中新增并启用账期，再处理税务申报事项。')
+    return false
+  }
 
   useEffect(() => {
     const settings = loadTaxColumnSettings(companyId)
@@ -355,6 +394,17 @@ export function TaxWorkspace() {
 
   useEffect(() => {
     let cancelled = false
+
+    if (!usesTaxDeclarationData) {
+      setTaxDeclarationTasks([])
+      setBackendTaskCount(0)
+      setBackendAuditCount(0)
+      setOperationAuditLogs([])
+      setBackendAdapterStatus('未配置')
+      return () => {
+        cancelled = true
+      }
+    }
 
     async function loadBackendState() {
       const [tasksResult, logsResult] = await Promise.all([
@@ -382,7 +432,7 @@ export function TaxWorkspace() {
     return () => {
       cancelled = true
     }
-  }, [companyId, currentPeriod])
+  }, [companyId, currentPeriod, usesTaxDeclarationData])
 
   const visibleDeclarationRows = taxDeclarationTasks.map(mapTaxDeclarationTaskToRow)
   const currentRows = visibleDeclarationRows
@@ -489,6 +539,7 @@ export function TaxWorkspace() {
   }
 
   const refreshDeclarationSnapshot = () => {
+    if (!ensureTaxWorkspacePeriod()) return
     if (currentRows.length === 0) {
       writeTaxAudit({
         action: '重新取数',
@@ -518,6 +569,7 @@ export function TaxWorkspace() {
   }
 
   const runRiskCheck = () => {
+    if (!ensureTaxWorkspacePeriod()) return
     const blockerCount = visibleRiskRows.filter(([level]) => level === '阻断').length
     const reviewCount = visibleRiskRows.length - blockerCount
     writeTaxAudit({
@@ -532,6 +584,7 @@ export function TaxWorkspace() {
   }
 
   function requestDeclarationConfirmation(rows: DeclarationRow[], action: string) {
+    if (!ensureTaxWorkspacePeriod()) return
     if (rows.length === 0) {
       setOperationNotice('当前账套尚无待确认申报任务；未向电子税务局提交，也未写入示例数据。')
       return
@@ -540,12 +593,13 @@ export function TaxWorkspace() {
   }
 
   const confirmDeclaration = async (targetRows: DeclarationRow[], action: string) => {
+    if (!ensureTaxWorkspacePeriod()) return
     if (targetRows.length === 0) {
       setOperationNotice('当前账套尚无待确认申报任务；未向电子税务局提交，也未写入示例数据。')
       return
     }
 
-    if (isTauri && (!usesTaxDeclarationData || !selectedCompanyId)) {
+    if (isTauri && !selectedCompanyId) {
       setOperationNotice('请先在桌面端选择账套和账期后执行本地确认。')
       return
     }
@@ -607,10 +661,15 @@ export function TaxWorkspace() {
   }
 
   const importInitialization = () => {
+    if (!ensureTaxWorkspacePeriod()) return
     taxInitializationInputRef.current?.click()
   }
 
   const handleTaxInitializationFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!ensureTaxWorkspacePeriod()) {
+      event.target.value = ''
+      return
+    }
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
@@ -680,7 +739,8 @@ export function TaxWorkspace() {
   }
 
   const confirmTaxInitializationImport = async () => {
-    if (isTauri && (!usesTaxDeclarationData || !selectedCompanyId)) {
+    if (!ensureTaxWorkspacePeriod()) return
+    if (isTauri && !selectedCompanyId) {
       setOperationNotice('请先在桌面端选择账套和账期后确认写入本地申报事项。')
       return
     }
@@ -725,6 +785,7 @@ export function TaxWorkspace() {
   }
 
   const downloadTaxTemplate = async () => {
+    if (!ensureTaxWorkspacePeriod()) return
     const fileName = `税务申报初始化模板-${currentPeriod}.xlsx`
     const templateHeaders = [
       '税种',
@@ -867,7 +928,8 @@ export function TaxWorkspace() {
 
   const saveDeclarationDetail = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (isTauri && (!usesTaxDeclarationData || !selectedCompanyId)) {
+    if (!ensureTaxWorkspacePeriod()) return
+    if (isTauri && !selectedCompanyId) {
       setOperationNotice('请先在桌面端选择账套和账期后保存本地修改。')
       return
     }
@@ -913,6 +975,7 @@ export function TaxWorkspace() {
   }
 
   const fetchDeclarationRow = (row: DeclarationRow) => {
+    if (!ensureTaxWorkspacePeriod()) return
     const blocked = row.risk !== '无' || row.collectStatus === '待补资料'
     void persistDeclarationRow(row)
     writeTaxAudit({
@@ -943,6 +1006,7 @@ export function TaxWorkspace() {
   }
 
   const exportTaxPackage = () => {
+    if (!ensureTaxWorkspacePeriod()) return
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = `税务申报包-${currentPeriod}.html`
     const html = buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata, visibleRiskRows, visibleRuleLogs)
@@ -974,6 +1038,7 @@ export function TaxWorkspace() {
   }
 
   const printTaxPackage = () => {
+    if (!ensureTaxWorkspacePeriod()) return
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = `税务申报包-${currentPeriod}-print`
     const printWindow = window.open('', '_blank')
@@ -1012,6 +1077,7 @@ export function TaxWorkspace() {
   }
 
   const exportTaxPackagePdf = async () => {
+    if (!ensureTaxWorkspacePeriod()) return
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = `税务申报包-${currentPeriod}.pdf`
     try {
@@ -1055,19 +1121,27 @@ export function TaxWorkspace() {
         <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-1.5">
           <div className="flex min-w-0 items-center gap-3">
             <h1 className="text-base font-semibold">税务申报</h1>
-            <span className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-green-100">已结账</span>
+            <span className={cn(
+              'rounded px-2 py-1 text-xs font-medium ring-1',
+              taxPeriodStatusLabel === '已结账'
+                ? 'bg-green-50 text-green-700 ring-green-100'
+                : taxPeriodStatusLabel === '开放中'
+                  ? 'bg-blue-50 text-blue-700 ring-blue-100'
+                  : 'bg-slate-50 text-slate-600 ring-slate-200',
+            )}>{activeTaxPeriod ? `${currentPeriodDisplayLabel} · ${taxPeriodStatusLabel}` : taxPeriodStatusLabel}</span>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
-            <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="重新取数" onClick={refreshDeclarationSnapshot} />
-            <ToolbarButton icon={<ShieldAlert className="h-3.5 w-3.5" />} label="风险检查" onClick={runRiskCheck} />
-            <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="导出申报包" onClick={exportTaxPackage} />
-            <ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={exportTaxPackagePdf} />
-            <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印申报包" onClick={printTaxPackage} />
+            <ToolbarButton icon={<RefreshCw className="h-3.5 w-3.5" />} label="重新取数" onClick={refreshDeclarationSnapshot} disabled={!usesTaxDeclarationData} />
+            <ToolbarButton icon={<ShieldAlert className="h-3.5 w-3.5" />} label="风险检查" onClick={runRiskCheck} disabled={!usesTaxDeclarationData} />
+            <ToolbarButton icon={<Download className="h-3.5 w-3.5" />} label="导出申报包" onClick={exportTaxPackage} disabled={!usesTaxDeclarationData} />
+            <ToolbarButton icon={<FileText className="h-3.5 w-3.5" />} label="导出PDF" onClick={exportTaxPackagePdf} disabled={!usesTaxDeclarationData} />
+            <ToolbarButton icon={<Printer className="h-3.5 w-3.5" />} label="打印申报包" onClick={printTaxPackage} disabled={!usesTaxDeclarationData} />
             <span className="mx-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">本地任务 {backendTaskCount} · 审计 {backendAuditCount} · adapter {backendAdapterStatus}</span>
             <button
               type="button"
               onClick={() => requestDeclarationConfirmation(currentRows, '确认申报')}
-              className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]"
+              disabled={!usesTaxDeclarationData}
+              className="inline-flex h-8 items-center gap-1 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Play className="h-3.5 w-3.5" />
               确认申报
@@ -1125,9 +1199,9 @@ export function TaxWorkspace() {
             <label className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-xs text-slate-700"><span className="text-slate-400">校验状态</span><select aria-label="校验状态筛选" value={validationStatusFilter} onChange={(event) => setValidationStatusFilter(event.target.value)} className="bg-transparent outline-none"><option>全部</option><option>待确认</option><option>校验通过</option><option>需复核</option></select></label>
           </div>
           <div className="flex flex-wrap items-center gap-1 text-xs">
-            <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label="导入初始化" onClick={importInitialization} />
-            <ToolbarButton icon={<FileSpreadsheet className="h-3.5 w-3.5" />} label="下载模板" onClick={downloadTaxTemplate} />
-            <ToolbarButton icon={<FileCheck2 className="h-3.5 w-3.5" />} label={`批量确认${selectedDeclarationRows.length ? ` (${selectedDeclarationRows.length})` : ''}`} onClick={confirmSelectedDeclarations} />
+            <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label="导入初始化" onClick={importInitialization} disabled={!usesTaxDeclarationData} />
+            <ToolbarButton icon={<FileSpreadsheet className="h-3.5 w-3.5" />} label="下载模板" onClick={downloadTaxTemplate} disabled={!usesTaxDeclarationData} />
+            <ToolbarButton icon={<FileCheck2 className="h-3.5 w-3.5" />} label={`批量确认${selectedDeclarationRows.length ? ` (${selectedDeclarationRows.length})` : ''}`} onClick={confirmSelectedDeclarations} disabled={!usesTaxDeclarationData} />
             <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="规则与日志" onClick={() => setShowRulesLog((value) => !value)} />
             <ToolbarButton icon={<Settings2 className="h-3.5 w-3.5" />} label="列设置" onClick={openColumnSettings} />
           </div>
@@ -1418,12 +1492,16 @@ function TaxRulesLogPanel({
   )
 }
 
-function ToolbarButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
+function ToolbarButton({ icon, label, onClick, disabled = false }: { icon: React.ReactNode; label: string; onClick?: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7]"
+      disabled={disabled}
+      className={cn(
+        'inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-700',
+        disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-[#1f65a7] hover:text-[#1f65a7]',
+      )}
     >
       {icon}
       {label}

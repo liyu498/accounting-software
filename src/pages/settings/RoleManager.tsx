@@ -64,39 +64,12 @@ const previewPermission = (roleId: string, resource: string, action: string): Ro
   action,
 })
 
-const PREVIEW_ROLES: RoleWithPermissions[] = [
-  {
-    role: { id: 'role-admin', name: '机构管理员', code: 'agency_admin', description: '维护机构资料、成员、授权与高风险操作审批。', is_system: 1, created_at: '2026-05-01' },
-    permissions: RESOURCES.flatMap((resource) => ACTIONS.map((action) => previewPermission('role-admin', resource.key, action.key))),
-  },
-  {
-    role: { id: 'role-accountant', name: '主办会计', code: 'accountant', description: '处理账套资料、凭证、报表和申报前复核，不含机构授权。', is_system: 1, created_at: '2026-05-01' },
-    permissions: [
-      ['vouchers', 'view'], ['vouchers', 'create'], ['vouchers', 'edit'], ['vouchers', 'approve'],
-      ['invoices', 'view'], ['invoices', 'create'], ['invoices', 'edit'], ['tax', 'view'], ['tax', 'create'],
-      ['reports', 'view'], ['reports', 'export'], ['bank', 'view'], ['bank', 'edit'], ['settings', 'view'],
-    ].map(([resource, action]) => previewPermission('role-accountant', resource, action)),
-  },
-  {
-    role: { id: 'role-service', name: '资料专员', code: 'service_assistant', description: '采集资料、维护客户档案并提交待确认事项。', is_system: 0, created_at: '2026-05-08' },
-    permissions: [
-      ['invoices', 'view'], ['invoices', 'create'], ['bank', 'view'], ['bank', 'create'],
-      ['vouchers', 'view'], ['settings', 'view'],
-    ].map(([resource, action]) => previewPermission('role-service', resource, action)),
-  },
-]
+const ROLE_PREVIEW_STORAGE_KEY = 'accounting-preview-role-manager-v1'
 
-const PREVIEW_USERS: UserWithRole[] = [
-  { id: 'user-liyu', username: 'admin', real_name: '李喻', role: 'admin', role_id: 'role-admin', role_name: '机构管理员', company_ids: ['all'] },
-  { id: 'user-wang', username: 'wang.accountant', real_name: '王会计', role: 'accountant', role_id: 'role-accountant', role_name: '主办会计', company_ids: ['01460', '02018'] },
-  { id: 'user-zhao', username: 'zhao.service', real_name: '赵专员', role: 'accountant', role_id: 'role-service', role_name: '资料专员', company_ids: ['03009'] },
-]
-
-const PREVIEW_SCOPE_COMPANIES: ScopeCompany[] = [
-  { id: '01460', code: '01460', name: '科旋电气（上海）有限公司', tax_id: '91310115MA1K3****X', tax_type: '一般纳税人' },
-  { id: '02018', code: '02018', name: '上海云启科技有限公司', tax_id: '91310115MA1K4****P', tax_type: '小规模纳税人' },
-  { id: '03009', code: '03009', name: '杭州晨光贸易有限公司', tax_id: '91330106MA2****Q', tax_type: '一般纳税人' },
-]
+type PreviewRoleManagerData = {
+  roles: RoleWithPermissions[]
+  users: UserWithRole[]
+}
 
 function createPermissionDraft(permissions: RolePermission[] = []) {
   return Object.fromEntries(RESOURCES.map((resource) => [
@@ -109,11 +82,31 @@ function getPermissionCount(role: RoleWithPermissions) {
   return role.permissions.length
 }
 
-function clonePreviewRoles() {
-  return PREVIEW_ROLES.map((item) => ({
-    role: { ...item.role },
-    permissions: item.permissions.map((permission) => ({ ...permission })),
-  }))
+function emptyPreviewRoleManagerData(): PreviewRoleManagerData {
+  return { roles: [], users: [] }
+}
+
+function loadPreviewRoleManagerData(): PreviewRoleManagerData {
+  if (typeof window === 'undefined') return emptyPreviewRoleManagerData()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(ROLE_PREVIEW_STORAGE_KEY) || 'null') as Partial<PreviewRoleManagerData> | null
+    if (!parsed || !Array.isArray(parsed.roles) || !Array.isArray(parsed.users)) return emptyPreviewRoleManagerData()
+    return {
+      roles: parsed.roles.filter((item): item is RoleWithPermissions => Boolean(item?.role?.id && item.role.name && Array.isArray(item.permissions))).map((item) => ({ role: { ...item.role }, permissions: item.permissions.map((permission) => ({ ...permission })) })),
+      users: parsed.users.filter((item): item is UserWithRole => Boolean(item?.id && item.username)).map((item) => ({ ...item, company_ids: Array.isArray(item.company_ids) ? [...item.company_ids] : [] })),
+    }
+  } catch {
+    return emptyPreviewRoleManagerData()
+  }
+}
+
+function savePreviewRoleManagerData(data: PreviewRoleManagerData) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(ROLE_PREVIEW_STORAGE_KEY, JSON.stringify(data))
+  } catch {
+    // Browser preview remains read-only when local storage is unavailable.
+  }
 }
 
 export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company' }) {
@@ -122,7 +115,7 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
   const [roles, setRoles] = useState<RoleWithPermissions[]>([])
   const [users, setUsers] = useState<UserWithRole[]>([])
   const [activeTab, setActiveTab] = useState<'roles' | 'users'>('roles')
-  const [expandedRole, setExpandedRole] = useState<string | null>('role-accountant')
+  const [expandedRole, setExpandedRole] = useState<string | null>(null)
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null)
   const [showEditor, setShowEditor] = useState(false)
   const [roleName, setRoleName] = useState('')
@@ -152,8 +145,9 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
     setLoading(true)
     setNotice(null)
     if (!isTauri) {
-      setRoles(clonePreviewRoles())
-      setUsers(PREVIEW_USERS.map((user) => ({ ...user, company_ids: [...user.company_ids] })))
+      const preview = loadPreviewRoleManagerData()
+      setRoles(preview.roles)
+      setUsers(preview.users)
       setLoading(false)
       return
     }
@@ -180,6 +174,10 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
   }, [loadData])
 
   useEffect(() => {
+    if (!isTauri && !loading) savePreviewRoleManagerData({ roles, users })
+  }, [loading, roles, users])
+
+  useEffect(() => {
     void fetchCompanies()
   }, [fetchCompanies])
 
@@ -190,7 +188,7 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
     const activeCompanies = companies
       .filter((company) => company.is_deleted !== 1)
       .map(({ id, code, name, tax_id, tax_type }) => ({ id, code, name, tax_id, tax_type }))
-    return !isTauri && activeCompanies.length === 0 ? PREVIEW_SCOPE_COMPANIES : activeCompanies
+    return activeCompanies
   }, [companies])
 
   const openNewRole = () => {

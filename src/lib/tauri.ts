@@ -45,12 +45,6 @@ const EMPTY_RESULTS: Record<string, unknown> = {
   get_special_deduction_records: [],
   get_bank_transactions: [],
   get_document_records: [],
-  create_employee: { id: 'employee-dev-1', company_id: 'mock-1', employee_code: 'EMP-001', name: '开发预览人员', id_no: null, department: null, position: null, mobile: null, entry_date: null, employment_status: '在职', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  create_payroll_record: { id: 'payroll-dev-1', company_id: 'mock-1', employee_id: 'employee-dev-1', employee_name: '开发预览人员', period: '2026-05', base_salary: 0, bonus: 0, tax_amount: 0, social_personal: 0, net_salary: 0, status: '待确认', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  create_special_deduction_record: { id: 'deduction-dev-1', company_id: 'mock-1', employee_id: 'employee-dev-1', employee_name: '开发预览人员', deduction_type: '子女教育', start_month: '2026-05', end_month: null, monthly_amount: 0, source: '手工', status: '待确认', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  create_bank_transaction: { id: 'bank-dev-1', company_id: 'mock-1', period: '2026-05', account_name: '开发预览账户', serial_no: 'DEV-001', transaction_date: '2026-05-01', counterparty: null, summary: null, income_amount: 0, expense_amount: 0, balance: null, receipt_status: '待上传', match_result: null, status: '待处理', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  create_document_record: { id: 'document-dev-1', company_id: 'mock-1', period: '2026-05', business_date: '2026-05-01', document_code: 'DEV-DOC-001', business_type: '费用报销', partner: null, amount: 0, owner: null, attachment_status: '待补附件', status: '待审核', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  update_employee: { id: 'employee-dev-1', company_id: 'mock-1', employee_code: 'EMP-001', name: '开发预览人员', id_no: null, department: null, position: null, mobile: null, entry_date: null, employment_status: '在职', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
   get_account_auxiliary_links: [],
   get_accounts_with_auxiliary: [],
   get_voucher_entry_auxiliaries: [],
@@ -62,10 +56,7 @@ const EMPTY_RESULTS: Record<string, unknown> = {
   get_roles: [],
   get_users_with_roles: [],
   get_company_memos: [],
-  upsert_company_memo: { id: 'company-memo-dev-1', companyId: 'mock-1', content: '浏览器预览备忘录', reminderDate: null, updatedBy: 'dev', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   get_company_todos: [],
-  create_company_todo: { id: 'company-todo-dev-1', companyId: 'mock-1', companyName: '浏览器预览账套', period: '2026-05', title: '浏览器预览待办', sourceModule: '通知待办', priority: 'normal', owner: 'admin', dueDate: null, relatedEntry: null, evidence: null, note: null, status: 'open', completedAt: null, completedBy: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  complete_company_todo: { id: 'company-todo-dev-1', companyId: 'mock-1', companyName: '浏览器预览账套', period: '2026-05', title: '浏览器预览待办', sourceModule: '通知待办', priority: 'normal', owner: 'admin', dueDate: null, relatedEntry: null, evidence: null, note: null, status: 'completed', completedAt: new Date().toISOString(), completedBy: 'admin', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   get_agency_service_contracts: [],
   get_agency_fee_collections: [],
   get_agency_collaboration_items: [],
@@ -81,63 +72,8 @@ const EMPTY_RESULTS: Record<string, unknown> = {
     blocked_tickets: 0,
   },
   get_automation_jobs: [],
-  create_automation_job: {
-    id: 'auto-dev-1',
-    company_id: 'mock-1',
-    company_name: '示例公司',
-    period: '2026-05',
-    job_type: 'voucher_suggestion',
-    source_module: 'invoice',
-    source_id: null,
-    source_file: null,
-    status: 'queued',
-    confidence: null,
-    result_summary: null,
-    risk_level: 'normal',
-    reviewer: null,
-    created_by: 'dev',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  update_automation_job_status: {
-    id: 'auto-dev-1',
-    company_id: 'mock-1',
-    company_name: '示例公司',
-    period: '2026-05',
-    job_type: 'voucher_suggestion',
-    source_module: 'invoice',
-    source_id: null,
-    source_file: null,
-    status: 'completed',
-    confidence: 0.92,
-    result_summary: '浏览器预览 mock',
-    risk_level: 'normal',
-    reviewer: 'dev',
-    created_by: 'dev',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
   get_adapter_authorizations: [],
-  upsert_adapter_authorization: {
-    id: 'adapter-dev-1',
-    company_id: 'mock-1',
-    company_name: '示例公司',
-    adapter_type: 'tax',
-    adapter_code: 'demo-tax-adapter',
-    region: '上海',
-    auth_status: 'pending',
-    account_mask: 'demo****',
-    login_identity: '办税员',
-    capability_scope: '取数/申报包生成',
-    last_checked_at: null,
-    expires_at: null,
-    risk_message: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  create_local_backup: { id: 'backup-dev-1', file_name: 'accounting-preview.db', created_at: new Date().toISOString(), size_bytes: 0 },
   list_local_backups: [],
-  verify_local_backup: { id: 'backup-dev-1', file_name: 'accounting-preview.db', valid: true, message: '浏览器预览 mock' },
   check_permission: { allowed: true },
   get_initial_balance: null,
   suggest_summary: [],
@@ -147,9 +83,6 @@ const EMPTY_RESULTS: Record<string, unknown> = {
   login: { success: true, token: 'dev-token', user: { id: 'dev', username: 'admin', real_name: '开发用户', role: 'admin', role_id: null }, error: null },
   check: { is_authenticated: true, user: { id: 'dev', username: 'admin', real_name: '开发用户', role: 'admin', role_id: null } },
   register: { id: 'dev', username: 'new', real_name: 'New', role: 'user', role_id: null, password_hash: '', created_at: '', updated_at: '' },
-  create_company: { id: 'mock-1', code: 'A001', name: '示例公司', tax_id: '91110108MA01ABCDEF', tax_type: 'small', contact: null, phone: null, email: null, address: null, bank_name: null, bank_account: null, industry: null, accounting_system: 'small_enterprise', province: null, city: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  update_company: { id: 'mock-1', code: 'A001', name: '示例公司', tax_id: '91110108MA01ABCDEF', tax_type: 'small', contact: null, phone: null, email: null, address: null, bank_name: null, bank_account: null, industry: null, accounting_system: 'small_enterprise', province: null, city: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  delete_company: null,
 }
 
 type InvokeFn = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>
@@ -157,6 +90,7 @@ type InvokeFn = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>
 let realInvoke: InvokeFn | null = null
 
 const AGENCY_PREVIEW_STORAGE_KEY = 'accounting-preview-agency-data-v1'
+const PREVIEW_COMPANY_STORAGE_KEY = 'accounting-preview-companies-v1'
 const PREVIEW_COMPANY_INFO_STORAGE_KEY = 'accounting-preview-company-info-v1'
 
 type BrowserAgencyContract = {
@@ -320,6 +254,35 @@ type BrowserAgencyPreviewData = {
   operationAuditLogs: BrowserOperationAuditLog[]
 }
 
+type BrowserPreviewCompany = {
+  id: string
+  code: string
+  name: string
+  tax_id: string | null
+  contact: string | null
+  phone: string | null
+  email: string | null
+  address: string | null
+  bank_name: string | null
+  bank_account: string | null
+  tax_type: string | null
+  industry: string | null
+  accounting_system: string | null
+  province: string | null
+  city: string | null
+  district: string | null
+  enterprise_type: string | null
+  service_start: string | null
+  service_end: string | null
+  enable_year: number | null
+  enable_month: number | null
+  is_active: number
+  is_deleted: number
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 function browserStorage() {
   if (typeof window === 'undefined') return null
   try {
@@ -376,41 +339,86 @@ function asPreviewNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
-function readBrowserPreviewCompanies() {
+function browserPreviewCompanyFromInput(input: Record<string, unknown>, existing?: BrowserPreviewCompany): BrowserPreviewCompany {
+  const now = new Date().toISOString()
+  return {
+    id: asPreviewText(input.id, existing?.id || browserAgencyId('browser-company')),
+    code: asPreviewText(input.code, existing?.code || 'PREVIEW'),
+    name: asPreviewText(input.name, existing?.name || ''),
+    tax_id: asPreviewText(input.tax_id ?? input.taxId, existing?.tax_id || '') || null,
+    contact: null,
+    phone: null,
+    email: null,
+    address: null,
+    bank_name: null,
+    bank_account: null,
+    tax_type: asPreviewText(input.tax_type ?? input.taxpayerType, existing?.tax_type || '') || null,
+    industry: asPreviewText(input.industry, existing?.industry || '') || null,
+    accounting_system: asPreviewText(input.accounting_system ?? input.accountingSystem, existing?.accounting_system || '') || null,
+    province: asPreviewText(input.province, existing?.province || '') || null,
+    city: asPreviewText(input.city, existing?.city || '') || null,
+    district: asPreviewText(input.district, existing?.district || '') || null,
+    enterprise_type: asPreviewText(input.enterprise_type ?? input.enterpriseType, existing?.enterprise_type || '') || null,
+    service_start: asPreviewText(input.service_start ?? input.serviceStart, existing?.service_start || '') || null,
+    service_end: asPreviewText(input.service_end ?? input.serviceEnd, existing?.service_end || '') || null,
+    enable_year: asPreviewNumber(input.enable_year ?? input.enableYear, existing?.enable_year || 0) || null,
+    enable_month: asPreviewNumber(input.enable_month ?? input.enableMonth, existing?.enable_month || 0) || null,
+    is_active: existing?.is_active ?? 1,
+    is_deleted: existing?.is_deleted ?? 0,
+    deleted_at: existing?.deleted_at ?? null,
+    created_at: existing?.created_at || now,
+    updated_at: now,
+  }
+}
+
+function saveBrowserPreviewCompanies(companies: BrowserPreviewCompany[]) {
+  const storage = browserStorage()
+  if (!storage) return
+  try {
+    storage.setItem(PREVIEW_COMPANY_STORAGE_KEY, JSON.stringify(companies))
+  } catch {
+    // Browser preview remains read-only when local storage is unavailable.
+  }
+}
+
+function syncBrowserPreviewCompanyInfo(company: BrowserPreviewCompany) {
+  const storage = browserStorage()
+  if (!storage) return
+  try {
+    storage.setItem(PREVIEW_COMPANY_INFO_STORAGE_KEY, JSON.stringify({
+      id: company.id,
+      code: company.code,
+      name: company.name,
+      taxId: company.tax_id || '',
+      taxpayerType: company.tax_type || 'general',
+      province: company.province || '',
+      city: company.city || '',
+      district: company.district || '',
+      accountingSystem: company.accounting_system || 'small_enterprise',
+      enableYear: company.enable_year || '',
+      enableMonth: company.enable_month || '',
+      serviceStart: company.service_start || '',
+      serviceEnd: company.service_end || '',
+      industry: company.industry || '',
+      enterpriseType: company.enterprise_type || '私营有限责任公司',
+    }))
+  } catch {
+    // Browser preview remains read-only when local storage is unavailable.
+  }
+}
+
+function readBrowserPreviewCompanies(): BrowserPreviewCompany[] {
   const storage = browserStorage()
   if (!storage) return []
   try {
-    const draft = JSON.parse(storage.getItem(PREVIEW_COMPANY_INFO_STORAGE_KEY) || 'null') as Record<string, unknown> | null
-    if (!draft || typeof draft.name !== 'string' || !draft.name.trim()) return []
-    const now = new Date().toISOString()
-    return [{
-      id: 'browser-preview-company',
-      code: asPreviewText(draft.code, 'PREVIEW'),
-      name: draft.name.trim(),
-      tax_id: asPreviewText(draft.taxId) || null,
-      contact: null,
-      phone: null,
-      email: null,
-      address: null,
-      bank_name: null,
-      bank_account: null,
-      tax_type: asPreviewText(draft.taxpayerType) || null,
-      industry: asPreviewText(draft.industry) || null,
-      accounting_system: asPreviewText(draft.accountingSystem) || null,
-      province: asPreviewText(draft.province) || null,
-      city: asPreviewText(draft.city) || null,
-      district: asPreviewText(draft.district) || null,
-      enterprise_type: asPreviewText(draft.enterpriseType) || null,
-      service_start: asPreviewText(draft.serviceStart) || null,
-      service_end: asPreviewText(draft.serviceEnd) || null,
-      enable_year: asPreviewNumber(draft.enableYear) || null,
-      enable_month: asPreviewNumber(draft.enableMonth) || null,
-      is_active: 1,
-      is_deleted: 0,
-      deleted_at: null,
-      created_at: now,
-      updated_at: now,
-    }]
+    const stored = JSON.parse(storage.getItem(PREVIEW_COMPANY_STORAGE_KEY) || 'null') as unknown
+    if (Array.isArray(stored)) {
+      return stored.filter((item): item is BrowserPreviewCompany => Boolean(item && typeof item === 'object' && typeof (item as BrowserPreviewCompany).id === 'string' && typeof (item as BrowserPreviewCompany).name === 'string'))
+    }
+
+    const legacyDraft = JSON.parse(storage.getItem(PREVIEW_COMPANY_INFO_STORAGE_KEY) || 'null') as Record<string, unknown> | null
+    if (!legacyDraft || typeof legacyDraft.name !== 'string' || !legacyDraft.name.trim()) return []
+    return [browserPreviewCompanyFromInput({ ...legacyDraft, id: 'browser-preview-company' })]
   } catch {
     return []
   }
@@ -444,7 +452,57 @@ async function browserInvoke<T>(cmd: string, _args?: Record<string, unknown>): P
   const data = loadBrowserAgencyPreviewData()
   const firstCompanyId = readBrowserPreviewCompanies()[0]?.id || 'browser-preview-company'
 
-  if (cmd === 'get_companies') return readBrowserPreviewCompanies() as T
+  if (cmd === 'get_companies') return readBrowserPreviewCompanies().filter((company) => company.is_deleted !== 1) as T
+  if (cmd === 'get_deleted_companies') return readBrowserPreviewCompanies().filter((company) => company.is_deleted === 1) as T
+  if (cmd === 'get_company') return (readBrowserPreviewCompanies().find((company) => company.id === asPreviewText(filters.id)) || null) as T
+  if (cmd === 'create_company') {
+    const company = browserPreviewCompanyFromInput(input)
+    if (!company.name || !company.tax_id) throw new Error('请填写企业名称和纳税人识别号')
+    const companies = [...readBrowserPreviewCompanies(), company]
+    saveBrowserPreviewCompanies(companies)
+    syncBrowserPreviewCompanyInfo(company)
+    return company as T
+  }
+  if (cmd === 'update_company') {
+    const companyId = asPreviewText(filters.id)
+    const companies = readBrowserPreviewCompanies()
+    const existing = companies.find((company) => company.id === companyId)
+    if (!existing) throw new Error('未找到需要更新的企业档案')
+    const company = browserPreviewCompanyFromInput({ ...input, id: companyId }, existing)
+    saveBrowserPreviewCompanies(companies.map((item) => item.id === companyId ? company : item))
+    syncBrowserPreviewCompanyInfo(company)
+    return company as T
+  }
+  if (cmd === 'deactivate_company' || cmd === 'activate_company' || cmd === 'restore_company') {
+    const companyId = asPreviewText(filters.id)
+    const companies = readBrowserPreviewCompanies()
+    const existing = companies.find((company) => company.id === companyId)
+    if (!existing) throw new Error('未找到需要更新的企业档案')
+    const company = {
+      ...existing,
+      is_active: cmd === 'deactivate_company' ? 0 : 1,
+      is_deleted: cmd === 'restore_company' ? 0 : existing.is_deleted,
+      deleted_at: cmd === 'restore_company' ? null : existing.deleted_at,
+      updated_at: now,
+    }
+    saveBrowserPreviewCompanies(companies.map((item) => item.id === companyId ? company : item))
+    syncBrowserPreviewCompanyInfo(company)
+    return company as T
+  }
+  if (cmd === 'delete_company') {
+    const companyId = asPreviewText(filters.id)
+    const companies = readBrowserPreviewCompanies()
+    const existing = companies.find((company) => company.id === companyId)
+    if (!existing) throw new Error('未找到需要删除的企业档案')
+    const company = { ...existing, is_active: 0, is_deleted: 1, deleted_at: now, updated_at: now }
+    saveBrowserPreviewCompanies(companies.map((item) => item.id === companyId ? company : item))
+    return undefined as T
+  }
+  if (cmd === 'permanent_delete_company') {
+    const companyId = asPreviewText(filters.id)
+    saveBrowserPreviewCompanies(readBrowserPreviewCompanies().filter((company) => company.id !== companyId))
+    return undefined as T
+  }
 
   if (cmd === 'get_agency_service_contracts') {
     const companyId = asPreviewText(filters.companyId)
@@ -793,8 +851,7 @@ async function browserInvoke<T>(cmd: string, _args?: Record<string, unknown>): P
   if (empty !== undefined) {
     return empty as T
   }
-  console.warn(`[tauri.ts] No mock data for command: ${cmd}`)
-  return null as T
+  throw new Error(`浏览器预览暂不支持命令：${cmd}`)
 }
 
 export const invoke: InvokeFn = isTauriEnv

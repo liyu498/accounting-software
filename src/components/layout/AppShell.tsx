@@ -214,7 +214,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const auditCompanyLabel = selectedCompany?.name || '当前账套'
   const auditPeriodLabel = currentPeriod
     ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}`
-    : new Date().toISOString().slice(0, 7)
+    : '未选择账期'
+  const periodStatusLabel = currentPeriod ? (currentPeriod.status === 'closed' ? '已结账' : '开放中') : null
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -339,11 +340,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="min-w-0 flex-1 sm:flex-none">
               <CompanySelector />
             </div>
-            <div className="hidden h-5 w-px bg-white/30 sm:block" />
-            <div className="hidden items-center gap-2 text-xs md:flex">
-              <span className="rounded border border-white/25 bg-white/10 px-2 py-1 text-white">已结账</span>
-              <span className="rounded border border-white/25 bg-white/10 px-2 py-1 text-white">风险 5</span>
-            </div>
+            {periodStatusLabel && (
+              <>
+                <div className="hidden h-5 w-px bg-white/30 sm:block" />
+                <div className="hidden items-center text-xs md:flex">
+                  <span className="rounded border border-white/25 bg-white/10 px-2 py-1 text-white">{periodStatusLabel}</span>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex shrink-0 items-center gap-1 text-sm sm:gap-2">

@@ -502,6 +502,8 @@ function importAmount(value: string) {
 }
 
 type PreviewInitialBalanceRow = {
+  companyId?: string
+  periodId?: string
   accountCode: string
   accountName: string
   accountType: string
@@ -509,6 +511,10 @@ type PreviewInitialBalanceRow = {
   openingDebit: number
   openingCredit: number
   sourceNote: string
+}
+
+type PreviewReportItem = ReportItem & {
+  company_id?: string
 }
 
 type PreviewCompanyInfo = {
@@ -618,118 +624,19 @@ function savePreviewCompanyInfo(company: PreviewCompanyInfo | null) {
   }
 }
 
-const previewMatchingRuleSeed: MatchingRule[] = [
-  { id: 'preview-matching-invoice-001', company_id: 'preview-company', rule_scope: 'invoice', name: '销售商品', condition_text: '销项商品名称包含控制器', action_text: '生成待确认销售凭证建议', target_account_code: '主营业务收入 13%', voucher_template_id: '借应收 贷收入/销项税', priority: 90, is_enabled: 1, hit_count: 42, created_at: '2026-06-26 09:00', updated_at: '2026-06-26 09:00' },
-  { id: 'preview-matching-invoice-002', company_id: 'preview-company', rule_scope: 'invoice', name: '技术服务收入', condition_text: '销项税率为 6%', action_text: '生成待确认服务收入凭证建议', target_account_code: '主营业务收入 6%', voucher_template_id: '借应收 贷服务收入/销项税', priority: 80, is_enabled: 1, hit_count: 18, created_at: '2026-06-26 09:05', updated_at: '2026-06-26 09:05' },
-  { id: 'preview-matching-invoice-003', company_id: 'preview-company', rule_scope: 'invoice', name: '办公采购', condition_text: '进项商品名称包含办公', action_text: '人工核验费用凭证建议', target_account_code: '管理费用 6%/13%', voucher_template_id: '费用凭证', priority: 60, is_enabled: 0, hit_count: 9, created_at: '2026-06-26 09:10', updated_at: '2026-06-26 09:10' },
-  { id: 'preview-matching-bill-001', company_id: 'preview-company', rule_scope: 'bill', name: '银行手续费', condition_text: '摘要包含手续费，金额小于 1000', action_text: '生成待确认费用凭证建议', target_account_code: '6603 财务费用', voucher_template_id: null, priority: 95, is_enabled: 1, hit_count: 22, created_at: '2026-06-26 09:20', updated_at: '2026-06-26 09:20' },
-  { id: 'preview-matching-bill-002', company_id: 'preview-company', rule_scope: 'bill', name: '销售收款核销', condition_text: '对方户名匹配客户且金额等于发票价税合计', action_text: '生成待确认应收核销建议', target_account_code: '1002/1122', voucher_template_id: null, priority: 90, is_enabled: 1, hit_count: 61, created_at: '2026-06-26 09:25', updated_at: '2026-06-26 09:25' },
-  { id: 'preview-matching-bill-003', company_id: 'preview-company', rule_scope: 'bill', name: '个人备用金', condition_text: '对方户名为个人', action_text: '生成其他应收款候选分录', target_account_code: '1221 其他应收款', voucher_template_id: null, priority: 60, is_enabled: 0, hit_count: 6, created_at: '2026-06-26 09:30', updated_at: '2026-06-26 09:30' },
-  { id: 'preview-matching-cash-001', company_id: 'preview-company', rule_scope: 'cash_flow', name: '销售商品收到的现金', condition_text: '货款/回款', action_text: '1002/1122 流入', target_account_code: 'CF-01', voucher_template_id: null, priority: 95, is_enabled: 1, hit_count: 48, created_at: '2026-06-26 09:40', updated_at: '2026-06-26 09:40' },
-  { id: 'preview-matching-cash-002', company_id: 'preview-company', rule_scope: 'cash_flow', name: '购买商品支付的现金', condition_text: '材料/采购', action_text: '1002/2202 流出', target_account_code: 'CF-12', voucher_template_id: null, priority: 90, is_enabled: 1, hit_count: 31, created_at: '2026-06-26 09:45', updated_at: '2026-06-26 09:45' },
-  { id: 'preview-matching-cash-003', company_id: 'preview-company', rule_scope: 'cash_flow', name: '支付其他经营活动现金', condition_text: '办公/费用', action_text: '1002/6602 流出', target_account_code: 'CF-21', voucher_template_id: null, priority: 50, is_enabled: 0, hit_count: 12, created_at: '2026-06-26 09:50', updated_at: '2026-06-26 09:50' },
-  { id: 'preview-matching-ai-001', company_id: 'preview-company', rule_scope: 'ai_training', name: '技术服务收入识别', condition_text: '销项发票服务费项目加已审核历史凭证', action_text: '生成待确认收入凭证建议', target_account_code: '6001 主营业务收入', voucher_template_id: null, priority: 80, is_enabled: 1, hit_count: 0, created_at: '2026-06-26 10:00', updated_at: '2026-06-26 10:00' },
-  { id: 'preview-matching-ai-002', company_id: 'preview-company', rule_scope: 'ai_training', name: '银行手续费分类', condition_text: '银行流水摘要包含手续费', action_text: '生成待确认费用凭证建议', target_account_code: '6603 财务费用', voucher_template_id: null, priority: 60, is_enabled: 0, hit_count: 0, created_at: '2026-06-26 10:05', updated_at: '2026-06-26 10:05' },
-  { id: 'preview-matching-ai-003', company_id: 'preview-company', rule_scope: 'ai_training', name: '办公采购费用', condition_text: '进项发票品类为办公用品', action_text: '生成费用科目建议', target_account_code: '6602 管理费用', voucher_template_id: null, priority: 50, is_enabled: 0, hit_count: 0, created_at: '2026-06-26 10:10', updated_at: '2026-06-26 10:10' },
+const previewVoucherWords: VoucherWord[] = [
+  { id: 'system-voucher-word-remember', company_id: 'browser-preview', word_code: '记', word_name: '记', is_enabled: 1 },
 ]
 
-const previewSubjectSeed: AccountCode[] = [
-  { code: '1002', company_id: 'browser-preview', name: '银行存款', account_type: '资产类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
-  { code: '1122', company_id: 'browser-preview', name: '应收账款', account_type: '资产类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
-  { code: '1403', company_id: 'browser-preview', name: '原材料', account_type: '资产类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 1, default_unit: '件', has_auxiliary: 0 },
-  { code: '1405', company_id: 'browser-preview', name: '库存商品', account_type: '资产类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 1, default_unit: '件', has_auxiliary: 0 },
-  { code: '2221', company_id: 'browser-preview', name: '应交税费', account_type: '负债类', normal_balance: 'credit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
-  { code: '2202', company_id: 'browser-preview', name: '应付账款', account_type: '负债类', normal_balance: 'credit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
-  { code: '6001', company_id: 'browser-preview', name: '主营业务收入', account_type: '损益类', normal_balance: 'credit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 0 },
-  { code: '6401', company_id: 'browser-preview', name: '主营业务成本', account_type: '损益类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 0 },
-  { code: '6602', company_id: 'browser-preview', name: '管理费用', account_type: '损益类', normal_balance: 'debit', level: 1, parent_code: null, is_detail: 1, is_enabled: 1, has_quantity: 0, default_unit: null, has_auxiliary: 1 },
+const browserPreviewVoucherTemplateTypes: VoucherTemplateType[] = [
+  { id: 'system-template-type-business', company_id: 'browser-preview', name: '业务凭证', sort_order: 10 },
+  { id: 'system-template-type-closing', company_id: 'browser-preview', name: '月末结转', sort_order: 20 },
 ]
 
-const previewVoucherWordSeed: VoucherWord[] = [
-  { id: 'preview-voucher-word-remember', company_id: 'preview-company', word_code: '记', word_name: '记', is_enabled: 1 },
-]
-
-const previewCurrencySeed: Currency[] = [
-  { id: 'preview-currency-cny', company_id: 'browser-preview', code: 'CNY', name: '人民币', exchange_rate: 1, is_base: 1 },
-  { id: 'preview-currency-usd', company_id: 'browser-preview', code: 'USD', name: '美元', exchange_rate: 7.1832, is_base: 0 },
-  { id: 'preview-currency-eur', company_id: 'browser-preview', code: 'EUR', name: '欧元', exchange_rate: 7.775, is_base: 0 },
-]
-
-const previewCommonDigestSeed: CommonDigest[] = [
-  { id: 'preview-digest-receivable', company_id: 'browser-preview', content: '收到{客户}货款' },
-  { id: 'preview-digest-payable', company_id: 'browser-preview', content: '支付{供应商}材料款' },
-  { id: 'preview-digest-office', company_id: 'browser-preview', content: '报销办公费用' },
-]
-
-const previewVoucherTemplateTypeSeed: VoucherTemplateType[] = [
-  { id: 'preview-template-type-business', company_id: 'browser-preview', name: '业务凭证', sort_order: 10 },
-  { id: 'preview-template-type-closing', company_id: 'browser-preview', name: '月末结转', sort_order: 20 },
-]
-
-const previewVoucherTemplateSeed: VoucherTemplateWithEntries[] = [
-  {
-    template: { id: 'preview-voucher-template-receipt', type_id: 'preview-template-type-business', company_id: 'browser-preview', name: '收到客户回款', entries_json: '' },
-    entries: [
-      { account_code: '1002', account_name: '银行存款', direction: 'debit', summary: '收到{客户}货款', auxiliary_type: '客户', auxiliary_id: null },
-      { account_code: '1122', account_name: '应收账款', direction: 'credit', summary: '收到{客户}货款', auxiliary_type: '客户', auxiliary_id: null },
-    ],
-  },
-  {
-    template: { id: 'preview-voucher-template-sales', type_id: 'preview-template-type-business', company_id: 'browser-preview', name: '销售商品收入', entries_json: '' },
-    entries: [
-      { account_code: '1122', account_name: '应收账款', direction: 'debit', summary: '确认{客户}销售收入', auxiliary_type: '客户', auxiliary_id: null },
-      { account_code: '6001', account_name: '主营业务收入', direction: 'credit', summary: '确认{客户}销售收入', auxiliary_type: null, auxiliary_id: null },
-    ],
-  },
-  {
-    template: { id: 'preview-voucher-template-depreciation', type_id: 'preview-template-type-closing', company_id: 'browser-preview', name: '计提固定资产折旧', entries_json: '' },
-    entries: [
-      { account_code: '6602', account_name: '管理费用', direction: 'debit', summary: '计提本期固定资产折旧', auxiliary_type: '部门', auxiliary_id: null },
-      { account_code: '1602', account_name: '累计折旧', direction: 'credit', summary: '计提本期固定资产折旧', auxiliary_type: null, auxiliary_id: null },
-    ],
-  },
-]
-
-const previewSettlementRuleSeed: SettlementRule[] = [
-  { id: 'preview-settlement-rule-profit', company_id: 'browser-preview', name: '结转本期损益', rule_type: 'profit_loss', source_formula: '损益类科目期末余额', target_account_code: '4103 本年利润', voucher_word_id: null, summary_template: '结转本期损益', priority: 10, is_enabled: 1 },
-  { id: 'preview-settlement-rule-depreciation', company_id: 'browser-preview', name: '计提本期折旧', rule_type: 'depreciation', source_formula: '固定资产折旧清单', target_account_code: '1602 累计折旧', voucher_word_id: null, summary_template: '计提本期固定资产折旧', priority: 20, is_enabled: 1 },
-  { id: 'preview-settlement-rule-tax', company_id: 'browser-preview', name: '计提附加税费', rule_type: 'tax_accrual', source_formula: '当期增值税应纳税额', target_account_code: '2221 应交税费', voucher_word_id: null, summary_template: '计提本期附加税费', priority: 30, is_enabled: 0 },
-]
-
-const previewAssetCategorySeed: AssetCategory[] = [
-  { id: 'preview-asset-category-machine', company_id: 'browser-preview', code: 'MACHINE', name: '机器设备', useful_life_months: 120, residual_rate: 0.05, depreciation_method: '平均年限法', asset_account: '1601 固定资产', accumulated_depreciation_account: '1602 累计折旧', expense_account: '6602 管理费用', is_enabled: 1, created_at: '2026-06-01 09:00', updated_at: '2026-06-26 09:00' },
-  { id: 'preview-asset-category-vehicle', company_id: 'browser-preview', code: 'VEHICLE', name: '运输设备', useful_life_months: 48, residual_rate: 0.05, depreciation_method: '平均年限法', asset_account: '1601 固定资产', accumulated_depreciation_account: '1602 累计折旧', expense_account: '6601 销售费用', is_enabled: 1, created_at: '2026-06-01 09:10', updated_at: '2026-06-26 09:10' },
-  { id: 'preview-asset-category-office', company_id: 'browser-preview', code: 'OFFICE', name: '办公及电子设备', useful_life_months: 36, residual_rate: 0.05, depreciation_method: '平均年限法', asset_account: '1601 固定资产', accumulated_depreciation_account: '1602 累计折旧', expense_account: '6602 管理费用', is_enabled: 1, created_at: '2026-06-01 09:20', updated_at: '2026-06-26 09:20' },
-]
-
-const previewBusinessTagSeed: BusinessTag[] = [
-  { id: 'preview-business-tag-risk', company_id: 'browser-preview', name: '高风险待复核', applicable_modules: '发票/流水/凭证/风险', color_name: '红色', auto_rule: '税率、金额或凭证校验异常', usage_count: 3, remarks: '需会计人工复核后关闭', is_enabled: 1, created_at: '2026-06-01 09:00', updated_at: '2026-06-26 09:00' },
-  { id: 'preview-business-tag-material', company_id: 'browser-preview', name: '待补资料', applicable_modules: '发票/单据/报销/附件', color_name: '橙色', auto_rule: '缺少影像、回单或合同', usage_count: 5, remarks: '补齐后重新核验', is_enabled: 1, created_at: '2026-06-01 09:10', updated_at: '2026-06-26 09:10' },
-  { id: 'preview-business-tag-reconcile', company_id: 'browser-preview', name: '回款核销', applicable_modules: '流水/销项发票/应收核销', color_name: '绿色', auto_rule: '金额与客户匹配成功', usage_count: 8, remarks: '仅作人工跟踪标记', is_enabled: 1, created_at: '2026-06-01 09:20', updated_at: '2026-06-26 09:20' },
-]
-
-const previewAdapterAuthorizationSeed: AdapterAuthorization[] = [
-  { id: 'preview-tax-adapter-shanghai', companyId: 'preview-company', companyName: '当前预览账套', adapterType: 'tax', adapterCode: '上海电子税务局适配器', region: '上海', authStatus: 'authorized', accountMask: '9131************X', loginIdentity: '办税员', capabilityScope: '增值税、附加税、个税取数；申报包生成；人工导入回执', lastCheckedAt: '2026-06-26 09:30', expiresAt: '2027-06-25', riskMessage: null, createdAt: '2026-06-01 09:00', updatedAt: '2026-06-26 09:30' },
-  { id: 'preview-bank-adapter-icbc', companyId: 'preview-company', companyName: '当前预览账套', adapterType: 'bank', adapterCode: '工商银行账单导入', region: '上海', authStatus: 'configured', accountMask: '6222********0198', loginIdentity: '财务管理员', capabilityScope: 'Excel/CSV 文件导入、流水对账、人工上传回单', lastCheckedAt: '2026-06-26 09:40', expiresAt: null, riskMessage: null, createdAt: '2026-06-01 09:10', updatedAt: '2026-06-26 09:40' },
-  { id: 'preview-bank-adapter-cmb', companyId: 'preview-company', companyName: '当前预览账套', adapterType: 'bank', adapterCode: '招商银行账单导入', region: '上海', authStatus: 'pending', accountMask: '6214********8801', loginIdentity: '财务管理员', capabilityScope: '账单文件导入、人工上传回单', lastCheckedAt: null, expiresAt: null, riskMessage: '等待企业完成渠道授权，禁止自动提交或发起支付。', createdAt: '2026-06-01 09:20', updatedAt: '2026-06-26 09:45' },
-]
-
-const previewReportTemplateSeed: ReportTemplate[] = [
-  { id: 'preview-balance-sheet', template_code: 'BALANCE_SHEET', template_name: '资产负债表', report_type: 'balance_sheet', is_system: 1, created_at: null },
-  { id: 'preview-income-statement', template_code: 'INCOME_STATEMENT', template_name: '利润表', report_type: 'income_statement', is_system: 1, created_at: null },
-  { id: 'preview-cash-flow', template_code: 'CASH_FLOW', template_name: '现金流量表', report_type: 'cash_flow', is_system: 1, created_at: null },
-]
-
-const previewReportItemSeed: ReportItem[] = [
-  { id: 'preview-report-item-assets', template_id: 'preview-balance-sheet', item_code: '100', item_name: '货币资金', parent_id: null, item_level: 1, sort_order: 100, is_total: 0, formula: '1001+1002+1012', is_enabled: 1 },
-  { id: 'preview-report-item-liability', template_id: 'preview-balance-sheet', item_code: '200', item_name: '负债合计', parent_id: null, item_level: 1, sort_order: 200, is_total: 1, formula: '负债类科目期末余额', is_enabled: 1 },
-  { id: 'preview-report-item-revenue', template_id: 'preview-income-statement', item_code: '010', item_name: '营业收入', parent_id: null, item_level: 1, sort_order: 10, is_total: 0, formula: '6001+6051', is_enabled: 1 },
-  { id: 'preview-report-item-cash', template_id: 'preview-cash-flow', item_code: '001', item_name: '销售商品、提供劳务收到的现金', parent_id: null, item_level: 1, sort_order: 10, is_total: 0, formula: '经营活动现金流入', is_enabled: 1 },
-]
-
-const previewPeriodSeed: AccountingPeriod[] = [
-  { id: 'preview-period-2026-04', company_id: 'preview-company', period_year: 2026, period_month: 4, start_date: '2026-04-01', end_date: '2026-04-30', status: 'closed', closed_at: '2026-05-05T09:30:00.000Z', closed_by: 'admin', created_at: '2026-04-01T00:00:00.000Z', updated_at: '2026-05-05T09:30:00.000Z' },
-  { id: 'preview-period-2026-05', company_id: 'preview-company', period_year: 2026, period_month: 5, start_date: '2026-05-01', end_date: '2026-05-31', status: 'open', closed_at: null, closed_by: null, created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' },
+const browserPreviewReportTemplates: ReportTemplate[] = [
+  { id: 'system-balance-sheet', template_code: 'BALANCE_SHEET', template_name: '资产负债表', report_type: 'balance_sheet', is_system: 1, created_at: null },
+  { id: 'system-income-statement', template_code: 'INCOME_STATEMENT', template_name: '利润表', report_type: 'income_statement', is_system: 1, created_at: null },
+  { id: 'system-cash-flow', template_code: 'CASH_FLOW', template_name: '现金流量表', report_type: 'cash_flow', is_system: 1, created_at: null },
 ]
 
 type PreviewInvoiceMatchCandidate = Pick<Invoice, 'id' | 'invoice_no' | 'invoice_code' | 'invoice_type' | 'total_amount' | 'seller_name' | 'buyer_name' | 'status' | 'voucher_id'>
@@ -775,32 +682,44 @@ type PreviewInvoiceVoucherCoreData = {
   voucherTagIds: Record<string, string[]>
 }
 
-const previewAuxiliaryArchiveSeed: PreviewAuxiliaryArchiveState = {
+const previewAuxiliaryArchiveBaseline: PreviewAuxiliaryArchiveState = {
   categories: [
-    { id: 'preview-aux-customer', company_id: 'browser-preview', code: 'CUST', name: '客户', is_system: 1, sort_order: 10 },
-    { id: 'preview-aux-supplier', company_id: 'browser-preview', code: 'SUPP', name: '供应商', is_system: 1, sort_order: 20 },
-    { id: 'preview-aux-other-contact', company_id: 'browser-preview', code: 'EMP', name: '其他往来', is_system: 1, sort_order: 30 },
-    { id: 'preview-aux-project', company_id: 'browser-preview', code: 'PROJ', name: '项目', is_system: 1, sort_order: 40 },
-    { id: 'preview-aux-department', company_id: 'browser-preview', code: 'DEPT', name: '部门', is_system: 1, sort_order: 50 },
-    { id: 'preview-aux-tax', company_id: 'browser-preview', code: 'TAX', name: '税种', is_system: 0, sort_order: 60 },
+    { id: 'system-aux-customer', company_id: 'browser-preview', code: 'CUST', name: '客户', is_system: 1, sort_order: 10 },
+    { id: 'system-aux-supplier', company_id: 'browser-preview', code: 'SUPP', name: '供应商', is_system: 1, sort_order: 20 },
+    { id: 'system-aux-other-contact', company_id: 'browser-preview', code: 'EMP', name: '其他往来', is_system: 1, sort_order: 30 },
+    { id: 'system-aux-project', company_id: 'browser-preview', code: 'PROJ', name: '项目', is_system: 1, sort_order: 40 },
+    { id: 'system-aux-department', company_id: 'browser-preview', code: 'DEPT', name: '部门', is_system: 1, sort_order: 50 },
   ],
-  items: [
-    { id: 'preview-customer-001', category_id: 'preview-aux-customer', company_id: 'browser-preview', code: 'C001', name: '上海辰光贸易有限公司', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ taxNo: '9131********001X', bank: '上海银行浦东支行', subject: '1122 应收账款', contract: 'HT-2026-001', alias: 'CGMY' }) },
-    { id: 'preview-customer-002', category_id: 'preview-aux-customer', company_id: 'browser-preview', code: 'C002', name: '杭州辰星科技有限公司', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ taxNo: '9133********889K', bank: '杭州银行科技支行', subject: '1122 应收账款', contract: 'HT-2026-008', alias: 'HXKJ' }) },
-    { id: 'preview-customer-003', category_id: 'preview-aux-customer', company_id: 'browser-preview', code: 'C009', name: '南京云杉贸易有限公司', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ taxNo: '待补', bank: '待补', subject: '1122 应收账款', remark: '开票资料待补' }) },
-    { id: 'preview-supplier-001', category_id: 'preview-aux-supplier', company_id: 'browser-preview', code: 'S001', name: '苏州材料供应链有限公司', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ alias: '苏州材料', taxNo: '9132********888K', subject: '2202 应付账款', taxRate: '13%' }) },
-    { id: 'preview-supplier-002', category_id: 'preview-aux-supplier', company_id: 'browser-preview', code: 'S002', name: '上海云启科技有限公司', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ alias: '云启科技', taxNo: '9131********775M', subject: '2202 应付账款', taxRate: '6%' }) },
-    { id: 'preview-supplier-003', category_id: 'preview-aux-supplier', company_id: 'browser-preview', code: 'S009', name: '杭州设备服务有限公司', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ alias: '设备服务', taxNo: '待补', subject: '2202 应付账款', taxRate: '待核', remark: '供应商资料待补' }) },
-    { id: 'preview-contact-001', category_id: 'preview-aux-other-contact', company_id: 'browser-preview', code: 'O001', name: '张三', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ contactType: '员工备用金', idNo: '310********1234', subject: '1221 其他应收款', remark: '销售备用金' }) },
-    { id: 'preview-contact-002', category_id: 'preview-aux-other-contact', company_id: 'browser-preview', code: 'O002', name: '李股东', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ contactType: '股东往来', idNo: '320********5421', subject: '2241 其他应付款', remark: '借款往来' }) },
-    { id: 'preview-contact-003', category_id: 'preview-aux-other-contact', company_id: 'browser-preview', code: 'O006', name: '临时个人', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ contactType: '个人往来', idNo: '待补', subject: '1221 其他应收款', remark: '待确认' }) },
-    { id: 'preview-project-001', category_id: 'preview-aux-project', company_id: 'browser-preview', code: 'P001', name: '研发项目A', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ owner: '研发部', start: '2026-01-01', subject: '5301 研发支出', budget: '¥520,000.00', alias: 'YFXMA' }) },
-    { id: 'preview-project-002', category_id: 'preview-aux-project', company_id: 'browser-preview', code: 'P002', name: '华东销售项目', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ owner: '销售部', start: '2026-03-01', subject: '6601 销售费用', budget: '¥180,000.00', alias: 'HDXS' }) },
-    { id: 'preview-project-003', category_id: 'preview-aux-project', company_id: 'browser-preview', code: 'P006', name: '设备改造', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ owner: '生产部', start: '待确认', subject: '1604 在建工程', budget: '待确认', remark: '立项资料待补' }) },
-    { id: 'preview-department-001', category_id: 'preview-aux-department', company_id: 'browser-preview', code: 'D001', name: '销售部', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ parent: '总部', owner: '陈经理', subject: '6601 销售费用', people: '14' }) },
-    { id: 'preview-department-002', category_id: 'preview-aux-department', company_id: 'browser-preview', code: 'D002', name: '财务部', is_enabled: 1, remarks: serializeAuxiliaryArchiveProfile({ parent: '总部', owner: '王会计', subject: '6602 管理费用', people: '5' }) },
-    { id: 'preview-department-003', category_id: 'preview-aux-department', company_id: 'browser-preview', code: 'D009', name: '临时项目组', is_enabled: 0, remarks: serializeAuxiliaryArchiveProfile({ parent: '总部', owner: '-', subject: '6602 管理费用', people: '0', remark: '不再使用' }) },
-  ],
+  items: [],
+}
+
+const legacyPreviewSampleIdPattern = /^preview-(?:matching-(?:invoice|bill|cash|ai)-\d+|currency-(?:cny|usd|eur)|digest-(?:receivable|payable|office)|voucher-template-(?:receipt|sales|depreciation)|settlement-rule-(?:profit|depreciation|tax)|asset-category-(?:machine|vehicle|office)|business-tag-(?:risk|material|reconcile)|tax-adapter-shanghai|bank-adapter-(?:icbc|cmb)|report-item-(?:assets|liability|revenue|cash)|period-2026-(?:04|05)|(?:customer|supplier|contact|project|department)-\d+)$/
+const legacyPreviewSubjectKeys = new Set([
+  '1002|银行存款', '1122|应收账款', '1403|原材料', '1405|库存商品', '2202|应付账款', '2221|应交税费', '6001|主营业务收入', '6401|主营业务成本', '6602|管理费用',
+])
+const legacyPreviewTemplateTypeIds: Record<string, string> = {
+  'preview-template-type-business': 'system-template-type-business',
+  'preview-template-type-closing': 'system-template-type-closing',
+}
+const legacyPreviewReportTemplateIds: Record<string, string> = {
+  'preview-balance-sheet': 'system-balance-sheet',
+  'preview-income-statement': 'system-income-statement',
+  'preview-cash-flow': 'system-cash-flow',
+}
+
+function discardLegacyPreviewSampleRecords<T extends { id: string }>(records: T[]) {
+  return records.filter((record) => !legacyPreviewSampleIdPattern.test(record.id))
+}
+
+function scopeBrowserPreviewRecords<T extends { companyId?: string; company_id?: string }>(records: T[], companyId: string, includeLegacyDefault = false) {
+  return records.filter((record) => {
+    const recordCompanyId = record.companyId ?? record.company_id
+    return recordCompanyId === companyId || (includeLegacyDefault && (recordCompanyId === 'preview-company' || recordCompanyId === 'browser-preview'))
+  })
+}
+
+function scopeBrowserPreviewPeriodRecords<T extends { period: string }>(records: T[], periodLabel: string) {
+  return periodLabel ? records.filter((record) => record.period === periodLabel) : []
 }
 
 function previewAiQueueJobStorageKey() {
@@ -836,18 +755,13 @@ function previewMatchingRuleStorageKey() {
   return 'accounting-preview-matching-rules-v1'
 }
 
-function mergePreviewMatchingRuleSeed(rules: MatchingRule[]) {
-  const knownIds = new Set(rules.map((rule) => rule.id))
-  return [...rules, ...previewMatchingRuleSeed.filter((rule) => !knownIds.has(rule.id)).map((rule) => ({ ...rule }))]
-}
-
 function loadPreviewMatchingRules(): MatchingRule[] {
-  const fallback = () => previewMatchingRuleSeed.map((rule) => ({ ...rule }))
+  const fallback = () => [] as MatchingRule[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewMatchingRuleStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((rule) => typeof rule?.id === 'string' && typeof rule.rule_scope === 'string' && typeof rule.name === 'string')) return fallback()
-    return mergePreviewMatchingRuleSeed(parsed as MatchingRule[])
+    return discardLegacyPreviewSampleRecords(parsed as MatchingRule[])
   } catch {
     return fallback()
   }
@@ -866,18 +780,13 @@ function previewSubjectStorageKey() {
   return 'accounting-preview-subjects-v1'
 }
 
-function mergePreviewSubjectSeed(subjects: AccountCode[]) {
-  const knownCodes = new Set(subjects.map((subject) => subject.code))
-  return [...subjects, ...previewSubjectSeed.filter((subject) => !knownCodes.has(subject.code)).map((subject) => ({ ...subject }))]
-}
-
 function loadPreviewSubjects(): AccountCode[] {
-  const fallback = () => previewSubjectSeed.map((subject) => ({ ...subject }))
+  const fallback = () => [] as AccountCode[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewSubjectStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((subject) => typeof subject?.code === 'string' && typeof subject.name === 'string' && typeof subject.account_type === 'string')) return fallback()
-    return mergePreviewSubjectSeed(parsed as AccountCode[])
+    return (parsed as AccountCode[]).filter((subject) => !legacyPreviewSubjectKeys.has(`${subject.code}|${subject.name}`))
   } catch {
     return fallback()
   }
@@ -897,12 +806,12 @@ function previewCurrencyStorageKey() {
 }
 
 function loadPreviewCurrencies(): Currency[] {
-  const fallback = () => previewCurrencySeed.map((currency) => ({ ...currency }))
+  const fallback = () => [] as Currency[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewCurrencyStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((currency) => typeof currency?.id === 'string' && typeof currency.code === 'string' && typeof currency.name === 'string' && Number.isFinite(currency.exchange_rate) && typeof currency.is_base === 'number')) return fallback()
-    return parsed as Currency[]
+    return discardLegacyPreviewSampleRecords(parsed as Currency[])
   } catch {
     return fallback()
   }
@@ -922,12 +831,12 @@ function previewCommonDigestStorageKey() {
 }
 
 function loadPreviewCommonDigests(): CommonDigest[] {
-  const fallback = () => previewCommonDigestSeed.map((digest) => ({ ...digest }))
+  const fallback = () => [] as CommonDigest[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewCommonDigestStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((digest) => typeof digest?.id === 'string' && typeof digest.content === 'string')) return fallback()
-    return parsed as CommonDigest[]
+    return discardLegacyPreviewSampleRecords(parsed as CommonDigest[])
   } catch {
     return fallback()
   }
@@ -954,12 +863,18 @@ function clonePreviewVoucherTemplates(templates: VoucherTemplateWithEntries[]) {
 }
 
 function loadPreviewVoucherTemplates(): VoucherTemplateWithEntries[] {
-  const fallback = () => clonePreviewVoucherTemplates(previewVoucherTemplateSeed)
+  const fallback = () => [] as VoucherTemplateWithEntries[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewVoucherTemplateStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((item) => typeof item?.template?.id === 'string' && typeof item.template.name === 'string' && Array.isArray(item.entries) && item.entries.every((entry: unknown) => typeof (entry as TemplateEntry)?.account_code === 'string' && typeof (entry as TemplateEntry).direction === 'string'))) return fallback()
-    return clonePreviewVoucherTemplates(parsed as VoucherTemplateWithEntries[])
+    return clonePreviewVoucherTemplates((parsed as VoucherTemplateWithEntries[]).filter((item) => !legacyPreviewSampleIdPattern.test(item.template.id)).map((item) => ({
+      ...item,
+      template: {
+        ...item.template,
+        type_id: legacyPreviewTemplateTypeIds[item.template.type_id] || item.template.type_id,
+      },
+    })))
   } catch {
     return fallback()
   }
@@ -979,12 +894,12 @@ function previewSettlementRuleStorageKey() {
 }
 
 function loadPreviewSettlementRules(): SettlementRule[] {
-  const fallback = () => previewSettlementRuleSeed.map((rule) => ({ ...rule }))
+  const fallback = () => [] as SettlementRule[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewSettlementRuleStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((rule) => typeof rule?.id === 'string' && typeof rule.name === 'string' && typeof rule.rule_type === 'string' && Number.isFinite(rule.priority) && typeof rule.is_enabled === 'number')) return fallback()
-    return parsed as SettlementRule[]
+    return discardLegacyPreviewSampleRecords(parsed as SettlementRule[])
   } catch {
     return fallback()
   }
@@ -1004,12 +919,12 @@ function previewAssetCategoryStorageKey() {
 }
 
 function loadPreviewAssetCategories(): AssetCategory[] {
-  const fallback = () => previewAssetCategorySeed.map((category) => ({ ...category }))
+  const fallback = () => [] as AssetCategory[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewAssetCategoryStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((category) => typeof category?.id === 'string' && typeof category.code === 'string' && typeof category.name === 'string' && Number.isFinite(category.useful_life_months) && Number.isFinite(category.residual_rate) && typeof category.is_enabled === 'number')) return fallback()
-    return parsed as AssetCategory[]
+    return discardLegacyPreviewSampleRecords(parsed as AssetCategory[])
   } catch {
     return fallback()
   }
@@ -1029,12 +944,12 @@ function previewBusinessTagStorageKey() {
 }
 
 function loadPreviewBusinessTags(): BusinessTag[] {
-  const fallback = () => previewBusinessTagSeed.map((tag) => ({ ...tag }))
+  const fallback = () => [] as BusinessTag[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewBusinessTagStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((tag) => typeof tag?.id === 'string' && typeof tag.name === 'string' && typeof tag.applicable_modules === 'string' && typeof tag.color_name === 'string' && Number.isFinite(tag.usage_count) && typeof tag.is_enabled === 'number')) return fallback()
-    return parsed as BusinessTag[]
+    return discardLegacyPreviewSampleRecords(parsed as BusinessTag[])
   } catch {
     return fallback()
   }
@@ -1054,12 +969,12 @@ function previewAdapterAuthorizationStorageKey() {
 }
 
 function loadPreviewAdapterAuthorizations(): AdapterAuthorization[] {
-  const fallback = () => previewAdapterAuthorizationSeed.map((adapter) => ({ ...adapter }))
+  const fallback = () => [] as AdapterAuthorization[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewAdapterAuthorizationStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((adapter) => typeof adapter?.id === 'string' && typeof adapter.adapterType === 'string' && typeof adapter.adapterCode === 'string' && typeof adapter.authStatus === 'string')) return fallback()
-    return parsed as AdapterAuthorization[]
+    return discardLegacyPreviewSampleRecords(parsed as AdapterAuthorization[])
   } catch {
     return fallback()
   }
@@ -1079,12 +994,15 @@ function previewReportFormulaStorageKey() {
 }
 
 function loadPreviewReportItems(): ReportItem[] {
-  const fallback = () => previewReportItemSeed.map((item) => ({ ...item }))
+  const fallback = () => [] as ReportItem[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewReportFormulaStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((item) => typeof item?.id === 'string' && typeof item.template_id === 'string' && typeof item.item_code === 'string' && typeof item.item_name === 'string' && Number.isFinite(item.item_level) && Number.isFinite(item.sort_order) && typeof item.is_total === 'number' && typeof item.is_enabled === 'number')) return fallback()
-    return parsed as ReportItem[]
+    return discardLegacyPreviewSampleRecords(parsed as ReportItem[]).map((item) => ({
+      ...item,
+      template_id: legacyPreviewReportTemplateIds[item.template_id] || item.template_id,
+    }))
   } catch {
     return fallback()
   }
@@ -1104,12 +1022,12 @@ function previewPeriodStorageKey() {
 }
 
 function loadPreviewPeriods(): AccountingPeriod[] {
-  const fallback = () => previewPeriodSeed.map((period) => ({ ...period }))
+  const fallback = () => [] as AccountingPeriod[]
   if (typeof window === 'undefined') return fallback()
   try {
     const parsed = JSON.parse(window.localStorage.getItem(previewPeriodStorageKey()) || 'null')
     if (!Array.isArray(parsed) || !parsed.every((period) => typeof period?.id === 'string' && Number.isFinite(period.period_year) && Number.isFinite(period.period_month) && typeof period.status === 'string' && typeof period.start_date === 'string' && typeof period.end_date === 'string')) return fallback()
-    return parsed as AccountingPeriod[]
+    return discardLegacyPreviewSampleRecords(parsed as AccountingPeriod[])
   } catch {
     return fallback()
   }
@@ -1462,7 +1380,7 @@ function previewAuxiliaryArchiveStorageKey() {
 
 function emptyPreviewAuxiliaryArchive(): PreviewAuxiliaryArchiveState {
   return {
-    categories: previewAuxiliaryArchiveSeed.categories.map((category) => ({ ...category })),
+    categories: previewAuxiliaryArchiveBaseline.categories.map((category) => ({ ...category })),
     items: [],
   }
 }
@@ -6720,6 +6638,14 @@ function mapLiveMeasurementUnitRows(measurementUnits: MeasurementUnit[]): Module
 function mapLiveCostCarryoverRows(costCarryoverRecords: CostCarryoverRecord[]): ModuleRow[] { return costCarryoverRecords.map((record) => ({ id:record.id,status:record.status==='异常'?'异常':record.voucherNo?'已生成凭证':'待确认',voucher:record.voucherNo||'未生成',attachment:record.sourceDocument||'待补附件',values:{batch:record.batchNo,method:record.valuationMethod,source:`${record.inventoryName}｜${record.sourceBillNo}`,debit:record.debitSubject,credit:record.creditSubject,cost:payrollCurrency(record.costAmount),difference:payrollCurrency(record.differenceAmount)}})) }
 function summarizeLiveCostCarryover(costCarryoverRecords: CostCarryoverRecord[]): ModuleConfig['summary'] { return [{label:'结转批次',value:`${costCarryoverRecords.length} 批`,tone:'blue'},{label:'结转成本',value:payrollCurrency(costCarryoverRecords.reduce((s,r)=>s+r.costAmount,0)),tone:'amber'},{label:'已生成凭证',value:`${costCarryoverRecords.filter(r=>r.voucherNo).length} 张`,tone:'green'},{label:'阻断项',value:`${costCarryoverRecords.filter(r=>r.status==='异常').length} 项`,tone:'red'}] }
 
+function emptyRuntimeModuleConfig(baseConfig: ModuleConfig): ModuleConfig {
+  return {
+    ...baseConfig,
+    rows: [],
+    summary: baseConfig.summary.map((item) => ({ ...item, value: '待加载', tone: 'gray' })),
+  }
+}
+
 function auditLogToModuleRow(log: AuditLog): ModuleRow {
   return {
     id: log.id,
@@ -6749,6 +6675,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const auditLogs = useAuditLogs()
   const selectedCompanyId = useCompanyStore((state) => state.selectedCompanyId)
   const selectedCompany = useCompanyStore((state) => state.companies.find((company) => company.id === state.selectedCompanyId))
+  const browserPreviewCompanyId = selectedCompanyId || 'browser-preview-company'
   const updateCompany = useCompanyStore((state) => state.updateCompany)
   const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)
   const periods = usePeriodStore((state) => state.periods)
@@ -6756,15 +6683,25 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const currentPeriodLabel = currentPeriod
     ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}`
     : '当前账期'
+  const browserPreviewFilePeriod = !isTauri
+    ? scopeBrowserPreviewRecords(loadPreviewPeriods(), browserPreviewCompanyId, !selectedCompanyId)
+      .find((period) => period.status !== 'closed')
+    : undefined
+  const browserPreviewFilePeriodLabel = browserPreviewFilePeriod
+    ? `${browserPreviewFilePeriod.period_year}-${String(browserPreviewFilePeriod.period_month).padStart(2, '0')}`
+    : ''
+  const localFilePeriodLabel = isTauri ? currentPeriodLabel : browserPreviewFilePeriodLabel
   const localFileScope = {
-    companyId: selectedCompanyId || 'browser-preview',
-    period: currentPeriodLabel,
+    companyId: browserPreviewCompanyId,
+    period: localFilePeriodLabel,
   }
   const localImportJobs = useLocalImportJobs(localFileScope)
   const localAttachmentRecords = useLocalAttachmentRecords(localFileScope)
   const fetchPeriods = usePeriodStore((state) => state.fetchPeriods)
   const voucherWords = usePeriodStore((state) => state.voucherWords)
   const fetchVoucherWords = usePeriodStore((state) => state.fetchVoucherWords)
+  const createPeriod = usePeriodStore((state) => state.createPeriod)
+  const setCurrentPeriod = usePeriodStore((state) => state.setCurrentPeriod)
   const closePeriod = usePeriodStore((state) => state.closePeriod)
   const reopenPeriod = usePeriodStore((state) => state.reopenPeriod)
   const fetchTrialBalance = usePeriodStore((state) => state.fetchTrialBalance)
@@ -6974,6 +6911,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
   const [companyTodos, setCompanyTodos] = useState<CompanyTodo[]>([])
   const [previewCompanyTodos, setPreviewCompanyTodos] = useState<CompanyTodo[]>(loadPreviewCompanyTodos)
+  const scopedPreviewCompanyTodos = !isTauri
+    ? scopeBrowserPreviewRecords(previewCompanyTodos, browserPreviewCompanyId, !selectedCompanyId)
+    : previewCompanyTodos
   const updatePreviewCompanyTodos = (update: (todos: CompanyTodo[]) => CompanyTodo[]) => {
     setPreviewCompanyTodos((todos) => {
       const nextTodos = update(todos)
@@ -6984,10 +6924,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showCompanyTodoDialog, setShowCompanyTodoDialog] = useState(false)
   const [companyTodoDraft, setCompanyTodoDraft] = useState({ title: '', sourceModule: '资料采集', priority: 'normal' as CompanyTodo['priority'], owner: '', dueDate: '', relatedEntry: '', evidence: '', note: '' })
   const [previewPeopleData, setPreviewPeopleData] = useState<PreviewPeopleData>(() => isTauri ? { employees: [], payrollRecords: [], socialSecurityRecords: [], specialDeductionRecords: [] } : loadPreviewPeopleData())
-  const employees = previewPeopleData.employees
-  const payrollRecords = previewPeopleData.payrollRecords
-  const socialSecurityRecords = previewPeopleData.socialSecurityRecords
-  const specialDeductionRecords = previewPeopleData.specialDeductionRecords
+  const employees = !isTauri ? scopeBrowserPreviewRecords(previewPeopleData.employees, browserPreviewCompanyId, !selectedCompanyId) : previewPeopleData.employees
+  const companyPayrollRecords = !isTauri ? scopeBrowserPreviewRecords(previewPeopleData.payrollRecords, browserPreviewCompanyId, !selectedCompanyId) : previewPeopleData.payrollRecords
+  const companySocialSecurityRecords = !isTauri ? scopeBrowserPreviewRecords(previewPeopleData.socialSecurityRecords, browserPreviewCompanyId, !selectedCompanyId) : previewPeopleData.socialSecurityRecords
+  const specialDeductionRecords = !isTauri ? scopeBrowserPreviewRecords(previewPeopleData.specialDeductionRecords, browserPreviewCompanyId, !selectedCompanyId) : previewPeopleData.specialDeductionRecords
   const updatePreviewEmployees = (update: SetStateAction<Employee[]>) => {
     setPreviewPeopleData((data) => {
       const employees = typeof update === 'function' ? (update as (current: Employee[]) => Employee[])(data.employees) : update
@@ -7025,10 +6965,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const setSocialSecurityRecords = updatePreviewSocialSecurityRecords
   const setSpecialDeductionRecords = updatePreviewSpecialDeductionRecords
   const [previewCashflowData, setPreviewCashflowData] = useState<PreviewCashflowData>(() => isTauri ? { bankTransactions: [], settlementRecords: [], bankReconciliationRecords: [], accountTransfers: [] } : loadPreviewCashflowData())
-  const bankTransactions = previewCashflowData.bankTransactions
-  const settlementRecords = previewCashflowData.settlementRecords
-  const bankReconciliationRecords = previewCashflowData.bankReconciliationRecords
-  const accountTransfers = previewCashflowData.accountTransfers
+  const companyBankTransactions = !isTauri ? scopeBrowserPreviewRecords(previewCashflowData.bankTransactions, browserPreviewCompanyId, !selectedCompanyId) : previewCashflowData.bankTransactions
+  const companySettlementRecords = !isTauri ? scopeBrowserPreviewRecords(previewCashflowData.settlementRecords, browserPreviewCompanyId, !selectedCompanyId) : previewCashflowData.settlementRecords
+  const companyBankReconciliationRecords = !isTauri ? scopeBrowserPreviewRecords(previewCashflowData.bankReconciliationRecords, browserPreviewCompanyId, !selectedCompanyId) : previewCashflowData.bankReconciliationRecords
+  const companyAccountTransfers = !isTauri ? scopeBrowserPreviewRecords(previewCashflowData.accountTransfers, browserPreviewCompanyId, !selectedCompanyId) : previewCashflowData.accountTransfers
   const updatePreviewBankTransactions = (update: SetStateAction<BankTransaction[]>) => {
     setPreviewCashflowData((data) => {
       const bankTransactions = typeof update === 'function' ? (update as (current: BankTransaction[]) => BankTransaction[])(data.bankTransactions) : update
@@ -7066,8 +7006,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const setBankReconciliationRecords = updatePreviewBankReconciliationRecords
   const setAccountTransfers = updatePreviewAccountTransfers
   const [previewDocumentBusinessData, setPreviewDocumentBusinessData] = useState<PreviewDocumentBusinessData>(() => isTauri ? { documentRecords: [], businessOrders: [] } : loadPreviewDocumentBusinessData())
-  const documentRecords = previewDocumentBusinessData.documentRecords
-  const businessOrders = previewDocumentBusinessData.businessOrders
+  const companyDocumentRecords = !isTauri ? scopeBrowserPreviewRecords(previewDocumentBusinessData.documentRecords, browserPreviewCompanyId, !selectedCompanyId) : previewDocumentBusinessData.documentRecords
+  const companyBusinessOrders = !isTauri ? scopeBrowserPreviewRecords(previewDocumentBusinessData.businessOrders, browserPreviewCompanyId, !selectedCompanyId) : previewDocumentBusinessData.businessOrders
   const updatePreviewDocumentRecords = (update: SetStateAction<DocumentRecord[]>) => {
     setPreviewDocumentBusinessData((data) => {
       const documentRecords = typeof update === 'function' ? (update as (current: DocumentRecord[]) => DocumentRecord[])(data.documentRecords) : update
@@ -7087,10 +7027,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const setDocumentRecords = updatePreviewDocumentRecords
   const setBusinessOrders = updatePreviewBusinessOrders
   const [previewAssetInventoryData, setPreviewAssetInventoryData] = useState<PreviewAssetInventoryData>(() => isTauri ? { fixedAssets: [], inventoryItems: [], inventoryMovements: [], costCarryoverRecords: [] } : loadPreviewAssetInventoryData())
-  const fixedAssets = previewAssetInventoryData.fixedAssets
-  const inventoryItems = previewAssetInventoryData.inventoryItems
-  const inventoryMovements = previewAssetInventoryData.inventoryMovements
-  const costCarryoverRecords = previewAssetInventoryData.costCarryoverRecords
+  const companyFixedAssets = !isTauri ? scopeBrowserPreviewRecords(previewAssetInventoryData.fixedAssets, browserPreviewCompanyId, !selectedCompanyId) : previewAssetInventoryData.fixedAssets
+  const inventoryItems = !isTauri ? scopeBrowserPreviewRecords(previewAssetInventoryData.inventoryItems, browserPreviewCompanyId, !selectedCompanyId) : previewAssetInventoryData.inventoryItems
+  const companyInventoryMovements = !isTauri ? scopeBrowserPreviewRecords(previewAssetInventoryData.inventoryMovements, browserPreviewCompanyId, !selectedCompanyId) : previewAssetInventoryData.inventoryMovements
+  const companyCostCarryoverRecords = !isTauri ? scopeBrowserPreviewRecords(previewAssetInventoryData.costCarryoverRecords, browserPreviewCompanyId, !selectedCompanyId) : previewAssetInventoryData.costCarryoverRecords
   const updatePreviewFixedAssets = (update: SetStateAction<FixedAsset[]>) => {
     setPreviewAssetInventoryData((data) => {
       const fixedAssets = typeof update === 'function' ? (update as (current: FixedAsset[]) => FixedAsset[])(data.fixedAssets) : update
@@ -7266,7 +7206,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return nextArchive
     })
   }
-  const [previewVoucherTemplateTypes] = useState<VoucherTemplateType[]>(() => previewVoucherTemplateTypeSeed.map((type) => ({ ...type })))
+  const [previewVoucherTemplateTypes] = useState<VoucherTemplateType[]>(() => browserPreviewVoucherTemplateTypes.map((type) => ({ ...type })))
   const [previewVoucherTemplates, setPreviewVoucherTemplates] = useState<VoucherTemplateWithEntries[]>(loadPreviewVoucherTemplates)
   const updatePreviewVoucherTemplates = (update: (templates: VoucherTemplateWithEntries[]) => VoucherTemplateWithEntries[]) => {
     setPreviewVoucherTemplates((templates) => {
@@ -7315,9 +7255,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return nextAdapters
     })
   }
-  const [previewReportTemplates] = useState<ReportTemplate[]>(() => previewReportTemplateSeed.map((template) => ({ ...template })))
-  const [previewReportItems, setPreviewReportItems] = useState<ReportItem[]>(loadPreviewReportItems)
-  const updatePreviewReportItems = (update: (items: ReportItem[]) => ReportItem[]) => {
+  const [previewReportTemplates] = useState<ReportTemplate[]>(() => browserPreviewReportTemplates.map((template) => ({ ...template })))
+  const [previewReportItems, setPreviewReportItems] = useState<PreviewReportItem[]>(loadPreviewReportItems)
+  const updatePreviewReportItems = (update: (items: PreviewReportItem[]) => PreviewReportItem[]) => {
     setPreviewReportItems((items) => {
       const nextItems = update(items)
       savePreviewReportItems(nextItems)
@@ -7332,6 +7272,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return nextPeriods
     })
   }
+  const [showPeriodDialog, setShowPeriodDialog] = useState(false)
+  const [periodDraft, setPeriodDraft] = useState(() => ({
+    year: String(new Date().getFullYear()),
+    month: String(new Date().getMonth() + 1),
+  }))
   const [previewClosingChecks, setPreviewClosingChecks] = useState<Record<string, PreviewClosingCheck>>(loadPreviewClosingChecks)
   const updatePreviewClosingChecks = (update: (checks: Record<string, PreviewClosingCheck>) => Record<string, PreviewClosingCheck>) => {
     setPreviewClosingChecks((checks) => {
@@ -7348,8 +7293,76 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return next
     })
   }
-  const previewInvoices = previewInvoiceVoucherCoreData.invoices
-  const previewVouchers = previewInvoiceVoucherCoreData.vouchers
+  const scopedPreviewSubjects = !isTauri ? scopeBrowserPreviewRecords(previewSubjects, browserPreviewCompanyId, !selectedCompanyId) : previewSubjects
+  const companyPreviewInitialBalanceRows = !isTauri ? scopeBrowserPreviewRecords(previewInitialBalanceRows, browserPreviewCompanyId, !selectedCompanyId) : previewInitialBalanceRows
+  const scopedPreviewCompanyAccounts = !isTauri ? scopeBrowserPreviewRecords(previewCompanyAccounts, browserPreviewCompanyId, !selectedCompanyId) : previewCompanyAccounts
+  const scopedPreviewCurrencies = !isTauri ? scopeBrowserPreviewRecords(previewCurrencies, browserPreviewCompanyId, !selectedCompanyId) : previewCurrencies
+  const scopedPreviewCommonDigests = !isTauri ? scopeBrowserPreviewRecords(previewCommonDigests, browserPreviewCompanyId, !selectedCompanyId) : previewCommonDigests
+  const scopedPreviewAuxiliaryCategories = !isTauri
+    ? previewAuxiliaryCategories.filter((category) => category.is_system === 1 || scopeBrowserPreviewRecords([category], browserPreviewCompanyId, !selectedCompanyId).length > 0)
+    : previewAuxiliaryCategories
+  const scopedPreviewAuxiliaryItems = !isTauri ? scopeBrowserPreviewRecords(previewAuxiliaryItems, browserPreviewCompanyId, !selectedCompanyId) : previewAuxiliaryItems
+  const scopedPreviewVoucherTemplates = !isTauri
+    ? previewVoucherTemplates.filter((item) => item.template.company_id === browserPreviewCompanyId || (!selectedCompanyId && (item.template.company_id === 'preview-company' || item.template.company_id === 'browser-preview')))
+    : previewVoucherTemplates
+  const scopedPreviewSettlementRules = !isTauri ? scopeBrowserPreviewRecords(previewSettlementRules, browserPreviewCompanyId, !selectedCompanyId) : previewSettlementRules
+  const scopedPreviewMatchingRules = !isTauri ? scopeBrowserPreviewRecords(previewMatchingRules, browserPreviewCompanyId, !selectedCompanyId) : previewMatchingRules
+  const scopedPreviewAssetCategories = !isTauri ? scopeBrowserPreviewRecords(previewAssetCategories, browserPreviewCompanyId, !selectedCompanyId) : previewAssetCategories
+  const scopedPreviewBusinessTags = !isTauri ? scopeBrowserPreviewRecords(previewBusinessTags, browserPreviewCompanyId, !selectedCompanyId) : previewBusinessTags
+  const scopedPreviewAdapterAuthorizations = !isTauri ? scopeBrowserPreviewRecords(previewAdapterAuthorizations, browserPreviewCompanyId, !selectedCompanyId) : previewAdapterAuthorizations
+  const scopedPreviewReportItems = !isTauri ? scopeBrowserPreviewRecords(previewReportItems, browserPreviewCompanyId, !selectedCompanyId) : previewReportItems
+  const scopedPreviewPeriods = !isTauri ? scopeBrowserPreviewRecords(previewPeriods, browserPreviewCompanyId, !selectedCompanyId) : previewPeriods
+  const effectivePeriods = isTauri ? periods : scopedPreviewPeriods
+  const voucherEditorPeriod = isTauri
+    ? currentPeriod
+    : effectivePeriods.find((period) => period.status !== 'closed')
+  const browserPreviewPeriodLabel = voucherEditorPeriod
+    ? `${voucherEditorPeriod.period_year}-${String(voucherEditorPeriod.period_month).padStart(2, '0')}`
+    : ''
+  const activeBusinessPeriodLabel = isTauri ? currentPeriodLabel : browserPreviewPeriodLabel
+  const hasActiveBusinessPeriod = Boolean(activeBusinessPeriodLabel)
+  const scopedPreviewInitialBalanceRows = !isTauri
+    ? companyPreviewInitialBalanceRows.filter((row) => row.periodId === voucherEditorPeriod?.id)
+    : companyPreviewInitialBalanceRows
+  const payrollRecords = !isTauri
+    ? scopeBrowserPreviewPeriodRecords(companyPayrollRecords, browserPreviewPeriodLabel)
+    : companyPayrollRecords
+  const socialSecurityRecords = !isTauri
+    ? scopeBrowserPreviewPeriodRecords(companySocialSecurityRecords, browserPreviewPeriodLabel)
+    : companySocialSecurityRecords
+  const bankTransactions = !isTauri
+    ? scopeBrowserPreviewPeriodRecords(companyBankTransactions, browserPreviewPeriodLabel)
+    : companyBankTransactions
+  const settlementRecords = !isTauri
+    ? scopeBrowserPreviewPeriodRecords(companySettlementRecords, browserPreviewPeriodLabel)
+    : companySettlementRecords
+  const bankReconciliationRecords = !isTauri
+    ? scopeBrowserPreviewPeriodRecords(companyBankReconciliationRecords, browserPreviewPeriodLabel)
+    : companyBankReconciliationRecords
+  const accountTransfers = !isTauri
+    ? scopeBrowserPreviewPeriodRecords(companyAccountTransfers, browserPreviewPeriodLabel)
+    : companyAccountTransfers
+  const documentRecords = !isTauri
+    ? scopeBrowserPreviewPeriodRecords(companyDocumentRecords, browserPreviewPeriodLabel)
+    : companyDocumentRecords
+  const businessOrders = !isTauri
+    ? scopeBrowserPreviewPeriodRecords(companyBusinessOrders, browserPreviewPeriodLabel)
+    : companyBusinessOrders
+  const fixedAssets = !isTauri
+    ? scopeBrowserPreviewPeriodRecords(companyFixedAssets, browserPreviewPeriodLabel)
+    : companyFixedAssets
+  const inventoryMovements = !isTauri
+    ? scopeBrowserPreviewPeriodRecords(companyInventoryMovements, browserPreviewPeriodLabel)
+    : companyInventoryMovements
+  const costCarryoverRecords = !isTauri
+    ? scopeBrowserPreviewPeriodRecords(companyCostCarryoverRecords, browserPreviewPeriodLabel)
+    : companyCostCarryoverRecords
+  const previewInvoices = !isTauri
+    ? scopeBrowserPreviewRecords(previewInvoiceVoucherCoreData.invoices, browserPreviewCompanyId, !selectedCompanyId).filter((invoice) => invoice.period_id === voucherEditorPeriod?.id)
+    : previewInvoiceVoucherCoreData.invoices
+  const previewVouchers = !isTauri
+    ? scopeBrowserPreviewRecords(previewInvoiceVoucherCoreData.vouchers, browserPreviewCompanyId, !selectedCompanyId).filter((voucher) => voucher.period_id === voucherEditorPeriod?.id)
+    : previewInvoiceVoucherCoreData.vouchers
   const effectiveInvoices = isTauri ? invoices : previewInvoices
   const effectiveVouchers = isTauri ? vouchers : previewVouchers
   const activeVouchers = effectiveVouchers.filter((voucher) => voucher.is_deleted !== 1)
@@ -7358,12 +7371,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const effectiveVoucherTagIds = isTauri ? voucherTagIds : previewInvoiceVoucherCoreData.voucherTagIds
   const invoiceMatchCandidates = effectiveInvoices
   const voucherMatchCandidates = activeVouchers
-  const effectiveAssetCategories = isTauri ? assetCategories : previewAssetCategories
-  const effectiveBusinessTags = isTauri ? businessTags : previewBusinessTags
-  const effectiveAdapterAuthorizations = isTauri ? adapterAuthorizations : previewAdapterAuthorizations
+  const effectiveAssetCategories = isTauri ? assetCategories : scopedPreviewAssetCategories
+  const effectiveBusinessTags = isTauri ? businessTags : scopedPreviewBusinessTags
+  const effectiveAdapterAuthorizations = isTauri ? adapterAuthorizations : scopedPreviewAdapterAuthorizations
   const effectiveReportTemplates = isTauri ? reportTemplates : previewReportTemplates
-  const effectiveReportItems = isTauri ? reportItems : previewReportItems
-  const effectivePeriods = isTauri ? periods : previewPeriods
+  const effectiveReportItems = isTauri ? reportItems : scopedPreviewReportItems
   const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)
   const [editingAuxiliaryCategoryId, setEditingAuxiliaryCategoryId] = useState<string | null>(null)
   const [auxiliaryCategoryDraft, setAuxiliaryCategoryDraft] = useState({ code: '', name: '', sortOrder: '0' })
@@ -7410,6 +7422,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [importCommitDraft, setImportCommitDraft] = useState<LocalImportCommitDraft | null>(null)
   const [automationJobs, setAutomationJobs] = useState<AutomationJob[]>([])
   const [previewAiQueueJobs, setPreviewAiQueueJobs] = useState(loadPreviewAiQueueJobs)
+  const scopedPreviewAiQueueJobs = !isTauri
+    ? scopeBrowserPreviewRecords(previewAiQueueJobs, browserPreviewCompanyId, !selectedCompanyId)
+    : previewAiQueueJobs
   const updatePreviewAiQueueJobs = (update: (jobs: AutomationJob[]) => AutomationJob[]) => {
     setPreviewAiQueueJobs((jobs) => {
       const nextJobs = update(jobs)
@@ -7433,28 +7448,26 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     () => accounts.filter((account) => account.is_enabled === 1 && account.is_detail === 1),
     [accounts],
   )
-  const effectiveVoucherWords = isTauri ? voucherWords : previewVoucherWordSeed
-  const voucherEditorAccounts = isTauri ? detailedAccounts : previewSubjects.filter((account) => account.is_enabled === 1 && account.is_detail === 1)
-  const voucherEditorPeriod = isTauri
-    ? currentPeriod
-    : effectivePeriods.find((period) => period.status !== 'closed') || effectivePeriods[0]
+  const effectiveVoucherWords = isTauri ? voucherWords : previewVoucherWords
+  const voucherEditorAccounts = isTauri ? detailedAccounts : scopedPreviewSubjects.filter((account) => account.is_enabled === 1 && account.is_detail === 1)
+  const initialBalanceAccountOptions = isTauri ? accounts : scopedPreviewSubjects
   const ledgerDetailAccountOptions = useMemo(() => {
     if (isTauri) return detailedAccounts.map((account) => ({ code: account.code, name: account.name }))
-    return buildPreviewGeneralLedger(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
+    return buildPreviewGeneralLedger(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
       .filter((account) => account.entries.length > 0)
       .map((account) => ({ code: account.account_code, name: account.account_name }))
-  }, [activeVouchers, detailedAccounts, isTauri, previewInitialBalanceRows, voucherEditorPeriod?.id])
+  }, [activeVouchers, detailedAccounts, isTauri, scopedPreviewInitialBalanceRows, voucherEditorPeriod?.id])
   const effectiveLedgerAccountCode = isTauri ? selectedLedgerAccountCode : selectedLedgerAccountCode || ledgerDetailAccountOptions[0]?.code || ''
   const selectedLedgerAccount = ledgerDetailAccountOptions.find((account) => account.code === effectiveLedgerAccountCode)
   const effectiveLedgerSubjectLabel = selectedLedgerAccount
     ? `${selectedLedgerAccount.code} ${selectedLedgerAccount.name}`
     : '当前选择科目'
-  const templateAccounts = detailedAccounts.length > 0 ? detailedAccounts : [{ code: '1002', name: '银行存款' }, { code: '6001', name: '主营业务收入' }]
+  const templateAccounts = voucherEditorAccounts
   const auxiliaryLedgerCategoryOptions = useMemo(
     () => isTauri
       ? auxiliaryCategories
-      : buildPreviewAuxiliaryCategoryOptions(previewAuxiliaryCategories, activeVouchers, voucherEditorPeriod?.id),
-    [activeVouchers, auxiliaryCategories, isTauri, previewAuxiliaryCategories, voucherEditorPeriod?.id],
+      : buildPreviewAuxiliaryCategoryOptions(scopedPreviewAuxiliaryCategories, activeVouchers, voucherEditorPeriod?.id),
+    [activeVouchers, auxiliaryCategories, isTauri, scopedPreviewAuxiliaryCategories, voucherEditorPeriod?.id],
   )
   const effectiveAuxiliaryCategoryId = isTauri
     ? selectedAuxiliaryCategoryId
@@ -7467,21 +7480,21 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         .filter((item) => item.category_id === effectiveAuxiliaryCategoryId && item.is_enabled === 1)
         .map((item) => ({ id: item.id, code: item.code, name: item.name }))
       : buildPreviewAuxiliaryItemOptions(
-        previewAuxiliaryCategories,
-        previewAuxiliaryItems,
+        scopedPreviewAuxiliaryCategories,
+        scopedPreviewAuxiliaryItems,
         activeVouchers,
         voucherEditorPeriod?.id,
         effectiveAuxiliaryCategoryId,
       ),
-    [activeVouchers, auxiliaryItems, effectiveAuxiliaryCategoryId, isTauri, previewAuxiliaryCategories, previewAuxiliaryItems, voucherEditorPeriod?.id],
+    [activeVouchers, auxiliaryItems, effectiveAuxiliaryCategoryId, isTauri, scopedPreviewAuxiliaryCategories, scopedPreviewAuxiliaryItems, voucherEditorPeriod?.id],
   )
   const effectiveAuxiliaryItemId = isTauri
     ? selectedAuxiliaryItemId
     : selectedAuxiliaryItemId || auxiliaryLedgerItemOptions[0]?.id || ''
   const effectiveAuxiliaryItem = auxiliaryLedgerItemOptions.find((item) => item.id === effectiveAuxiliaryItemId)
   const selectedHistoryPeriod = useMemo(
-    () => periods.find((period) => period.id === selectedHistoryPeriodId),
-    [periods, selectedHistoryPeriodId],
+    () => (isTauri ? periods : effectivePeriods).find((period) => period.id === selectedHistoryPeriodId),
+    [effectivePeriods, isTauri, periods, selectedHistoryPeriodId],
   )
   const selectedHistoryPeriodLabel = selectedHistoryPeriod
     ? `${selectedHistoryPeriod.period_year}-${String(selectedHistoryPeriod.period_month).padStart(2, '0')}`
@@ -7502,10 +7515,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const historyLedgerAccountOptions = useMemo(
     () => isTauri
       ? detailedAccounts.map((account) => ({ code: account.code, name: account.name }))
-      : buildPreviewGeneralLedger(previewInitialBalanceRows, previewHistoryVouchers, effectiveHistoryPeriodId)
+      : buildPreviewGeneralLedger(scopedPreviewInitialBalanceRows, previewHistoryVouchers, effectiveHistoryPeriodId)
         .filter((account) => account.entries.length > 0)
         .map((account) => ({ code: account.account_code, name: account.account_name })),
-    [detailedAccounts, effectiveHistoryPeriodId, isTauri, previewHistoryVouchers, previewInitialBalanceRows],
+    [detailedAccounts, effectiveHistoryPeriodId, isTauri, previewHistoryVouchers, scopedPreviewInitialBalanceRows],
   )
   const effectiveHistoryLedgerAccountCode = isTauri
     ? selectedHistoryLedgerAccountCode
@@ -7564,7 +7577,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [effectiveVoucherWords, kind, voucherEditorPeriod])
 
   useEffect(() => {
-    if (kind !== 'voucherCreate' || !isTauri || !selectedCompanyId || !aiVoucherSuggestionId || prefilledAiSuggestionId === aiVoucherSuggestionId || currentPeriodLabel === '当前账期' || accounts.length === 0) return
+    if (kind !== 'voucherCreate' || !isTauri || !selectedCompanyId || !aiVoucherSuggestionId || prefilledAiSuggestionId === aiVoucherSuggestionId || !hasActiveBusinessPeriod || accounts.length === 0) return
     void automationApi.getAutomationJobs({ companyId: selectedCompanyId, period: currentPeriodLabel })
       .then((result) => {
         const suggestion = result.success ? result.data?.find((item) => item.id === aiVoucherSuggestionId && item.jobType === 'voucher_suggestion') : undefined
@@ -7663,36 +7676,36 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [currentPeriodId, fetchInvoices, selectedCompanyId, usesLiveVatTaxData])
 
   useEffect(() => {
-    if (!usesLiveBusinessOrderData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!usesLiveBusinessOrderData || !selectedCompanyId || !hasActiveBusinessPeriod) return
     const orderType = kind === 'purchaseManagement' ? 'purchase' : 'sales'
     void businessOrderApi.getBusinessOrders({ companyId: selectedCompanyId, period: currentPeriodLabel, orderType }).then((result) => setBusinessOrders(result.success ? result.data || [] : []))
   }, [currentPeriodLabel, kind, selectedCompanyId, usesLiveBusinessOrderData])
 
   useEffect(() => {
-    if (!usesLiveSettlementRecordData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!usesLiveSettlementRecordData || !selectedCompanyId || !hasActiveBusinessPeriod) return
     const settlementType = kind === 'payableSettlement' ? 'payable' : 'receivable'
     void settlementRecordApi.getSettlementRecords({ companyId: selectedCompanyId, period: currentPeriodLabel, settlementType }).then((result) => setSettlementRecords(result.success ? result.data || [] : []))
   }, [currentPeriodLabel, kind, selectedCompanyId, usesLiveSettlementRecordData])
 
   useEffect(() => {
-    if (!usesLiveBankReconciliationRecordData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!usesLiveBankReconciliationRecordData || !selectedCompanyId || !hasActiveBusinessPeriod) return
     void bankReconciliationApi.getBankReconciliationRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setBankReconciliationRecords(result.success ? result.data || [] : []))
   }, [currentPeriodLabel, selectedCompanyId, usesLiveBankReconciliationRecordData])
 
   useEffect(() => {
-    if (!usesLiveBankTransactionData || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!usesLiveBankTransactionData || !selectedCompanyId || !hasActiveBusinessPeriod) return
     void bankTransactionApi.getBankTransactions({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setBankTransactions(result.success ? result.data || [] : []))
   }, [currentPeriodLabel, selectedCompanyId, usesLiveBankTransactionData])
 
   useEffect(() => {
-    if (!(usesLiveDocumentRecordData || usesLiveStampTaxData || usesLiveExpenseReimbursementData || usesLiveReceiptData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!(usesLiveDocumentRecordData || usesLiveStampTaxData || usesLiveExpenseReimbursementData || usesLiveReceiptData) || !selectedCompanyId || !hasActiveBusinessPeriod) return
     void documentRecordApi.getDocumentRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setDocumentRecords(result.success ? result.data || [] : []))
   }, [currentPeriodLabel, selectedCompanyId, usesLiveDocumentRecordData, usesLiveStampTaxData, usesLiveExpenseReimbursementData, usesLiveReceiptData])
-  useEffect(() => { if (!usesLiveReconciliationData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void bankTransactionApi.getBankTransactions({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result)=>setBankTransactions(result.success?result.data||[]:[])); void fetchInvoices({ company_id:selectedCompanyId, period_id:currentPeriodId||undefined }) }, [currentPeriodId, currentPeriodLabel, fetchInvoices, selectedCompanyId, usesLiveReconciliationData])
-  useEffect(() => { if (!usesLiveAccountTransferData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setAccountTransfers(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveAccountTransferData])
-  useEffect(() => { if (!usesLiveFixedAssetData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void fixedAssetApi.getFixedAssets({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setFixedAssets(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveFixedAssetData])
-  useEffect(() => { if (!usesLiveInventoryMovementData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void inventoryMovementApi.getInventoryMovements({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setInventoryMovements(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveInventoryMovementData])
-  useEffect(() => { if (!usesLiveCostCarryoverData || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void costCarryoverApi.getCostCarryoverRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setCostCarryoverRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveCostCarryoverData])
+  useEffect(() => { if (!usesLiveReconciliationData || !selectedCompanyId || !hasActiveBusinessPeriod) return; void bankTransactionApi.getBankTransactions({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result)=>setBankTransactions(result.success?result.data||[]:[])); void fetchInvoices({ company_id:selectedCompanyId, period_id:currentPeriodId||undefined }) }, [currentPeriodId, currentPeriodLabel, fetchInvoices, hasActiveBusinessPeriod, selectedCompanyId, usesLiveReconciliationData])
+  useEffect(() => { if (!usesLiveAccountTransferData || !selectedCompanyId || !hasActiveBusinessPeriod) return; void accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setAccountTransfers(result.success ? result.data || [] : [])) }, [currentPeriodLabel, hasActiveBusinessPeriod, selectedCompanyId, usesLiveAccountTransferData])
+  useEffect(() => { if (!usesLiveFixedAssetData || !selectedCompanyId || !hasActiveBusinessPeriod) return; void fixedAssetApi.getFixedAssets({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setFixedAssets(result.success ? result.data || [] : [])) }, [currentPeriodLabel, hasActiveBusinessPeriod, selectedCompanyId, usesLiveFixedAssetData])
+  useEffect(() => { if (!usesLiveInventoryMovementData || !selectedCompanyId || !hasActiveBusinessPeriod) return; void inventoryMovementApi.getInventoryMovements({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setInventoryMovements(result.success ? result.data || [] : [])) }, [currentPeriodLabel, hasActiveBusinessPeriod, selectedCompanyId, usesLiveInventoryMovementData])
+  useEffect(() => { if (!usesLiveCostCarryoverData || !selectedCompanyId || !hasActiveBusinessPeriod) return; void costCarryoverApi.getCostCarryoverRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setCostCarryoverRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, hasActiveBusinessPeriod, selectedCompanyId, usesLiveCostCarryoverData])
   useEffect(() => { if (!usesLiveInventoryItemData || !selectedCompanyId) return; void inventoryItemApi.getInventoryItems({ companyId: selectedCompanyId }).then((result) => setInventoryItems(result.success ? result.data || [] : [])) }, [selectedCompanyId, usesLiveInventoryItemData])
   useEffect(() => { if (!usesLiveMeasurementUnitData || !selectedCompanyId) return; void measurementUnitApi.getMeasurementUnits({ companyId: selectedCompanyId }).then((result) => setMeasurementUnits(result.success ? result.data || [] : [])) }, [selectedCompanyId, usesLiveMeasurementUnitData])
 
@@ -7944,15 +7957,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [usesLiveBackupData])
 
   useEffect(() => {
-    if (!usesLiveCompanyTodoData || !selectedCompanyId) return
+    if (!usesLiveCompanyTodoData || !selectedCompanyId || !hasActiveBusinessPeriod) {
+      setCompanyTodos([])
+      return
+    }
     let active = true
-    void companyTodoApi.getAll({ companyId: selectedCompanyId, period: currentPeriodLabel === '当前账期' ? undefined : currentPeriodLabel }).then((result) => {
+    void companyTodoApi.getAll({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => {
       if (active) setCompanyTodos(result.success ? result.data || [] : [])
     })
     return () => {
       active = false
     }
-  }, [currentPeriodLabel, selectedCompanyId, usesLiveCompanyTodoData])
+  }, [currentPeriodLabel, hasActiveBusinessPeriod, selectedCompanyId, usesLiveCompanyTodoData])
 
   useEffect(() => {
     if (!(usesLiveEmployeeData || usesLivePayrollData || usesLiveSocialSecurityData || usesLiveSpecialDeductionData || usesLiveWithholdingTaxData || usesLiveSocialSecurityTaxData) || !selectedCompanyId) return
@@ -7966,15 +7982,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }, [selectedCompanyId, usesLiveEmployeeData, usesLivePayrollData, usesLiveSocialSecurityData, usesLiveSpecialDeductionData, usesLiveWithholdingTaxData, usesLiveSocialSecurityTaxData])
 
   useEffect(() => {
-    if (!(usesLivePayrollData || usesLiveWithholdingTaxData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!(usesLivePayrollData || usesLiveWithholdingTaxData) || !selectedCompanyId || !hasActiveBusinessPeriod) return
     let active = true
     void payrollApi.getPayrollRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => {
       if (active) setPayrollRecords(result.success ? result.data || [] : [])
     })
     return () => { active = false }
-  }, [currentPeriodLabel, selectedCompanyId, usesLivePayrollData, usesLiveWithholdingTaxData])
-  useEffect(() => { if (!(usesLiveSocialSecurityData || usesLiveWithholdingTaxData || usesLiveSocialSecurityTaxData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void socialSecurityApi.getSocialSecurityRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setSocialSecurityRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveSocialSecurityData, usesLiveWithholdingTaxData, usesLiveSocialSecurityTaxData])
-  useEffect(() => { if (!(usesLiveSpecialDeductionData || usesLiveWithholdingTaxData) || !selectedCompanyId || currentPeriodLabel === '当前账期') return; void specialDeductionApi.getSpecialDeductionRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setSpecialDeductionRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, selectedCompanyId, usesLiveSpecialDeductionData, usesLiveWithholdingTaxData])
+  }, [currentPeriodLabel, hasActiveBusinessPeriod, selectedCompanyId, usesLivePayrollData, usesLiveWithholdingTaxData])
+  useEffect(() => { if (!(usesLiveSocialSecurityData || usesLiveWithholdingTaxData || usesLiveSocialSecurityTaxData) || !selectedCompanyId || !hasActiveBusinessPeriod) return; void socialSecurityApi.getSocialSecurityRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setSocialSecurityRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, hasActiveBusinessPeriod, selectedCompanyId, usesLiveSocialSecurityData, usesLiveWithholdingTaxData, usesLiveSocialSecurityTaxData])
+  useEffect(() => { if (!(usesLiveSpecialDeductionData || usesLiveWithholdingTaxData) || !selectedCompanyId || !hasActiveBusinessPeriod) return; void specialDeductionApi.getSpecialDeductionRecords({ companyId: selectedCompanyId, period: currentPeriodLabel }).then((result) => setSpecialDeductionRecords(result.success ? result.data || [] : [])) }, [currentPeriodLabel, hasActiveBusinessPeriod, selectedCompanyId, usesLiveSpecialDeductionData, usesLiveWithholdingTaxData])
 
   useEffect(() => {
     if (!usesLiveVoucherRecycleData || !selectedCompanyId) return
@@ -8168,7 +8184,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const config = useMemo(() => {
     if (kind === 'companyInfo' && !isTauri) {
-      const company = previewCompanyInfo ? buildPreviewCompanyInfo(previewCompanyInfo) : undefined
+      const company = selectedCompany || (previewCompanyInfo ? buildPreviewCompanyInfo(previewCompanyInfo) : undefined)
       return {
         ...baseConfig,
         rows: mapLiveCompanyInfoRows(company),
@@ -8176,7 +8192,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
     if (kind === 'initialBalance' && !isTauri) {
-      const initialBalance = buildPreviewInitialBalanceTrial(previewInitialBalanceRows)
+      const initialBalance = buildPreviewInitialBalanceTrial(scopedPreviewInitialBalanceRows)
       return {
         ...baseConfig,
         rows: mapLiveInitialBalanceRows(initialBalance),
@@ -8184,13 +8200,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
     if (kind === 'subjectSettings' && !isTauri) {
-      return { ...baseConfig, rows: mapLiveSubjectRows(previewSubjects), summary: summarizeLiveSubjects(previewSubjects) }
+      return { ...baseConfig, rows: mapLiveSubjectRows(scopedPreviewSubjects), summary: summarizeLiveSubjects(scopedPreviewSubjects) }
     }
     if (kind === 'notificationCenter' && !isTauri) {
-      return { ...baseConfig, rows: mapLiveCompanyTodoRows(previewCompanyTodos, '科旋电气'), summary: summarizeLiveCompanyTodos(previewCompanyTodos) }
+      return { ...baseConfig, rows: mapLiveCompanyTodoRows(scopedPreviewCompanyTodos, '当前账套'), summary: summarizeLiveCompanyTodos(scopedPreviewCompanyTodos) }
     }
     if (kind === 'aiJobQueue' && !isTauri) {
-      const jobs = [...automationJobs, ...previewAiQueueJobs]
+      const jobs = [...automationJobs, ...scopedPreviewAiQueueJobs]
       return {
         ...baseConfig,
         rows: mapLiveAutomationJobRows(jobs, 'queue'),
@@ -8199,7 +8215,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
 
     if (kind === 'aiRecognitionResults' && !isTauri) {
-      const jobs = [...automationJobs, ...previewAiQueueJobs]
+      const jobs = [...automationJobs, ...scopedPreviewAiQueueJobs]
       return {
         ...baseConfig,
         rows: mapLiveAutomationJobRows(jobs, 'recognition'),
@@ -8208,7 +8224,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
 
     if (kind === 'aiVoucherSuggestions' && !isTauri) {
-      const jobs = [...automationJobs, ...previewAiQueueJobs]
+      const jobs = [...automationJobs, ...scopedPreviewAiQueueJobs]
       return {
         ...baseConfig,
         rows: mapLiveAutomationJobRows(jobs, 'suggestion'),
@@ -8283,7 +8299,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const closingVouchers = isTauri ? vouchers : activeVouchers
       const closingTrialBalance = isTauri
         ? liveReports.trialBalance
-        : buildPreviewInitialBalanceTrial(previewInitialBalanceRows)
+        : buildPreviewInitialBalanceTrial(scopedPreviewInitialBalanceRows)
       const closingBalanceSheet = isTauri ? liveReports.balanceSheet : null
       const lastCheck = !isTauri && closingPeriod ? previewClosingChecks[closingPeriod.id] : null
       const rows: ModuleConfig['rows'] = mapLiveClosingTaskRows(closingPeriod, closingVouchers, closingTrialBalance, closingBalanceSheet)
@@ -8354,7 +8370,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'incomeTaxReport' && ((usesLiveReportData && liveReports.incomeStatement) || !isTauri)) {
       const incomeStatement = isTauri
         ? liveReports.incomeStatement!
-        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).incomeStatement
+        : buildPreviewFinancialReports(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod).incomeStatement
       return { ...baseConfig, rows: mapLiveIncomeTaxRows(incomeStatement), summary: summarizeLiveIncomeTax(incomeStatement) }
     }
     if (kind === 'vatTaxReport' && (usesLiveVatTaxData || !isTauri)) return { ...baseConfig, rows: mapLiveVatTaxRows(effectiveInvoices), summary: summarizeLiveVatTax(effectiveInvoices) }
@@ -8428,7 +8444,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'financialReport' && ((usesLiveFinancialOverviewData && liveReports.balanceSheet && liveReports.incomeStatement && liveReports.cashFlow) || !isTauri)) {
       const financialReports = isTauri
         ? { balanceSheet: liveReports.balanceSheet!, incomeStatement: liveReports.incomeStatement!, cashFlow: liveReports.cashFlow! }
-        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod)
+        : buildPreviewFinancialReports(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod)
       return {
         ...baseConfig,
         rows: mapLiveFinancialOverviewRows(financialReports.balanceSheet, financialReports.incomeStatement, financialReports.cashFlow),
@@ -8463,7 +8479,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'trialBalanceReport' && ((usesLiveReportData && liveReports.trialBalance) || !isTauri)) {
       const trialBalance = isTauri
         ? liveReports.trialBalance!
-        : buildPreviewPeriodTrialBalance(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
+        : buildPreviewPeriodTrialBalance(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
       return {
         ...baseConfig,
         rows: mapLiveTrialBalanceRows(trialBalance),
@@ -8474,7 +8490,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'ledgerReport' && ((usesLiveReportData && liveReports.ledgerOverview) || !isTauri)) {
       const ledgerOverview = isTauri
         ? liveReports.ledgerOverview!
-        : buildPreviewPeriodTrialBalance(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
+        : buildPreviewPeriodTrialBalance(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
       return {
         ...baseConfig,
         rows: mapLiveLedgerOverviewRows(ledgerOverview),
@@ -8485,7 +8501,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'accountSummaryReport' && ((usesLiveReportData && liveReports.accountSummary) || !isTauri)) {
       const accountSummary = isTauri
         ? liveReports.accountSummary!
-        : buildPreviewGeneralLedger(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
+        : buildPreviewGeneralLedger(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
       return {
         ...baseConfig,
         rows: mapLiveAccountSummaryRows(accountSummary),
@@ -8496,7 +8512,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'generalLedgerReport' && ((usesLiveReportData && liveReports.generalLedger) || !isTauri)) {
       const generalLedger = isTauri
         ? liveReports.generalLedger!
-        : buildPreviewGeneralLedger(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
+        : buildPreviewGeneralLedger(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
       return {
         ...baseConfig,
         rows: mapLiveGeneralLedgerRows(generalLedger),
@@ -8507,7 +8523,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'multiColumnLedgerReport' && ((usesLiveReportData && liveReports.multiColumnLedger) || !isTauri)) {
       const multiColumnLedger = isTauri
         ? liveReports.multiColumnLedger!
-        : buildPreviewGeneralLedger(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
+        : buildPreviewGeneralLedger(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id)
       return {
         ...baseConfig,
         rows: mapLiveMultiColumnLedgerRows(multiColumnLedger),
@@ -8518,7 +8534,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'subsidiaryLedgerReport' && (usesLiveLedgerDetailData || !isTauri)) {
       const subsidiaryLedger = isTauri
         ? liveReports.subsidiaryLedger || []
-        : buildPreviewSubsidiaryLedger(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id, effectiveLedgerAccountCode)
+        : buildPreviewSubsidiaryLedger(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod?.id, effectiveLedgerAccountCode)
       return {
         ...baseConfig,
         rows: mapLiveSubsidiaryLedgerRows(subsidiaryLedger, effectiveLedgerSubjectLabel),
@@ -8551,7 +8567,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'balanceSheetReport' && ((usesLiveReportData && liveReports.balanceSheet) || !isTauri)) {
       const balanceSheet = isTauri
         ? liveReports.balanceSheet!
-        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).balanceSheet
+        : buildPreviewFinancialReports(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod).balanceSheet
       return {
         ...baseConfig,
         rows: mapLiveBalanceSheetRows(balanceSheet),
@@ -8562,7 +8578,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'equityChangeReport' && ((usesLiveReportData && liveReports.balanceSheet && liveReports.incomeStatement) || !isTauri)) {
       const financialReports = isTauri
         ? { balanceSheet: liveReports.balanceSheet!, incomeStatement: liveReports.incomeStatement! }
-        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod)
+        : buildPreviewFinancialReports(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod)
       return {
         ...baseConfig,
         rows: mapLiveEquityChangeRows(financialReports.balanceSheet, financialReports.incomeStatement),
@@ -8573,7 +8589,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'incomeStatementReport' && ((usesLiveReportData && liveReports.incomeStatement) || !isTauri)) {
       const incomeStatement = isTauri
         ? liveReports.incomeStatement!
-        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).incomeStatement
+        : buildPreviewFinancialReports(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod).incomeStatement
       return {
         ...baseConfig,
         rows: mapLiveIncomeStatementRows(incomeStatement),
@@ -8589,7 +8605,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const previewQuarterBaselineMissing = !isTauri && previewQuarterStartMonth > 1
       const incomeStatement = isTauri
         ? liveReports.incomeStatement!
-        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).incomeStatement
+        : buildPreviewFinancialReports(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod).incomeStatement
       const incomeQuarterBaseline = isTauri ? liveReports.incomeQuarterBaseline : null
       const incomeQuarterBaselineMissing = isTauri ? liveReports.incomeQuarterBaselineMissing : previewQuarterBaselineMissing
       return {
@@ -8607,7 +8623,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const previewQuarterBaselineMissing = !isTauri && previewQuarterStartMonth > 1
       const cashFlow = isTauri
         ? liveReports.cashFlow!
-        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).cashFlow
+        : buildPreviewFinancialReports(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod).cashFlow
       const cashFlowQuarterBaseline = isTauri ? liveReports.cashFlowQuarterBaseline : null
       const cashFlowQuarterBaselineMissing = isTauri ? liveReports.cashFlowQuarterBaselineMissing : previewQuarterBaselineMissing
       return {
@@ -8620,7 +8636,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'cashFlowReport' && ((usesLiveReportData && liveReports.cashFlow) || !isTauri)) {
       const cashFlow = isTauri
         ? liveReports.cashFlow!
-        : buildPreviewFinancialReports(previewInitialBalanceRows, activeVouchers, voucherEditorPeriod).cashFlow
+        : buildPreviewFinancialReports(scopedPreviewInitialBalanceRows, activeVouchers, voucherEditorPeriod).cashFlow
       return {
         ...baseConfig,
         rows: mapLiveCashFlowRows(cashFlow),
@@ -8637,7 +8653,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
 
     if (kind === 'settingsData' && (usesLiveSettingsOverviewData || !isTauri)) {
-      const settingsCompany = isTauri ? selectedCompany : previewCompanyInfo ? buildPreviewCompanyInfo(previewCompanyInfo) : undefined
+      const settingsCompany = selectedCompany || (previewCompanyInfo ? buildPreviewCompanyInfo(previewCompanyInfo) : undefined)
       const settingsPeriod = isTauri ? currentPeriod : voucherEditorPeriod
       const settingsPeriodLabel = settingsPeriod
         ? `${settingsPeriod.period_year}-${String(settingsPeriod.period_month).padStart(2, '0')}`
@@ -8681,8 +8697,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'accountArchive' && (usesLiveCompanyBankAccountData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveCompanyAccountRows(isTauri ? companyAccounts : previewCompanyAccounts),
-        summary: summarizeLiveCompanyAccounts(isTauri ? companyAccounts : previewCompanyAccounts),
+        rows: mapLiveCompanyAccountRows(isTauri ? companyAccounts : scopedPreviewCompanyAccounts),
+        summary: summarizeLiveCompanyAccounts(isTauri ? companyAccounts : scopedPreviewCompanyAccounts),
       }
     }
 
@@ -8694,7 +8710,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    if (kind === 'periodManagement' && (usesLivePeriodManagementData || previewPeriods.length > 0)) {
+    if (kind === 'periodManagement' && (usesLivePeriodManagementData || scopedPreviewPeriods.length > 0)) {
       return {
         ...baseConfig,
         rows: mapLivePeriodManagementRows(effectivePeriods),
@@ -8705,36 +8721,36 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'settlementRules' && (usesLiveSettlementRuleData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveSettlementRuleRows(isTauri ? settlementRules : previewSettlementRules),
-        summary: summarizeLiveSettlementRules(isTauri ? settlementRules : previewSettlementRules),
+        rows: mapLiveSettlementRuleRows(isTauri ? settlementRules : scopedPreviewSettlementRules),
+        summary: summarizeLiveSettlementRules(isTauri ? settlementRules : scopedPreviewSettlementRules),
       }
     }
 
     if (kind === 'currencySettings' && (usesLiveCurrencyData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveCurrencyRows(isTauri ? currencies : previewCurrencies),
-        summary: summarizeLiveCurrencies(isTauri ? currencies : previewCurrencies),
+        rows: mapLiveCurrencyRows(isTauri ? currencies : scopedPreviewCurrencies),
+        summary: summarizeLiveCurrencies(isTauri ? currencies : scopedPreviewCurrencies),
       }
     }
 
     if (kind === 'commonDigests' && (usesLiveTemplateSettingsData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveCommonDigestRows(isTauri ? commonDigests : previewCommonDigests),
-        summary: summarizeLiveCommonDigests(isTauri ? commonDigests : previewCommonDigests),
+        rows: mapLiveCommonDigestRows(isTauri ? commonDigests : scopedPreviewCommonDigests),
+        summary: summarizeLiveCommonDigests(isTauri ? commonDigests : scopedPreviewCommonDigests),
       }
     }
 
     if (kind === 'voucherTemplateSettings' && (usesLiveTemplateSettingsData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveVoucherTemplateRows(isTauri ? voucherTemplates : previewVoucherTemplates, isTauri ? voucherTemplateTypes : previewVoucherTemplateTypes),
-        summary: summarizeLiveVoucherTemplates(isTauri ? voucherTemplates : previewVoucherTemplates, isTauri ? voucherTemplateTypes : previewVoucherTemplateTypes),
+        rows: mapLiveVoucherTemplateRows(isTauri ? voucherTemplates : scopedPreviewVoucherTemplates, isTauri ? voucherTemplateTypes : previewVoucherTemplateTypes),
+        summary: summarizeLiveVoucherTemplates(isTauri ? voucherTemplates : scopedPreviewVoucherTemplates, isTauri ? voucherTemplateTypes : previewVoucherTemplateTypes),
       }
     }
 
-    if (kind === 'reportFormulaSettings' && (usesLiveReportFormulaData || previewReportItems.length > 0)) {
+    if (kind === 'reportFormulaSettings' && (usesLiveReportFormulaData || scopedPreviewReportItems.length > 0)) {
       return {
         ...baseConfig,
         rows: mapLiveReportFormulaRows(effectiveReportTemplates, effectiveReportItems),
@@ -8762,7 +8778,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const historyBalance = isTauri
         ? liveReports.historyBalance
         : previewHistoryVouchers.length > 0
-          ? buildPreviewPeriodTrialBalance(previewInitialBalanceRows, previewHistoryVouchers, effectiveHistoryPeriodId)
+          ? buildPreviewPeriodTrialBalance(scopedPreviewInitialBalanceRows, previewHistoryVouchers, effectiveHistoryPeriodId)
           : buildPreviewPeriodTrialBalance([], [], effectiveHistoryPeriodId)
       return {
         ...baseConfig,
@@ -8799,7 +8815,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const historyGeneralLedger = isTauri
         ? liveReports.historyGeneralLedger || []
         : previewHistoryVouchers.length > 0
-          ? buildPreviewGeneralLedger(previewInitialBalanceRows, previewHistoryVouchers, effectiveHistoryPeriodId)
+          ? buildPreviewGeneralLedger(scopedPreviewInitialBalanceRows, previewHistoryVouchers, effectiveHistoryPeriodId)
           : []
       return {
         ...baseConfig,
@@ -8813,7 +8829,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const historySubsidiaryLedger = isTauri
         ? liveReports.historySubsidiaryLedger || []
         : buildPreviewSubsidiaryLedger(
-          previewInitialBalanceRows,
+          scopedPreviewInitialBalanceRows,
           previewHistoryVouchers,
           effectiveHistoryPeriodId,
           effectiveHistoryLedgerAccountCode,
@@ -8839,24 +8855,24 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'auxiliaryCategories' && (usesLiveArchiveData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveAuxiliaryCategoryRows(isTauri ? auxiliaryCategories : previewAuxiliaryCategories),
-        summary: summarizeLiveAuxiliaryCategories(isTauri ? auxiliaryCategories : previewAuxiliaryCategories),
+        rows: mapLiveAuxiliaryCategoryRows(isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories),
+        summary: summarizeLiveAuxiliaryCategories(isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories),
       }
     }
 
-    if (isMatchingRuleWorkspace && (usesLiveMatchingRuleData || previewMatchingRules.some((rule) => rule.rule_scope === matchingRuleScope))) {
+    if (isMatchingRuleWorkspace && (usesLiveMatchingRuleData || scopedPreviewMatchingRules.some((rule) => rule.rule_scope === matchingRuleScope))) {
       return {
         ...baseConfig,
-        rows: mapLiveMatchingRuleRows(isTauri ? matchingRules : previewMatchingRules, matchingRuleScope),
-        summary: summarizeLiveMatchingRules(isTauri ? matchingRules : previewMatchingRules, matchingRuleScope),
+        rows: mapLiveMatchingRuleRows(isTauri ? matchingRules : scopedPreviewMatchingRules, matchingRuleScope),
+        summary: summarizeLiveMatchingRules(isTauri ? matchingRules : scopedPreviewMatchingRules, matchingRuleScope),
       }
     }
 
     if (kind === 'assetCategory' && (usesLiveAssetCategoryData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveAssetCategoryRows(isTauri ? assetCategories : previewAssetCategories),
-        summary: summarizeLiveAssetCategories(isTauri ? assetCategories : previewAssetCategories),
+        rows: mapLiveAssetCategoryRows(isTauri ? assetCategories : scopedPreviewAssetCategories),
+        summary: summarizeLiveAssetCategories(isTauri ? assetCategories : scopedPreviewAssetCategories),
       }
     }
 
@@ -8871,16 +8887,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (kind === 'auxiliaryItems' && (usesLiveArchiveData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveAuxiliaryItemRows(isTauri ? auxiliaryCategories : previewAuxiliaryCategories, isTauri ? auxiliaryItems : previewAuxiliaryItems),
-        summary: summarizeLiveAuxiliaryItems(isTauri ? auxiliaryItems : previewAuxiliaryItems),
+        rows: mapLiveAuxiliaryItemRows(isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories, isTauri ? auxiliaryItems : scopedPreviewAuxiliaryItems),
+        summary: summarizeLiveAuxiliaryItems(isTauri ? auxiliaryItems : scopedPreviewAuxiliaryItems),
       }
     }
 
     if (isLiveAuxiliaryArchiveKind(kind) && (usesLiveArchiveData || !isTauri)) {
       return {
         ...baseConfig,
-        rows: mapLiveAuxiliaryArchiveRows(kind, isTauri ? auxiliaryCategories : previewAuxiliaryCategories, isTauri ? auxiliaryItems : previewAuxiliaryItems),
-        summary: summarizeLiveAuxiliaryArchive(kind, isTauri ? auxiliaryCategories : previewAuxiliaryCategories, isTauri ? auxiliaryItems : previewAuxiliaryItems),
+        rows: mapLiveAuxiliaryArchiveRows(kind, isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories, isTauri ? auxiliaryItems : scopedPreviewAuxiliaryItems),
+        summary: summarizeLiveAuxiliaryArchive(kind, isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories, isTauri ? auxiliaryItems : scopedPreviewAuxiliaryItems),
       }
     }
 
@@ -8947,7 +8963,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
 
-    return baseConfig
+    return kind === 'printTemplateSettings' ? baseConfig : emptyRuntimeModuleConfig(baseConfig)
   }, [accounts, accountTransfers, activeVouchers, adapterAuthorizations, assetCategories, auditLogs, automationJobs, auxiliaryCategories, auxiliaryItems, auxiliaryLedgerItemOptions, backupValidations, bankReconciliationRecords, bankTransactionTagIds, bankTransactions, baseConfig, businessOrders, businessTags, commonDigests, companyAccounts, companyTodos, costCarryoverRecords, currencies, currentPeriod, deletedVouchers, documentRecords, effectiveAdapterAuthorizations, effectiveAuxiliaryCategory, effectiveAuxiliaryCategoryCode, effectiveAuxiliaryItem, effectiveAuxiliaryItemId, effectiveBusinessTags, effectiveHistoryLedgerAccount, effectiveHistoryLedgerAccountCode, effectiveHistoryPeriodId, effectiveHistoryPeriodLabel, effectiveInvoiceTagIds, effectiveInvoices, effectiveLedgerAccountCode, effectiveLedgerSubjectLabel, effectivePeriods, effectiveReportItems, effectiveReportTemplates, effectiveTaxDeclarationTasks, effectiveVoucherTagIds, effectiveVouchers, employees, exportJobs, fixedAssets, historyLedgerAccountOptions, inventoryItems, invoiceMatchCandidates, inventoryMovements, invoiceTagIds, invoices, isTauri, kind, liveReports, localAttachmentRecords, localBackups, localImportJobs, matchingRuleScope, matchingRules, measurementUnits, operationAuditLogs, payrollRecords, periods, previewAdapterAuthorizations, previewAssetCategories, previewAuxiliaryCategories, previewAuxiliaryItems, previewClosingChecks, previewCommonDigests, previewCompanyAccounts, previewCompanyInfo, previewCompanyTodos, previewCurrencies, previewHistoryVouchers, previewInitialBalanceRows, previewMatchingRules, previewPeriods, previewReportItems, previewAiQueueJobs, previewSettlementRules, previewVoucherTemplates, reportItems, reportTemplates, selectedCompany, selectedCompanyId, selectedHistoryPeriodLabel, settlementRecords, settlementRules, socialSecurityRecords, specialDeductionRecords, taxDeclarationTasks, usesLiveAdapterAuthorizationData, usesLiveArchiveData, usesLiveAssetCategoryData, usesLiveAutomationJobData, usesLiveBackupData, usesLiveBusinessTagData, usesLiveClosingTaskData, usesLiveCompanyBankAccountData, usesLiveCompanyTodoData, usesLiveCurrencyData, usesLiveDeclarationCalendarData, usesLiveDeclarationReceiptData, usesLiveEmployeeData, usesLiveExportData, usesLiveFinanceTaxReportData, usesLiveFinancialOverviewData, usesLiveFixedAssetData, usesLiveHistoryReportData, usesLiveImportData, usesLiveInitialBalanceData, usesLiveInventoryMovementData, usesLiveInvoiceData, usesLiveInvoiceVoucherMatchingData, usesLiveLedgerDetailData, usesLiveMatchingRuleData, usesLiveModuleData, usesLiveNonTaxRevenueData, usesLiveOperationAuditData, usesLivePayrollData, usesLivePeriodManagementData, usesLiveReportData, usesLiveReportFormulaData, usesLiveRiskCheckData, usesLiveSettlementRuleData, usesLiveSettingsOverviewData, usesLiveSocialSecurityData, usesLiveStampTaxData, usesLiveTaxInitData, usesLiveTaxReportData, usesLiveTemplateSettingsData, usesLiveVoucherData, usesLiveVoucherRecycleData, voucherEditorPeriod, voucherMatchCandidates, voucherTagIds, voucherTemplates, voucherTemplateTypes, vouchers])
   const listMeta = getModuleListMeta(kind)
   const detailMeta = getModuleDetailMeta(kind)
@@ -8964,13 +8980,20 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [advancedFilters, setAdvancedFilters] = useState({ voucher: '全部', attachment: '全部' })
   const [advancedFiltersDraft, setAdvancedFiltersDraft] = useState({ voucher: '全部', attachment: '全部' })
-  const columnSettingsCompanyId = selectedCompanyId || 'browser-preview'
+  const columnSettingsCompanyId = browserPreviewCompanyId
   const [showModuleColumnSettings, setShowModuleColumnSettings] = useState(false)
   const [moduleColumnSettings, setModuleColumnSettings] = useState<ModuleColumnSettings>(() => loadModuleColumnSettings(kind, columnSettingsCompanyId, config.columns))
   const [moduleColumnSettingsDraft, setModuleColumnSettingsDraft] = useState<ModuleColumnSettings>(() => loadModuleColumnSettings(kind, columnSettingsCompanyId, config.columns))
   const [detailRow, setDetailRow] = useState<ModuleRow | null>(null)
   const importFileRef = useRef<HTMLInputElement>(null)
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
+  const ensureActiveBusinessPeriod = () => {
+    if (hasActiveBusinessPeriod) return true
+    setOperationNotice(isTauri
+      ? '请先在顶部选择账期，再登记当前模块的业务记录。'
+      : '请先在账期管理中新增并启用账期，再登记当前模块的业务记录。')
+    return false
+  }
 
   useEffect(() => {
     setActiveTab(getModuleTabs(kind)[0])
@@ -9034,9 +9057,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   ].filter(Boolean).join('；')
   const auditScope = [status, keyword.trim() || '全部', businessTagFilter !== '全部' ? `标签=${businessTagFilter}` : '', advancedFilterScope].filter(Boolean).join('/')
   const primaryActionHandlesImport = /导入|采集|上传/.test(config.primaryAction)
-  const exportPeriodLabel = currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel
+  const exportPeriodLabel = activeBusinessPeriodLabel
   const exportDocumentContext = {
-    companyName: selectedCompany?.name || '科旋电气（上海）有限公司',
+    companyName: selectedCompany?.name || (isTauri ? '当前账套' : previewCompanyInfo?.name || '浏览器预览账套'),
     periodLabel: exportPeriodLabel,
     taxpayerId: selectedCompany?.tax_id || '91310115MA1K3****X',
   }
@@ -9172,14 +9195,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
     try {
       const isHistoryMigration = isHistoryMigrationKind(kind)
-      const targetPeriodId = isHistoryMigration ? selectedHistoryPeriodId : currentPeriodId
-      const targetPeriodLabel = isHistoryMigration ? selectedHistoryPeriodLabel : currentPeriodLabel
-      if (isHistoryMigration && (!targetPeriodId || !targetPeriodLabel)) {
-        setOperationNotice('未选择目标历史账期，导入已取消。请先选择账期后再上传迁移文件。')
+      const targetPeriodId = isHistoryMigration
+        ? selectedHistoryPeriodId
+        : isTauri ? currentPeriodId : voucherEditorPeriod?.id
+      const targetPeriodLabel = isHistoryMigration ? selectedHistoryPeriodLabel : activeBusinessPeriodLabel
+      if (!targetPeriodId || !targetPeriodLabel) {
+        setOperationNotice(isHistoryMigration
+          ? '未选择目标历史账期，导入已取消。请先选择账期后再上传迁移文件。'
+          : '请先在账期管理中新增并启用账期，再登记导入批次或附件。')
         return
       }
       const scope = {
-        companyId: selectedCompanyId || 'browser-preview',
+        companyId: browserPreviewCompanyId,
         period: targetPeriodLabel,
       }
       if (kind === 'attachmentCenter') {
@@ -9260,13 +9287,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleCreateAiVoucherSuggestion = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (isTauri && !selectedCompanyId) {
+      setOperationNotice('请先选择账套，再登记 AI 凭证建议。')
+      return
+    }
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const job: AutomationJob = {
         id: `AI-PREVIEW-SUGGESTION-${Date.now()}`,
-        companyId: 'browser-preview',
-        companyName: previewCompanyInfo?.name || '科旋电气（上海）有限公司',
-        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+        companyId: browserPreviewCompanyId,
+        companyName: selectedCompany?.name || previewCompanyInfo?.name || '浏览器预览账套',
+        period: activeBusinessPeriodLabel,
         jobType: 'voucher_suggestion',
         sourceModule: aiVoucherSuggestionDraft.sourceModule.trim(),
         sourceId: aiVoucherSuggestionDraft.sourceId.trim() || null,
@@ -9292,13 +9324,9 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice('AI 凭证建议已保存到当前预览队列；请人工核验来源、借贷科目和金额，系统不会自动生成或入账凭证。')
       return
     }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') {
-      setOperationNotice('请先选择账套和账期，再登记 AI 凭证建议。')
-      return
-    }
     const result = await automationApi.createAutomationJob({
       companyId: selectedCompanyId,
-      period: currentPeriodLabel,
+      period: activeBusinessPeriodLabel,
       jobType: 'voucher_suggestion',
       sourceModule: aiVoucherSuggestionDraft.sourceModule.trim(),
       sourceId: aiVoucherSuggestionDraft.sourceId.trim() || undefined,
@@ -9325,17 +9353,18 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveAiJob = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (isTauri && (!selectedCompanyId || currentPeriodLabel === '当前账期')) {
-      setOperationNotice('请先选择账套和账期，再创建 AI 处理任务。')
+    if (isTauri && !selectedCompanyId) {
+      setOperationNotice('请先选择账套，再创建 AI 处理任务。')
       return
     }
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const job: AutomationJob = {
         id: `AI-PREVIEW-${Date.now()}`,
-        companyId: 'browser-preview',
-        companyName: null,
-        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+        companyId: browserPreviewCompanyId,
+        companyName: selectedCompany?.name || null,
+        period: activeBusinessPeriodLabel,
         jobType: aiJobDraft.jobType,
         sourceModule: aiJobDraft.sourceModule.trim(),
         sourceId: aiJobDraft.sourceId.trim() || null,
@@ -9362,8 +9391,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     const result = await automationApi.createAutomationJob({
-      companyId: selectedCompanyId || 'browser-preview',
-      period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+      companyId: selectedCompanyId,
+      period: activeBusinessPeriodLabel,
       jobType: aiJobDraft.jobType,
       sourceModule: aiJobDraft.sourceModule.trim(),
       sourceId: aiJobDraft.sourceId.trim() || undefined,
@@ -9455,12 +9484,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleSaveNonTaxRevenue = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const riskCount = Number(nonTaxRevenueDraft.riskCount || 0)
-    if (isTauri && (!selectedCompanyId || currentPeriodLabel === '当前账期')) {
-      setOperationNotice('请先选择账套和账期，再登记非税缴费事项。')
+    if (isTauri && !selectedCompanyId) {
+      setOperationNotice('请先选择账套，再登记非税缴费事项。')
       return
     }
+    if (!ensureActiveBusinessPeriod()) return
     const result = await saveTaxDeclarationTask({
-      period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+      period: activeBusinessPeriodLabel,
       taxType: nonTaxRevenueDraft.item,
       formName: nonTaxRevenueDraft.policy.trim() || '待补地区政策',
       collectStatus: 'collected',
@@ -9537,12 +9567,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleSaveTaxInit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const existing = effectiveTaxDeclarationTasks.find((task) => task.id === taxInitDraft.taskId)
-    if (isTauri && (!selectedCompanyId || currentPeriodLabel === '当前账期')) {
-      setOperationNotice('请先选择账套和账期，再维护申报认定事项。')
+    if (isTauri && !selectedCompanyId) {
+      setOperationNotice('请先选择账套，再维护申报认定事项。')
       return
     }
+    if (!existing && !ensureActiveBusinessPeriod()) return
     const result = await saveTaxDeclarationTask({
-      period: existing?.period || (currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel),
+      period: existing?.period || (activeBusinessPeriodLabel),
       taxType: taxInitDraft.taxType.trim(),
       formName: taxInitDraft.formName.trim(),
       collectStatus: taxInitDraft.collectStatus,
@@ -9579,9 +9610,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice('请先选择账套，再新建待办。')
       return
     }
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
-      const todo: CompanyTodo = { id: `preview-todo-${Date.now()}`, companyId: 'browser-preview', companyName: '科旋电气', period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, title: companyTodoDraft.title.trim(), sourceModule: companyTodoDraft.sourceModule.trim(), priority: companyTodoDraft.priority, owner: companyTodoDraft.owner.trim() || null, dueDate: companyTodoDraft.dueDate || null, relatedEntry: companyTodoDraft.relatedEntry.trim() || null, evidence: companyTodoDraft.evidence.trim() || null, note: companyTodoDraft.note.trim() || null, status: 'open', completedAt: null, completedBy: null, createdAt: timestamp, updatedAt: timestamp }
+      const todo: CompanyTodo = { id: `preview-todo-${Date.now()}`, companyId: browserPreviewCompanyId, companyName: selectedCompany?.name || previewCompanyInfo?.name || '浏览器预览账套', period: activeBusinessPeriodLabel, title: companyTodoDraft.title.trim(), sourceModule: companyTodoDraft.sourceModule.trim(), priority: companyTodoDraft.priority, owner: companyTodoDraft.owner.trim() || null, dueDate: companyTodoDraft.dueDate || null, relatedEntry: companyTodoDraft.relatedEntry.trim() || null, evidence: companyTodoDraft.evidence.trim() || null, note: companyTodoDraft.note.trim() || null, status: 'open', completedAt: null, completedBy: null, createdAt: timestamp, updatedAt: timestamp }
       updatePreviewCompanyTodos((todos) => [todo, ...todos])
       setShowCompanyTodoDialog(false)
       writeModuleAudit('新增账套待办', `${todo.period}｜${todo.title}｜浏览器预览`, todo.priority === 'blocking' ? '高' : '中', '成功')
@@ -9589,8 +9621,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     const result = await companyTodoApi.create({
-      companyId: selectedCompanyId || 'browser-preview',
-      period: currentPeriodLabel === '当前账期' ? undefined : currentPeriodLabel,
+      companyId: selectedCompanyId,
+      period: activeBusinessPeriodLabel,
       title: companyTodoDraft.title.trim(),
       sourceModule: companyTodoDraft.sourceModule.trim(),
       priority: companyTodoDraft.priority,
@@ -9606,13 +9638,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     setCompanyTodos((todos) => [result.data!, ...todos.filter((todo) => todo.id !== result.data!.id)])
     setShowCompanyTodoDialog(false)
-    writeModuleAudit('新增账套待办', `${currentPeriodLabel}｜${result.data.title}`, companyTodoDraft.priority === 'blocking' ? '高' : '中', '成功')
+    writeModuleAudit('新增账套待办', `${activeBusinessPeriodLabel}｜${result.data.title}`, companyTodoDraft.priority === 'blocking' ? '高' : '中', '成功')
     setOperationNotice('待办已保存到当前账套和账期；不会发送短信、邮件或触发外部动作。')
   }
 
   const completeCompanyTodo = async (todoId: string) => {
     if (!isTauri) {
-      const todo = previewCompanyTodos.find((item) => item.id === todoId)
+      const todo = scopedPreviewCompanyTodos.find((item) => item.id === todoId)
       if (!todo || todo.status === 'completed') return
       const timestamp = new Date().toISOString()
       updatePreviewCompanyTodos((todos) => todos.map((item) => item.id === todoId ? { ...item, status: 'completed', completedAt: timestamp, completedBy: 'admin', updatedAt: timestamp } : item))
@@ -9626,7 +9658,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice('请先选择账套，再完成待办。')
       return
     }
-    const result = await companyTodoApi.complete({ id: todoId, companyId: selectedCompanyId || 'browser-preview', completedBy: '当前操作人' })
+    const result = await companyTodoApi.complete({ id: todoId, companyId: browserPreviewCompanyId, completedBy: '当前操作人' })
     if (!result.success || !result.data) {
       setOperationNotice(`完成账套待办失败：${result.error || '未知错误'}`)
       return
@@ -9678,13 +9710,76 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     setOperationNotice(`凭证 ${voucher.voucher_number} 已从当前浏览器预览彻底删除；未影响桌面账套或外部系统。`)
   }
 
+  const openPeriodEditor = () => {
+    const latest = effectivePeriods.reduce<AccountingPeriod | undefined>((current, period) => {
+      if (!current) return period
+      return period.period_year > current.period_year || (period.period_year === current.period_year && period.period_month > current.period_month)
+        ? period
+        : current
+    }, undefined)
+    const nextDate = latest ? new Date(latest.period_year, latest.period_month, 1) : new Date()
+    setPeriodDraft({ year: String(nextDate.getFullYear()), month: String(nextDate.getMonth() + 1) })
+    setShowPeriodDialog(true)
+  }
+
+  const handleSavePeriod = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const year = Number(periodDraft.year)
+    const month = Number(periodDraft.month)
+    if (!Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
+      setOperationNotice('请填写有效的账期年份和月份。')
+      return
+    }
+    if (effectivePeriods.some((period) => period.period_year === year && period.period_month === month)) {
+      setOperationNotice(`账期 ${year}-${String(month).padStart(2, '0')} 已存在，请勿重复创建。`)
+      return
+    }
+    if (!isTauri) {
+      const timestamp = new Date().toISOString()
+      const label = `${year}-${String(month).padStart(2, '0')}`
+      const lastDay = new Date(year, month, 0).getDate()
+      const period: AccountingPeriod = {
+        id: `preview-period-${browserPreviewCompanyId}-${label}`,
+        company_id: browserPreviewCompanyId,
+        period_year: year,
+        period_month: month,
+        start_date: `${label}-01`,
+        end_date: `${label}-${String(lastDay).padStart(2, '0')}`,
+        status: 'open',
+        closed_at: null,
+        closed_by: null,
+        created_at: timestamp,
+        updated_at: timestamp,
+      }
+      updatePreviewPeriods((items) => [period, ...items])
+      setShowPeriodDialog(false)
+      writeModuleAudit('新增预览账期', label, '高', '成功')
+      setOperationNotice(`账期 ${label} 已创建并设为当前浏览器预览账期。`)
+      return
+    }
+    if (!selectedCompanyId) {
+      setOperationNotice('请先选择账套，再新增账期。')
+      return
+    }
+    try {
+      const period = await createPeriod(selectedCompanyId, year, month)
+      setCurrentPeriod(period.id)
+      setShowPeriodDialog(false)
+      writeModuleAudit('新增账期', `${year}-${String(month).padStart(2, '0')}`, '高', '成功')
+      setOperationNotice('账期已创建并设为当前账期。')
+    } catch (error) {
+      setOperationNotice(`新增账期失败：${String(error)}`)
+    }
+  }
+
   const handlePrimaryAction = async () => {
     if (kind === 'companyInfo') {
       openCompanyInfoEditor()
       return
     }
     if (kind === 'initialBalance' && !isTauri) {
-      const result = buildPreviewInitialBalanceTrial(previewInitialBalanceRows)
+      if (!ensureActiveBusinessPeriod()) return
+      const result = buildPreviewInitialBalanceTrial(scopedPreviewInitialBalanceRows)
       const difference = Math.abs(result.total_opening_debit - result.total_opening_credit)
       writeModuleAudit('执行预览试算平衡', `${currentPeriodLabel}｜${result.items.length} 个科目｜借 ${result.total_opening_debit.toFixed(2)}｜贷 ${result.total_opening_credit.toFixed(2)}｜差异 ${difference.toFixed(2)}`, result.is_balanced ? '中' : '高', result.is_balanced ? '成功' : '待审批')
       setOperationNotice(result.is_balanced
@@ -9862,10 +9957,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'outputInvoice' || kind === 'inputInvoice') {
-      if (isTauri && (!selectedCompanyId || !currentPeriodId)) {
-        setOperationNotice('请先在顶部选择账套和账期，再登记发票。')
-        return
-      }
+      if (!ensureActiveBusinessPeriod()) return
       openInputInvoiceEditor()
       return
     }
@@ -9920,7 +10012,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'auxiliaryItems') {
-      if ((isTauri ? auxiliaryCategories : previewAuxiliaryCategories).length === 0) {
+      if ((isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories).length === 0) {
         setOperationNotice('请先新增辅助核算类别，再维护辅助核算项目。')
         return
       }
@@ -9971,7 +10063,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'periodManagement' && !isTauri) {
-      const period = previewPeriods.find((item) => item.status !== 'closed')
+      const period = scopedPreviewPeriods.find((item) => item.status !== 'closed')
       if (!period) {
         setOperationNotice('当前预览没有可结账的账期。')
         return
@@ -10103,7 +10195,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!isTauri) {
       const timestamp = new Date().toISOString()
-      const employee: Employee = { id: editingEmployeeId || `preview-employee-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', employeeCode: employeeDraft.employeeCode, name: employeeDraft.name, idNo: employeeDraft.idNo || null, department: employeeDraft.department || null, position: employeeDraft.position || null, mobile: employeeDraft.mobile || null, entryDate: employeeDraft.entryDate || null, employmentStatus: employeeDraft.employmentStatus, createdAt: timestamp, updatedAt: timestamp }
+      const employee: Employee = { id: editingEmployeeId || `preview-employee-${Date.now()}`, companyId: browserPreviewCompanyId, employeeCode: employeeDraft.employeeCode, name: employeeDraft.name, idNo: employeeDraft.idNo || null, department: employeeDraft.department || null, position: employeeDraft.position || null, mobile: employeeDraft.mobile || null, entryDate: employeeDraft.entryDate || null, employmentStatus: employeeDraft.employmentStatus, createdAt: timestamp, updatedAt: timestamp }
       setEmployees((items) => editingEmployeeId ? items.map((item) => item.id === employee.id ? { ...employee, createdAt: item.createdAt } : item) : [employee, ...items])
       writeModuleAudit(editingEmployeeId ? '编辑人员' : '新增人员', `${employee.employeeCode}｜${employee.name}`, '中', '成功')
       setOperationNotice(`人员档案已保存到当前预览：${employee.name}。桌面端会写入当前账套，后续可用于薪酬、社保和个税资料维护。`)
@@ -10152,10 +10244,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const existing = editingInvoiceId ? previewInvoices.find((invoice) => invoice.id === editingInvoiceId) : null
+      const periodId = existing?.period_id || voucherEditorPeriod?.id
+      if (!periodId) {
+        setOperationNotice('当前预览没有可用账期，无法保存发票。')
+        return
+      }
       const invoice: Invoice = {
         id: existing?.id || `preview-invoice-${Date.now()}`,
-        company_id: existing?.company_id || selectedCompanyId || 'preview-company',
-        period_id: existing?.period_id || currentPeriodId || 'preview-period-2026-05',
+        company_id: existing?.company_id || browserPreviewCompanyId,
+        period_id: periodId,
         invoice_type: kind === 'outputInvoice' ? 'output' : 'input',
         invoice_no: invoiceDraft.invoiceNo.trim(),
         invoice_code: invoiceDraft.invoiceCode.trim() || null,
@@ -10267,6 +10364,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSavePayrollRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const employee = employees.find((item) => item.id === payrollDraft.employeeId) || { id: payrollDraft.employeeId || 'preview-employee', name: '预览员工' }
@@ -10274,7 +10372,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const bonus = Number(payrollDraft.bonus || 0)
       const taxAmount = Number(payrollDraft.taxAmount || 0)
       const socialPersonal = Number(payrollDraft.socialPersonal || 0)
-      const record: PayrollRecord = { id: editingPayrollId || `preview-payroll-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', employeeId: employee.id, employeeName: employee.name, period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, baseSalary, bonus, taxAmount, socialPersonal, netSalary: baseSalary + bonus - taxAmount - socialPersonal, status: '待确认', createdAt: timestamp, updatedAt: timestamp }
+      const record: PayrollRecord = { id: editingPayrollId || `preview-payroll-${Date.now()}`, companyId: browserPreviewCompanyId, employeeId: employee.id, employeeName: employee.name, period: activeBusinessPeriodLabel, baseSalary, bonus, taxAmount, socialPersonal, netSalary: baseSalary + bonus - taxAmount - socialPersonal, status: '待确认', createdAt: timestamp, updatedAt: timestamp }
       setPayrollRecords((records) => editingPayrollId ? records.map((item) => item.id === record.id ? { ...record, createdAt: item.createdAt } : item) : [record, ...records])
       writeModuleAudit(editingPayrollId ? '编辑薪酬行' : '新增薪酬行', `${record.employeeName}｜${record.period}`, '中', '成功')
       setOperationNotice(`薪酬行已保存到当前预览：${record.employeeName}，实发 ${payrollCurrency(record.netSalary)}。桌面端会写入当前账套，个税、社保和工资凭证仍需人工确认。`)
@@ -10283,7 +10381,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowPayrollDialog(false)
       return
     }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!selectedCompanyId) return
     try {
       const result = editingPayrollId
         ? await payrollApi.updatePayrollRecord({
@@ -10327,7 +10425,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!isTauri) {
       const rule = {
         id: editingSettlementRuleId || `preview-settlement-rule-${Date.now()}`,
-        company_id: selectedCompanyId || 'preview-company',
+        company_id: browserPreviewCompanyId,
         name: settlementRuleDraft.name.trim(),
         rule_type: settlementRuleDraft.ruleType,
         source_formula: settlementRuleDraft.sourceFormula.trim() || null,
@@ -10380,7 +10478,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteSettlementRule = async () => {
     if (!isTauri && editingSettlementRuleId) {
-      const rule = previewSettlementRules.find((item) => item.id === editingSettlementRuleId)
+      const rule = scopedPreviewSettlementRules.find((item) => item.id === editingSettlementRuleId)
       if (!await requestBusinessRiskConfirmation('确认删除结转规则', `确认删除结转规则“${rule?.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
       updatePreviewSettlementRules((items) => items.filter((item) => item.id !== editingSettlementRuleId))
       writeModuleAudit('删除结转规则', rule?.name || editingSettlementRuleId, '高', '成功')
@@ -10411,7 +10509,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleSaveCurrency = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!isTauri) {
-      const currency = { id: editingCurrencyId || `preview-currency-${Date.now()}`, company_id: selectedCompanyId || 'preview-company', code: currencyDraft.code.trim().toUpperCase(), name: currencyDraft.name.trim(), exchange_rate: Number(currencyDraft.exchangeRate || 0), is_base: currencyDraft.isBase ? 1 : 0 }
+      const currency = { id: editingCurrencyId || `preview-currency-${Date.now()}`, company_id: browserPreviewCompanyId, code: currencyDraft.code.trim().toUpperCase(), name: currencyDraft.name.trim(), exchange_rate: Number(currencyDraft.exchangeRate || 0), is_base: currencyDraft.isBase ? 1 : 0 }
       updatePreviewCurrencies((items) => editingCurrencyId ? items.map((item) => item.id === currency.id ? currency : item) : [currency, ...items])
       writeModuleAudit(editingCurrencyId ? '编辑币别' : '新增币别', `${currency.code}｜${currency.exchange_rate}`, '中', '成功')
       setOperationNotice(`币别已保存到当前预览：${currency.code}。桌面端会写入当前账套，期末调汇与凭证生成仍需人工复核。`)
@@ -10442,7 +10540,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteCurrency = async () => {
     if (!isTauri && editingCurrencyId) {
-      const currency = previewCurrencies.find((item) => item.id === editingCurrencyId)
+      const currency = scopedPreviewCurrencies.find((item) => item.id === editingCurrencyId)
       if (currency?.is_base === 1) {
         setOperationNotice('本位币不能直接删除；请先在桌面端设置其他本位币并完成汇兑核验。')
         return
@@ -10477,7 +10575,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   const handleSaveCommonDigest = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!isTauri) {
-      const digest = { id: editingCommonDigestId || `preview-digest-${Date.now()}`, company_id: selectedCompanyId || 'preview-company', content: commonDigestDraft.trim() }
+      const digest = { id: editingCommonDigestId || `preview-digest-${Date.now()}`, company_id: browserPreviewCompanyId, content: commonDigestDraft.trim() }
       updatePreviewCommonDigests((items) => editingCommonDigestId ? items.map((item) => item.id === digest.id ? digest : item) : [digest, ...items])
       writeModuleAudit(editingCommonDigestId ? '编辑常用摘要' : '新增常用摘要', digest.content, '中', '成功')
       setOperationNotice(`常用摘要已保存到当前预览：${digest.content}。桌面端会写入当前账套，可在凭证、规则和自动建议中引用。`)
@@ -10502,7 +10600,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteCommonDigest = async () => {
     if (!isTauri && editingCommonDigestId) {
-      const digest = previewCommonDigests.find((item) => item.id === editingCommonDigestId)
+      const digest = scopedPreviewCommonDigests.find((item) => item.id === editingCommonDigestId)
       if (!await requestBusinessRiskConfirmation('确认删除常用摘要', `确认删除常用摘要“${digest?.content || ''}”吗？该操作仅影响当前预览。`, '删除')) return
       updatePreviewCommonDigests((items) => items.filter((item) => item.id !== editingCommonDigestId))
       writeModuleAudit('删除常用摘要', digest?.content || editingCommonDigestId, '高', '成功')
@@ -10538,7 +10636,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       if (!debitAccount || !creditAccount) { setOperationNotice('请选择完整的借方和贷方科目。'); return }
       const summary = voucherTemplateDraft.summary.trim() || voucherTemplateDraft.name.trim()
       const entries: TemplateEntry[] = [{ account_code: debitAccount.code, account_name: debitAccount.name, direction: 'debit', summary, auxiliary_type: null, auxiliary_id: null }, { account_code: creditAccount.code, account_name: creditAccount.name, direction: 'credit', summary, auxiliary_type: null, auxiliary_id: null }]
-      const template = { template: { id: editingVoucherTemplateId || `preview-voucher-template-${Date.now()}`, type_id: voucherTemplateDraft.typeId || previewVoucherTemplateTypes[0].id, company_id: selectedCompanyId || 'preview-company', name: voucherTemplateDraft.name.trim(), entries_json: JSON.stringify(entries) }, entries }
+      const template = { template: { id: editingVoucherTemplateId || `preview-voucher-template-${Date.now()}`, type_id: voucherTemplateDraft.typeId || previewVoucherTemplateTypes[0].id, company_id: browserPreviewCompanyId, name: voucherTemplateDraft.name.trim(), entries_json: JSON.stringify(entries) }, entries }
       updatePreviewVoucherTemplates((items) => editingVoucherTemplateId ? items.map((item) => item.template.id === template.template.id ? template : item) : [template, ...items])
       writeModuleAudit(editingVoucherTemplateId ? '编辑凭证模板' : '新增凭证模板', template.template.name, '中', '成功')
       setOperationNotice(`凭证模板已保存到当前预览：${template.template.name}。桌面端会写入当前账套，自动套用前仍需人工核验借贷科目和金额。`)
@@ -10571,7 +10669,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteVoucherTemplate = async () => {
     if (!isTauri && editingVoucherTemplateId) {
-      const template = previewVoucherTemplates.find((item) => item.template.id === editingVoucherTemplateId)
+      const template = scopedPreviewVoucherTemplates.find((item) => item.template.id === editingVoucherTemplateId)
       if (!await requestBusinessRiskConfirmation('确认删除凭证模板', `确认删除凭证模板“${template?.template.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
       updatePreviewVoucherTemplates((items) => items.filter((item) => item.template.id !== editingVoucherTemplateId))
       writeModuleAudit('删除凭证模板', template?.template.name || editingVoucherTemplateId, '高', '成功')
@@ -10607,7 +10705,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const timestamp = new Date().toISOString()
       const adapter: AdapterAuthorization = {
         id: editingAdapterAuthorizationId || `preview-${adapterType}-adapter-${Date.now()}`,
-        companyId: selectedCompanyId || 'preview-company',
+        companyId: browserPreviewCompanyId,
         companyName: selectedCompany?.name || '当前预览账套',
         adapterType,
         adapterCode: adapterAuthorizationDraft.adapterCode.trim(),
@@ -10684,7 +10782,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (!isTauri) {
       if (editingReportFormulaId) {
-        const item = previewReportItems.find((current) => current.id === editingReportFormulaId)
+        const item = scopedPreviewReportItems.find((current) => current.id === editingReportFormulaId)
         if (!item) {
           setOperationNotice('未找到当前预览的报表公式项目。')
           return
@@ -10699,12 +10797,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         writeModuleAudit('编辑报表公式', `${template.template_name}｜${item.item_code}`, '高', '成功')
         setOperationNotice(`报表公式已保存到当前预览：${template.template_name}｜${itemName}。请重算报表并人工复核取数结果。`)
       } else {
-        if (previewReportItems.some((item) => item.template_id === templateId && item.item_code === itemCode)) {
+        if (scopedPreviewReportItems.some((item) => item.template_id === templateId && item.item_code === itemCode)) {
           setOperationNotice(`报表模板 ${template.template_name} 已存在行号 ${itemCode}，请调整后重试。`)
           return
         }
-        const item: ReportItem = {
+        const item: PreviewReportItem = {
           id: `preview-report-item-${Date.now()}`,
+          company_id: browserPreviewCompanyId,
           template_id: templateId,
           item_code: itemCode,
           item_name: itemName,
@@ -10752,7 +10851,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const timestamp = new Date().toISOString()
       const rule = {
         id: editingMatchingRuleId || `preview-matching-rule-${Date.now()}`,
-        company_id: selectedCompanyId || 'preview-company',
+        company_id: browserPreviewCompanyId,
         rule_scope: matchingRuleScope,
         name: matchingRuleDraft.name.trim(),
         condition_text: matchingRuleDraft.conditionText.trim(),
@@ -10805,7 +10904,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteMatchingRule = async () => {
     if (!isTauri && editingMatchingRuleId) {
-      const rule = previewMatchingRules.find((item) => item.id === editingMatchingRuleId)
+      const rule = scopedPreviewMatchingRules.find((item) => item.id === editingMatchingRuleId)
       if (!await requestBusinessRiskConfirmation('确认删除自动匹配规则', `确认删除规则“${rule?.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
       updatePreviewMatchingRules((items) => items.filter((item) => item.id !== editingMatchingRuleId))
       writeModuleAudit('删除自动匹配规则', rule?.name || editingMatchingRuleId, '高', '成功')
@@ -10833,7 +10932,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const timestamp = new Date().toISOString()
       const category = {
         id: editingAssetCategoryId || `preview-asset-category-${Date.now()}`,
-        company_id: selectedCompanyId || 'preview-company',
+        company_id: browserPreviewCompanyId,
         code: assetCategoryDraft.code.trim().toUpperCase(),
         name: assetCategoryDraft.name.trim(),
         useful_life_months: Number(assetCategoryDraft.usefulLifeMonths || 0),
@@ -10880,7 +10979,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteAssetCategory = async () => {
     if (!isTauri && editingAssetCategoryId) {
-      const category = previewAssetCategories.find((item) => item.id === editingAssetCategoryId)
+      const category = scopedPreviewAssetCategories.find((item) => item.id === editingAssetCategoryId)
       if (!await requestBusinessRiskConfirmation('确认删除资产类别', `确认删除资产类别“${category?.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
       updatePreviewAssetCategories((items) => items.filter((item) => item.id !== editingAssetCategoryId))
       writeModuleAudit('删除资产类别', category ? `${category.code}｜${category.name}` : editingAssetCategoryId, '高', '成功')
@@ -10908,7 +11007,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const timestamp = new Date().toISOString()
       const tag = {
         id: editingBusinessTagId || `preview-business-tag-${Date.now()}`,
-        company_id: selectedCompanyId || 'preview-company',
+        company_id: browserPreviewCompanyId,
         name: businessTagDraft.name.trim(),
         applicable_modules: businessTagDraft.applicableModules.trim(),
         color_name: businessTagDraft.colorName,
@@ -10951,7 +11050,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteBusinessTag = async () => {
     if (!isTauri && editingBusinessTagId) {
-      const tag = previewBusinessTags.find((item) => item.id === editingBusinessTagId)
+      const tag = scopedPreviewBusinessTags.find((item) => item.id === editingBusinessTagId)
       if (!await requestBusinessRiskConfirmation('确认删除业务标签', `确认删除标签“${tag?.name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
       updatePreviewBusinessTags((items) => items.filter((item) => item.id !== editingBusinessTagId))
       writeModuleAudit('删除业务标签', tag ? `${tag.color_name}｜${tag.name}` : editingBusinessTagId, '高', '成功')
@@ -10970,9 +11069,27 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const openCompanyInfoEditor = () => {
     const company = selectedCompany
+    const selectedCompanyDraft: PreviewCompanyInfo | null = company
+      ? {
+        code: company.code,
+        name: company.name,
+        taxId: company.tax_id || '',
+        taxpayerType: company.tax_type || 'general',
+        province: company.province || '',
+        city: company.city || '',
+        district: company.district || '',
+        accountingSystem: company.accounting_system || 'small_enterprise',
+        enableYear: String(company.enable_year || new Date().getFullYear()),
+        enableMonth: String(company.enable_month || new Date().getMonth() + 1),
+        serviceStart: company.service_start || '',
+        serviceEnd: company.service_end || '',
+        industry: company.industry || '',
+        enterpriseType: company.enterprise_type || '私营有限责任公司',
+      }
+      : null
     setCompanyInfoDraft({
-      ...(previewCompanyInfo || {
-        code: company?.code || '', name: company?.name || '', taxId: company?.tax_id || '', taxpayerType: company?.tax_type || 'general', province: company?.province || '', city: company?.city || '', district: company?.district || '', accountingSystem: company?.accounting_system || 'small_enterprise', enableYear: String(company?.enable_year || new Date().getFullYear()), enableMonth: String(company?.enable_month || new Date().getMonth() + 1), serviceStart: company?.service_start || '', serviceEnd: company?.service_end || '', industry: company?.industry || '', enterpriseType: company?.enterprise_type || '私营有限责任公司',
+      ...(selectedCompanyDraft || previewCompanyInfo || {
+        code: '', name: '', taxId: '', taxpayerType: 'general', province: '', city: '', district: '', accountingSystem: 'small_enterprise', enableYear: String(new Date().getFullYear()), enableMonth: String(new Date().getMonth() + 1), serviceStart: '', serviceEnd: '', industry: '', enterpriseType: '私营有限责任公司',
       }),
     })
     setShowCompanyInfoDialog(true)
@@ -10982,6 +11099,32 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!companyInfoDraft.name.trim() || !companyInfoDraft.taxId.trim()) {
       setOperationNotice('请填写企业名称和纳税人识别号。')
+      return
+    }
+    if (!isTauri && selectedCompanyId) {
+      try {
+        const company = await updateCompany(selectedCompanyId, {
+          code: companyInfoDraft.code.trim(),
+          name: companyInfoDraft.name.trim(),
+          tax_id: companyInfoDraft.taxId.trim(),
+          tax_type: companyInfoDraft.taxpayerType,
+          industry: companyInfoDraft.industry.trim() || undefined,
+          accounting_system: companyInfoDraft.accountingSystem,
+          province: companyInfoDraft.province.trim() || undefined,
+          city: companyInfoDraft.city.trim() || undefined,
+          district: companyInfoDraft.district.trim() || undefined,
+          enterprise_type: companyInfoDraft.enterpriseType,
+          service_start: companyInfoDraft.serviceStart || undefined,
+          service_end: companyInfoDraft.serviceEnd || undefined,
+          enable_year: Number(companyInfoDraft.enableYear),
+          enable_month: Number(companyInfoDraft.enableMonth),
+        })
+        writeModuleAudit('预览企业资料保存', `${company.code}｜${company.name}`, '高', '成功')
+        setOperationNotice(`企业资料已保存到当前浏览器账套：${company.name}。`)
+        setShowCompanyInfoDialog(false)
+      } catch (error) {
+        setOperationNotice(`保存浏览器账套资料失败：${String(error)}`)
+      }
       return
     }
     if (!isTauri) {
@@ -11048,8 +11191,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (!isTauri) {
-      const account = { code: subjectDraft.code.trim(), company_id: 'browser-preview', name: subjectDraft.name.trim(), account_type: subjectDraft.accountType, normal_balance: subjectDraft.normalBalance, level: Number(subjectDraft.level || 1), parent_code: subjectDraft.parentCode.trim() || null, is_detail: subjectDraft.isDetail ? 1 : 0, is_enabled: 1, has_quantity: subjectDraft.hasQuantity ? 1 : 0, default_unit: subjectDraft.hasQuantity ? subjectDraft.defaultUnit.trim() || null : null, has_auxiliary: subjectDraft.hasAuxiliary ? 1 : 0 }
-      updatePreviewSubjects((subjects) => [...subjects.filter((item) => item.code !== account.code), account])
+      const account = { code: subjectDraft.code.trim(), company_id: browserPreviewCompanyId, name: subjectDraft.name.trim(), account_type: subjectDraft.accountType, normal_balance: subjectDraft.normalBalance, level: Number(subjectDraft.level || 1), parent_code: subjectDraft.parentCode.trim() || null, is_detail: subjectDraft.isDetail ? 1 : 0, is_enabled: 1, has_quantity: subjectDraft.hasQuantity ? 1 : 0, default_unit: subjectDraft.hasQuantity ? subjectDraft.defaultUnit.trim() || null : null, has_auxiliary: subjectDraft.hasAuxiliary ? 1 : 0 }
+      updatePreviewSubjects((subjects) => [...subjects.filter((item) => item.company_id !== browserPreviewCompanyId || item.code !== account.code), account])
       writeModuleAudit(editingSubjectCode ? '预览编辑会计科目' : '预览新增会计科目', `${subjectDraft.code}｜${subjectDraft.name}`, '中', '成功')
       setOperationNotice(`浏览器预览已保存会计科目：${account.code}｜${account.name}。`)
       setShowSubjectDialog(false)
@@ -11100,7 +11243,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openInitialBalanceEditor = (row?: ModuleRow) => {
-    const previewRow = !isTauri && row ? previewInitialBalanceRows.find((item) => item.accountCode === row.values.code) : undefined
+    if (!isTauri && !ensureActiveBusinessPeriod()) return
+    const previewRow = !isTauri && row ? scopedPreviewInitialBalanceRows.find((item) => item.accountCode === row.values.code) : undefined
     setInitialBalanceDraft({
       accountCode: row?.values.code || '',
       openingDebit: row ? String(importAmount(row.values.debit || '')) : '',
@@ -11120,10 +11264,16 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (!isTauri) {
-      const existingRow = previewInitialBalanceRows.find((row) => row.accountCode === accountCode)
-      const account = accounts.find((item) => item.code === accountCode)
+      if (!voucherEditorPeriod) {
+        setOperationNotice('请先在账期管理中新增并启用账期，再登记期初余额。')
+        return
+      }
+      const existingRow = scopedPreviewInitialBalanceRows.find((row) => row.accountCode === accountCode)
+    const account = (isTauri ? accounts : scopedPreviewSubjects).find((item) => item.code === accountCode)
       const sourceRow = config.rows.find((row) => row.values.code === accountCode)
       const previewRow: PreviewInitialBalanceRow = {
+        companyId: browserPreviewCompanyId,
+        periodId: voucherEditorPeriod?.id,
         accountCode,
         accountName: account?.name || existingRow?.accountName || sourceRow?.values.name || accountCode,
         accountType: account?.account_type || existingRow?.accountType || '会计科目',
@@ -11132,7 +11282,10 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
         openingCredit,
         sourceNote: initialBalanceDraft.sourceNote.trim(),
       }
-      updatePreviewInitialBalanceRows((rows) => [...rows.filter((row) => row.accountCode !== accountCode), previewRow])
+      updatePreviewInitialBalanceRows((rows) => [
+        ...rows.filter((row) => row.companyId !== browserPreviewCompanyId || row.periodId !== voucherEditorPeriod?.id || row.accountCode !== accountCode),
+        previewRow,
+      ])
       writeModuleAudit(existingRow ? '预览更新期初余额' : '预览登记期初余额', `${accountCode}｜借 ${openingDebit.toFixed(2)}｜贷 ${openingCredit.toFixed(2)}${previewRow.sourceNote ? `｜来源：${previewRow.sourceNote}` : ''}`, '高', '成功')
       setOperationNotice(`浏览器预览已${existingRow ? '更新' : '登记'} ${previewRow.accountName} 的期初余额，并写入本地余额清单；请执行试算平衡后人工确认启用账套。`)
       setShowInitialBalanceDialog(false)
@@ -11187,12 +11340,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       owner: auxiliaryArchiveDraft.owner.trim(), start: auxiliaryArchiveDraft.start.trim(), budget: auxiliaryArchiveDraft.budget.trim(), parent: auxiliaryArchiveDraft.parent.trim(), people: auxiliaryArchiveDraft.people.trim(), remark: auxiliaryArchiveDraft.remark.trim(),
     })
     if (!isTauri) {
-      const categoryId = previewAuxiliaryCategories.find((category) => category.code === definition.categoryCode)?.id || `preview-archive-category-${definition.categoryCode}`
-      const record = { id: editingAuxiliaryArchiveItemId || `preview-archive-${Date.now()}`, category_id: categoryId, company_id: selectedCompanyId || 'preview-company', code, name, is_enabled: 1, remarks }
+      const categoryId = scopedPreviewAuxiliaryCategories.find((category) => category.code === definition.categoryCode)?.id || `preview-archive-category-${definition.categoryCode}`
+      const record = { id: editingAuxiliaryArchiveItemId || `preview-archive-${Date.now()}`, category_id: categoryId, company_id: browserPreviewCompanyId, code, name, is_enabled: 1, remarks }
       updatePreviewAuxiliaryArchive((archive) => ({
         categories: archive.categories.some((category) => category.id === categoryId)
           ? archive.categories
-          : [...archive.categories, { id: categoryId, company_id: selectedCompanyId || 'preview-company', code: definition.categoryCode, name: definition.categoryName, is_system: 0, sort_order: archive.categories.length + 1 }],
+          : [...archive.categories, { id: categoryId, company_id: browserPreviewCompanyId, code: definition.categoryCode, name: definition.categoryName, is_system: 0, sort_order: archive.categories.length + 1 }],
         items: editingAuxiliaryArchiveItemId
           ? archive.items.map((item) => item.id === editingAuxiliaryArchiveItemId ? { ...record, is_enabled: item.is_enabled } : item)
           : [...archive.items, record],
@@ -11225,7 +11378,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleToggleAuxiliaryArchive = async () => {
     if (!isTauri && editingAuxiliaryArchiveItemId && isLiveAuxiliaryArchiveKind(kind)) {
-      const item = previewAuxiliaryItems.find((current) => current.id === editingAuxiliaryArchiveItemId)
+      const item = scopedPreviewAuxiliaryItems.find((current) => current.id === editingAuxiliaryArchiveItemId)
       if (!item) return
       const action = item.is_enabled === 1 ? '停用' : '启用'
       if (!await requestBusinessRiskConfirmation(`确认${action}${auxiliaryArchiveDefinitions[kind].title}档案`, `确认${action}${auxiliaryArchiveDefinitions[kind].title}档案“${item.name}”吗？该操作仅影响当前预览。`, `确认${action}`)) return
@@ -11246,7 +11399,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteAuxiliaryArchive = async () => {
     if (!isTauri && editingAuxiliaryArchiveItemId && isLiveAuxiliaryArchiveKind(kind)) {
-      const item = previewAuxiliaryItems.find((current) => current.id === editingAuxiliaryArchiveItemId)
+      const item = scopedPreviewAuxiliaryItems.find((current) => current.id === editingAuxiliaryArchiveItemId)
       if (!item) return
       const title = auxiliaryArchiveDefinitions[kind].title
       if (!await requestBusinessRiskConfirmation(`确认删除${title}档案`, `确认删除${title}档案“${item.name}”吗？该操作仅影响当前预览。`, '删除')) return
@@ -11276,7 +11429,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!isTauri) {
       const timestamp = new Date().toISOString()
-      const account = { id: editingCompanyAccountId || `preview-account-${Date.now()}`, company_id: selectedCompanyId || 'preview-company', account_name: companyAccountDraft.accountName.trim(), account_type: companyAccountDraft.accountType, bank_name: companyAccountDraft.bankName.trim() || null, account_number: companyAccountDraft.accountNumber.trim(), subject_code: companyAccountDraft.subjectCode.trim(), opening_balance: Number(companyAccountDraft.openingBalance || 0), attachment_note: companyAccountDraft.attachmentNote.trim() || null, status: companyAccountDraft.status, created_at: timestamp, updated_at: timestamp }
+      const account = { id: editingCompanyAccountId || `preview-account-${Date.now()}`, company_id: browserPreviewCompanyId, account_name: companyAccountDraft.accountName.trim(), account_type: companyAccountDraft.accountType, bank_name: companyAccountDraft.bankName.trim() || null, account_number: companyAccountDraft.accountNumber.trim(), subject_code: companyAccountDraft.subjectCode.trim(), opening_balance: Number(companyAccountDraft.openingBalance || 0), attachment_note: companyAccountDraft.attachmentNote.trim() || null, status: companyAccountDraft.status, created_at: timestamp, updated_at: timestamp }
       updatePreviewCompanyAccounts((items) => editingCompanyAccountId ? items.map((item) => item.id === account.id ? { ...account, created_at: item.created_at } : item) : [account, ...items])
       writeModuleAudit(editingCompanyAccountId ? '编辑账户档案' : '新增账户档案', `${account.account_name}｜${account.account_number}`, '中', '成功')
       setOperationNotice(`账户档案已保存到当前预览：${account.account_name}。桌面端会写入当前账套，可继续用于流水、转账和资金余额表。`)
@@ -11301,7 +11454,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteCompanyAccount = async () => {
     if (!isTauri && editingCompanyAccountId) {
-      const account = previewCompanyAccounts.find((item) => item.id === editingCompanyAccountId)
+      const account = scopedPreviewCompanyAccounts.find((item) => item.id === editingCompanyAccountId)
       if (!await requestBusinessRiskConfirmation('确认删除账户档案', `确认删除账户“${account?.account_name || ''}”吗？该操作仅影响当前预览。`, '删除')) return
       updatePreviewCompanyAccounts((accounts) => accounts.filter((item) => item.id !== editingCompanyAccountId))
       writeModuleAudit('删除账户档案', `${account?.account_name || ''}｜${account?.account_number || ''}`, '高', '成功')
@@ -11325,13 +11478,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveAuxiliaryCategory = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const existingCategory = (isTauri ? auxiliaryCategories : previewAuxiliaryCategories).find((item) => item.id === editingAuxiliaryCategoryId)
+    const existingCategory = (isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories).find((item) => item.id === editingAuxiliaryCategoryId)
     if (existingCategory?.is_system === 1) {
       setOperationNotice('系统预置辅助核算类别不能编辑。')
       return
     }
     if (!isTauri) {
-      const category = { id: editingAuxiliaryCategoryId || `preview-aux-category-${Date.now()}`, company_id: selectedCompanyId || 'preview-company', code: auxiliaryCategoryDraft.code.trim().toUpperCase(), name: auxiliaryCategoryDraft.name.trim(), is_system: 0, sort_order: Number(auxiliaryCategoryDraft.sortOrder || 0) }
+      const category = { id: editingAuxiliaryCategoryId || `preview-aux-category-${Date.now()}`, company_id: browserPreviewCompanyId, code: auxiliaryCategoryDraft.code.trim().toUpperCase(), name: auxiliaryCategoryDraft.name.trim(), is_system: 0, sort_order: Number(auxiliaryCategoryDraft.sortOrder || 0) }
       updatePreviewAuxiliaryArchive((archive) => ({
         ...archive,
         categories: editingAuxiliaryCategoryId ? archive.categories.map((item) => item.id === category.id ? category : item) : [category, ...archive.categories],
@@ -11365,13 +11518,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteAuxiliaryCategory = async () => {
     if (!isTauri && editingAuxiliaryCategoryId) {
-      const category = previewAuxiliaryCategories.find((item) => item.id === editingAuxiliaryCategoryId)
+      const category = scopedPreviewAuxiliaryCategories.find((item) => item.id === editingAuxiliaryCategoryId)
       if (!category) return
       if (category.is_system === 1) {
         setOperationNotice('系统预置辅助核算类别不能删除。')
         return
       }
-      if (previewAuxiliaryItems.some((item) => item.category_id === category.id)) {
+      if (scopedPreviewAuxiliaryItems.some((item) => item.category_id === category.id)) {
         setOperationNotice(`类别“${category.name}”仍有关联项目，请先处理项目后再删除。`)
         return
       }
@@ -11404,13 +11557,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const resetAuxiliaryItemDraft = () => {
     setEditingAuxiliaryItemId(null)
-    setAuxiliaryItemDraft({ categoryId: (isTauri ? auxiliaryCategories : previewAuxiliaryCategories)[0]?.id || '', code: '', name: '', remarks: '' })
+    setAuxiliaryItemDraft({ categoryId: (isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories)[0]?.id || '', code: '', name: '', remarks: '' })
   }
 
   const handleSaveAuxiliaryItem = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!isTauri) {
-      const item = { id: editingAuxiliaryItemId || `preview-aux-item-${Date.now()}`, category_id: auxiliaryItemDraft.categoryId, company_id: selectedCompanyId || 'preview-company', code: auxiliaryItemDraft.code.trim().toUpperCase(), name: auxiliaryItemDraft.name.trim(), is_enabled: 1, remarks: auxiliaryItemDraft.remarks.trim() || null }
+      const item = { id: editingAuxiliaryItemId || `preview-aux-item-${Date.now()}`, category_id: auxiliaryItemDraft.categoryId, company_id: browserPreviewCompanyId, code: auxiliaryItemDraft.code.trim().toUpperCase(), name: auxiliaryItemDraft.name.trim(), is_enabled: 1, remarks: auxiliaryItemDraft.remarks.trim() || null }
       updatePreviewAuxiliaryArchive((archive) => ({
         ...archive,
         items: editingAuxiliaryItemId
@@ -11447,7 +11600,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleDeleteAuxiliaryItem = async () => {
     if (!isTauri && editingAuxiliaryItemId) {
-      const item = previewAuxiliaryItems.find((current) => current.id === editingAuxiliaryItemId)
+      const item = scopedPreviewAuxiliaryItems.find((current) => current.id === editingAuxiliaryItemId)
       if (!item) return
       if (!await requestBusinessRiskConfirmation('确认删除辅助核算项目', `确认删除辅助核算项目“${item.name}”吗？该操作仅影响当前预览。`, '删除')) return
       updatePreviewAuxiliaryArchive((archive) => ({ ...archive, items: archive.items.filter((current) => current.id !== item.id) }))
@@ -11474,7 +11627,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleToggleAuxiliaryItem = async () => {
     if (!isTauri && editingAuxiliaryItemId) {
-      const item = previewAuxiliaryItems.find((current) => current.id === editingAuxiliaryItemId)
+      const item = scopedPreviewAuxiliaryItems.find((current) => current.id === editingAuxiliaryItemId)
       if (!item) return
       const action = item.is_enabled === 1 ? '停用' : '启用'
       if (!await requestBusinessRiskConfirmation(`确认${action}辅助核算项目`, `确认${action}辅助核算项目“${item.name}”吗？该操作仅影响当前预览。`, `确认${action}`)) return
@@ -11503,10 +11656,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveSocialSecurityRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const employee = employees.find((item) => item.id === socialSecurityDraft.employeeId) || { id: socialSecurityDraft.employeeId || 'preview-employee', name: '预览员工' }
-      const record: SocialSecurityRecord = { id: editingSocialSecurityId || `preview-social-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', employeeId: employee.id, employeeName: employee.name, period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, city: socialSecurityDraft.city || null, contributionBase: Number(socialSecurityDraft.base || 0), companyAmount: Number(socialSecurityDraft.company || 0), personalAmount: Number(socialSecurityDraft.personal || 0), fundAmount: Number(socialSecurityDraft.fund || 0), status: '待确认', createdAt: timestamp, updatedAt: timestamp }
+      const record: SocialSecurityRecord = { id: editingSocialSecurityId || `preview-social-${Date.now()}`, companyId: browserPreviewCompanyId, employeeId: employee.id, employeeName: employee.name, period: activeBusinessPeriodLabel, city: socialSecurityDraft.city || null, contributionBase: Number(socialSecurityDraft.base || 0), companyAmount: Number(socialSecurityDraft.company || 0), personalAmount: Number(socialSecurityDraft.personal || 0), fundAmount: Number(socialSecurityDraft.fund || 0), status: '待确认', createdAt: timestamp, updatedAt: timestamp }
       setSocialSecurityRecords((records) => editingSocialSecurityId ? records.map((item) => item.id === record.id ? { ...record, createdAt: item.createdAt } : item) : [record, ...records])
       writeModuleAudit(editingSocialSecurityId ? '编辑社保公积金明细' : '新增社保公积金明细', `${record.employeeName}｜${record.period}`, '中', '成功')
       setOperationNotice(`社保公积金明细已保存到当前预览：${record.employeeName}。桌面端会写入当前账套，基数、缴费金额和凭证仍需人工确认。`)
@@ -11515,7 +11669,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowSocialSecurityDialog(false)
       return
     }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!selectedCompanyId) return
     try {
       const securityInput = {
         companyId: selectedCompanyId, employeeId: socialSecurityDraft.employeeId, period: currentPeriodLabel,
@@ -11534,10 +11688,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveSpecialDeductionRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const employee = employees.find((item) => item.id === specialDeductionDraft.employeeId) || { id: specialDeductionDraft.employeeId || 'preview-employee', name: '预览员工' }
-      const record: SpecialDeductionRecord = { id: editingSpecialDeductionId || `preview-deduction-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', employeeId: employee.id, employeeName: employee.name, deductionType: specialDeductionDraft.deductionType, startMonth: specialDeductionDraft.startMonth, endMonth: specialDeductionDraft.endMonth || null, monthlyAmount: Number(specialDeductionDraft.monthlyAmount || 0), source: specialDeductionDraft.source, status: '待确认', createdAt: timestamp, updatedAt: timestamp }
+      const record: SpecialDeductionRecord = { id: editingSpecialDeductionId || `preview-deduction-${Date.now()}`, companyId: browserPreviewCompanyId, employeeId: employee.id, employeeName: employee.name, deductionType: specialDeductionDraft.deductionType, startMonth: specialDeductionDraft.startMonth, endMonth: specialDeductionDraft.endMonth || null, monthlyAmount: Number(specialDeductionDraft.monthlyAmount || 0), source: specialDeductionDraft.source, status: '待确认', createdAt: timestamp, updatedAt: timestamp }
       setSpecialDeductionRecords((records) => editingSpecialDeductionId ? records.map((item) => item.id === record.id ? { ...record, createdAt: item.createdAt } : item) : [record, ...records])
       writeModuleAudit(editingSpecialDeductionId ? '编辑专项附加扣除' : '新增专项附加扣除', `${record.employeeName}｜${record.deductionType}`, '中', '成功')
       setOperationNotice(`专项附加扣除已保存到当前预览：${record.employeeName}｜${record.deductionType}。桌面端会写入当前账套，个税取数前仍需人工确认有效期间和证明资料。`)
@@ -11571,12 +11726,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveBankTransaction = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const incomeAmount = Number(bankTransactionDraft.incomeAmount || 0)
       const expenseAmount = Number(bankTransactionDraft.expenseAmount || 0)
       if (incomeAmount > 0 && expenseAmount > 0) { setOperationNotice('银行流水的收入与支出金额只能填写一项。'); return }
-      const transaction: BankTransaction = { id: editingBankTransactionId || `preview-bank-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel, accountName: bankTransactionDraft.accountName, serialNo: bankTransactionDraft.serialNo, transactionDate: bankTransactionDraft.transactionDate, counterparty: bankTransactionDraft.counterparty || null, summary: bankTransactionDraft.summary || null, incomeAmount, expenseAmount, balance: bankTransactionDraft.balance ? Number(bankTransactionDraft.balance) : null, receiptStatus: bankTransactionDraft.receiptStatus, matchResult: null, status: '待处理', createdAt: timestamp, updatedAt: timestamp }
+      const transaction: BankTransaction = { id: editingBankTransactionId || `preview-bank-${Date.now()}`, companyId: browserPreviewCompanyId, period: activeBusinessPeriodLabel, accountName: bankTransactionDraft.accountName, serialNo: bankTransactionDraft.serialNo, transactionDate: bankTransactionDraft.transactionDate, counterparty: bankTransactionDraft.counterparty || null, summary: bankTransactionDraft.summary || null, incomeAmount, expenseAmount, balance: bankTransactionDraft.balance ? Number(bankTransactionDraft.balance) : null, receiptStatus: bankTransactionDraft.receiptStatus, matchResult: null, status: '待处理', createdAt: timestamp, updatedAt: timestamp }
       setBankTransactions((records) => editingBankTransactionId ? records.map((item) => item.id === transaction.id ? { ...transaction, createdAt: item.createdAt } : item) : [transaction, ...records])
       writeModuleAudit(editingBankTransactionId ? '编辑银行流水' : '新增银行流水', `${transaction.accountName}｜${transaction.serialNo}`, '中', '成功')
       setOperationNotice(`银行流水已保存到当前预览：${transaction.serialNo}。桌面端会写入当前账套，回单、自动匹配和凭证仍需人工确认。`)
@@ -11586,7 +11742,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowBankTransactionDialog(false)
       return
     }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!selectedCompanyId) return
     try {
       const transactionInput = { companyId: selectedCompanyId, accountName: bankTransactionDraft.accountName, serialNo: bankTransactionDraft.serialNo, transactionDate: bankTransactionDraft.transactionDate, counterparty: bankTransactionDraft.counterparty || undefined, summary: bankTransactionDraft.summary || undefined, incomeAmount: Number(bankTransactionDraft.incomeAmount || 0), expenseAmount: Number(bankTransactionDraft.expenseAmount || 0), balance: bankTransactionDraft.balance ? Number(bankTransactionDraft.balance) : undefined, receiptStatus: bankTransactionDraft.receiptStatus }
       const result = editingBankTransactionId
@@ -11609,12 +11765,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveDocumentRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const record: DocumentRecord = {
         id: editingDocumentRecordId || `preview-document-${Date.now()}`,
-        companyId: selectedCompanyId || 'preview-company',
-        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+        companyId: browserPreviewCompanyId,
+        period: activeBusinessPeriodLabel,
         businessDate: documentRecordDraft.businessDate,
         documentCode: documentRecordDraft.documentCode,
         businessType: documentRecordDraft.businessType,
@@ -11638,7 +11795,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowDocumentRecordDialog(false)
       return
     }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!selectedCompanyId) return
     try {
       const recordInput = { companyId: selectedCompanyId, businessDate: documentRecordDraft.businessDate, documentCode: documentRecordDraft.documentCode, businessType: documentRecordDraft.businessType, partner: documentRecordDraft.partner || undefined, amount: Number(documentRecordDraft.amount || 0), owner: documentRecordDraft.owner || undefined, attachmentStatus: documentRecordDraft.attachmentStatus, stampTaxItem: documentRecordDraft.stampTaxItem || undefined, stampTaxRate: documentRecordDraft.stampTaxRate === '' ? undefined : Number(documentRecordDraft.stampTaxRate) / 100 }
       const result = editingDocumentRecordId
@@ -11656,12 +11813,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveBusinessOrder = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const order: BusinessOrder = {
         id: editingBusinessOrderId || `preview-order-${Date.now()}`,
-        companyId: selectedCompanyId || 'preview-company',
-        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+        companyId: browserPreviewCompanyId,
+        period: activeBusinessPeriodLabel,
         orderType: kind === 'purchaseManagement' ? 'purchase' : 'sales',
         orderNo: businessOrderDraft.orderNo,
         businessDate: businessOrderDraft.businessDate,
@@ -11687,7 +11845,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowBusinessOrderDialog(false)
       return
     }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!selectedCompanyId) return
     try {
       const orderInput = { companyId: selectedCompanyId, orderNo: businessOrderDraft.orderNo, businessDate: businessOrderDraft.businessDate, counterparty: businessOrderDraft.counterparty, goodsName: businessOrderDraft.goodsName, amount: Number(businessOrderDraft.amount || 0), fulfillmentStatus: businessOrderDraft.fulfillmentStatus, invoiceStatus: businessOrderDraft.invoiceStatus, settlementStatus: businessOrderDraft.settlementStatus, status: businessOrderDraft.status, sourceDocument: businessOrderDraft.sourceDocument || undefined }
       const result = editingBusinessOrderId
@@ -11705,14 +11863,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveSettlementRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const totalAmount = Number(settlementRecordDraft.totalAmount || 0)
       const settledAmount = Number(settlementRecordDraft.settledAmount || 0)
       const record: SettlementRecord = {
         id: `preview-settlement-${Date.now()}`,
-        companyId: selectedCompanyId || 'preview-company',
-        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+        companyId: browserPreviewCompanyId,
+        period: activeBusinessPeriodLabel,
         settlementType: kind === 'payableSettlement' ? 'payable' : 'receivable',
         settlementNo: settlementRecordDraft.settlementNo,
         settlementDate: settlementRecordDraft.settlementDate,
@@ -11736,7 +11895,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowSettlementRecordDialog(false)
       return
     }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!selectedCompanyId) return
     try {
       const recordInput = { companyId: selectedCompanyId, settlementNo: settlementRecordDraft.settlementNo, settlementDate: settlementRecordDraft.settlementDate, counterparty: settlementRecordDraft.counterparty, invoiceNo: settlementRecordDraft.invoiceNo || undefined, transactionNo: settlementRecordDraft.transactionNo || undefined, totalAmount: Number(settlementRecordDraft.totalAmount || 0), settledAmount: Number(settlementRecordDraft.settledAmount || 0), settlementMethod: settlementRecordDraft.settlementMethod, owner: settlementRecordDraft.owner || undefined, status: settlementRecordDraft.status, sourceDocument: settlementRecordDraft.sourceDocument || undefined }
       const result = editingSettlementRecordId ? await settlementRecordApi.updateSettlementRecord({ id: editingSettlementRecordId, ...recordInput }) : await settlementRecordApi.createSettlementRecord({ ...recordInput, period: currentPeriodLabel, settlementType: kind === 'payableSettlement' ? 'payable' : 'receivable' })
@@ -11751,14 +11910,15 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveBankReconciliation = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const bankAmount = Number(bankReconciliationDraft.bankAmount || 0)
       const bookAmount = Number(bankReconciliationDraft.bookAmount || 0)
       const record: BankReconciliationRecord = {
         id: `preview-reconciliation-${Date.now()}`,
-        companyId: selectedCompanyId || 'preview-company',
-        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+        companyId: browserPreviewCompanyId,
+        period: activeBusinessPeriodLabel,
         reconciliationNo: bankReconciliationDraft.reconciliationNo,
         reconciliationDate: bankReconciliationDraft.reconciliationDate,
         bankTransactionId: null,
@@ -11783,7 +11943,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowBankReconciliationDialog(false)
       return
     }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!selectedCompanyId) return
     try {
       const input = { companyId: selectedCompanyId, reconciliationNo: bankReconciliationDraft.reconciliationNo, reconciliationDate: bankReconciliationDraft.reconciliationDate, accountName: bankReconciliationDraft.accountName, transactionNo: bankReconciliationDraft.transactionNo, summary: bankReconciliationDraft.summary || undefined, bankAmount: Number(bankReconciliationDraft.bankAmount || 0), bookAmount: Number(bankReconciliationDraft.bookAmount || 0), voucherNo: bankReconciliationDraft.voucherNo || undefined, matchStatus: bankReconciliationDraft.matchStatus, owner: bankReconciliationDraft.owner || undefined, status: bankReconciliationDraft.status, note: bankReconciliationDraft.note || undefined }
       const result = editingBankReconciliationId ? await bankReconciliationApi.updateBankReconciliationRecord({ id: editingBankReconciliationId, ...input }) : await bankReconciliationApi.createBankReconciliationRecord({ ...input, period: currentPeriodLabel })
@@ -11798,10 +11958,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveCostCarryover = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const existingRecord = editingCostCarryoverId ? costCarryoverRecords.find((item) => item.id === editingCostCarryoverId) : undefined
-      const record: CostCarryoverRecord = { id: existingRecord?.id || `preview-cost-${Date.now()}`, companyId: existingRecord?.companyId || selectedCompanyId || 'preview-company', period: existingRecord?.period || (currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel), batchNo: costCarryoverDraft.batchNo, carryoverDate: costCarryoverDraft.carryoverDate, valuationMethod: costCarryoverDraft.valuationMethod, sourceBillNo: costCarryoverDraft.sourceBillNo, inventoryName: costCarryoverDraft.inventoryName, debitSubject: costCarryoverDraft.debitSubject, creditSubject: costCarryoverDraft.creditSubject, costAmount: Number(costCarryoverDraft.costAmount || 0), differenceAmount: Number(costCarryoverDraft.differenceAmount || 0), voucherNo: costCarryoverDraft.voucherNo || null, status: costCarryoverDraft.status, sourceDocument: costCarryoverDraft.sourceDocument || null, createdAt: existingRecord?.createdAt || timestamp, updatedAt: timestamp }
+      const record: CostCarryoverRecord = { id: existingRecord?.id || `preview-cost-${Date.now()}`, companyId: existingRecord?.companyId || browserPreviewCompanyId, period: existingRecord?.period || (activeBusinessPeriodLabel), batchNo: costCarryoverDraft.batchNo, carryoverDate: costCarryoverDraft.carryoverDate, valuationMethod: costCarryoverDraft.valuationMethod, sourceBillNo: costCarryoverDraft.sourceBillNo, inventoryName: costCarryoverDraft.inventoryName, debitSubject: costCarryoverDraft.debitSubject, creditSubject: costCarryoverDraft.creditSubject, costAmount: Number(costCarryoverDraft.costAmount || 0), differenceAmount: Number(costCarryoverDraft.differenceAmount || 0), voucherNo: costCarryoverDraft.voucherNo || null, status: costCarryoverDraft.status, sourceDocument: costCarryoverDraft.sourceDocument || null, createdAt: existingRecord?.createdAt || timestamp, updatedAt: timestamp }
       setCostCarryoverRecords((records) => editingCostCarryoverId ? records.map((item) => item.id === record.id ? record : item) : [record, ...records])
       writeModuleAudit(editingCostCarryoverId ? '编辑成本结转' : '新增成本结转', record.batchNo, '高', '成功')
       setOperationNotice(editingCostCarryoverId ? `成本结转已更新：${record.batchNo}。成本差异仍需人工复核后关联凭证。` : `成本结转已保存到当前预览：${record.batchNo}。桌面端会写入当前账套，成本差异仍需人工复核后关联凭证。`)
@@ -11809,7 +11970,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowCostCarryoverDialog(false)
       return
     }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!selectedCompanyId) return
     try {
       const input = { companyId:selectedCompanyId, batchNo:costCarryoverDraft.batchNo, carryoverDate:costCarryoverDraft.carryoverDate, valuationMethod:costCarryoverDraft.valuationMethod, sourceBillNo:costCarryoverDraft.sourceBillNo, inventoryName:costCarryoverDraft.inventoryName, debitSubject:costCarryoverDraft.debitSubject, creditSubject:costCarryoverDraft.creditSubject, costAmount:Number(costCarryoverDraft.costAmount||0), differenceAmount:Number(costCarryoverDraft.differenceAmount||0), voucherNo:costCarryoverDraft.voucherNo||undefined, status:costCarryoverDraft.status, sourceDocument:costCarryoverDraft.sourceDocument||undefined }
       const result=editingCostCarryoverId?await costCarryoverApi.updateCostCarryoverRecord({id:editingCostCarryoverId,...input}):await costCarryoverApi.createCostCarryoverRecord({...input,period:currentPeriodLabel})
@@ -11823,12 +11984,13 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveAccountTransfer = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const transfer: AccountTransfer = {
         id: `preview-transfer-${Date.now()}`,
-        companyId: selectedCompanyId || 'preview-company',
-        period: currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel,
+        companyId: browserPreviewCompanyId,
+        period: activeBusinessPeriodLabel,
         transferDate: accountTransferDraft.transferDate,
         fromAccount: accountTransferDraft.fromAccount,
         toAccount: accountTransferDraft.toAccount,
@@ -11846,7 +12008,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowAccountTransferDialog(false)
       return
     }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!selectedCompanyId) return
     try {
       const transferInput = { companyId: selectedCompanyId, transferDate: accountTransferDraft.transferDate, fromAccount: accountTransferDraft.fromAccount, toAccount: accountTransferDraft.toAccount, amount: Number(accountTransferDraft.amount || 0), fee: Number(accountTransferDraft.fee || 0), serialNo: accountTransferDraft.serialNo || undefined }
       const result = editingAccountTransferId
@@ -11864,10 +12026,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveFixedAsset = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const existingAsset = editingFixedAssetId ? fixedAssets.find((item) => item.id === editingFixedAssetId) : undefined
-      const asset: FixedAsset = { id: existingAsset?.id || `preview-asset-${Date.now()}`, companyId: existingAsset?.companyId || selectedCompanyId || 'preview-company', period: existingAsset?.period || (currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel), assetCode: fixedAssetDraft.assetCode, assetName: fixedAssetDraft.assetName, category: fixedAssetDraft.category, startDate: fixedAssetDraft.startDate, originalValue: Number(fixedAssetDraft.originalValue || 0), usefulLifeMonths: Number(fixedAssetDraft.usefulLifeMonths || 0), residualRate: Number(fixedAssetDraft.residualRate || 0) / 100, sourceDocument: fixedAssetDraft.sourceDocument || null, status: existingAsset?.status || '待确认', createdAt: existingAsset?.createdAt || timestamp, updatedAt: timestamp }
+      const asset: FixedAsset = { id: existingAsset?.id || `preview-asset-${Date.now()}`, companyId: existingAsset?.companyId || browserPreviewCompanyId, period: existingAsset?.period || (activeBusinessPeriodLabel), assetCode: fixedAssetDraft.assetCode, assetName: fixedAssetDraft.assetName, category: fixedAssetDraft.category, startDate: fixedAssetDraft.startDate, originalValue: Number(fixedAssetDraft.originalValue || 0), usefulLifeMonths: Number(fixedAssetDraft.usefulLifeMonths || 0), residualRate: Number(fixedAssetDraft.residualRate || 0) / 100, sourceDocument: fixedAssetDraft.sourceDocument || null, status: existingAsset?.status || '待确认', createdAt: existingAsset?.createdAt || timestamp, updatedAt: timestamp }
       setFixedAssets((records) => editingFixedAssetId ? records.map((item) => item.id === asset.id ? asset : item) : [asset, ...records])
       writeModuleAudit(editingFixedAssetId ? '编辑固定资产' : '新增固定资产', asset.assetName, '中', '成功')
       setOperationNotice(editingFixedAssetId ? `固定资产已更新：${asset.assetName}。请重新核验本月折旧测算后再生成凭证。` : `固定资产已保存到当前预览：${asset.assetName}。桌面端会写入当前账套，折旧与凭证仍需人工确认。`)
@@ -11875,7 +12038,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowFixedAssetDialog(false)
       return
     }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!selectedCompanyId) return
     try {
       const assetInput = { companyId: selectedCompanyId, assetCode: fixedAssetDraft.assetCode, assetName: fixedAssetDraft.assetName, category: fixedAssetDraft.category, startDate: fixedAssetDraft.startDate, originalValue: Number(fixedAssetDraft.originalValue || 0), usefulLifeMonths: Number(fixedAssetDraft.usefulLifeMonths || 0), residualRate: Number(fixedAssetDraft.residualRate || 0) / 100, sourceDocument: fixedAssetDraft.sourceDocument || undefined }
       const result = editingFixedAssetId
@@ -11893,10 +12056,11 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const handleSaveInventoryMovement = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!ensureActiveBusinessPeriod()) return
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const existingMovement = editingInventoryMovementId ? inventoryMovements.find((item) => item.id === editingInventoryMovementId) : undefined
-      const movement: InventoryMovement = { id: existingMovement?.id || `preview-movement-${Date.now()}`, companyId: existingMovement?.companyId || selectedCompanyId || 'preview-company', period: existingMovement?.period || (currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel), movementDate: inventoryMovementDraft.movementDate, billNo: inventoryMovementDraft.billNo, movementType: inventoryMovementDraft.movementType, inventoryName: inventoryMovementDraft.inventoryName, warehouse: inventoryMovementDraft.warehouse, counterparty: inventoryMovementDraft.counterparty || null, unit: inventoryMovementDraft.unit, quantity: Number(inventoryMovementDraft.quantity || 0), amount: Number(inventoryMovementDraft.amount || 0), sourceDocument: inventoryMovementDraft.sourceDocument || null, status: existingMovement?.status || '待确认', createdAt: existingMovement?.createdAt || timestamp, updatedAt: timestamp }
+      const movement: InventoryMovement = { id: existingMovement?.id || `preview-movement-${Date.now()}`, companyId: existingMovement?.companyId || browserPreviewCompanyId, period: existingMovement?.period || (activeBusinessPeriodLabel), movementDate: inventoryMovementDraft.movementDate, billNo: inventoryMovementDraft.billNo, movementType: inventoryMovementDraft.movementType, inventoryName: inventoryMovementDraft.inventoryName, warehouse: inventoryMovementDraft.warehouse, counterparty: inventoryMovementDraft.counterparty || null, unit: inventoryMovementDraft.unit, quantity: Number(inventoryMovementDraft.quantity || 0), amount: Number(inventoryMovementDraft.amount || 0), sourceDocument: inventoryMovementDraft.sourceDocument || null, status: existingMovement?.status || '待确认', createdAt: existingMovement?.createdAt || timestamp, updatedAt: timestamp }
       setInventoryMovements((records) => editingInventoryMovementId ? records.map((item) => item.id === movement.id ? movement : item) : [movement, ...records])
       writeModuleAudit(editingInventoryMovementId ? '编辑出入库单' : '新增出入库单', movement.billNo, '中', '成功')
       setOperationNotice(editingInventoryMovementId ? `出入库单已更新：${movement.billNo}。请重新核验发票匹配、计价与成本结转。` : `出入库单已保存到当前预览：${movement.billNo}。桌面端会写入当前账套，发票匹配、计价和凭证仍需人工确认。`)
@@ -11904,7 +12068,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setShowInventoryMovementDialog(false)
       return
     }
-    if (!selectedCompanyId || currentPeriodLabel === '当前账期') return
+    if (!selectedCompanyId) return
     try {
       const movementInput = { companyId: selectedCompanyId, movementDate: inventoryMovementDraft.movementDate, billNo: inventoryMovementDraft.billNo, movementType: inventoryMovementDraft.movementType, inventoryName: inventoryMovementDraft.inventoryName, warehouse: inventoryMovementDraft.warehouse, counterparty: inventoryMovementDraft.counterparty || undefined, unit: inventoryMovementDraft.unit, quantity: Number(inventoryMovementDraft.quantity || 0), amount: Number(inventoryMovementDraft.amount || 0), sourceDocument: inventoryMovementDraft.sourceDocument || undefined }
       const result = editingInventoryMovementId
@@ -11925,7 +12089,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     if (!isTauri) {
       const timestamp = new Date().toISOString()
       const existingItem = editingInventoryItemId ? inventoryItems.find((item) => item.id === editingInventoryItemId) : undefined
-      const item: InventoryItem = { id: existingItem?.id || `preview-item-${Date.now()}`, companyId: existingItem?.companyId || selectedCompanyId || 'preview-company', itemCode: inventoryItemDraft.itemCode, itemName: inventoryItemDraft.itemName, specification: inventoryItemDraft.specification || null, unit: inventoryItemDraft.unit, taxRate: Number(inventoryItemDraft.taxRate || 0) / 100, defaultSubject: inventoryItemDraft.defaultSubject || null, status: existingItem?.status || '启用', createdAt: existingItem?.createdAt || timestamp, updatedAt: timestamp }
+      const item: InventoryItem = { id: existingItem?.id || `preview-item-${Date.now()}`, companyId: existingItem?.companyId || browserPreviewCompanyId, itemCode: inventoryItemDraft.itemCode, itemName: inventoryItemDraft.itemName, specification: inventoryItemDraft.specification || null, unit: inventoryItemDraft.unit, taxRate: Number(inventoryItemDraft.taxRate || 0) / 100, defaultSubject: inventoryItemDraft.defaultSubject || null, status: existingItem?.status || '启用', createdAt: existingItem?.createdAt || timestamp, updatedAt: timestamp }
       setInventoryItems((items) => editingInventoryItemId ? items.map((current) => current.id === item.id ? item : current) : [item, ...items])
       writeModuleAudit(editingInventoryItemId ? '编辑存货' : '新增存货', item.itemName, '中', '成功')
       setOperationNotice(editingInventoryItemId ? `存货档案已更新：${item.itemName}。可继续用于出入库和成本结转。` : `存货档案已保存到当前预览：${item.itemName}。桌面端会写入当前账套，可继续用于出入库和成本结转。`)
@@ -11958,7 +12122,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     event.preventDefault()
     if (!isTauri) {
       const timestamp = new Date().toISOString()
-      const unit: MeasurementUnit = { id: `preview-unit-${Date.now()}`, companyId: selectedCompanyId || 'preview-company', unitName: measurementUnitDraft.unitName, unitGroup: measurementUnitDraft.unitGroup || null, baseUnit: measurementUnitDraft.baseUnit || null, conversionRate: Number(measurementUnitDraft.conversionRate || 1), precisionDigits: Number(measurementUnitDraft.precisionDigits || 0), remark: measurementUnitDraft.remark || null, status: '启用', createdAt: timestamp, updatedAt: timestamp }
+      const unit: MeasurementUnit = { id: `preview-unit-${Date.now()}`, companyId: browserPreviewCompanyId, unitName: measurementUnitDraft.unitName, unitGroup: measurementUnitDraft.unitGroup || null, baseUnit: measurementUnitDraft.baseUnit || null, conversionRate: Number(measurementUnitDraft.conversionRate || 1), precisionDigits: Number(measurementUnitDraft.precisionDigits || 0), remark: measurementUnitDraft.remark || null, status: '启用', createdAt: timestamp, updatedAt: timestamp }
       setMeasurementUnits((items) => [unit, ...items])
       writeModuleAudit('新增计量单位', unit.unitName, '中', '成功')
       setOperationNotice(`计量单位已保存到当前预览：${unit.unitName}。桌面端会写入当前账套，可在存货档案和出入库单中选择。`)
@@ -12558,7 +12722,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (isLiveAuxiliaryArchiveKind(kind)) {
       const itemId = row.id.replace('auxiliary-', '')
-      openAuxiliaryArchiveEditor((isTauri ? auxiliaryItems : previewAuxiliaryItems).find((item) => item.id === itemId), row)
+      openAuxiliaryArchiveEditor((isTauri ? auxiliaryItems : scopedPreviewAuxiliaryItems).find((item) => item.id === itemId), row)
       return
     }
     if (kind === 'attachmentCenter') {
@@ -12578,7 +12742,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       }
     }
     if (kind === 'subjectSettings') {
-      const account = (isTauri ? accounts : previewSubjects).find((item) => item.code === row.id || item.code === row.values.code)
+      const account = (isTauri ? accounts : scopedPreviewSubjects).find((item) => item.code === row.id || item.code === row.values.code)
       if (account) {
         openSubjectEditor(account)
       } else {
@@ -12590,7 +12754,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
     }
     if (kind === 'aiJobQueue' && !isTauri) {
       const jobId = row.id.replace('automation-queue-', '')
-      const job = [...automationJobs, ...previewAiQueueJobs].find((item) => item.id === jobId)
+      const job = [...automationJobs, ...scopedPreviewAiQueueJobs].find((item) => item.id === jobId)
       if (!job) {
         setOperationNotice('未找到该预览任务，请刷新队列后重试。')
         return
@@ -12798,7 +12962,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'invoiceMatchingRules' || kind === 'billMatchingRules' || kind === 'cashFlowMapping' || kind === 'aiRuleTraining') {
-      const rule = (isTauri ? matchingRules : previewMatchingRules).find((item) => `matching-rule-${item.id}` === row.id)
+      const rule = (isTauri ? matchingRules : scopedPreviewMatchingRules).find((item) => `matching-rule-${item.id}` === row.id)
       if (!rule) { setOperationNotice('未找到当前账套的自动匹配规则。'); return }
       setEditingMatchingRuleId(rule.id)
       setMatchingRuleDraft({ name: rule.name, conditionText: rule.condition_text, actionText: rule.action_text, targetAccountCode: rule.target_account_code || '', voucherTemplateId: rule.voucher_template_id || '', priority: String(rule.priority), isEnabled: rule.is_enabled === 1 })
@@ -12822,7 +12986,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'accountArchive') {
-      const account = (isTauri ? companyAccounts : previewCompanyAccounts).find((item) => `company-account-${item.id}` === row.id)
+      const account = (isTauri ? companyAccounts : scopedPreviewCompanyAccounts).find((item) => `company-account-${item.id}` === row.id)
       if (!account) { setOperationNotice('未找到当前账套的账户档案。'); return }
       setEditingCompanyAccountId(account.id)
       setCompanyAccountDraft({ accountName: account.account_name, accountType: account.account_type, bankName: account.bank_name || '', accountNumber: account.account_number, subjectCode: account.subject_code, openingBalance: String(account.opening_balance), attachmentNote: account.attachment_note || '', status: account.status })
@@ -12830,7 +12994,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'auxiliaryCategories') {
-      const category = (isTauri ? auxiliaryCategories : previewAuxiliaryCategories).find((item) => `auxiliary-category-${item.id}` === row.id)
+      const category = (isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories).find((item) => `auxiliary-category-${item.id}` === row.id)
       if (!category) {
         setOperationNotice('未找到当前账套的辅助核算类别。')
         return
@@ -12845,7 +13009,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'auxiliaryItems') {
-      const item = (isTauri ? auxiliaryItems : previewAuxiliaryItems).find((current) => `auxiliary-item-${current.id}` === row.id)
+      const item = (isTauri ? auxiliaryItems : scopedPreviewAuxiliaryItems).find((current) => `auxiliary-item-${current.id}` === row.id)
       if (!item) {
         setOperationNotice('未找到当前账套的辅助核算项目。')
         return
@@ -12856,7 +13020,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'settlementRules') {
-      const rule = (isTauri ? settlementRules : previewSettlementRules).find((item) => `settlement-rule-${item.id}` === row.id)
+      const rule = (isTauri ? settlementRules : scopedPreviewSettlementRules).find((item) => `settlement-rule-${item.id}` === row.id)
       if (!rule) {
         setOperationNotice('未找到当前账套的结转规则。')
         return
@@ -12867,7 +13031,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'currencySettings') {
-      const currency = (isTauri ? currencies : previewCurrencies).find((item) => `currency-${item.id}` === row.id)
+      const currency = (isTauri ? currencies : scopedPreviewCurrencies).find((item) => `currency-${item.id}` === row.id)
       if (!currency) {
         setOperationNotice('未找到当前账套的币别。')
         return
@@ -12878,7 +13042,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'commonDigests') {
-      const digest = (isTauri ? commonDigests : previewCommonDigests).find((item) => `digest-${item.id}` === row.id)
+      const digest = (isTauri ? commonDigests : scopedPreviewCommonDigests).find((item) => `digest-${item.id}` === row.id)
       if (!digest) {
         setOperationNotice('未找到当前账套的常用摘要。')
         return
@@ -12889,7 +13053,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       return
     }
     if (kind === 'voucherTemplateSettings') {
-      const template = (isTauri ? voucherTemplates : previewVoucherTemplates).find((item) => `voucher-template-${item.template.id}` === row.id)
+      const template = (isTauri ? voucherTemplates : scopedPreviewVoucherTemplates).find((item) => `voucher-template-${item.template.id}` === row.id)
       if (!template) {
         setOperationNotice('未找到当前账套的凭证模板。')
         return
@@ -13301,8 +13465,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       const voucherWord = effectiveVoucherWords.find((word) => word.id === voucherWordId)
       const voucher: Voucher = {
         id: voucherId,
-        company_id: existing?.company_id || 'preview-company',
-        period_id: existing?.period_id || voucherEditorPeriod?.id || 'preview-period-2026-05',
+        company_id: existing?.company_id || browserPreviewCompanyId,
+        period_id: existing?.period_id || voucherEditorPeriod!.id,
         voucher_word_id: voucherWordId,
         voucher_number: existing?.voucher_number || `${voucherWord?.word_name || '记'}-${String(sequenceNum).padStart(4, '0')}`,
         sequence_num: sequenceNum,
@@ -13542,6 +13706,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openPayrollEditor = () => {
+    if (!ensureActiveBusinessPeriod()) return
     setEditingPayrollId(null)
     setPayrollDraft({ employeeId: employees.find((employee) => employee.employmentStatus === '在职')?.id || (isTauri ? '' : 'preview-employee'), baseSalary: '', bonus: '', taxAmount: '', socialPersonal: '' })
     setShowPayrollDialog(true)
@@ -13553,6 +13718,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openSocialSecurityEditor = () => {
+    if (!ensureActiveBusinessPeriod()) return
     setEditingSocialSecurityId(null)
     setSocialSecurityDraft({ employeeId: employees.find((employee) => employee.employmentStatus === '在职')?.id || (isTauri ? '' : 'preview-employee'), city: '', base: '', company: '', personal: '', fund: '' })
     setShowSocialSecurityDialog(true)
@@ -13564,6 +13730,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openBankTransactionEditor = () => {
+    if (!ensureActiveBusinessPeriod()) return
     setEditingBankTransactionId(null)
     setSelectedBankTransactionTagIds([])
     setBankTransactionDraft({ accountName: '', serialNo: '', transactionDate: currentPeriod?.end_date || '', counterparty: '', summary: '', incomeAmount: '', expenseAmount: '', balance: '', receiptStatus: '待上传' })
@@ -13576,6 +13743,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openBusinessOrderEditor = (mode: 'purchase' | 'sales') => {
+    if (!ensureActiveBusinessPeriod()) return
     setEditingBusinessOrderId(null)
     setBusinessOrderDraft({
       orderNo: '',
@@ -13601,6 +13769,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openDocumentRecordEditor = (businessType: string) => {
+    if (!ensureActiveBusinessPeriod()) return
     setEditingDocumentRecordId(null)
     setDocumentRecordDraft({ businessDate: currentPeriod?.end_date || '', documentCode: '', businessType, partner: '', amount: '', owner: '', attachmentStatus: '待补附件', stampTaxItem: '', stampTaxRate: '' })
     setShowDocumentRecordDialog(true)
@@ -13614,6 +13783,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openFixedAssetEditor = () => {
+    if (!ensureActiveBusinessPeriod()) return
     const category = effectiveAssetCategories.find((category) => category.is_enabled === 1)
     setEditingFixedAssetId(null)
     setFixedAssetDraft({ assetCode: '', assetName: '', category: category?.name || '', startDate: currentPeriod?.end_date || '', originalValue: '', usefulLifeMonths: category ? String(category.useful_life_months) : '', residualRate: category ? String(category.residual_rate * 100) : '5', sourceDocument: '' })
@@ -13632,6 +13802,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openInventoryMovementEditor = () => {
+    if (!ensureActiveBusinessPeriod()) return
     setEditingInventoryMovementId(null)
     setInventoryMovementDraft({ movementDate: currentPeriod?.end_date || '', billNo: '', movementType: '采购入库', inventoryName: '', warehouse: '', counterparty: '', unit: '', quantity: '', amount: '', sourceDocument: '' })
     setShowInventoryMovementDialog(true)
@@ -13643,6 +13814,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openCostCarryoverEditor = () => {
+    if (!ensureActiveBusinessPeriod()) return
     setEditingCostCarryoverId(null)
     setCostCarryoverDraft({ batchNo: '', carryoverDate: currentPeriod?.end_date || '', valuationMethod: '移动加权', sourceBillNo: '', inventoryName: '', debitSubject: '主营业务成本', creditSubject: '库存商品', costAmount: '', differenceAmount: '0', voucherNo: '', status: '待确认', sourceDocument: '' })
     setShowCostCarryoverDialog(true)
@@ -13654,6 +13826,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openBankReconciliationEditor = () => {
+    if (!ensureActiveBusinessPeriod()) return
     setEditingBankReconciliationId(null)
     setBankReconciliationDraft({ reconciliationNo: '', reconciliationDate: currentPeriod?.end_date || '', accountName: '', transactionNo: '', summary: '', bankAmount: '', bookAmount: '', voucherNo: '', matchStatus: '待人工对账', owner: '', status: '待处理', note: '' })
     setShowBankReconciliationDialog(true)
@@ -13665,6 +13838,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openSettlementRecordEditor = (mode: 'receivable' | 'payable') => {
+    if (!ensureActiveBusinessPeriod()) return
     setEditingSettlementRecordId(null)
     setSettlementRecordDraft({ settlementNo: '', settlementDate: currentPeriod?.end_date || '', counterparty: '', invoiceNo: '', transactionNo: '', totalAmount: '', settledAmount: '0', settlementMethod: '银行转账', owner: '', status: '待确认', sourceDocument: '' })
     setShowSettlementRecordDialog(true)
@@ -13722,7 +13896,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
 
   const publishSelectedAiTrainingRules = async () => {
     if (kind !== 'aiRuleTraining') return
-    const selectedRules = (isTauri ? matchingRules : previewMatchingRules).filter((rule) => (
+    const selectedRules = (isTauri ? matchingRules : scopedPreviewMatchingRules).filter((rule) => (
       rule.rule_scope === 'ai_training'
       && rule.is_enabled !== 1
       && selectedRowIds.has(`matching-rule-${rule.id}`)
@@ -13838,7 +14012,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
       setOperationNotice(`生成本地申报计划失败：${results.find((result) => result.error)?.error || '未知错误'}`)
       return
     }
-    writeModuleAudit('生成申报计划', `${currentPeriodLabel === '当前账期' ? '2026-05' : currentPeriodLabel}｜${savedCount} 项待办`, '高', savedCount === pendingTasks.length ? '成功' : '失败')
+    writeModuleAudit('生成申报计划', `${activeBusinessPeriodLabel}｜${savedCount} 项待办`, '高', savedCount === pendingTasks.length ? '成功' : '失败')
     setOperationNotice(savedCount === pendingTasks.length
       ? `已生成 ${savedCount} 项本地申报计划；计划仅整理税种、所属期与复核节点，不会向税务机关提交申报或发起扣款。`
       : `已生成 ${savedCount}/${pendingTasks.length} 项本地申报计划；失败事项需刷新后复核，系统未向外部平台提交。`)
@@ -13948,6 +14122,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
   }
 
   const openAccountTransferEditor = () => {
+    if (!ensureActiveBusinessPeriod()) return
     setEditingAccountTransferId(null)
     setAccountTransferDraft({ transferDate: currentPeriod?.end_date || '', fromAccount: '', toAccount: '', amount: '', fee: '', serialNo: '' })
     setShowAccountTransferDialog(true)
@@ -14056,6 +14231,8 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
             {!primaryActionHandlesImport && <ToolbarButton icon={<Upload className="h-3.5 w-3.5" />} label={config.importLabel} onClick={handleImportAction} />}
+            {kind === 'periodManagement' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增账期" onClick={openPeriodEditor} />}
+            {kind === 'initialBalance' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="登记期初" onClick={() => openInitialBalanceEditor()} />}
             {kind === 'aiVoucherSuggestions' && isTauri && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增建议" onClick={openAiVoucherSuggestionEditor} />}
             {kind === 'employee' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增人员" onClick={openEmployeeEditor} />}
             {kind === 'payroll' && <ToolbarButton icon={<FilePlus2 className="h-3.5 w-3.5" />} label="新增薪酬" onClick={openPayrollEditor} />}
@@ -14622,7 +14799,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
                     ? localAttachmentRecords.some((item) => item.id === row.id)
                     : kind === 'importCenter' && localImportJobs.some((item) => item.id === row.id)
                   const isLocalRegistryModule = kind === 'attachmentCenter' || kind === 'importCenter'
-                  const isCompanyTodoRow = kind === 'notificationCenter' && (isTauri ? companyTodos : previewCompanyTodos).some((item) => item.id === row.id)
+                  const isCompanyTodoRow = kind === 'notificationCenter' && (isTauri ? companyTodos : scopedPreviewCompanyTodos).some((item) => item.id === row.id)
                   return (
                   <tr key={row.id} className="hover:bg-[#f8fbff]">
                     <td className="border-b border-slate-100 px-2 py-2">
@@ -14904,6 +15081,31 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           </form>
         </div>
       )}
+      {showPeriodDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增账期">
+          <form onSubmit={handleSavePeriod} className="w-full max-w-md border border-slate-300 bg-white shadow-xl">
+            <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">新增账期</h2>
+                <p className="mt-0.5 text-xs text-slate-500">账期创建后可登记当前账套的发票、流水、单据和凭证。</p>
+              </div>
+              <button type="button" onClick={() => setShowPeriodDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 p-4">
+              <label className="grid gap-1 text-xs text-slate-600">年份 *
+                <input required type="number" min="2000" max="2100" value={periodDraft.year} onChange={(event) => setPeriodDraft((draft) => ({ ...draft, year: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+              <label className="grid gap-1 text-xs text-slate-600">月份 *
+                <input required type="number" min="1" max="12" value={periodDraft.month} onChange={(event) => setPeriodDraft((draft) => ({ ...draft, month: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" onClick={() => setShowPeriodDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button>
+              <button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white">创建账期</button>
+            </div>
+          </form>
+        </div>
+      )}
       {showInvoiceDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={editingInvoiceId ? '编辑发票' : '新增发票'}>
           <form onSubmit={handleCreateInvoice} className="w-full max-w-3xl border border-slate-300 bg-white shadow-xl">
@@ -15120,7 +15322,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
               <label className="grid gap-1 text-xs text-slate-600">币别编码 *<input required maxLength={12} value={currencyDraft.code} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, code: event.target.value.toUpperCase() }))} placeholder="USD" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
               <label className="grid gap-1 text-xs text-slate-600">币别名称 *<input required value={currencyDraft.name} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="美元" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
               <label className="grid gap-1 text-xs text-slate-600">记账汇率 *<input required type="number" min="0.000001" step="0.0001" value={currencyDraft.exchangeRate} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, exchangeRate: event.target.value }))} className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
-              <label className="flex items-end gap-2 pb-1 text-xs text-slate-700"><input type="checkbox" checked={currencyDraft.isBase} disabled={Boolean(editingCurrencyId && (isTauri ? currencies : previewCurrencies).find((item) => item.id === editingCurrencyId)?.is_base === 1)} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, isBase: event.target.checked }))} />设为本位币</label>
+              <label className="flex items-end gap-2 pb-1 text-xs text-slate-700"><input type="checkbox" checked={currencyDraft.isBase} disabled={Boolean(editingCurrencyId && (isTauri ? currencies : scopedPreviewCurrencies).find((item) => item.id === editingCurrencyId)?.is_base === 1)} onChange={(event) => setCurrencyDraft((draft) => ({ ...draft, isBase: event.target.checked }))} />设为本位币</label>
             </div>
             <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3">
               <div>{editingCurrencyId && <button type="button" onClick={() => void handleDeleteCurrency()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除币别</button>}</div>
@@ -15253,7 +15455,7 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <form onSubmit={handleSaveInitialBalance} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
             <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">登记期初余额</h2><p className="mt-0.5 text-xs text-slate-500">按当前账期的会计科目登记借方或贷方期初。重复保存同一科目会更新该账期的期初金额。</p></div><button type="button" onClick={() => setShowInitialBalanceDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
-              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">会计科目 *<select required value={initialBalanceDraft.accountCode} onChange={(event) => setInitialBalanceDraft((draft) => ({ ...draft, accountCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="">请选择会计科目</option>{(accounts.length > 0 ? accounts.map((account) => ({ code: account.code, name: account.name })) : config.rows.map((row) => ({ code: row.values.code || row.id, name: row.values.name || row.values.code || row.id }))).map((account) => <option key={account.code} value={account.code}>{account.code}｜{account.name}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">会计科目 *<select required disabled={initialBalanceAccountOptions.length === 0} value={initialBalanceDraft.accountCode} onChange={(event) => setInitialBalanceDraft((draft) => ({ ...draft, accountCode: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100"><option value="">{initialBalanceAccountOptions.length === 0 ? '请先维护会计科目' : '请选择会计科目'}</option>{initialBalanceAccountOptions.map((account) => <option key={account.code} value={account.code}>{account.code}｜{account.name}</option>)}</select></label>
               <label className="grid gap-1 text-xs text-slate-600">期初借方（元）<input type="number" min="0" step="0.01" value={initialBalanceDraft.openingDebit} onChange={(event) => setInitialBalanceDraft((draft) => ({ ...draft, openingDebit: event.target.value }))} placeholder="0.00" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
               <label className="grid gap-1 text-xs text-slate-600">期初贷方（元）<input type="number" min="0" step="0.01" value={initialBalanceDraft.openingCredit} onChange={(event) => setInitialBalanceDraft((draft) => ({ ...draft, openingCredit: event.target.value }))} placeholder="0.00" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">来源说明（审计留痕）<input value={initialBalanceDraft.sourceNote} onChange={(event) => setInitialBalanceDraft((draft) => ({ ...draft, sourceNote: event.target.value }))} placeholder="如：2025 年末科目余额表、历史账导入批次" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900" /></label>
@@ -15357,12 +15559,12 @@ export function BusinessModulePage({ kind, title, description }: BusinessModuleP
           <form onSubmit={handleSaveAuxiliaryItem} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
             <div className="flex min-h-11 items-center justify-between border-b border-slate-200 px-4 py-2"><div><h2 className="text-sm font-semibold text-slate-900">{editingAuxiliaryItemId ? '编辑辅助核算项目' : '新增辅助核算项目'}</h2><p className="mt-0.5 text-xs text-slate-500">项目是客户、供应商、项目、部门等基础档案的统一明细，可在凭证辅助核算中引用。</p></div><button type="button" onClick={() => setShowAuxiliaryItemDialog(false)} className="text-xs text-slate-500 hover:text-slate-900">取消</button></div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
-              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">所属类别 *<select required value={auxiliaryItemDraft.categoryId} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, categoryId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择辅助核算类别</option>{(isTauri ? auxiliaryCategories : previewAuxiliaryCategories).map((category) => <option key={category.id} value={category.id}>{category.code}｜{category.name}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">所属类别 *<select required value={auxiliaryItemDraft.categoryId} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, categoryId: event.target.value }))} className="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]"><option value="">请选择辅助核算类别</option>{(isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories).map((category) => <option key={category.id} value={category.id}>{category.code}｜{category.name}</option>)}</select></label>
               <label className="grid gap-1 text-xs text-slate-600">项目编码 *<input required value={auxiliaryItemDraft.code} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, code: event.target.value }))} placeholder="如：C001" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
               <label className="grid gap-1 text-xs text-slate-600">项目名称 *<input required value={auxiliaryItemDraft.name} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="如：上海示例客户" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
               <label className="grid gap-1 text-xs text-slate-600 sm:col-span-2">别名/备注<input value={auxiliaryItemDraft.remarks} onChange={(event) => setAuxiliaryItemDraft((draft) => ({ ...draft, remarks: event.target.value }))} placeholder="助记码、合同号或补充说明" className="h-8 rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#1f65a7]" /></label>
             </div>
-            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div className="flex gap-2">{editingAuxiliaryItemId && <button type="button" onClick={() => void handleDeleteAuxiliaryItem()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除项目</button>}{editingAuxiliaryItemId && <button type="button" onClick={() => void handleToggleAuxiliaryItem()} className="h-8 rounded border border-amber-300 px-3 text-xs text-amber-700 hover:bg-amber-50">{(isTauri ? auxiliaryItems : previewAuxiliaryItems).find((item) => item.id === editingAuxiliaryItemId)?.is_enabled === 1 ? '停用项目' : '启用项目'}</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowAuxiliaryItemDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingAuxiliaryItemId ? '保存修改' : '保存项目'}</button></div></div>
+            <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"><div className="flex gap-2">{editingAuxiliaryItemId && <button type="button" onClick={() => void handleDeleteAuxiliaryItem()} className="h-8 rounded border border-red-300 px-3 text-xs text-red-700 hover:bg-red-50">删除项目</button>}{editingAuxiliaryItemId && <button type="button" onClick={() => void handleToggleAuxiliaryItem()} className="h-8 rounded border border-amber-300 px-3 text-xs text-amber-700 hover:bg-amber-50">{(isTauri ? auxiliaryItems : scopedPreviewAuxiliaryItems).find((item) => item.id === editingAuxiliaryItemId)?.is_enabled === 1 ? '停用项目' : '启用项目'}</button>}</div><div className="flex gap-2"><button type="button" onClick={() => setShowAuxiliaryItemDialog(false)} className="h-8 rounded border border-slate-300 px-3 text-xs text-slate-700">取消</button><button type="submit" className="h-8 rounded bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#174f82]">{editingAuxiliaryItemId ? '保存修改' : '保存项目'}</button></div></div>
           </form>
         </div>
       )}

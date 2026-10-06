@@ -44,27 +44,20 @@ type DashboardProgress = {
   description: string
 }
 
-const browserStatusCards: DashboardCard[] = [
-  { label: '销项发票', value: '58', sub: '已匹配 46 / 异常 2', icon: ReceiptText, path: '/invoices/output' },
-  { label: '进项发票', value: '72', sub: '待确认 18 / 可抵扣 4.28万', icon: FileCheck2, path: '/invoices/input' },
-  { label: '银行账单', value: '96', sub: '待生成凭证 21', icon: Banknote, path: '/bills' },
-  { label: '会计凭证', value: '82', sub: '待审核 9 / 已审核 73', icon: FileText, path: '/vouchers' },
-  { label: 'AI任务队列', value: '19', sub: '待确认草稿 12', icon: Bot, path: '/ai/jobs' },
-  { label: '税务申报', value: '5', sub: '待确认 3 / 风险 1', icon: FileBarChart, path: '/tax/workspace' },
+const dashboardCardDefinitions: Array<Pick<DashboardCard, 'label' | 'icon' | 'path'>> = [
+  { label: '销项发票', icon: ReceiptText, path: '/invoices/output' },
+  { label: '进项发票', icon: FileCheck2, path: '/invoices/input' },
+  { label: '银行账单', icon: Banknote, path: '/bills' },
+  { label: '会计凭证', icon: FileText, path: '/vouchers' },
+  { label: 'AI任务队列', icon: Bot, path: '/ai/jobs' },
+  { label: '税务申报', icon: FileBarChart, path: '/tax/workspace' },
 ]
 
-const browserTodoRows: DashboardTodo[] = [
-  { module: '进项发票', text: '18 张进项发票待确认抵扣用途', due: '今天', path: '/invoices/input' },
-  { module: '银行流水', text: '21 笔流水未匹配凭证规则', due: '今天', path: '/bills' },
-  { module: '风险检查', text: '凭证、税率、工资社保存在 5 条需复核事项', due: '结账前', path: '/risk-check' },
-  { module: '申报取数', text: '增值税及附加申报表待人工确认', due: '06-24', path: '/tax/workspace' },
-]
-
-const browserProgress: DashboardProgress[] = [
-  { name: '资料采集', percent: 82, description: '发票、流水、工资、社保资料' },
-  { name: 'AI识别', percent: 68, description: 'OCR、流水分类、规则建议' },
-  { name: '凭证生成', percent: 74, description: '草稿、审核、附件追溯' },
-  { name: '报表申报', percent: 55, description: '报表重算、税表取数、申报确认' },
+const dashboardProgressDefinitions: Array<Pick<DashboardProgress, 'name' | 'description'>> = [
+  { name: '资料采集', description: '发票、流水、工资、社保资料' },
+  { name: 'AI识别', description: 'OCR、流水分类、规则建议' },
+  { name: '凭证生成', description: '草稿、审核、附件追溯' },
+  { name: '报表申报', description: '报表重算、税表取数、申报确认' },
 ]
 
 function percentOf(completed: number, total: number) {
@@ -139,7 +132,7 @@ export function Dashboard() {
   const pendingBankTransactions = useMemo(() => bankTransactions.filter((transaction) => transaction.status !== '已确认' && transaction.status !== '已生成凭证'), [bankTransactions])
 
   const statusCards = useMemo<DashboardCard[]>(() => {
-    if (!usesLiveDashboardData) return browserStatusCards
+    if (!usesLiveDashboardData) return dashboardCardDefinitions.map((item) => ({ ...item, value: '0', sub: '当前账期暂无数据' }))
     return [
       { label: '销项发票', value: `${outputInvoices.length} 张`, sub: `已匹配 ${outputInvoices.filter((invoice) => invoice.voucher_id || invoice.status === 'matched').length} 张`, icon: ReceiptText, path: '/invoices/output' },
       { label: '进项发票', value: `${inputInvoices.length} 张`, sub: `未匹配 ${inputInvoices.filter((invoice) => !invoice.voucher_id && invoice.status !== 'matched').length} 张`, icon: FileCheck2, path: '/invoices/input' },
@@ -151,7 +144,7 @@ export function Dashboard() {
   }, [automationJobs.length, bankTransactions, inputInvoices, outputInvoices, pendingAutomationJobs.length, pendingTaxTasks.length, pendingVouchers.length, taxTasks, usesLiveDashboardData, vouchers.length])
 
   const todoRows = useMemo<DashboardTodo[]>(() => {
-    if (!usesLiveDashboardData) return browserTodoRows
+    if (!usesLiveDashboardData) return []
     const rows: DashboardTodo[] = []
     const pendingInputs = inputInvoices.filter((invoice) => !invoice.voucher_id && invoice.status !== 'matched').length
     if (pendingInputs > 0) rows.push({ module: '进项发票', text: `${pendingInputs} 张进项发票尚未匹配凭证`, due: '本期', path: '/invoices/input' })
@@ -163,7 +156,7 @@ export function Dashboard() {
   }, [inputInvoices, pendingAutomationJobs.length, pendingBankTransactions.length, pendingTaxTasks.length, pendingVouchers.length, usesLiveDashboardData])
 
   const progress = useMemo<DashboardProgress[]>(() => {
-    if (!usesLiveDashboardData) return browserProgress
+    if (!usesLiveDashboardData) return dashboardProgressDefinitions.map((item) => ({ ...item, percent: 0, description: '当前账期暂无可汇总数据' }))
     const invoiceTotal = invoices.length
     const recognized = automationJobs.filter((job) => job.jobType === 'document_ocr')
     return [
@@ -175,20 +168,12 @@ export function Dashboard() {
   }, [automationJobs, invoices.length, matchedInvoices.length, pendingVouchers.length, taxTasks, usesLiveDashboardData, vouchers.length])
 
   const taxCalendarRows = useMemo(() => {
-    if (!usesLiveDashboardData) return [
-      { period: '截止 06-24', name: '增值税及附加', status: '待确认' },
-      { period: '截止 06-25', name: '扣缴所得税', status: '待取数' },
-      { period: '截止 06-28', name: '社保费', status: '校验通过' },
-    ]
+    if (!usesLiveDashboardData) return []
     return taxTasks.slice(0, 3).map((task) => ({ period: `所属期 ${task.period}`, name: task.taxType, status: taxTaskStatus(task) }))
   }, [taxTasks, usesLiveDashboardData])
 
   const risks = useMemo(() => {
-    if (!usesLiveDashboardData) return [
-      { tone: 'red', icon: AlertTriangle, text: '1 张凭证借贷不平，阻断结账。' },
-      { tone: 'amber', icon: ClipboardList, text: '2 张进项发票税率与商品分类不一致。' },
-      { tone: 'green', icon: CheckCircle2, text: '工资表人数与社保人数校验通过。' },
-    ]
+    if (!usesLiveDashboardData) return [{ tone: 'green' as const, icon: CheckCircle2, text: '当前账期尚无已落库的风险检查数据。' }]
     const rows: Array<{ tone: 'red' | 'amber' | 'green'; icon: LucideIcon; text: string }> = []
     if (unbalancedVouchers.length > 0) rows.push({ tone: 'red', icon: AlertTriangle, text: `${unbalancedVouchers.length} 张凭证借贷不平，阻断结账。` })
     const unmatchedInputs = inputInvoices.filter((invoice) => !invoice.voucher_id && invoice.status !== 'matched').length

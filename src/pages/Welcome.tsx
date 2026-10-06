@@ -53,7 +53,6 @@ interface AccountRow {
   vouchers: string
   tax: string
   risk: string
-  real: boolean
 }
 
 interface CompanyMemo {
@@ -78,78 +77,6 @@ function saveCompanyMemos(memos: Record<string, CompanyMemo>) {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(COMPANY_MEMO_STORAGE_KEY, JSON.stringify(memos))
 }
-
-const demoCompanies: AccountRow[] = [
-  {
-    id: '01460',
-    code: '01460',
-    name: '科旋电气（上海）有限公司',
-    taxId: '91310115MA1K3****X',
-    region: '上海市普陀区',
-    enterpriseType: '私营有限责任公司',
-    taxType: '一般纳税人',
-    collectStatus: '采集成功 2026-06-26 18:09:49',
-    credit: 'M',
-    importedAt: '2026-06-26 17:40:08',
-    accountant: '李喻',
-    servicePeriod: '2026-01 至 2026-12',
-    supervisor: '李喻',
-    period: '2026-05',
-    taxOffice: '普陀区税务局 第十六税务所',
-    status: '已结账',
-    invoices: '126/138',
-    vouchers: '82',
-    tax: '待确认',
-    risk: '2',
-    real: false,
-  },
-  {
-    id: '02018',
-    code: '02018',
-    name: '上海云启科技有限公司',
-    taxId: '91310113MA1G****2Q',
-    region: '上海市宝山区',
-    enterpriseType: '私营有限责任公司',
-    taxType: '小规模纳税人',
-    collectStatus: '采集警告 2026-06-26 18:00:10',
-    credit: 'M',
-    importedAt: '2026-06-26 17:26:07',
-    accountant: '李喻',
-    servicePeriod: '2026-05 至 2027-04',
-    supervisor: '李喻',
-    period: '2026-05',
-    taxOffice: '宝山区税务局 第十六税务所',
-    status: '做账中',
-    invoices: '84/91',
-    vouchers: '47',
-    tax: '未取数',
-    risk: '5',
-    real: false,
-  },
-  {
-    id: '03009',
-    code: '03009',
-    name: '杭州辰光贸易有限公司',
-    taxId: '91330106MA2H****8P',
-    region: '浙江省杭州市',
-    enterpriseType: '内资企业',
-    taxType: '一般纳税人',
-    collectStatus: '采集失败 2026-06-26 17:54:16',
-    credit: 'M',
-    importedAt: '2026-06-26 17:10:59',
-    accountant: '王会计',
-    servicePeriod: '2025-07 至 2026-06',
-    supervisor: '王会计',
-    period: '2026-05',
-    taxOffice: '嘉定区税务局 第十三税务所',
-    status: '待收票',
-    invoices: '38/70',
-    vouchers: '19',
-    tax: '未开始',
-    risk: '8',
-    real: false,
-  },
-]
 
 const currentYear = new Date().getFullYear()
 
@@ -478,12 +405,11 @@ export function Welcome() {
         vouchers: '0',
         tax: '未取数',
         risk: '0',
-        real: true,
       })),
     [companies],
   )
 
-  const allRows = realRows.length > 0 || isTauri ? realRows : demoCompanies
+  const allRows = realRows
   const rows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     return allRows.filter((row) => {
@@ -565,13 +491,8 @@ export function Welcome() {
     })
   }
 
-  const handleSelectCompany = async (companyId: string, isReal: boolean) => {
-    if (!isReal) {
-      recordWelcomeAudit('进入账套', `演示账套-${companyId}`)
-      navigate('/dashboard')
-      return
-    }
-    recordWelcomeAudit('进入账套', `真实账套-${companyId}`)
+  const handleSelectCompany = async (companyId: string) => {
+    recordWelcomeAudit('进入账套', `账套-${companyId}`)
     selectCompany(companyId)
     await fetchPeriods(companyId)
     await fetchVoucherWords(companyId)
@@ -581,12 +502,6 @@ export function Welcome() {
   const handleCreateCompany = async (shouldContinue = false) => {
     if (!newCompany.name.trim() || !newCompany.taxId.trim()) {
       warningToast('请填写企业名称和纳税人识别号')
-      return
-    }
-
-    if (editingCompanyId?.startsWith('demo:')) {
-      recordWelcomeAudit('编辑企业预览', newCompany.name, '中', '待审批')
-      warningToast('演示账套只展示编辑样式，不会写入数据库')
       return
     }
 
@@ -642,7 +557,7 @@ export function Welcome() {
     }
 
     setShowAddModal(false)
-    await handleSelectCompany(company.id, true)
+    await handleSelectCompany(company.id)
   }
 
   function requestCompanyRiskAction(action: 'deactivate' | 'delete', ids: string[], label: string) {
@@ -676,13 +591,7 @@ export function Welcome() {
       warningToast('请先勾选需要停用的账套')
       return
     }
-    const realIds = ids.filter((id) => realRows.some((row) => row.id === id))
-    if (realIds.length === 0) {
-      recordWelcomeAudit('批量停用', `${ids.length} 户演示账套`, '高', '待审批')
-      warningToast('演示数据不可停用，真实账套会调用停用接口')
-      return
-    }
-    requestCompanyRiskAction('deactivate', realIds, `${realIds.length} 户真实账套`)
+    requestCompanyRiskAction('deactivate', ids, `${ids.length} 户账套`)
   }
 
   const handleBatchDelete = () => {
@@ -691,13 +600,7 @@ export function Welcome() {
       warningToast('请先勾选需要删除的账套')
       return
     }
-    const realIds = ids.filter((id) => realRows.some((row) => row.id === id))
-    if (realIds.length === 0) {
-      recordWelcomeAudit('批量删除申请', `${ids.length} 户演示账套`, '高', '待审批')
-      warningToast('演示数据不可删除，真实账套会进入回收站')
-      return
-    }
-    requestCompanyRiskAction('delete', realIds, `${realIds.length} 户真实账套`)
+    requestCompanyRiskAction('delete', ids, `${ids.length} 户账套`)
   }
 
   const handleCollect = async (company?: AccountRow) => {
@@ -706,7 +609,7 @@ export function Welcome() {
       : selectedRows.size > 0
         ? rows.filter((row) => selectedRows.has(row.id))
         : rows
-    const targets = candidateRows.filter((row) => row.real)
+    const targets = candidateRows
 
     if (targets.length === 0) {
       warningToast('请选择至少一个本地账套后创建采集预检任务')
@@ -869,26 +772,24 @@ export function Welcome() {
   }
 
   const handleEditCompany = async (company: AccountRow) => {
-    const persistedCompany = company.real ? companies.find((item) => item.id === company.id) : undefined
+    const persistedCompany = companies.find((item) => item.id === company.id)
     let taxAuthorization = { taxLoginPerson: '', taxLoginIdentity: '', taxLoginMethod: '' }
     let individualVerifyMethod = emptyCompanyForm.individualVerifyMethod
     let hasAuthorizationMetadata = false
 
-    if (company.real) {
-      try {
-        const response = await automationApi.getAdapterAuthorizations({ companyId: company.id })
-        const authorizations = response.success ? response.data || [] : []
-        const taxAuthorizationRow = authorizations.find((item) => item.adapterType === 'tax' && item.adapterCode === 'agency-account-set')
-        const individualAuthorizationRow = authorizations.find((item) => item.adapterType === 'individual_tax' && item.adapterCode === 'agency-account-set')
-        if (taxAuthorizationRow) taxAuthorization = parseTaxAuthorizationIdentity(taxAuthorizationRow.loginIdentity)
-        if (individualAuthorizationRow?.loginIdentity) individualVerifyMethod = individualAuthorizationRow.loginIdentity
-        hasAuthorizationMetadata = authorizations.length > 0
-      } catch {
-        hasAuthorizationMetadata = false
-      }
+    try {
+      const response = await automationApi.getAdapterAuthorizations({ companyId: company.id })
+      const authorizations = response.success ? response.data || [] : []
+      const taxAuthorizationRow = authorizations.find((item) => item.adapterType === 'tax' && item.adapterCode === 'agency-account-set')
+      const individualAuthorizationRow = authorizations.find((item) => item.adapterType === 'individual_tax' && item.adapterCode === 'agency-account-set')
+      if (taxAuthorizationRow) taxAuthorization = parseTaxAuthorizationIdentity(taxAuthorizationRow.loginIdentity)
+      if (individualAuthorizationRow?.loginIdentity) individualVerifyMethod = individualAuthorizationRow.loginIdentity
+      hasAuthorizationMetadata = authorizations.length > 0
+    } catch {
+      hasAuthorizationMetadata = false
     }
 
-    setEditingCompanyId(company.real ? company.id : `demo:${company.id}`)
+    setEditingCompanyId(company.id)
     setNewCompany({
       ...emptyCompanyForm,
       name: company.name,
@@ -914,21 +815,10 @@ export function Welcome() {
   }
 
   const handleDeleteCompany = (company: AccountRow) => {
-    if (!company.real) {
-      recordWelcomeAudit('删除企业申请', `${company.code}-${company.name}`, '高', '待审批')
-      setOperationNotice(`${company.name} 是浏览器演示账套，删除申请仅作本地审计留痕。`)
-      warningToast('演示账套不可删除，已记录删除申请')
-      return
-    }
     requestCompanyRiskAction('delete', [company.id], `${company.code}-${company.name}`)
   }
 
   const handleDeactivateCompany = (company: AccountRow) => {
-    if (!company.real) {
-      recordWelcomeAudit('停用企业申请', `${company.code}-${company.name}`, '高', '待审批')
-      warningToast('演示账套不可停用，已记录停用申请')
-      return
-    }
     requestCompanyRiskAction('deactivate', [company.id], `${company.code}-${company.name}`)
   }
 
@@ -1026,7 +916,7 @@ export function Welcome() {
               <div>
                 <h1 className="text-lg font-semibold">机构级批量工作</h1>
                 <p className="text-xs text-slate-500">这些功能面向全部客户账套，处理合同、批量申报、统计和自动化。</p>
-                {!isTauri && <p className="mt-1 text-xs text-amber-700">浏览器预览数据：企业、采集和备忘指标基于本机演示记录计算。</p>}
+                {!isTauri && <p className="mt-1 text-xs text-amber-700">浏览器预览数据：企业、采集和备忘指标仅基于本机保存记录计算。</p>}
               </div>
               <span className="inline-flex w-fit rounded bg-[#eef6ff] px-2 py-1 text-xs font-medium text-[#1f65a7]">不进入单公司账套</span>
             </div>
@@ -1159,7 +1049,7 @@ export function Welcome() {
                           <button type="button" onClick={() => handleDeleteCompany(company)}>删除</button>
                           <button type="button" onClick={() => handleDeactivateCompany(company)}>停用</button>
                           <button type="button" onClick={() => handleMemoCompany(company)}>备忘录</button>
-                          <button type="button" onClick={() => handleSelectCompany(company.id, company.real)}>进入账套</button>
+                          <button type="button" onClick={() => handleSelectCompany(company.id)}>进入账套</button>
                           <button type="button" onClick={() => handleTaxAuthorizationCheck(company)}>校验税务授权</button>
                         </div>
                       </td>

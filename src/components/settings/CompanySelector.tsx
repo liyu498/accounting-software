@@ -2,12 +2,28 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown, Building2, Check, Plus } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { isTauri } from '../../lib/tauri'
 import { useCompanyStore } from '../../stores/companyStore'
-import { usePeriodStore } from '../../stores/periodStore'
+import { usePeriodStore, type AccountingPeriod } from '../../stores/periodStore'
 
-const DEMO_COMPANY = {
-  code: '20258497',
-  name: '科旋电气（上海）有限公司',
+function loadBrowserPreviewOpenPeriod(companyId: string | null): AccountingPeriod | undefined {
+  if (typeof window === 'undefined') return undefined
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem('accounting-preview-periods-v1') || 'null') as unknown
+    if (!Array.isArray(parsed)) return undefined
+    return parsed.find((period): period is AccountingPeriod => Boolean(
+      period
+      && typeof period === 'object'
+      && typeof (period as AccountingPeriod).id === 'string'
+      && typeof (period as AccountingPeriod).company_id === 'string'
+      && Number.isInteger((period as AccountingPeriod).period_year)
+      && Number.isInteger((period as AccountingPeriod).period_month)
+      && (period as AccountingPeriod).status !== 'closed'
+      && ((period as AccountingPeriod).company_id === companyId || (!companyId && ['browser-preview-company', 'browser-preview', 'preview-company'].includes((period as AccountingPeriod).company_id))),
+    ))
+  } catch {
+    return undefined
+  }
 }
 
 export function CompanySelector() {
@@ -57,10 +73,18 @@ export function CompanySelector() {
 
   const currentCompany = companies.find((c) => c.id === selectedCompanyId)
   const currentPeriod = periods.find((p) => p.id === currentPeriodId)
-  const companyLabel = currentCompany ? `${currentCompany.code} | ${currentCompany.name}` : `${DEMO_COMPANY.code} | ${DEMO_COMPANY.name}`
+  const browserPreviewPeriod = loadBrowserPreviewOpenPeriod(selectedCompanyId)
+  const hasBrowserPreviewPeriod = Boolean(!isTauri && browserPreviewPeriod)
+  const companyLabel = currentCompany
+    ? `${currentCompany.code} | ${currentCompany.name}`
+    : hasBrowserPreviewPeriod
+      ? '浏览器预览账套'
+      : '未选择账套'
   const periodLabel = currentPeriod
     ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}`
-    : '2026-05'
+    : browserPreviewPeriod
+      ? `${browserPreviewPeriod.period_year}-${String(browserPreviewPeriod.period_month).padStart(2, '0')}`
+      : '未选择账期'
 
   const companyPeriods = periods.filter(p => p.company_id === selectedCompanyId)
   const periodYears = [...new Set(companyPeriods.map(p => p.period_year))].sort((a, b) => b - a)
