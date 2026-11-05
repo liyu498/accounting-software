@@ -22,6 +22,7 @@ import {
   agencyApi,
   type AdapterAuthorization,
   type AgencyBatchTask,
+  type AgencyBatchTaskItem,
   type AgencyCollaborationItem,
   type AgencyFeeCollection,
   type AgencyHealthCheckItem,
@@ -33,7 +34,7 @@ import {
 import { isTauri } from '../../lib/tauri'
 import { useCompanyStore, type Company } from '../../stores/companyStore'
 import { usePeriodStore } from '../../stores/periodStore'
-import { exportHtmlToPdf } from '../../lib/pdfExport'
+import { exportHtmlToPdf, sanitizePrintableHtml } from '../../lib/pdfExport'
 import { exportRowsToXlsx } from '../../lib/xlsxExport'
 import { recordAuditLog, recordExportJob, useExportJobs, type ExportJob } from '../../lib/exportJobs'
 import { recordLocalImportJob } from '../../lib/localFileRegistry'
@@ -192,7 +193,7 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     notes: ['服务合同承接收费管理、客户协同、套餐和归档，避免机构首页入口过散。', '角色权限在专用权限管理页面维护；尚未接入持久化的数据项不在合同页伪造入口。'],
   },
   downloadCenter: {
-    title: '下载中心',
+    title: '机构下载中心',
     description: '统一查看本机已生成的跨客户导出文件、账簿报表、申报包和归档文件记录。',
     tabs: ['最近记录', 'Excel', 'PDF', 'ZIP归档包', '申报包', '异常任务'],
     primaryAction: '刷新文件清单',
@@ -212,11 +213,11 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
       { key: 'createdAt', label: '生成时间' },
       { key: 'creator', label: '发起人' },
       { key: 'expireAt', label: '过期时间' },
-      { key: 'hash', label: '文件哈希' },
+      { key: 'hash', label: '任务指纹' },
     ],
     rows: [],
     queueTitle: '下载规则',
-    queue: ['只展示本机已生成的导出任务记录；文件过期后需在原模块重新生成', '批量下载保留文件清单、生成状态、发起人和哈希摘要', '申报包和回执下载需受客户范围权限控制'],
+    queue: ['只展示本机已生成的导出任务记录；文件过期后需在原模块重新生成', '批量下载保留文件清单、生成状态、发起人和任务指纹', '申报包和回执下载需受客户范围权限控制'],
     notes: ['下载中心用于机构层跨客户文件，不替代单账套内当前模块的导出按钮。', '固定 Excel/PDF 模板在生成时写入本地导出记录；下载中心不伪造文件。'],
   },
   dataStats: {
@@ -265,7 +266,7 @@ const configs: Record<AgencyModuleKind, AgencyConfig> = {
     rows: [],
     queueTitle: '执行控制',
     queue: ['批量采集需读取客户维护的税局和银行授权状态', '批量结账前必须完成凭证断号、报表平衡和税务风险检查', '批量申报、回执缴款书和扣款归档在同一任务内流转', '高风险客户自动跳过并进入审批记录', '所有任务保留执行日志和回滚说明'],
-    notes: ['批量操作用于机构级效率提升，单账套页面仍保留逐户处理入口。', '新建任务只写入本地预检队列；申报确认、回执归档、删除、反结账等高风险动作仍需二次确认和审批。'],
+    notes: ['批量操作用于机构级效率提升，单账套页面仍保留逐户处理入口。', '新建任务先写入本地预检队列；通过预检和审批后才可逐账套执行，申报提交、扣款、删除和反结账仍必须在专用流程人工确认。'],
   },
   invoiceManagement: {
     title: '开票管理',
@@ -384,7 +385,7 @@ function summarizeAgencyDownloadJobs(rows: AgencyRow[]) {
 }
 
 function getAgencyTabConfig(baseConfig: AgencyConfig, activeTab: string): AgencyConfig {
-  if (baseConfig.title === '下载中心') {
+  if (baseConfig.title === '机构下载中心') {
     const rows = baseConfig.rows.filter((row) => {
       if (activeTab === 'Excel') return row.values.type === 'Excel'
       if (activeTab === 'PDF') return row.values.type === 'PDF'
@@ -750,9 +751,9 @@ function getAgencyDetailMeta(kind: AgencyModuleKind): AgencyDetailMeta {
   if (kind === 'clients') return { title: '客户账套明细', boundary: '仅展示机构已维护的客户账套、当前账期和处理进度；进入账套后才处理该客户的发票、凭证、报表和申报事项。', processLabel: '核对账套' }
   if (kind === 'authorizationCenter') return { title: '授权记录明细', boundary: '仅展示授权类型、掩码账号、适用范围和到期状态；不会展示或保存明文密码、令牌、Cookie 或证书。', processLabel: '核验授权' }
   if (kind === 'serviceContracts') return { title: '合同履约明细', boundary: '仅展示机构服务合同、收费、协同、套餐和归档状态；客户账套内的业务单据和会计处理不在此修改。', processLabel: '更新履约' }
-  if (kind === 'downloadCenter') return { title: '下载文件明细', boundary: '仅展示本机已生成文件的范围、状态和哈希摘要；查看不会重新生成文件或访问外部存储。', processLabel: '核验文件' }
+  if (kind === 'downloadCenter') return { title: '下载文件明细', boundary: '仅展示本机已生成文件的范围、状态和任务指纹；查看不会重新生成文件或访问外部存储。', processLabel: '核验文件' }
   if (kind === 'dataStats') return { title: '机构统计口径明细', boundary: '统计仅基于本机已保存的机构级合同、收费、协同和交付数据；不使用样例数据代替真实统计。', processLabel: '复核口径' }
-  if (kind === 'batchOps') return { title: '批量任务明细', boundary: '机构级明细仅覆盖跨客户的本地预检、风险清单和审批记录；不会进入单客户账套处理业务，也不会登录税局、银行或自动提交、扣款、结账和入账。', processLabel: '执行预检' }
+  if (kind === 'batchOps') return { title: '批量任务明细', boundary: '机构级任务先预检和审批，再逐账套执行。采集、凭证建议和申报资料进入本地队列；批量结账复用单账套完整结账校验。系统不会伪造税局或银行提交、扣款和回执结果。', processLabel: '执行预检' }
   if (kind === 'invoiceManagement') return { title: '服务费开票明细', boundary: '这里只处理机构服务费开票状态；客户经营发票仍在各自账套的销项发票模块维护。', processLabel: '核验开票' }
   if (kind === 'healthCheck') return { title: '跨客户风险明细', boundary: '体检只汇总已保存的风险规则结果和处理状态；不会自动修复凭证、报表或税务问题。', processLabel: '复核风险' }
   return { title: '自动化任务明细', boundary: '自动化仅维护本地任务、建议和人工确认状态；不会越过授权边界调用外部系统或自动入账、申报。', processLabel: '复核任务' }
@@ -784,7 +785,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const baseConfig = configs[kind]
   const detailMeta = getAgencyDetailMeta(kind)
   const toolbarMeta = getAgencyToolbarMeta(kind)
-  const exportJobs = useExportJobs()
+  const exportJobs = useExportJobs('agency')
   const config = useMemo(() => {
     if (kind !== 'downloadCenter') return baseConfig
     const dynamicRows = exportJobs.map(exportJobToAgencyRow)
@@ -808,6 +809,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
   const [operationNotice, setOperationNotice] = useState<string | null>(null)
   const importFileRef = useRef<HTMLInputElement>(null)
   const [detailRow, setDetailRow] = useState<AgencyRow | null>(null)
+  const [batchTaskItems, setBatchTaskItems] = useState<AgencyBatchTaskItem[]>([])
+  const [batchTaskItemsLoading, setBatchTaskItemsLoading] = useState(false)
   const [showBatchTaskDialog, setShowBatchTaskDialog] = useState(false)
   const [selectedBatchTaskTypes, setSelectedBatchTaskTypes] = useState<string[]>(() => agencyBatchTaskOptions.map((option) => option.id))
   const [showContractDialog, setShowContractDialog] = useState(false)
@@ -864,7 +867,6 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     status: 'reviewing',
     confidence: '',
     riskLevel: 'normal',
-    reviewer: 'admin',
     resultSummary: '',
   })
   const pageConfig = useMemo(() => getAgencyTabConfig(config, activeTab), [activeTab, config])
@@ -995,7 +997,6 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       riskLevel: level,
       result,
       detail: `${status}｜${activeTab}/${query.trim() || '全部'}`,
-      operator: 'admin',
     })
   }
 
@@ -1022,10 +1023,18 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     return row.values.name || row.values.customer || row.values.fileName || row.values.task || row.values.contractNo || row.values.code || row.id
   }
 
-  const handleViewRow = (row: AgencyRow) => {
+  const handleViewRow = async (row: AgencyRow) => {
     const object = rowObjectLabel(row)
     writeAgencyAudit('查看明细', `${pageConfig.title}-${object}`)
     setDetailRow(row)
+    setBatchTaskItems([])
+    if (kind === 'batchOps') {
+      setBatchTaskItemsLoading(true)
+      const response = await agencyApi.getBatchTaskItems(row.id)
+      setBatchTaskItems(response.success ? response.data || [] : [])
+      setBatchTaskItemsLoading(false)
+      if (!response.success) setOperationNotice(response.error || '读取逐账套执行结果失败。')
+    }
   }
 
   const resetContractEditor = () => {
@@ -1147,7 +1156,6 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       status: row.values.jobStatus || 'reviewing',
       confidence: row.values.confidenceValue || '',
       riskLevel: row.values.riskLevel || 'normal',
-      reviewer: row.values.reviewer || 'admin',
       resultSummary: row.values.resultSummary || row.values.result || '',
     })
     setShowAutomationReviewDialog(true)
@@ -1160,7 +1168,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         setOperationNotice(`${object} 当前不在待预检状态，请按任务状态继续处理。`)
         return
       }
-      const response = await agencyApi.runBatchTaskPrecheck({ id: row.id, operator: 'admin' })
+      const response = await agencyApi.runBatchTaskPrecheck({ id: row.id })
       if (!response.success || !response.data) {
         setOperationNotice(response.error || '批量任务本地预检失败。')
         return
@@ -1232,7 +1240,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
     }
 
     const action = decision === 'approved' ? '通过预检' : '驳回预检'
-    const response = await agencyApi.reviewBatchTask({ id: row.id, decision, operator: 'admin' })
+    const response = await agencyApi.reviewBatchTask({ id: row.id, decision })
     if (!response.success || !response.data) {
       setOperationNotice(response.error || `${action}失败。`)
       return
@@ -1244,6 +1252,30 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         ? `${object} 的本地预检已通过；仍未登录或调用税局、银行等外部系统，后续动作需人工发起。`
         : `${object} 的本地预检已驳回并阻断后续操作；未调用任何外部系统。`,
     )
+  }
+
+  const handleRunBatchTask = async (row: AgencyRow) => {
+    const object = rowObjectLabel(row)
+    if (row.values.taskStatus !== 'prechecked') {
+      setOperationNotice(`${object} 尚未完成预检或审批，不能执行。`)
+      return
+    }
+    const highRisk = row.values.taskType === 'closing_precheck'
+    const confirmed = window.confirm(highRisk
+      ? `确认执行 ${object}？通过全部会计校验的账套将立即结账，失败账套会被单独阻断。`
+      : `确认执行 ${object}？系统会按账套写入采集、凭证建议或本地资料处理队列。`)
+    if (!confirmed) return
+    const response = await agencyApi.runBatchTask({ id: row.id })
+    if (!response.success || !response.data) {
+      setOperationNotice(response.error || `${object} 执行失败。`)
+      return
+    }
+    writeAgencyAudit('执行批量任务', `${pageConfig.title}-${object}`, highRisk ? '高' : '中', response.data.status === 'blocked' ? '失败' : '成功')
+    await loadRemoteRows()
+    const items = await agencyApi.getBatchTaskItems(row.id)
+    setBatchTaskItems(items.success ? items.data || [] : [])
+    setDetailRow({ ...row, status: mapAgencyBatchTaskStatus(response.data.status), values: { ...row.values, progress: `${response.data.progressCurrent}/${response.data.progressTotal ?? 0}`, result: response.data.resultSummary || '-' } })
+    setOperationNotice(response.data.resultSummary || `${object} 已执行。`)
   }
 
   const handleEnterAccount = async (row: AgencyRow) => {
@@ -1280,7 +1312,6 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         period: agencyPeriodLabel,
         moduleName: `机构-${pageConfig.title}`,
         operation: toolbarMeta.importLabel || '导入资料',
-        operator: 'admin',
         file,
       })))
       const completed = jobs.filter(Boolean).length
@@ -1384,7 +1415,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       return
     }
 
-    const response = await agencyApi.createBatchTasks({ period: agencyPeriodLabel, taskTypes: selectedBatchTaskTypes, operator: 'admin' })
+    const response = await agencyApi.createBatchTasks({ period: agencyPeriodLabel, taskTypes: selectedBatchTaskTypes })
     if (!response.success) {
       setOperationNotice(response.error || '批量预检任务创建失败。')
       return
@@ -1408,7 +1439,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         sheetName: pageConfig.title,
         fileName,
       })
-      recordExportJob({
+      await recordExportJob({
+        scopeKind: 'agency',
         fileName,
         moduleName: `机构-${pageConfig.title}`,
         format: 'Excel',
@@ -1418,12 +1450,12 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       })
       writeAgencyAudit('导出Excel', fileName)
     } catch (error) {
-      setOperationNotice(`Excel 导出失败：${String(error)}`)
-      writeAgencyAudit('导出Excel', fileName, '普通', '失败')
+      setOperationNotice(`Excel 导出或下载中心登记失败：${String(error)}`)
+      writeAgencyAudit('导出Excel登记失败', fileName, '普通', '失败')
     }
   }
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     const exportedAt = new Date().toLocaleString('zh-CN')
     const fileName = `${pageConfig.title}-${agencyPeriodLabel}-print`
     const scope = `${agencyPeriodLabel}/${activeTab}/${query.trim() || '全部'}`
@@ -1434,19 +1466,25 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       writeAgencyAudit('打印预览失败', fileName)
       return
     }
-    printWindow.document.write(html)
-    printWindow.document.close()
-    printWindow.focus()
-    printWindow.print()
-    recordExportJob({
-      fileName,
-      moduleName: `机构-${pageConfig.title}`,
-      format: '打印预览',
-      scope,
-      templateKind: 'agency',
-      rowCount: filteredRows.length,
-    })
-    writeAgencyAudit('打印', fileName)
+    try {
+      printWindow.document.write(sanitizePrintableHtml(html))
+      printWindow.document.close()
+      printWindow.focus()
+      printWindow.print()
+      await recordExportJob({
+        scopeKind: 'agency',
+        fileName,
+        moduleName: `机构-${pageConfig.title}`,
+        format: '打印预览',
+        scope,
+        templateKind: 'agency',
+        rowCount: filteredRows.length,
+      })
+      writeAgencyAudit('打印', fileName)
+    } catch (error) {
+      setOperationNotice(`打印预览已打开，但下载中心登记失败：${String(error)}`)
+      writeAgencyAudit('打印登记失败', fileName, '普通', '失败')
+    }
   }
 
   const handleExportPdf = async () => {
@@ -1459,7 +1497,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         fileName,
         pageTitle: `${pageConfig.title} ${agencyPeriodLabel}`,
       })
-      recordExportJob({
+      await recordExportJob({
+        scopeKind: 'agency',
         fileName,
         moduleName: `机构-${pageConfig.title}`,
         format: 'PDF',
@@ -1469,8 +1508,8 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       })
       writeAgencyAudit('导出PDF', fileName)
     } catch (error) {
-      setOperationNotice(`PDF 导出失败：${String(error)}`)
-      writeAgencyAudit('导出PDF', fileName, '普通', '失败')
+      setOperationNotice(`PDF 导出或下载中心登记失败：${String(error)}`)
+      writeAgencyAudit('导出PDF登记失败', fileName, '普通', '失败')
     }
   }
 
@@ -1589,7 +1628,6 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
       status: automationReviewDraft.status,
       confidence,
       riskLevel: automationReviewDraft.riskLevel,
-      reviewer: automationReviewDraft.reviewer || undefined,
       resultSummary: automationReviewDraft.resultSummary || undefined,
     })
     if (!result.success || !result.data) {
@@ -1685,7 +1723,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         </div>
       )}
       {showContractDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增或编辑服务合同">
           <form onSubmit={handleCreateContract} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
@@ -1755,7 +1793,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         </div>
       )}
       {showFeeDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增或编辑收费记录">
           <form onSubmit={handleCreateFeeCollection} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
@@ -1825,7 +1863,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         </div>
       )}
       {showCollaborationDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增或编辑协同事项">
           <form onSubmit={handleCreateCollaborationItem} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
@@ -1891,7 +1929,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         </div>
       )}
       {showAutomationReviewDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="复核自动化任务">
           <form onSubmit={handleSaveAutomationReview} className="w-full max-w-xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
@@ -1917,10 +1955,6 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                   <option value="normal">正常</option><option value="medium">中风险</option><option value="high">高风险</option>
                 </select>
               </label>
-              <label className="space-y-1 text-xs text-slate-600">
-                <span>复核人</span>
-                <input value={automationReviewDraft.reviewer} onChange={(event) => setAutomationReviewDraft((draft) => ({ ...draft, reviewer: event.target.value }))} className="h-9 w-full border border-slate-300 px-2 text-sm text-slate-900" />
-              </label>
               <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
                 <span>复核结论</span>
                 <textarea rows={4} value={automationReviewDraft.resultSummary} onChange={(event) => setAutomationReviewDraft((draft) => ({ ...draft, resultSummary: event.target.value }))} placeholder="记录识别依据、人工调整和下一步处理意见" className="w-full resize-y border border-slate-300 px-2 py-1.5 text-sm text-slate-900" />
@@ -1934,7 +1968,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
         </div>
       )}
       {showAuthorizationDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label="新增或编辑授权记录">
           <form onSubmit={handleCreateAuthorization} className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
@@ -2047,7 +2081,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                   )
                 })}
               </div>
-              <p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 text-xs leading-5 text-slate-700">安全边界：创建和执行的都是本地预检任务。不会登录电子税务局、银行或自然人税收系统，也不会自动报税、扣款、结账或生成入账凭证。</p>
+              <p className="border-l-2 border-[#1f65a7] bg-blue-50 px-3 py-2 text-xs leading-5 text-slate-700">安全边界：创建阶段只生成本地预检任务。预检与审批通过后，采集、凭证建议、申报包和回执归档进入本地队列；批量结账会逐账套执行完整会计校验并立即结账。系统不会伪造税局或银行提交、扣款和回执结果。</p>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
               <button type="button" onClick={() => setShowBatchTaskDialog(false)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700">取消</button>
@@ -2075,6 +2109,14 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                 </div>
               ))}
             </div>
+            {kind === 'batchOps' && (
+              <section className="border-t border-slate-200 p-4">
+                <div className="mb-2 flex items-center justify-between gap-3"><h3 className="text-sm font-semibold text-slate-800">逐账套结果</h3><span className="text-xs text-slate-500">{batchTaskItems.length} 户</span></div>
+                {batchTaskItemsLoading && <p className="py-4 text-center text-xs text-slate-500">正在读取执行结果...</p>}
+                {!batchTaskItemsLoading && batchTaskItems.length === 0 && <p className="py-4 text-center text-xs text-slate-500">任务尚未执行，暂无逐账套结果。</p>}
+                {!batchTaskItemsLoading && batchTaskItems.length > 0 && <div className="max-h-72 space-y-2 overflow-auto">{batchTaskItems.map((item) => <article key={item.id} className="grid gap-1 border border-slate-200 p-3 text-xs sm:grid-cols-[10rem_6rem_1fr]"><div><p className="font-medium text-slate-800">{item.companyName || item.companyId}</p><p className="mt-1 text-slate-500">{item.periodId || agencyPeriodLabel}</p></div><div><StatusBadge value={mapAgencyBatchTaskStatus(item.status)} /></div><div><p className="text-slate-700">{item.resultSummary || '无结果说明'}</p>{item.errorMessage && <p className="mt-1 text-rose-700">{item.errorMessage}</p>}</div></article>)}</div>}
+              </section>
+            )}
             <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">{detailMeta.boundary}</div>
           </div>
         </div>
@@ -2084,14 +2126,14 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
           <div className="min-w-0">
             <h1 className="text-base font-semibold">{pageConfig.title}</h1>
             <p className="text-xs text-slate-500">{pageConfig.description}</p>
-            {usesAgencyPreviewRows && <p className="mt-1 text-xs text-sky-700">浏览器本地台账：列表与汇总读取本机保存的预览记录，可在当前模块继续维护。</p>}
+            {usesAgencyPreviewRows && <p className="mt-1 text-xs text-sky-700 dark:text-sky-300">浏览器本地台账：列表与汇总读取本机保存的预览记录，可在当前模块继续维护。</p>}
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1">
             <ToolButton icon={<RefreshCw className={cn('h-3.5 w-3.5', isLoadingRows && 'animate-spin')} />} label={toolbarMeta.refreshLabel} onClick={handleRefresh} />
             {toolbarMeta.importLabel && <ToolButton icon={<Upload className="h-3.5 w-3.5" />} label={toolbarMeta.importLabel} onClick={handleImport} />}
             <ToolButton icon={<Download className="h-3.5 w-3.5" />} label={toolbarMeta.excelLabel} onClick={handleExportExcel} />
             <ToolButton icon={<FileText className="h-3.5 w-3.5" />} label={toolbarMeta.pdfLabel} onClick={handleExportPdf} />
-            <ToolButton icon={<Printer className="h-3.5 w-3.5" />} label="打印" title={toolbarMeta.printLabel} onClick={handlePrint} />
+            <ToolButton icon={<Printer className="h-3.5 w-3.5" />} label="打印" title={toolbarMeta.printLabel} onClick={() => void handlePrint()} />
             <button
               type="button"
               onClick={handlePrimaryAction}
@@ -2168,7 +2210,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                 <tbody>
                   {pagedRows.map((row) => (
                     <tr key={row.id} className="hover:bg-[#f8fbff]">
-                      <td className="border-b border-r border-slate-200 px-2 py-2"><input type="checkbox" /></td>
+                      <td className="border-b border-r border-slate-200 px-2 py-2"><input type="checkbox" aria-label={`选择记录 ${row.id}`} /></td>
                       <td className="border-b border-r border-slate-200 px-2 py-2"><StatusBadge value={row.status} /></td>
                       {pageConfig.columns.map((column) => (
                         <td key={column.key} className={cn('border-b border-r border-slate-200 px-2 py-2', alignClass(column.align))}>
@@ -2176,7 +2218,7 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                         </td>
                       ))}
                       <td className="whitespace-nowrap border-b border-slate-200 px-2 py-2 text-right">
-                        <button type="button" onClick={() => handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
+                        <button type="button" onClick={() => void handleViewRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
                           查看
                         </button>
                         {kind === 'batchOps' && row.status === '待处理' && (
@@ -2193,6 +2235,11 @@ export function AgencyModulePage({ kind }: AgencyModulePageProps) {
                               驳回预检
                             </button>
                           </>
+                        )}
+                        {kind === 'batchOps' && row.values.taskStatus === 'prechecked' && (
+                          <button type="button" onClick={() => void handleRunBatchTask(row)} className="mr-2 text-emerald-700 hover:underline">
+                            执行任务
+                          </button>
                         )}
                         {kind !== 'batchOps' && (
                           <button type="button" onClick={() => void handleProcessRow(row)} className="mr-2 text-[#1f65a7] hover:underline">
@@ -2433,6 +2480,8 @@ function mapAgencyBatchTaskRow(item: AgencyBatchTask): AgencyRow {
       started: item.createdAt,
       result: item.resultSummary || '-',
       approval: item.requiresApproval ? '需审批' : '无需审批',
+      taskStatus: item.status,
+      taskType: item.taskType,
     },
   }
 }
@@ -2779,10 +2828,10 @@ function mapAuthorizationStatus(authStatus: string, expiresAt: string | null, ri
 function mapAgencyBatchTaskStatus(status: string): AgencyRow['status'] {
   const normalized = status.toLowerCase()
   if (normalized === 'completed') return '已完成'
-  if (normalized === 'failed' || normalized === 'blocked') return '异常'
+  if (normalized === 'failed' || normalized === 'blocked' || normalized === 'completed_with_errors') return '异常'
   if (normalized === 'running' || normalized === 'processing') return '进行中'
   if (normalized === 'awaiting_approval') return '待确认'
-  if (normalized === 'prechecked') return '已完成'
+  if (normalized === 'prechecked') return '待处理'
   return '待处理'
 }
 

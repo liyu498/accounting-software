@@ -18,9 +18,20 @@ export interface TemplateEntry {
   account_code: string
   account_name: string
   direction: string
+  amount?: number | null
   summary: string
   auxiliary_type: string | null
   auxiliary_id: string | null
+  auxiliary_items?: {
+    auxiliary_category_id: string
+    auxiliary_item_id: string
+  }[]
+  doc_number?: string | null
+  quantity?: number | null
+  unit_price?: number | null
+  unit?: string | null
+  currency_id?: string | null
+  exchange_rate?: number | null
 }
 
 export interface VoucherTemplateWithEntries {

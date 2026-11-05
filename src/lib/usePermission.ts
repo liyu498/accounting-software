@@ -4,12 +4,14 @@ import { invoke } from './tauri'
 export type Resource =
   | 'vouchers'
   | 'invoices'
+  | 'tax'
   | 'reports'
   | 'settings'
   | 'ledger'
   | 'period'
   | 'users'
   | 'inventory'
+  | 'payroll'
   | 'bank'
 
 export type Action =
@@ -27,43 +29,51 @@ const ROLE_PERMISSIONS: Record<string, Record<string, Action[]>> = {
   admin: {
     vouchers: ['view', 'create', 'edit', 'delete', 'approve', 'export', 'print', 'import'],
     invoices: ['view', 'create', 'edit', 'delete', 'export'],
+    tax: ['view', 'create', 'edit', 'delete', 'approve', 'export', 'print'],
     reports: ['view', 'export', 'print'],
     settings: ['view', 'edit'],
     ledger: ['view', 'export', 'print'],
     period: ['close'],
     users: ['view', 'create', 'edit', 'delete'],
     inventory: ['view', 'create', 'edit', 'delete'],
+    payroll: ['view', 'create', 'edit', 'delete', 'approve', 'export', 'print'],
     bank: ['view', 'create', 'edit', 'delete'],
   },
   manager: {
     vouchers: ['view', 'create', 'edit', 'approve', 'export', 'print'],
     invoices: ['view', 'create', 'edit', 'delete'],
+    tax: ['view', 'create', 'edit', 'approve', 'export', 'print'],
     reports: ['view', 'export', 'print'],
     settings: ['view', 'edit'],
     ledger: ['view', 'export', 'print'],
     period: ['close'],
     users: ['view'],
     inventory: ['view', 'create', 'edit', 'delete'],
+    payroll: ['view', 'create', 'edit', 'export'],
     bank: ['view', 'create', 'edit'],
   },
   accountant: {
     vouchers: ['view', 'create', 'edit', 'export'],
     invoices: ['view', 'create', 'edit'],
+    tax: ['view', 'create', 'edit', 'export'],
     reports: ['view', 'export'],
     settings: ['view'],
     ledger: ['view', 'export'],
     users: [],
     inventory: ['view', 'create', 'edit'],
+    payroll: ['view', 'create', 'edit', 'export'],
     bank: ['view'],
   },
   viewer: {
     vouchers: ['view'],
     invoices: ['view'],
+    tax: ['view'],
     reports: ['view'],
     settings: ['view'],
     ledger: ['view'],
     users: [],
     inventory: ['view'],
+    payroll: ['view'],
     bank: ['view'],
   },
 }
@@ -74,9 +84,13 @@ export function usePermission() {
 
   const hasPermission = (resource: Resource, action: Action): boolean => {
     const permissions = ROLE_PERMISSIONS[role]
-    if (!permissions) return false
-    const actions = permissions[resource]
-    return actions ? actions.includes(action) : false
+    if (permissions) {
+      const actions = permissions[resource]
+      return actions ? actions.includes(action) : false
+    }
+    return Boolean(user?.permissions.some(
+      (permission) => permission.resource === resource && permission.action === action,
+    ))
   }
 
   const canView = (resource: Resource): boolean => hasPermission(resource, 'view')

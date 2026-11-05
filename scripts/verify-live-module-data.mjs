@@ -1,1984 +1,779 @@
-import { existsSync, readFileSync } from 'node:fs'
-
-const adapterSource = readFileSync('src/lib/liveModuleRows.ts', 'utf8')
-const pageSource = readFileSync('src/pages/operations/BusinessModulePage.tsx', 'utf8')
-const taxWorkspaceSource = readFileSync('src/pages/tax/TaxWorkspace.tsx', 'utf8')
-const agencyModuleSource = readFileSync('src/pages/agency/AgencyModulePage.tsx', 'utf8')
-const agencyCommandSource = readFileSync('src-tauri/src/commands/agency.rs', 'utf8')
-const apiSource = readFileSync('src/lib/api.ts', 'utf8')
-const welcomeSource = readFileSync('src/pages/Welcome.tsx', 'utf8')
-const appSource = readFileSync('src/App.tsx', 'utf8')
-const dashboardSource = readFileSync('src/pages/Dashboard.tsx', 'utf8')
-const shellSource = readFileSync('src/components/layout/AppShell.tsx', 'utf8')
-const roleManagerSource = readFileSync('src/pages/settings/RoleManager.tsx', 'utf8')
-const retiredLegacyPagePaths = [
-  'src/pages/AIBookkeeping.tsx',
-  'src/pages/BankReconciliation.tsx',
-  'src/pages/CustomerList.tsx',
-  'src/pages/InventoryList.tsx',
-  'src/pages/settings/AccountRegistration.tsx',
-  'src/pages/settings/ImportHistory.tsx',
-  'src/pages/settings/OtherContacts.tsx',
-  'src/pages/settings/Suppliers.tsx',
-]
-const existingRetiredLegacyPagePaths = retiredLegacyPagePaths.filter((path) => existsSync(path))
-const companyStoreSource = readFileSync('src/stores/companyStore.ts', 'utf8')
-const companyCommandSource = readFileSync('src-tauri/src/commands/companies.rs', 'utf8')
-const companyTodoCommandSource = existsSync('src-tauri/src/commands/company_todos.rs')
-  ? readFileSync('src-tauri/src/commands/company_todos.rs', 'utf8')
-  : ''
-const databaseSource = readFileSync('src-tauri/src/db.rs', 'utf8')
-const periodCommandSource = readFileSync('src-tauri/src/commands/periods.rs', 'utf8')
-const backupCommandSource = existsSync('src-tauri/src/commands/backups.rs')
-  ? readFileSync('src-tauri/src/commands/backups.rs', 'utf8')
-  : ''
-const employeeCommandSource = existsSync('src-tauri/src/commands/employees.rs')
-  ? readFileSync('src-tauri/src/commands/employees.rs', 'utf8')
-  : ''
-const payrollCommandSource = existsSync('src-tauri/src/commands/payroll.rs')
-  ? readFileSync('src-tauri/src/commands/payroll.rs', 'utf8')
-  : ''
-const socialSecurityCommandSource = existsSync('src-tauri/src/commands/social_security.rs')
-  ? readFileSync('src-tauri/src/commands/social_security.rs', 'utf8')
-  : ''
-const specialDeductionCommandSource = existsSync('src-tauri/src/commands/special_deductions.rs')
-  ? readFileSync('src-tauri/src/commands/special_deductions.rs', 'utf8')
-  : ''
-const bankTransactionCommandSource = existsSync('src-tauri/src/commands/bank_transactions.rs')
-  ? readFileSync('src-tauri/src/commands/bank_transactions.rs', 'utf8')
-  : ''
-const documentRecordCommandSource = existsSync('src-tauri/src/commands/document_records.rs')
-  ? readFileSync('src-tauri/src/commands/document_records.rs', 'utf8')
-  : ''
-const accountTransferCommandSource = existsSync('src-tauri/src/commands/account_transfers.rs')
-  ? readFileSync('src-tauri/src/commands/account_transfers.rs', 'utf8')
-  : ''
-const fixedAssetCommandSource = existsSync('src-tauri/src/commands/fixed_assets.rs')
-  ? readFileSync('src-tauri/src/commands/fixed_assets.rs', 'utf8')
-  : ''
-const inventoryMovementCommandSource = existsSync('src-tauri/src/commands/inventory_movements.rs')
-  ? readFileSync('src-tauri/src/commands/inventory_movements.rs', 'utf8')
-  : ''
-const inventoryItemCommandSource = existsSync('src-tauri/src/commands/inventory_items.rs')
-  ? readFileSync('src-tauri/src/commands/inventory_items.rs', 'utf8')
-  : ''
-const unitCommandSource = existsSync('src-tauri/src/commands/units.rs')
-  ? readFileSync('src-tauri/src/commands/units.rs', 'utf8')
-  : ''
-const settlementRuleStoreSource = readFileSync('src/stores/settlementRuleStore.ts', 'utf8')
-const templateCommandSource = readFileSync('src-tauri/src/commands/templates.rs', 'utf8')
-const templateStoreSource = readFileSync('src/stores/templateStore.ts', 'utf8')
-const auxiliaryStoreSource = readFileSync('src/stores/auxiliaryStore.ts', 'utf8')
-const auxiliaryCommandSource = readFileSync('src-tauri/src/commands/auxiliary.rs', 'utf8')
-const voucherEntryRowSource = readFileSync('src/components/voucher/VoucherEntryRow.tsx', 'utf8')
-const matchingRuleStoreSource = existsSync('src/stores/matchingRuleStore.ts')
-  ? readFileSync('src/stores/matchingRuleStore.ts', 'utf8')
-  : ''
-const matchingRuleCommandSource = existsSync('src-tauri/src/commands/matching_rules.rs')
-  ? readFileSync('src-tauri/src/commands/matching_rules.rs', 'utf8')
-  : ''
-const assetCategoryStoreSource = existsSync('src/stores/assetCategoryStore.ts')
-  ? readFileSync('src/stores/assetCategoryStore.ts', 'utf8')
-  : ''
-const assetCategoryCommandSource = existsSync('src-tauri/src/commands/asset_categories.rs')
-  ? readFileSync('src-tauri/src/commands/asset_categories.rs', 'utf8')
-  : ''
-const businessTagStoreSource = existsSync('src/stores/businessTagStore.ts')
-  ? readFileSync('src/stores/businessTagStore.ts', 'utf8')
-  : ''
-const businessTagCommandSource = existsSync('src-tauri/src/commands/business_tags.rs')
-  ? readFileSync('src-tauri/src/commands/business_tags.rs', 'utf8')
-  : ''
-const businessOrderCommandSource = existsSync('src-tauri/src/commands/business_orders.rs')
-  ? readFileSync('src-tauri/src/commands/business_orders.rs', 'utf8')
-  : ''
-const settlementRecordCommandSource = existsSync('src-tauri/src/commands/settlement_records.rs')
-  ? readFileSync('src-tauri/src/commands/settlement_records.rs', 'utf8')
-  : ''
-const bankReconciliationCommandSource = existsSync('src-tauri/src/commands/bank_reconciliation_records.rs')
-  ? readFileSync('src-tauri/src/commands/bank_reconciliation_records.rs', 'utf8')
-  : ''
-const costCarryoverCommandSource = existsSync('src-tauri/src/commands/cost_carryover_records.rs')
-  ? readFileSync('src-tauri/src/commands/cost_carryover_records.rs', 'utf8')
-  : ''
-const companyAccountStoreSource = existsSync('src/stores/companyAccountStore.ts')
-  ? readFileSync('src/stores/companyAccountStore.ts', 'utf8')
-  : ''
-const companyAccountCommandSource = existsSync('src-tauri/src/commands/company_accounts.rs')
-  ? readFileSync('src-tauri/src/commands/company_accounts.rs', 'utf8')
-  : ''
-const automationCommandSource = readFileSync('src-tauri/src/commands/automation.rs', 'utf8')
-const voucherCommandSource = readFileSync('src-tauri/src/commands/vouchers.rs', 'utf8')
-const localFileRegistrySource = readFileSync('src/lib/localFileRegistry.ts', 'utf8')
-const tauriSource = readFileSync('src/lib/tauri.ts', 'utf8')
-
-const requiredCompanyTodoSnippets = [
-  ['company todo schema', 'CREATE TABLE IF NOT EXISTS company_todos'],
-  ['company todo list command', 'pub async fn get_company_todos'],
-  ['company todo create command', 'pub async fn create_company_todo'],
-  ['company todo completion command', 'pub async fn complete_company_todo'],
-  ['company todo API', 'export const companyTodoApi'],
-  ['company todo API type', 'export interface CompanyTodo'],
-  ['company todo live scope', 'usesLiveCompanyTodoData'],
-  ['company todo list refresh', 'companyTodoApi.getAll({'],
-  ['company todo create binding', 'companyTodoApi.create({'],
-  ['company todo completion binding', 'companyTodoApi.complete({'],
-  ['company todo dialog', '新增账套待办'],
-]
-
-const requiredClosingWorkflowSnippets = [
-  ['closing workflow receives live summary', '<ClosingWorkflowPanel summary={config.summary}'],
-  ['closing workflow summary contract', "function ClosingWorkflowPanel({ onReview, onRun, summary }: { onReview: () => void; onRun: () => void; summary: ModuleConfig['summary'] })"],
-  ['closing workflow renders current summary', 'summary.map((item) => ('],
-]
-
-const requiredAiJobWorkflowSnippets = [
-  ['AI job workflow receives live summary', 'summary={config.summary}\n            onStart={startAiTaskDraft}'],
-  ['AI job workflow summary contract', "function AiJobWorkflowPanel({ onStart, onReview, summary }: { onStart: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['AI job workflow renders current summary', 'summary.map((item) => ('],
-]
-
-const requiredClosingPrecheckSnippets = [
-  ['closing task action is precheck', "primaryAction: '执行结转检查'"],
-  ['closing precheck audit record', "writeModuleAudit('执行结转前检查'"],
-  ['closing precheck manual boundary', '请前往账期管理完成最终关账确认。'],
-]
-
-const requiredLedgerWorkflowSummarySnippets = [
-  ['cost carryover workflow receives live summary', 'summary={config.summary}\n            onAdd={openCostCarryoverEditor}'],
-  ['cost carryover workflow summary contract', 'summary: ModuleConfig[\'summary\']'],
-  ['settlement workflow receives live summary', 'summary={config.summary}\n            onAdd={() => openSettlementRecordEditor'],
-  ['closing summary uses pending confirmation label', "{ label: '待确认', value: `${pending} 项`, tone: pending > 0 ? 'amber' : 'gray' }"],
-]
-
-const requiredReconciliationAndAgingWorkflowSummarySnippets = [
-  ['bank reconciliation live summary mapper', 'function summarizeLiveBankReconciliation(records: BankReconciliationRecord[]): ModuleConfig[\'summary\']'],
-  ['bank reconciliation config summary binding', 'summary: summarizeLiveBankReconciliation(bankReconciliationRecords)'],
-  ['bank reconciliation workflow receives live summary', '<BankReconciliationWorkflowPanel\n            summary={config.summary}'],
-  ['bank reconciliation workflow summary contract', 'function BankReconciliationWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig[\'summary\'] })'],
-  ['aging live summary mapper', 'function summarizeLiveSettlementAging(records: SettlementRecord[]): ModuleConfig[\'summary\']'],
-  ['aging config summary binding', 'summary: summarizeLiveSettlementAging(settlementRecords)'],
-  ['aging workflow receives live summary', '<AgingWorkflowPanel summary={config.summary} onReview={reviewAging} />'],
-  ['aging workflow summary contract', 'function AgingWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig[\'summary\'] })'],
-  ['aging workflow renders current summary', '按当前账套往来核销记录实时重算'],
-]
-
-const requiredInventoryWorkflowSummarySnippets = [
-  ['inventory workflow receives live summary', "summary={config.summary}\n            onReview={reviewInventoryMovement}"],
-  ['inventory workflow summary contract', "function InventoryWorkflowPanel({ mode, onAdd, onReview, summary }: { mode: 'archive' | 'movement'; onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['inventory workflow renders current summary', '按当前账套存货台账实时汇总'],
-]
-
-const requiredPeopleWorkflowSummarySnippets = [
-  ['employee workflow receives live summary', '<EmployeeVerificationPanel\n            summary={config.summary}'],
-  ['employee workflow summary contract', "function EmployeeVerificationPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['payroll workflow receives live summary', '<PayrollWorkflowPanel\n            summary={config.summary}'],
-  ['payroll workflow summary contract', "function PayrollWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['social security summary mapper', "function summarizeLiveSocialSecurity(records: SocialSecurityRecord[]): ModuleConfig['summary']"],
-  ['social security config summary binding', 'summary: summarizeLiveSocialSecurity(socialSecurityRecords)'],
-  ['social security workflow receives live summary', '<SocialSecurityWorkflowPanel\n            summary={config.summary}'],
-  ['social security workflow summary contract', "function SocialSecurityWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['people workflow renders current summary', '按当前账套人员档案实时汇总'],
-  ['payroll workflow renders current summary', '按当前账套薪酬台账实时汇总'],
-  ['social security workflow renders current summary', '按当前账套社保台账实时汇总'],
-]
-
-const requiredOperationsWorkflowSummarySnippets = [
-  ['bank flow workflow receives live summary', '<BankFlowWorkflowPanel\n            mode={kind === \'bankStatement\' ? \'银行账单\' : \'账单一览\'}\n            summary={config.summary}'],
-  ['bank flow workflow summary contract', "function BankFlowWorkflowPanel({ mode, onAdd, onMatch, summary }: { mode: '账单一览' | '银行账单'; onAdd: () => void; onMatch: () => void; summary: ModuleConfig['summary'] })"],
-  ['business order workflow receives live summary', '<BusinessOrderWorkflowPanel\n            mode={kind === \'purchaseManagement\' ? \'purchase\' : \'sales\'}\n            summary={config.summary}'],
-  ['business order workflow summary contract', "function BusinessOrderWorkflowPanel({ mode, onAdd, onReview, summary }: { mode: 'purchase' | 'sales'; onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['expense workflow receives live summary', '<ExpenseWorkflowPanel\n            summary={config.summary}'],
-  ['expense workflow summary contract', "function ExpenseWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['source document workflow receives live summary', '<SourceDocumentWorkflowPanel\n            summary={config.summary}'],
-  ['source document workflow summary contract', "function SourceDocumentWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['fixed asset workflow receives live summary', '<FixedAssetWorkflowPanel\n            summary={config.summary}'],
-  ['fixed asset workflow summary contract', "function FixedAssetWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['operations workflow renders current summary', '按当前账套业务台账实时汇总'],
-]
-
-const requiredInvoiceWorkflowSummarySnippets = [
-  ['workflow metrics only accepts live summaries', "function WorkflowMetrics({ summary, detailFor }: { summary: ModuleConfig['summary']; detailFor?: (label: string) => string })"],
-  ['output invoice workflow receives live summary', '<OutputInvoiceWorkflowPanel summary={config.summary}'],
-  ['input invoice workflow receives live summary', '<InputInvoiceWorkflowPanel\n            summary={config.summary}'],
-  ['invoice voucher workflow receives live summary', '<InvoiceVoucherMatchingWorkflowPanel summary={config.summary}'],
-  ['receipt workflow receives live summary', '<ReceiptWorkflowPanel summary={config.summary}'],
-  ['invoice workflow renders current summary', '按当前账套发票与凭证台账实时汇总'],
-]
-
-const requiredControlWorkflowSummarySnippets = [
-  ['notification workflow receives live summary', '<NotificationWorkflowPanel summary={config.summary}'],
-  ['notification workflow summary contract', "function NotificationWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['audit workflow receives live summary', '<AuditWorkflowPanel summary={config.summary}'],
-  ['audit workflow summary contract', "function AuditWorkflowPanel({ onReview, summary }: { onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['voucher recycle workflow receives live summary', '<VoucherRecycleWorkflowPanel summary={config.summary}'],
-  ['voucher recycle workflow summary contract', "function VoucherRecycleWorkflowPanel({ onRestore, onReview, summary }: { onRestore: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['account transfer workflow receives live summary', '<AccountTransferWorkflowPanel summary={config.summary}'],
-  ['account transfer workflow summary contract', "function AccountTransferWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['special deduction workflow receives live summary', '<SpecialDeductionWorkflowPanel summary={config.summary}'],
-  ['special deduction workflow summary contract', "function SpecialDeductionWorkflowPanel({ onAdd, onReview, summary }: { onAdd: () => void; onReview: () => void; summary: ModuleConfig['summary'] })"],
-  ['control workflow renders current summary', '按当前账套控制台账实时汇总'],
-]
-
-const requiredFoundationWorkflowSummarySnippets = [
-  ['backup workflow receives live summary', '<BackupWorkflowPanel summary={config.summary}'],
-  ['matching rule workflow receives live summary', '<MatchingRuleWorkflowPanel summary={config.summary}'],
-  ['template governance workflow receives live summary', '<TemplateGovernanceWorkflowPanel summary={config.summary}'],
-  ['adapter authorization workflow receives live summary', '<AdapterAuthorizationWorkflowPanel summary={config.summary}'],
-  ['history migration workflow receives live summary', '<HistoryMigrationWorkflowPanel summary={config.summary}'],
-  ['risk workflow receives live summary', '<RiskWorkflowPanel summary={config.summary}'],
-  ['contract workflow receives live summary', '<ContractWorkflowPanel summary={config.summary}'],
-  ['account foundation workflow receives live summary', '<AccountFoundationWorkflowPanel summary={config.summary}'],
-  ['auxiliary foundation workflow receives live summary', '<AuxiliaryFoundationWorkflowPanel summary={config.summary}'],
-  ['period workflow receives live summary', '<PeriodManagementWorkflowPanel summary={config.summary}'],
-  ['foundation workflow summary contract', "summary: ModuleConfig['summary']"],
-  ['foundation workflow renders current summary', '按当前账套基础与规则台账实时汇总'],
-]
-
-const requiredCoreWorkflowSummarySnippets = [
-  ['ledger workflow receives live summary', '<LedgerWorkflowPanel summary={config.summary}'],
-  ['financial statement workflow receives live summary', '<FinancialStatementWorkflowPanel summary={config.summary}'],
-  ['company info workflow receives live summary', '<CompanyInfoWorkflowPanel summary={config.summary}'],
-  ['initial balance workflow receives live summary', '<InitialBalanceWorkflowPanel summary={config.summary}'],
-  ['subject workflow receives live summary', '<SubjectSettingsWorkflowPanel summary={config.summary}'],
-  ['auxiliary archive workflow receives live summary', '<AuxiliaryArchiveWorkflowPanel summary={config.summary}'],
-  ['tax planning workflow receives live summary', '<TaxPlanningWorkflowPanel\n            summary={config.summary}'],
-  ['tax report workflow receives live summary', '<TaxReportWorkflowPanel summary={config.summary}'],
-  ['tax receipt workflow receives live summary', '<TaxReceiptWorkflowPanel summary={config.summary}'],
-  ['core workflow summary contract', "summary: ModuleConfig['summary']"],
-  ['core workflow renders current summary', '按当前账套账簿、报表与申报数据实时汇总'],
-]
-
-const requiredRemainingWorkflowSummarySnippets = [
-  ['AI recognition workflow receives live summary', '<AiRecognitionWorkflowPanel summary={config.summary}'],
-  ['AI voucher suggestion workflow receives live summary', '<AiVoucherSuggestionWorkflowPanel\n            summary={config.summary}'],
-  ['AI rule training workflow receives live summary', '<AiRuleTrainingWorkflowPanel summary={config.summary}'],
-  ['print template workflow receives module summary', '<PrintTemplateWorkflowPanel summary={config.summary}'],
-  ['settings overview workflow receives module summary', '<SettingsOverviewWorkflowPanel summary={config.summary}'],
-  ['remaining workflow summary contract', "summary: ModuleConfig['summary']"],
-  ['remaining workflow renders current summary', '按当前账套模块配置与运行记录汇总'],
-]
-
-const requiredAdapterSnippets = [
-  ['settlement-rule tax-accrual label', "tax_accrual: '计提附加税费'"],
-  ['settlement-rule depreciation label', "depreciation: '计提固定资产折旧'"],
-  ['invoice row mapper', 'export function mapLiveInvoiceRows'],
-  ['voucher row mapper', 'export function mapLiveVoucherRows'],
-  ['invoice summary mapper', 'export function summarizeLiveInvoices'],
-  ['voucher summary mapper', 'export function summarizeLiveVouchers'],
-  ['trial balance row mapper', 'export function mapLiveTrialBalanceRows'],
-  ['general ledger row mapper', 'export function mapLiveGeneralLedgerRows'],
-  ['balance sheet row mapper', 'export function mapLiveBalanceSheetRows'],
-  ['income statement row mapper', 'export function mapLiveIncomeStatementRows'],
-  ['cash flow row mapper', 'export function mapLiveCashFlowRows'],
-  ['company info row mapper', 'export function mapLiveCompanyInfoRows'],
-  ['company account row mapper', 'export function mapLiveCompanyAccountRows'],
-  ['company account summary mapper', 'export function summarizeLiveCompanyAccounts'],
-  ['initial balance row mapper', 'export function mapLiveInitialBalanceRows'],
-  ['subject settings row mapper', 'export function mapLiveSubjectRows'],
-  ['auxiliary archive row mapper', 'export function mapLiveAuxiliaryArchiveRows'],
-  ['ledger overview row mapper', 'export function mapLiveLedgerOverviewRows'],
-  ['account summary row mapper', 'export function mapLiveAccountSummaryRows'],
-  ['subsidiary ledger row mapper', 'export function mapLiveSubsidiaryLedgerRows'],
-  ['auxiliary ledger row mapper', 'export function mapLiveAuxiliaryLedgerRows'],
-  ['auxiliary balance row mapper', 'export function mapLiveAuxiliaryBalanceRows'],
-  ['period management row mapper', 'export function mapLivePeriodManagementRows'],
-  ['period management summary mapper', 'export function summarizeLivePeriodManagement'],
-  ['history balance row mapper', 'export function mapLiveHistoryBalanceRows'],
-  ['history general ledger row mapper', 'export function mapLiveHistoryGeneralLedgerRows'],
-  ['history subsidiary ledger row mapper', 'export function mapLiveHistorySubsidiaryLedgerRows'],
-  ['history voucher row mapper', 'export function mapLiveHistoryVoucherRows'],
-  ['settlement rule row mapper', 'export function mapLiveSettlementRuleRows'],
-  ['currency row mapper', 'export function mapLiveCurrencyRows'],
-  ['currency summary mapper', 'export function summarizeLiveCurrencies'],
-  ['common digest row mapper', 'export function mapLiveCommonDigestRows'],
-  ['common digest summary mapper', 'export function summarizeLiveCommonDigests'],
-  ['voucher template row mapper', 'export function mapLiveVoucherTemplateRows'],
-  ['voucher template summary mapper', 'export function summarizeLiveVoucherTemplates'],
-  ['report formula row mapper', 'export function mapLiveReportFormulaRows'],
-  ['report formula summary mapper', 'export function summarizeLiveReportFormulas'],
-  ['adapter authorization row mapper', 'export function mapLiveAdapterAuthorizationRows'],
-  ['adapter authorization summary mapper', 'export function summarizeLiveAdapterAuthorizations'],
-  ['operation audit row mapper', 'export function mapLiveOperationAuditRows'],
-  ['operation audit summary mapper', 'export function summarizeLiveOperationAudits'],
-  ['auxiliary category row mapper', 'export function mapLiveAuxiliaryCategoryRows'],
-  ['auxiliary item row mapper', 'export function mapLiveAuxiliaryItemRows'],
-  ['voucher recycle row mapper', 'export function mapLiveVoucherRecycleRows'],
-  ['voucher recycle summary mapper', 'export function summarizeLiveVoucherRecycle'],
-  ['declaration receipt row mapper', 'export function mapLiveDeclarationReceiptRows'],
-  ['declaration receipt summary mapper', 'export function summarizeLiveDeclarationReceipts'],
-  ['tax init row mapper', 'export function mapLiveTaxInitRows'],
-  ['tax init summary mapper', 'export function summarizeLiveTaxInit'],
-  ['tax report row mapper', 'export function mapLiveTaxReportRows'],
-  ['tax report summary mapper', 'export function summarizeLiveTaxReports'],
-  ['automation job row mapper', 'export function mapLiveAutomationJobRows'],
-  ['automation job summary mapper', 'export function summarizeLiveAutomationJobs'],
-  ['automation suggestion view type', "view: 'queue' | 'recognition' | 'suggestion'"],
-  ['automation suggestion job boundary', "const suggestionJobs = jobs.filter((job) => job.jobType === 'voucher_suggestion')"],
-  ['finance tax report row mapper', 'export function mapLiveFinanceTaxReportRows'],
-  ['finance tax report summary mapper', 'export function summarizeLiveFinanceTaxReports'],
-  ['financial overview row mapper', 'export function mapLiveFinancialOverviewRows'],
-  ['financial overview summary mapper', 'export function summarizeLiveFinancialOverview'],
-  ['risk check row mapper', 'export function mapLiveRiskCheckRows'],
-  ['risk check summary mapper', 'export function summarizeLiveRiskChecks'],
-  ['closing task row mapper', 'export function mapLiveClosingTaskRows'],
-  ['closing task summary mapper', 'export function summarizeLiveClosingTasks'],
-  ['invoice voucher matching row mapper', 'export function mapLiveInvoiceVoucherMatchingRows'],
-  ['invoice voucher matching summary mapper', 'export function summarizeLiveInvoiceVoucherMatching'],
-  ['output invoice type', "invoice.invoice_type === invoiceType"],
-  ['invoice type boundary', "invoiceType: 'output' | 'input'"],
-  ['voucher direction filter', "entry.direction === direction"],
-  ['voucher debit mapping', "entryAccount(voucher.entries, 'debit')"],
-  ['voucher credit mapping', "entryAccount(voucher.entries, 'credit')"],
-]
-
-const requiredPageSnippets = [
-  ['module advanced filter state', 'const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)'],
-  ['module advanced filter row binding', 'const matchesAdvancedFilters ='],
-  ['module advanced filter dialog', '高级筛选条件'],
-  ['module column settings state', 'const [showModuleColumnSettings, setShowModuleColumnSettings] = useState(false)'],
-  ['module column settings persistence', 'function loadModuleColumnSettings('],
-  ['module visible column binding', 'const visibleColumns = useMemo(() =>'],
-  ['module column settings dialog', '列表列设置'],
-  ['live invoice store import', "from '../../stores/invoiceStore'"],
-  ['live voucher store import', "from '../../stores/voucherStore'"],
-  ['selected company integration', 'selectedCompanyId'],
-  ['current period integration', 'currentPeriodId'],
-  ['live data refresh effect', 'fetchInvoices({'],
-  ['live voucher query effect', 'queryVouchers({'],
-  ['output live row mapping', 'mapLiveInvoiceRows(effectiveInvoices, \'output\', effectiveInvoiceTagIds, effectiveBusinessTags)'],
-  ['input live row mapping', 'mapLiveInvoiceRows(effectiveInvoices, \'input\', effectiveInvoiceTagIds, effectiveBusinessTags)'],
-  ['voucher live row mapping', 'mapLiveVoucherRows(activeVouchers, effectiveVoucherTagIds, effectiveBusinessTags)'],
-  ['trial balance refresh', 'fetchTrialBalance(currentPeriodId)'],
-  ['general ledger refresh', 'getGeneralLedger(currentPeriodId)'],
-  ['balance sheet refresh', 'getBalanceSheet(currentPeriodId)'],
-  ['income statement refresh', 'getIncomeStatement(currentPeriodId)'],
-  ['cash flow refresh', 'getCashFlowStatement(currentPeriodId)'],
-  ['trial balance mapping', 'mapLiveTrialBalanceRows(trialBalance)'],
-  ['general ledger mapping', 'mapLiveGeneralLedgerRows(generalLedger)'],
-  ['balance sheet mapping', 'mapLiveBalanceSheetRows(balanceSheet)'],
-  ['income statement mapping', 'mapLiveIncomeStatementRows(incomeStatement)'],
-  ['cash flow mapping', 'mapLiveCashFlowRows(cashFlow)'],
-  ['company info mapping', 'mapLiveCompanyInfoRows(selectedCompany)'],
-  ['company account mapping', 'mapLiveCompanyAccountRows(isTauri ? companyAccounts : scopedPreviewCompanyAccounts)'],
-  ['company bank account live scope', 'usesLiveCompanyBankAccountData'],
-  ['initial balance mapping', 'mapLiveInitialBalanceRows(liveReports.initialBalance)'],
-  ['initial balance validation', 'validateInitialBalances(currentPeriodId)'],
-  ['account archive refresh', 'fetchAccounts(selectedCompanyId)'],
-  ['auxiliary category refresh', 'fetchCategories(selectedCompanyId)'],
-  ['auxiliary item refresh', 'fetchAllItems(selectedCompanyId)'],
-  ['subject settings mapping', 'mapLiveSubjectRows(accounts)'],
-  ['auxiliary archive mapping', 'mapLiveAuxiliaryArchiveRows(kind, isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories'],
-  ['ledger overview mapping', 'mapLiveLedgerOverviewRows(ledgerOverview)'],
-  ['account summary mapping', 'mapLiveAccountSummaryRows(accountSummary)'],
-  ['subsidiary ledger query', 'getSubsidiaryLedger(currentPeriodId, selectedLedgerAccountCode)'],
-  ['auxiliary ledger query', 'fetchAuxiliaryLedger({'],
-  ['auxiliary balance query', 'fetchAuxiliaryBalance(selectedAuxiliaryCategoryId, currentPeriodId, selectedCompanyId)'],
-  ['subsidiary ledger mapping', 'mapLiveSubsidiaryLedgerRows(subsidiaryLedger, effectiveLedgerSubjectLabel)'],
-  ['auxiliary ledger browser preview mapping', 'buildPreviewAuxiliaryLedger(activeVouchers, voucherEditorPeriod?.id, effectiveAuxiliaryCategoryCode, effectiveAuxiliaryItemId)'],
-  ['auxiliary balance browser preview mapping', 'buildPreviewAuxiliaryBalance(activeVouchers, voucherEditorPeriod?.id, effectiveAuxiliaryCategoryCode, auxiliaryLedgerItemOptions)'],
-  ['auxiliary ledger mapping', 'mapLiveAuxiliaryLedgerRows(auxiliaryLedger, effectiveAuxiliaryCategory?.name || \'\', effectiveAuxiliaryItem?.name || \'\')'],
-  ['auxiliary balance mapping', 'mapLiveAuxiliaryBalanceRows(auxiliaryBalance, effectiveAuxiliaryCategory?.name || \'\')'],
-  ['ledger account selector', 'aria-label="明细账科目"'],
-  ['auxiliary category selector', 'aria-label="辅助账类别"'],
-  ['auxiliary item selector', 'aria-label="辅助账项目"'],
-  ['period management refresh', 'fetchPeriods(selectedCompanyId)'],
-  ['period management mapping', 'mapLivePeriodManagementRows(effectivePeriods)'],
-  ['period management live scope', 'usesLivePeriodManagementData'],
-  ['history trial balance query', 'fetchTrialBalance(selectedHistoryPeriodId)'],
-  ['history general ledger query', 'getGeneralLedger(selectedHistoryPeriodId)'],
-  ['history balance mapping', 'mapLiveHistoryBalanceRows(historyBalance, effectiveHistoryPeriodLabel)'],
-  ['history general ledger mapping', 'mapLiveHistoryGeneralLedgerRows(historyGeneralLedger, effectiveHistoryPeriodLabel)'],
-  ['history period selector', 'aria-label="历史账期"'],
-  ['history report live scope', 'usesLiveHistoryReportData'],
-  ['history subsidiary ledger query', 'getSubsidiaryLedger(selectedHistoryPeriodId, selectedHistoryLedgerAccountCode)'],
-  ['history subsidiary ledger mapping', 'mapLiveHistorySubsidiaryLedgerRows('],
-  ['history subsidiary ledger selector', 'aria-label="历史明细账科目"'],
-  ['history voucher query', "period_id: selectedHistoryPeriodId"],
-  ['history voucher mapping', 'mapLiveHistoryVoucherRows(historyVouchers, effectiveHistoryPeriodLabel)'],
-  ['browser history period options', 'const historyPeriodOptions = isTauri'],
-  ['browser history voucher data', 'const previewHistoryVouchers ='],
-  ['browser history balance data', 'buildPreviewPeriodTrialBalance(scopedPreviewInitialBalanceRows, previewHistoryVouchers, effectiveHistoryPeriodId)'],
-  ['browser history ledger data', 'buildPreviewGeneralLedger(scopedPreviewInitialBalanceRows, previewHistoryVouchers, effectiveHistoryPeriodId)'],
-  ['settlement rule refresh', 'fetchSettlementRules(selectedCompanyId)'],
-  ['settlement rule mapping', 'mapLiveSettlementRuleRows(isTauri ? settlementRules : scopedPreviewSettlementRules)'],
-  ['settlement rule live scope', 'usesLiveSettlementRuleData'],
-  ['currency refresh', 'fetchCurrencies(selectedCompanyId)'],
-  ['currency mapping', 'mapLiveCurrencyRows(isTauri ? currencies : scopedPreviewCurrencies)'],
-  ['currency live scope', 'usesLiveCurrencyData'],
-  ['template workspace refresh', 'fetchTemplateWorkspace(selectedCompanyId)'],
-  ['common digest mapping', 'mapLiveCommonDigestRows(isTauri ? commonDigests : scopedPreviewCommonDigests)'],
-  ['voucher template mapping', 'mapLiveVoucherTemplateRows(isTauri ? voucherTemplates : scopedPreviewVoucherTemplates, isTauri ? voucherTemplateTypes : previewVoucherTemplateTypes)'],
-  ['template settings live scope', 'usesLiveTemplateSettingsData'],
-  ['report template refresh', 'fetchReportTemplateWorkspace(selectedCompanyId)'],
-  ['report formula mapping', 'mapLiveReportFormulaRows(effectiveReportTemplates, effectiveReportItems)'],
-  ['report formula live scope', 'usesLiveReportFormulaData'],
-  ['period management preview mapping', 'mapLivePeriodManagementRows(effectivePeriods)'],
-  ['adapter authorization refresh', 'automationApi.getAdapterAuthorizations'],
-  ['tax adapter mapping', "mapLiveAdapterAuthorizationRows(effectiveAdapterAuthorizations, 'tax')"],
-  ['bank adapter mapping', "mapLiveAdapterAuthorizationRows(effectiveAdapterAuthorizations, 'bank')"],
-  ['adapter authorization live scope', 'usesLiveAdapterAuthorizationData'],
-  ['operation audit refresh', 'automationApi.getOperationAuditLogs'],
-  ['operation audit mapping', 'mapLiveOperationAuditRows(operationAuditLogs)'],
-  ['operation audit live scope', 'usesLiveOperationAuditData'],
-  ['module rule log live scope', 'const usesLiveRuleLogData = Boolean(isTauri && selectedCompanyId)'],
-  ['module audit persistence', 'automationApi.writeOperationAuditLog({'],
-  ['module period scoped audits', 'const scopedOperationAuditLogs = useMemo(() => operationAuditLogs.filter((log) => log.objectRef?.includes(currentPeriodLabel))'],
-  ['module rules log dialog state', 'const [showRulesLogDialog, setShowRulesLogDialog] = useState(false)'],
-  ['module rules log dialog binding', '<RulesLogDialog notes={config.notes} logs={visibleRuleLogs} usesLiveData={usesLiveRuleLogData} onClose={() => setShowRulesLogDialog(false)} />'],
-  ['module detail row state', 'const [detailRow, setDetailRow] = useState<ModuleRow | null>(null)'],
-  ['module detail dialog', '业务明细'],
-  ['module import template builder', 'function buildImportTemplate(params: {'],
-  ['module import template export', 'sheetName: `${title}导入模板`,'],
-  ['module import template audit', "writeModuleAudit('下载导入模板', fileName, '普通', '成功')"],
-  ['module import candidate preview', '候选数据预览'],
-  ['module import field mapping', 'function buildImportFieldMappings(headers: string[], columns: ModuleColumn[])'],
-  ['module import mapping panel', '字段映射建议'],
-  ['module import write confirmation', '确认写入本地台账'],
-  ['module import write handler', 'const handleCommitLocalImport = async () => {'],
-  ['module import settings targets', "type LocalImportWriteTarget = 'invoice' | 'bank' | 'document' | 'businessOrder' | 'employee' | 'payroll' | 'socialSecurity' | 'specialDeduction' | 'inventoryMovement' | 'fixedAsset' | 'inventoryItem' | 'settlement' | 'bankReconciliation' | 'measurementUnit' | 'accountTransfer' | 'costCarryover' | 'companyAccount' | 'auxiliaryArchive' | 'businessTag' | 'currency' | 'matchingRule' | 'settlementRule' | 'commonDigest' | 'voucherTemplate' | 'assetCategory' | 'auxiliaryCategory' | 'auxiliaryItem' | 'initialBalance' | 'subject'"],
-  ['module import committed status', "status === '已关联' || status === '已校验' || status === '已写入'"],
-  ['module receipt expense and contract import scope', "if (kind === 'documentRegister' || kind === 'contractLedger' || kind === 'receipt' || kind === 'expenseReimbursement') return 'document'"],
-  ['module matching rule import scope', "if (kind === 'invoiceMatchingRules' || kind === 'billMatchingRules' || kind === 'cashFlowMapping' || kind === 'aiRuleTraining') return 'matchingRule'"],
-  ['matching rule preview mapping', 'mapLiveMatchingRuleRows(isTauri ? matchingRules : scopedPreviewMatchingRules, matchingRuleScope)'],
-  ['module settlement rule import scope', "if (kind === 'settlementRules') return 'settlementRule'"],
-  ['settlement rule preview mapping', 'mapLiveSettlementRuleRows(isTauri ? settlementRules : scopedPreviewSettlementRules)'],
-  ['module common digest import scope', "if (kind === 'commonDigests') return 'commonDigest'"],
-  ['module voucher template import scope', "if (kind === 'voucherTemplateSettings') return 'voucherTemplate'"],
-  ['module asset category import scope', "if (kind === 'assetCategory') return 'assetCategory'"],
-  ['module auxiliary category import scope', "if (kind === 'auxiliaryCategories') return 'auxiliaryCategory'"],
-  ['module auxiliary item import scope', "if (kind === 'auxiliaryItems') return 'auxiliaryItem'"],
-  ['module initial balance import scope', "if (kind === 'initialBalance') return 'initialBalance'"],
-  ['module subject import scope', "if (kind === 'subjectSettings') return 'subject'"],
-  ['module matching rule local write', "await createMatchingRule({ companyId: selectedCompanyId, ruleScope, name, conditionText, actionText"],
-  ['module settlement rule local write', "await createSettlementRule({ companyId: selectedCompanyId, name, ruleType"],
-  ['module common digest local write', "await createCommonDigest({ companyId: selectedCompanyId, content })"],
-  ['module voucher template local write', "await createVoucherTemplate({ companyId: selectedCompanyId, typeId: templateType.id, name, entries })"],
-  ['module asset category local write', "await createAssetCategory({ companyId: selectedCompanyId, code, name, usefulLifeMonths"],
-  ['module auxiliary category local write', "await createAuxiliaryCategory({ company_id: selectedCompanyId, code, name, sort_order: sortOrder })"],
-  ['module auxiliary item local write', "await createAuxiliaryItem({ category_id: categoryId, company_id: selectedCompanyId, code, name"],
-  ['module initial balance local write', "await saveInitialBalance({ period_id: currentPeriodId, account_code: accountCode, opening_debit: openingDebit, opening_credit: openingCredit, created_by: '本地导入' })"],
-  ['module subject local write', "await createAccount({ code, company_id: selectedCompanyId, name, account_type: accountType"],
-  ['module import failure rows', 'const failureRows: LocalImportFailure[] = []'],
-  ['module import failure list', '失败行清单'],
-  ['module current period export file', 'const exportPeriodLabel = activeBusinessPeriodLabel'],
-  ['module excel export audit', "writeModuleAudit('导出Excel', fileName"],
-  ['module pdf export audit', "writeModuleAudit('导出PDF', fileName"],
-  ['module print export audit', "writeModuleAudit('打印', fileName"],
-  ['auxiliary category mapping', 'mapLiveAuxiliaryCategoryRows(isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories)'],
-  ['auxiliary item mapping', 'mapLiveAuxiliaryItemRows(isTauri ? auxiliaryCategories : scopedPreviewAuxiliaryCategories, isTauri ? auxiliaryItems : scopedPreviewAuxiliaryItems)'],
-  ['voucher recycle refresh', 'getDeletedVouchers(selectedCompanyId)'],
-  ['voucher recycle mapping', 'mapLiveVoucherRecycleRows(deletedVouchers)'],
-  ['voucher recycle live scope', 'usesLiveVoucherRecycleData'],
-  ['tax declaration refresh', 'automationApi.getTaxDeclarationTasks'],
-  ['declaration receipt mapping', 'mapLiveDeclarationReceiptRows(effectiveTaxDeclarationTasks)'],
-  ['declaration receipt live scope', 'usesLiveDeclarationReceiptData'],
-  ['tax init mapping', 'mapLiveTaxInitRows(effectiveTaxDeclarationTasks, effectiveAdapterAuthorizations)'],
-  ['tax init live scope', 'usesLiveTaxInitData'],
-  ['tax report mapping', 'mapLiveTaxReportRows(effectiveTaxDeclarationTasks)'],
-  ['tax report live scope', 'usesLiveTaxReportData'],
-  ['shared browser tax task scope', "const usesTaxDeclarationTaskData = Boolean((isTauri && selectedCompanyId) || !isTauri)"],
-  ['shared browser tax task company', "const taxTaskCompanyId = selectedCompanyId || 'browser-preview-company'"],
-  ['shared browser tax task state', 'const effectiveTaxDeclarationTasks = taxDeclarationTasks'],
-  ['shared browser tax task refresh', 'automationApi.getTaxDeclarationTasks({ companyId: taxTaskCompanyId })'],
-  ['shared browser tax task upsert', 'const saveTaxDeclarationTask = async (input: {'],
-  ['automation job refresh', 'automationApi.getAutomationJobs'],
-  ['AI job queue mapping', "mapLiveAutomationJobRows(automationJobs, 'queue')"],
-  ['AI recognition mapping', "mapLiveAutomationJobRows(automationJobs, 'recognition')"],
-  ['AI voucher suggestion mapping', "mapLiveAutomationJobRows(automationJobs, 'suggestion')"],
-  ['AI voucher suggestion live kind', "'aiVoucherSuggestions'"],
-  ['automation job live scope', 'usesLiveAutomationJobData'],
-  ['AI voucher suggestion confirmation binding', 'automationApi.updateAutomationJobStatus({'],
-  ['AI voucher suggestion confirmation status', "status: 'confirmed'"],
-  ['AI voucher suggestion confirmation audit', "writeModuleAudit('确认AI凭证建议'"],
-  ['AI voucher suggestion confirmation boundary', '不会自动生成或入账凭证'],
-  ['AI voucher suggestion row confirmation', "const suggestionJobId = row.id.replace('automation-suggestion-', '')"],
-  ['AI voucher suggestion draft review guard', "if (kind === 'aiVoucherSuggestions') {"],
-  ['AI voucher suggestion draft review audit', "writeModuleAudit('打开AI凭证草稿复核'"],
-  ['risk check mapping', 'mapLiveRiskCheckRows(activeVouchers, effectiveInvoices)'],
-  ['risk check summary mapping', 'summarizeLiveRiskChecks(activeVouchers, effectiveInvoices)'],
-  ['risk check live kind', "'riskCheck'"],
-  ['closing task mapping', 'mapLiveClosingTaskRows(closingPeriod, closingVouchers, closingTrialBalance, closingBalanceSheet)'],
-  ['closing task summary mapping', 'summarizeLiveClosingTasks(closingPeriod, closingVouchers, closingTrialBalance, closingBalanceSheet)'],
-  ['closing task live scope', 'usesLiveClosingTaskData'],
-  ['closing period command binding', "await closePeriod(currentPeriodId, 'admin')"],
-  ['closing period confirmation', '确认结账账期 ${currentPeriodLabel} 吗？结账后账期将锁定。'],
-  ['invoice voucher matching mapping', 'mapLiveInvoiceVoucherMatchingRows(invoiceMatchCandidates, voucherMatchCandidates)'],
-  ['invoice voucher matching summary mapping', 'summarizeLiveInvoiceVoucherMatching(invoiceMatchCandidates, voucherMatchCandidates)'],
-  ['invoice voucher matching data scope', 'usesLiveInvoiceVoucherMatchingData || !isTauri'],
-  ['finance tax report mapping', 'mapLiveFinanceTaxReportRows(effectiveTaxDeclarationTasks)'],
-  ['finance tax report live scope', 'usesLiveFinanceTaxReportData'],
-  ['financial overview mapping', 'mapLiveFinancialOverviewRows(financialReports.balanceSheet, financialReports.incomeStatement, financialReports.cashFlow)'],
-  ['financial overview live scope', 'usesLiveFinancialOverviewData'],
-  ['browser mock fallback', 'isTauri && selectedCompanyId'],
-  ['document export context', 'const exportDocumentContext = {'],
-  ['document export company binding', 'companyName: selectedCompany?.name ||'],
-  ['document export period binding', 'periodLabel: exportPeriodLabel'],
-  ['document export taxpayer binding', 'taxpayerId: selectedCompany?.tax_id ||'],
-  ['print template context binding', 'context: params.context'],
-  ['excel template context binding', 'context: params.context'],
-  ['export center live scope', "const usesLiveExportData = Boolean(isTauri && selectedCompanyId && kind === 'exportCenter')"],
-  ['export center audit mapper', 'function mapOperationAuditExportRows(logs: OperationAuditLog[]): ModuleRow[]'],
-  ['export center audit filter', 'function isExportOperationAudit(log: OperationAuditLog)'],
-  ['export center browser rows', "if (kind === 'exportCenter' && (usesLiveExportData || !isTauri))"],
-  ['export center browser jobs', 'const dynamicRows = isTauri'],
-  ['export center audit fetch', "kind === 'auditLog' || kind === 'exportCenter'"],
-  ['audit log browser rows', 'const dynamicRows = isTauri ? [] : auditLogs.map(auditLogToModuleRow)'],
-  ['attachment center local rows', "if (kind === 'attachmentCenter') {\n      const dynamicRows = mapLocalAttachmentRows(localAttachmentRecords)"],
-  ['import center local rows', "if (kind === 'importCenter') {\n      const localRows = mapLocalImportJobRows(localImportJobs)"],
-  ['import center live scope', "const usesLiveImportData = Boolean(isTauri && selectedCompanyId && kind === 'importCenter')"],
-  ['import center audit mapper', 'function mapOperationAuditImportRows(logs: OperationAuditLog[]): ModuleRow[]'],
-  ['import center audit filter', 'function isImportOperationAudit(log: OperationAuditLog)'],
-  ['import center upload audit filter', "log.action.includes('上传')"],
-  ['import center audit fetch', "kind === 'auditLog' || kind === 'exportCenter' || kind === 'importCenter'"],
-  ['module import file ref', 'const importFileRef = useRef<HTMLInputElement>(null)'],
-  ['module import capability guard', "const supportsFileImport = /导入|采集|上传/.test(config.importLabel)"],
-  ['module import file selection', 'importFileRef.current?.click()'],
-  ['module import file audit', '`${title}-${file.name}`'],
-  ['module import hidden input', 'ref={importFileRef}'],
-  ['local file registry binding', "from '../../lib/localFileRegistry'"],
-  ['local import job registration', 'recordLocalImportJob({'],
-  ['local attachment registration', 'recordLocalAttachment({'],
-  ['local import job mapping', 'mapLocalImportJobRows(localImportJobs)'],
-  ['local attachment mapping', 'mapLocalAttachmentRows(localAttachmentRecords)'],
-  ['local file record removal', 'removeLocalImportJob(row.id)'],
-  ['local attachment record removal', 'removeLocalAttachment(row.id)'],
-  ['local file action label', "kind === 'attachmentCenter' || kind === 'importCenter' ? '撤销登记'"],
-  ['attachment association registry update', 'updateLocalAttachmentAssociation'],
-  ['attachment association editor', '关联本地附件单据'],
-  ['attachment association boundary', '不会移动原始文件、写入外部存储或修改凭证'],
-  ['local import validation registry update', 'updateLocalImportJobValidation'],
-  ['local import validation editor', '核验本机导入批次'],
-  ['local import validation boundary', '不会写入账套业务数据或调用外部系统'],
-]
-
-const requiredLocalFileRegistrySnippets = [
-  ['local import preview rows type', 'previewRows: string[][]'],
-  ['local import preview capture', 'previewRows: parsed.rows.slice(0, 5)'],
-  ['local import full parser', 'export async function parseLocalImportFile(file: File)'],
-  ['local import committed status', "status: '已写入'"],
-]
-
-const requiredTaxWorkspaceSnippets = [
-  ['tax workspace persisted data scope', 'usesTaxDeclarationData'],
-  ['tax workspace task state', 'setTaxDeclarationTasks'],
-  ['tax workspace task mapping', 'mapTaxDeclarationTaskToRow'],
-  ['tax workspace visible rows', 'visibleDeclarationRows'],
-  ['tax workspace live list refresh', 'getTaxDeclarationTasks({ companyId, period: currentPeriod })'],
-  ['tax workspace selected period store', 'const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)'],
-  ['tax workspace selected period label', 'const currentPeriodLabel = activeTaxPeriod'],
-  ['tax workspace cross-environment period scope', 'Boolean((isTauri && selectedCompanyId && currentPeriodId) || (!isTauri && browserPreviewPeriod))'],
-  ['tax workspace dynamic export file', '税务申报包-${currentPeriod}.pdf'],
-  ['tax workspace table binding', 'filteredDeclarationRows.map((row) =>'],
-  ['tax workspace active tax tab', "const [activeTab, setActiveTab] = useState('申报清单')"],
-  ['tax workspace query filter', 'const [searchTerm, setSearchTerm] = useState(\'\')'],
-  ['tax workspace filtered row computation', 'const filteredDeclarationRows = useMemo(() => {'],
-  ['tax workspace operation audit state', 'const [operationAuditLogs, setOperationAuditLogs] = useState<OperationAuditLog[]>([])'],
-  ['tax workspace period scoped audits', 'const scopedOperationAuditLogs = useMemo(() => operationAuditLogs.filter((log) => log.objectRef?.includes(currentPeriod))'],
-  ['tax workspace live risk rows', 'const visibleRiskRows = useMemo<RiskRow[]>(() => {'],
-  ['tax workspace live rule logs', 'const visibleRuleLogs = useMemo<RuleLog[]>(() => {'],
-  ['tax workspace rules log binding', '<TaxRulesLogPanel riskRows={visibleRiskRows} logs={visibleRuleLogs} onRiskLink={handleRiskLink} />'],
-  ['tax workspace export binding', 'buildTaxDeclarationPackageHtml(exportedAt, visibleDeclarationRows, taxPackageMetadata, visibleRiskRows, visibleRuleLogs)'],
-  ['tax workspace html export audit', "action: '导出申报包'"],
-  ['tax workspace pdf export audit', "action: '导出申报包 PDF'"],
-  ['tax workspace print export audit', "action: '打印申报包'"],
-  ['tax workspace selection state', 'const [selectedDeclarationIds, setSelectedDeclarationIds] = useState<Set<string>>(new Set())'],
-  ['tax workspace bulk confirmation action', "requestDeclarationConfirmation(selectedDeclarationRows, '批量确认申报')"],
-  ['tax workspace confirmation boundary', '不会向电子税务局提交申报或发起扣款。'],
-  ['tax workspace detail editor state', 'const [showDeclarationDetailDialog, setShowDeclarationDetailDialog] = useState(false)'],
-  ['tax workspace detail save binding', 'const saveDeclarationDetail = async'],
-  ['tax workspace detail local boundary', '保存仅更新本地取数和校验状态'],
-  ['tax workspace initialization template export', 'exportRowsToXlsx({'],
-  ['tax workspace initialization template boundary', '仅用于本地税种认定和取数维护；不包含税局密码，不提交税局、不扣款。'],
-  ['tax workspace initialization template columns', "'取数依据/人工复核说明'"],
-  ['tax workspace initialization template parser', "await import('read-excel-file/browser')"],
-  ['tax workspace initialization import preview', 'setTaxInitializationImportPreview'],
-  ['tax workspace initialization import confirmation', '确认写入本地申报事项'],
-  ['tax workspace initialization import boundary', '不会向税局提交申报、发起扣款或保存税局密码'],
-  ['tax workspace column settings state', 'const [showColumnSettings, setShowColumnSettings] = useState(false)'],
-  ['tax workspace column settings persistence', 'function loadTaxColumnSettings(companyId: string)'],
-  ['tax workspace column settings save', 'function saveTaxColumnSettings(companyId: string, settings: TaxColumnSettings)'],
-  ['tax workspace visible column binding', 'const visibleTaxColumns = useMemo(() =>'],
-  ['tax workspace column settings dialog', '申报清单列设置'],
-  ['tax workspace frozen key columns', '冻结选择列与税种'],
-  ['tax workspace browser task scope', "const usesTaxDeclarationData = Boolean((isTauri && selectedCompanyId && currentPeriodId) || (!isTauri && browserPreviewPeriod))"],
-  ['tax workspace browser task rows', 'const visibleDeclarationRows = taxDeclarationTasks.map(mapTaxDeclarationTaskToRow)'],
-  ['tax workspace browser confirmation support', 'if (!ensureTaxWorkspacePeriod()) return'],
-  ['tax workspace disabled period actions', 'disabled={!usesTaxDeclarationData}'],
-  ['tax workspace disabled toolbar semantics', 'disabled ? \'cursor-not-allowed opacity-50\''],
-]
-
-const forbiddenStaticTaxWorkspaceSnippets = [
-  ['static tax declaration rows', 'const declarationRows = ['],
-  ['static tax risk rows', 'const riskRows: RiskRow[] = ['],
-  ['static tax operation logs', 'const logs: RuleLog[] = ['],
-  ['browser tax workspace mock company', "const companyId = selectedCompanyId ?? 'mock-1'"],
-]
-
-const forbiddenBusinessTaxPreviewSnippets = [
-  ['static business tax task seed', 'const previewTaxDeclarationTaskSeed: TaxDeclarationTask[] = ['],
-  ['separate business tax task browser storage', 'function previewTaxDeclarationTaskStorageKey()'],
-  ['separate business tax task browser loader', 'function loadPreviewTaxDeclarationTasks()'],
-  ['legacy business tax task updater', 'updatePreviewTaxDeclarationTasks'],
-]
-
-const requiredBrowserTaxPreviewSnippets = [
-  ['browser tax preview storage field', 'taxDeclarationTasks: BrowserTaxDeclarationTask[]'],
-  ['browser tax preview load field', 'taxDeclarationTasks: Array.isArray(parsed.taxDeclarationTasks)'],
-  ['browser tax task list command', "if (cmd === 'get_tax_declaration_tasks')"],
-  ['browser tax task upsert command', "if (cmd === 'upsert_tax_declaration_task')"],
-  ['browser tax task confirmation command', "if (cmd === 'confirm_tax_declaration_task')"],
-  ['browser tax audit list command', "if (cmd === 'get_operation_audit_logs')"],
-  ['browser tax audit write command', "if (cmd === 'write_operation_audit_log')"],
-]
-
-const requiredWelcomeSnippets = [
-  ['welcome account filter state', "const [accountFilters, setAccountFilters] = useState({"],
-  ['welcome account region mapper', "region: [company.province, company.city, company.district].filter(Boolean).join('') || '-'"],
-  ['welcome account filter rows', 'const filterableAccountFields = ['],
-  ['welcome account filter export scope', 'const activeAccountFilterScope = useMemo(() => {'],
-  ['welcome account filter export binding', "scope: activeAccountFilterScope,"],
-  ['welcome native empty state avoids demo accounts', 'const allRows = realRows'],
-  ['welcome account metrics use derived records', 'const summaryMetrics = useMemo<SummaryMetric[]>(() => {'],
-  ['welcome active account metric', "label: '启用账套'"],
-  ['welcome taxpayer metric', "label: '一般纳税人'"],
-  ['welcome collection metric', "label: '待采集'"],
-  ['welcome memo metric', "label: '待办备忘'"],
-  ['welcome browser preview disclosure', '浏览器预览数据：企业、采集和备忘指标仅基于本机保存记录计算'],
-  ['company creation deep link', "new URLSearchParams(location.search).get('createCompany') === '1'"],
-  ['company form metadata persistence', 'enterprise_type: newCompany.enterpriseType'],
-  ['company service period persistence', 'service_start: newCompany.serviceStart'],
-  ['company authorization metadata helper', 'function buildCompanyAuthorizationInputs(companyId: string, company: CompanyForm)'],
-  ['company authorization persistence', 'persistCompanyAuthorizationMetadata(company.id, newCompany)'],
-  ['company authorization masks account', 'accountMask: maskAuthorizationAccount(company.taxLoginAccount)'],
-  ['company authorization password boundary', "riskMessage: '待完成合法授权验证；不保存密码、不执行真实提交'"],
-  ['company industrial authorization metadata', "adapterType: 'industrial_commercial'"],
-  ['company industrial contact masking', 'accountMask: maskAuthorizationAccount(company.businessContactPhone)'],
-  ['company authorization metadata parser', 'function parseTaxAuthorizationIdentity(value: string | null)'],
-  ['company edit authorization loading', 'automationApi.getAdapterAuthorizations({ companyId: company.id })'],
-  ['company edit authorization notice', '已载入授权元数据；账号、身份证号、邮箱和密码不会回填'],
-  ['company account update guard', 'if (company.taxLoginAccount.trim())'],
-  ['company import file input', 'ref={companyImportRef}'],
-  ['company import excel parser', "import('read-excel-file/browser')"],
-  ['company import header scanner', 'function findCompanyImportHeaderRow'],
-  ['company import duplicate tax guard', 'existingTaxIds.has(candidate.tax_id)'],
-  ['company import secret column boundary', "const forbiddenImportHeaders = ['密码', '账号', '验证码', 'Cookie']"],
-  ['company import create binding', 'await createCompany(candidate)'],
-  ['company collection preflight queue', "jobType: 'tax_profile_collection'"],
-  ['company collection duplicate query', "automationApi.getAutomationJobs({ companyId: target.id, period: target.period })"],
-  ['company collection duplicate guard', "job.jobType === 'tax_profile_collection' && ['queued', 'running', 'review'].includes(job.status)"],
-  ['company collection external boundary', '不执行真实税局登录、资料抓取或外部提交'],
-  ['welcome desktop audit boundary', 'if (!isTauri) return'],
-  ['welcome desktop audit persistence', 'moduleName: \'机构-账套管理\''],
-  ['welcome desktop audit scope', 'objectRef: `机构账套｜${object}`'],
-]
-
-const requiredCompanyPersistenceSnippets = [
-  ['company store extended archive fields', 'enterprise_type?: string'],
-  ['company store service period fields', 'service_start?: string'],
-  ['company command persists extended archive fields', 'enterprise_type, service_start, service_end'],
-  ['company database enterprise type migration', 'ALTER TABLE companies ADD COLUMN enterprise_type TEXT'],
-  ['company database service period migration', 'ALTER TABLE companies ADD COLUMN service_start TEXT'],
-]
-
-const requiredCompanyMemoPersistenceSnippets = [
-  ['company memo desktop list command', 'pub async fn get_company_memos'],
-  ['company memo desktop upsert command', 'pub async fn upsert_company_memo'],
-  ['company memo database table', 'CREATE TABLE IF NOT EXISTS company_memos'],
-  ['company memo database company scope', 'UNIQUE (company_id)'],
-  ['company memo api binding', 'export const companyMemoApi'],
-  ['company memo load binding', 'companyMemoApi.getAll()'],
-  ['company memo save binding', 'companyMemoApi.upsert({'],
-  ['company memo browser fallback', 'if (!isTauri) {'],
-]
-
-const requiredAgencyModuleSnippets = [
-  ['agency company data source', 'useCompanyStore()'],
-  ['agency company refresh', 'await fetchCompanies()'],
-  ['agency company row mapper', 'function mapAgencyCompanyRow(item: Company)'],
-  ['agency account enterprise type mapping', 'type: item.enterprise_type ||'],
-  ['agency account service period mapping', 'serviceEnd: item.service_start || item.service_end'],
-  ['agency company tab filter', 'function filterAgencyCompanyRows(rows: AgencyRow[], activeTab: string)'],
-  ['agency company creation deep link', "navigate('/?createCompany=1')"],
-  ['agency client tab consolidation', "tabs: ['全部客户', '启用账套', '停用账套', '一般纳税人', '小规模纳税人']"],
-  ['agency company page boundary', '完整企业建档和批量管理只在首页进行。'],
-  ['agency account selection binding', 'selectCompany(row.id)'],
-  ['agency account period refresh', 'await fetchPeriods(row.id)'],
-  ['agency service contract data source', 'agencyApi.getServiceContracts()'],
-  ['agency fee collection data source', 'agencyApi.getFeeCollections({ period })'],
-  ['agency collaboration data source', 'agencyApi.getCollaborationItems()'],
-  ['agency fee collection mapper', 'function mapFeeCollectionRow(item: AgencyFeeCollection)'],
-  ['agency collaboration mapper', 'function mapCollaborationItemRow(item: AgencyCollaborationItem)'],
-  ['agency live tab selection', "activeTab === '收费管理'"],
-  ['agency contract archive row mapper', 'function mapAgencyContractArchiveRow(item: AgencyServiceContract)'],
-  ['agency contract archive live tab', "activeTab === '归档记录'"],
-  ['agency service package row mapper', 'function mapAgencyServicePackageRows(items: AgencyServiceContract[])'],
-  ['agency service package live tab', "activeTab === '服务套餐'"],
-  ['agency service contract tab consolidation', "tabs: ['服务合同', '收费管理', '客户协同', '服务套餐', '归档记录']"],
-  ['agency overview data source', 'agencyApi.getOverview(agencyPeriodLabel)'],
-  ['agency overview state', 'setAgencyOverview(response.data ?? null)'],
-  ['agency overview live scope', "kind === 'dataStats'"],
-  ['agency overview row mapper', 'function mapAgencyOverviewRows(overview: AgencyOperationOverview, activeTab: string)'],
-  ['agency overview summary mapper', 'function summarizeAgencyOverview(overview: AgencyOperationOverview)'],
-  ['agency authorization data source', 'agencyApi.getAuthorizations()'],
-  ['agency authorization row mapper', 'function mapAgencyAuthorizationRow(item: AdapterAuthorization)'],
-  ['agency authorization tab filter', 'function agencyAuthorizationAdapterType(activeTab: string)'],
-  ['agency authorization expiry filter', 'function isAuthorizationExpiryReminder(expiresAt: string | null)'],
-  ['agency authorization live scope', "kind === 'authorizationCenter'"],
-  ['agency batch task data source', 'agencyApi.getBatchTasks({ period })'],
-  ['agency batch task create binding', 'agencyApi.createBatchTasks('],
-  ['agency batch task precheck binding', 'agencyApi.runBatchTaskPrecheck({ id: row.id, operator: \'admin\' })'],
-  ['agency batch task precheck boundary', '本地预检完成，不会登录或调用税局、银行等外部系统'],
-  ['agency batch task row mapper', 'function mapAgencyBatchTaskRow(item: AgencyBatchTask)'],
-  ['agency batch task tab filter', 'function filterAgencyBatchTaskRows(rows: AgencyRow[], activeTab: string)'],
-  ['agency batch tab consolidation', "tabs: ['操作任务', '批量采集', '批量生成', '批量结账', '批量申报', '申报回执', '审批记录']"],
-  ['agency batch task live scope', "kind === 'batchOps'"],
-  ['agency health check data source', 'agencyApi.getHealthChecks(period)'],
-  ['agency health check row mapper', 'function mapAgencyHealthCheckRow(item: AgencyHealthCheckItem)'],
-  ['agency health check live scope', "kind === 'healthCheck'"],
-  ['agency automation data source', 'agencyApi.getAutomationJobs({ period })'],
-  ['agency automation row mapper', 'function mapAgencyAutomationJobRow(item: AutomationJob)'],
-  ['agency collection preflight label', "if (jobType === 'tax_profile_collection') return '税务资料采集预检'"],
-  ['agency collection preflight tab filter', "if (activeTab === '采集预检') return rows.filter((row) => row.values.name.includes('采集预检'))"],
-  ['agency automation live scope', "kind === 'automation'"],
-  ['agency invoice management row mapper', 'function mapAgencyInvoiceManagementRow(item: AgencyFeeCollection)'],
-  ['agency invoice management live scope', "kind === 'invoiceManagement'"],
-  ['agency download job source', 'const exportJobs = useExportJobs()'],
-  ['agency download live rows', "kind === 'downloadCenter' ? pageConfig.rows"],
-  ['agency download summary mapper', 'function summarizeAgencyDownloadJobs(rows: AgencyRow[])'],
-  ['agency download period mapper', 'function extractAgencyExportPeriod(job: ExportJob)'],
-  ['agency persistent empty-state boundary', ': remoteRows ?? []),'],
-  ['agency selected period store', 'const currentPeriodId = usePeriodStore((state) => state.currentPeriodId)'],
-  ['agency dynamic period label', 'const agencyPeriodLabel = currentPeriod'],
-  ['agency batch task period binding', 'agencyApi.createBatchTasks({ period: agencyPeriodLabel, taskTypes: selectedBatchTaskTypes, operator: \'admin\' })'],
-  ['agency audit persistence', 'automationApi.writeOperationAuditLog({'],
-  ['agency excel current period export', 'const fileName = `${pageConfig.title}-${agencyPeriodLabel}.xlsx`'],
-  ['agency pdf current period export', 'const fileName = `${pageConfig.title}-${agencyPeriodLabel}.pdf`'],
-  ['agency print current period export', 'const fileName = `${pageConfig.title}-${agencyPeriodLabel}-print`'],
-  ['agency export audit', "writeAgencyAudit('导出Excel', fileName"],
-  ['agency print audit', "writeAgencyAudit('打印', fileName"],
-  ['agency pdf audit', "writeAgencyAudit('导出PDF', fileName"],
-]
-
-const requiredAgencyFeeEntryCommandSnippets = [
-  ['agency fee collection create command', 'pub async fn create_agency_fee_collection'],
-]
-
-const requiredAgencyFeeEntryApiSnippets = [
-  ['agency fee collection create api', 'createFeeCollection: async'],
-]
-
-const requiredAgencyFeeEntryPageSnippets = [
-  ['agency fee collection create dialog', '新增收费记录'],
-  ['agency fee collection create binding', 'agencyApi.createFeeCollection({'],
-]
-
-const requiredAgencyCollaborationEntryCommandSnippets = [
-  ['agency collaboration create command', 'pub async fn create_agency_collaboration_item'],
-]
-
-const requiredAgencyCollaborationEntryApiSnippets = [
-  ['agency collaboration create api', 'createCollaborationItem: async'],
-]
-
-const requiredAgencyCollaborationEntryPageSnippets = [
-  ['agency collaboration create dialog', '新增协同事项'],
-  ['agency collaboration create binding', 'agencyApi.createCollaborationItem({'],
-]
-
-const requiredAgencyAuthorizationEntryPageSnippets = [
-  ['agency authorization create dialog', '新增授权记录'],
-  ['agency authorization create binding', 'automationApi.upsertAdapterAuthorization({'],
-  ['agency authorization secret boundary', '不录入密码、验证码、Cookie 或税务局会话信息'],
-]
-
-const requiredAgencyServiceContractEntryPageSnippets = [
-  ['agency service contract create dialog', '新增服务合同'],
-  ['agency service contract structured form', '<span>服务开始</span>'],
-  ['agency service contract create binding', 'agencyApi.createServiceContract({'],
-]
-
-const requiredAgencyBatchTaskApiSnippets = [
-  ['agency batch task selection input', 'taskTypes?: string[]'],
-  ['agency batch task review api', 'reviewBatchTask: async'],
-]
-
-const requiredAgencyBatchTaskCommandSnippets = [
-  ['agency batch task type filter', 'task_types'],
-  ['agency batch task deduplication', 'WHERE NOT EXISTS'],
-  ['agency batch task result summary', 'CreateAgencyBatchTasksResult'],
-  ['agency batch task review command', 'pub async fn review_agency_batch_task'],
-  ['agency batch task approval state', 'awaiting_approval'],
-]
-
-const requiredAgencyBatchTaskPageSnippets = [
-  ['agency statistics scope dialog state', 'const [showDataStatsScopeDialog, setShowDataStatsScopeDialog] = useState(false)'],
-  ['agency statistics scope dialog', '统计口径与范围'],
-  ['agency status filter state', "const [showAgencyFilterDialog, setShowAgencyFilterDialog] = useState(false)"],
-  ['agency status filter row binding', 'const matchesStatusFilter ='],
-  ['agency status filter dialog', '机构筛选条件'],
-  ['agency preview row state', "const usesAgencyPreviewRows = Boolean(!isTauri && remoteRows !== null && kind !== 'downloadCenter')"],
-  ['agency preview row disclosure', '浏览器本地台账：列表与汇总读取本机保存的预览记录，可在当前模块继续维护。'],
-  ['agency batch task selection dialog', '选择批量预检任务'],
-  ['agency batch task selection state', 'selectedBatchTaskTypes'],
-  ['agency batch task selected API call', 'taskTypes: selectedBatchTaskTypes'],
-  ['agency batch task review handler', 'handleReviewBatchTask'],
-  ['agency batch task approval action', '通过预检'],
-  ['agency batch task rejection action', '驳回预检'],
-  ['agency batch task browser adapter create', "const response = await agencyApi.createBatchTasks({ period: agencyPeriodLabel, taskTypes: selectedBatchTaskTypes, operator: 'admin' })"],
-  ['agency batch task browser adapter refresh', 'await loadRemoteRows()'],
-  ['agency account import handoff', "navigate('/?importCompanies=1')"],
-  ['agency overview period binding', 'agencyApi.getOverview(agencyPeriodLabel)'],
-  ['agency module period binding', 'fetchAgencyRows(kind, activeTab, agencyPeriodLabel)'],
-  ['agency row detail state', 'const [detailRow, setDetailRow] = useState<AgencyRow | null>(null)'],
-  ['agency row detail dialog', '机构级明细'],
-]
-
-const requiredAgencyBrowserPreviewSnippets = [
-  ['agency browser preview storage', "const AGENCY_PREVIEW_STORAGE_KEY = 'accounting-preview-agency-data-v1'"],
-  ['agency browser preview loader', 'function loadBrowserAgencyPreviewData()'],
-  ['agency browser company projection', "if (cmd === 'get_companies')"],
-  ['agency browser contract list', "if (cmd === 'get_agency_service_contracts')"],
-  ['agency browser fee list', "if (cmd === 'get_agency_fee_collections')"],
-  ['agency browser collaboration list', "if (cmd === 'get_agency_collaboration_items')"],
-  ['agency browser batch task list', "if (cmd === 'get_agency_batch_tasks')"],
-  ['agency browser authorization list', "cmd === 'get_agency_adapter_authorizations'"],
-  ['agency browser overview derivation', "if (cmd === 'get_agency_operation_overview')"],
-  ['agency browser health derivation', "if (cmd === 'get_agency_health_checks')"],
-]
-
-const forbiddenAgencyStaticPreviewSnippets = [
-  ['agency static fee preview row', 'preview-fee-001'],
-  ['agency static collaboration preview row', 'preview-collaboration-001'],
-  ['agency static browser fallback', 'isTauri ? remoteRows ?? [] : remoteRows ?? pageConfig.rows'],
-]
-
-const requiredWelcomeImportHandoffSnippets = [
-  ['welcome agency import query trigger', "get('importCompanies') === '1'"],
-  ['welcome company import picker trigger', 'companyImportRef.current?.click()'],
-]
-
-const requiredMeasurementUnitEntryPageSnippets = [
-  ['measurement unit structured dialog', '<span>单位名称</span>'],
-  ['measurement unit create binding', 'measurementUnitApi.createMeasurementUnit(unitInput)'],
-]
-
-const requiredInventoryItemEntryPageSnippets = [
-  ['inventory item structured dialog', '<span>存货编码</span>'],
-  ['inventory item create binding', 'inventoryItemApi.createInventoryItem(itemInput)'],
-]
-
-const requiredSocialSecurityEntryPageSnippets = [
-  ['social security structured dialog', '<span>缴费城市</span>'],
-  ['social security create binding', 'socialSecurityApi.createSocialSecurityRecord(securityInput)'],
-]
-
-const requiredInvoiceEntryPageSnippets = [
-  ['invoice create store binding', 'const createInvoice = useInvoiceStore((state) => state.createInvoice)'],
-  ['invoice create dialog', '新增发票'],
-  ['invoice create action', 'await createInvoice({'],
-]
-
-const requiredVoucherEntryPageSnippets = [
-  ['voucher create store binding', 'const addVoucher = useVoucherStore((state) => state.addVoucher)'],
-  ['voucher word source', 'const voucherWords = usePeriodStore((state) => state.voucherWords)'],
-  ['voucher structured workspace', '凭证分录'],
-  ['voucher create action', 'await addVoucher({'],
-  ['voucher client balance guard', '借贷金额不平衡'],
-  ['voucher list new navigation', "navigate('/vouchers/new')"],
-  ['voucher edit source binding', 'const updateVoucher = useVoucherStore((state) => state.updateVoucher)'],
-  ['voucher edit load binding', 'await getVoucher(voucherId, selectedCompanyId)'],
-  ['voucher edit action', 'await updateVoucher({'],
-  ['voucher edit workspace', "kind === 'voucherCreate' || kind === 'voucherEdit'"],
-  ['voucher detail workspace', "kind === 'voucherCreate' || kind === 'voucherEdit' || kind === 'voucherDetail'"],
-  ['voucher detail read only guard', "const isVoucherReadOnly = kind === 'voucherDetail'"],
-  ['voucher row detail navigation', "navigate(`/vouchers/detail/${row.id}`)"],
-  ['voucher row edit navigation', "navigate(`/vouchers/edit/${row.id}`)"],
-  ['voucher approve binding', 'const approveVoucher = useVoucherStore((state) => state.approveVoucher)'],
-  ['voucher reverse approve binding', 'const reverseApproveVoucher = useVoucherStore((state) => state.reverseApproveVoucher)'],
-  ['voucher approval action', 'await approveVoucher(loadedVoucher.id, \'admin\', selectedCompanyId)'],
-  ['voucher reverse approval action', 'await reverseApproveVoucher(loadedVoucher.id, selectedCompanyId)'],
-  ['voucher delete binding', 'const deleteVoucher = useVoucherStore((state) => state.deleteVoucher)'],
-  ['voucher restore binding', 'const restoreVoucher = useVoucherStore((state) => state.restoreVoucher)'],
-  ['voucher permanent delete binding', 'const permanentDeleteVoucher = useVoucherStore((state) => state.permanentDeleteVoucher)'],
-  ['voucher soft delete action', 'await deleteVoucher(loadedVoucher.id, selectedCompanyId)'],
-  ['voucher restore action', 'await restoreVoucher(row.id, selectedCompanyId)'],
-  ['voucher permanent delete action', 'await permanentDeleteVoucher(row.id, selectedCompanyId)'],
-  ['voucher recycle selection state', 'const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set())'],
-  ['voucher recycle batch restore', 'await Promise.all(selectedIds.map((id) => restoreVoucher(id, selectedCompanyId)))'],
-  ['voucher batch approve binding', 'const batchApprove = useVoucherStore((state) => state.batchApprove)'],
-  ['voucher batch reverse binding', 'const batchReverseApprove = useVoucherStore((state) => state.batchReverseApprove)'],
-  ['voucher batch approve action', "await batchApprove(selectedIds, 'admin', selectedCompanyId)"],
-  ['voucher batch reverse action', 'await batchReverseApprove(selectedIds, selectedCompanyId)'],
-]
-
-const requiredInvoiceEditPageSnippets = [
-  ['invoice edit store binding', 'const updateInvoice = useInvoiceStore((state) => state.updateInvoice)'],
-  ['invoice detail store binding', 'const getInvoice = useInvoiceStore((state) => state.getInvoice)'],
-  ['invoice edit load action', 'await getInvoice(row.id, selectedCompanyId)'],
-  ['invoice edit update action', 'await updateInvoice(editingInvoiceId, {'],
-  ['invoice to voucher navigation', "navigate('/vouchers/new')"],
-  ['invoice no fake generation notice', '请在新建凭证页选择科目并完成借贷平衡后保存'],
-  ['invoice voucher match binding', 'const matchInvoiceToVoucher = useInvoiceStore((state) => state.matchInvoiceToVoucher)'],
-  ['invoice voucher match dialog', '人工匹配发票与凭证'],
-  ['invoice voucher match action', 'await matchInvoiceToVoucher(selectedMatchInvoiceId, selectedMatchVoucherId, selectedCompanyId)'],
-]
-
-const requiredAppSnippets = [
-  ['AI root route redirects to task queue', '<Route path="/ai" element={<Navigate to="/ai/jobs" replace />} />'],
-  ['AI rule route reflects persisted fields', "'维护 AI 建议规则、训练条件、目标动作、优先级、命中和人工复核状态。'"],
-  ['settings route reflects overview role', "'汇总当前账套的主体、会计制度、账期和固定输出模板配置。'"],
-]
-
-const requiredShellSnippets = [
-  ['shell selected company binding', 'const selectedCompany = useCompanyStore((state) => state.companies.find((company) => company.id === state.selectedCompanyId))'],
-  ['shell selected period binding', 'const currentPeriod = usePeriodStore((state) => state.periods.find((period) => period.id === state.currentPeriodId))'],
-  ['shell audit company label', 'const auditCompanyLabel = selectedCompany?.name ||'],
-  ['shell audit period label', 'const auditPeriodLabel = currentPeriod'],
-  ['shell audit scope binding', 'voucher: `${auditPeriodLabel}/${auditCompanyLabel}`'],
-  ['theme trigger expanded state', 'aria-expanded={showMenu}'],
-  ['theme menu semantic label', 'role="menu" aria-label="系统主题"'],
-  ['theme menu pointer layer', 'z-[80] pointer-events-auto'],
-  ['theme choice checked state', 'role="menuitemradio"'],
-]
-
-const requiredRoleManagerSnippets = [
-  ['company scope dialog', '设置账套范围'],
-  ['company scope editor state', 'const [scopeUser, setScopeUser]'],
-  ['company scope link binding', "invoke('link_user_company'"],
-  ['company scope unlink binding', "invoke('unlink_user_company'"],
-  ['company scope editor component', 'function UserCompanyScopeEditor'],
-  ['company scope company source', 'const activeCompanies = companies'],
-  ['permission change audit binding', 'automationApi.writeOperationAuditLog'],
-  ['permission audit module label', "moduleName: '机构权限管理'"],
-]
-
-const requiredDashboardSnippets = [
-  ['dashboard current company scope', 'const usesLiveDashboardData = Boolean(isTauri && selectedCompanyId && currentPeriodId)'],
-  ['dashboard invoice refresh', 'fetchInvoices({ company_id: selectedCompanyId, period_id: currentPeriodId })'],
-  ['dashboard voucher refresh', 'queryVouchers({ company_id: selectedCompanyId, period_id: currentPeriodId, page: 1, page_size: 100 })'],
-  ['dashboard tax task source', 'automationApi.getTaxDeclarationTasks({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['dashboard AI task source', 'automationApi.getAutomationJobs({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['dashboard context-neutral headline', '集中处理资料、AI 做账、凭证、报表、结账和申报。'],
-]
-
-const forbiddenDashboardSnippets = [
-  ['dashboard duplicated company and period', "${selectedCompany?.name || '当前账套'} · ${currentPeriodLabel} 账期"],
-]
-
-const forbiddenBusinessModulePageSnippets = [
-  ['voucher workspace duplicated company and period', "当前账套：{selectedCompany?.name || '未选择'}，账期：{currentPeriodLabel}"],
-  ['invoice dialog duplicated company and period', "登记到当前账套 ${selectedCompany?.name || ''} 与账期 ${currentPeriodLabel}"],
-  ['generic import follow-up promise', '后续接入文件选择、字段映射、错误清单和回滚记录'],
-  ['generic primary-action follow-up promise', '后续会接入对应表单、规则校验和附件快照'],
-  ['export center static-sample fallback', "if (kind !== 'exportCenter') return baseConfig\n    const dynamicRows = exportJobs.map(exportJobToModuleRow)"],
-  ['audit log static-sample merge', 'rows: [...dynamicRows, ...baseConfig.rows]'],
-]
-
-const requiredBackupCommandSnippets = [
-  ['backup command creates snapshot', 'pub async fn create_local_backup'],
-  ['backup command lists snapshots', 'pub async fn list_local_backups'],
-  ['backup command verifies snapshot', 'pub async fn verify_local_backup'],
-  ['backup snapshot uses sqlite vacuum', 'VACUUM INTO'],
-  ['backup storage directory', 'join("backups")'],
-  ['backup verification checks sqlite header', 'SQLite format 3'],
-]
-
-const requiredBackupPageSnippets = [
-  ['backup api create binding', 'backupApi.createLocalBackup()'],
-  ['backup api list binding', 'backupApi.listLocalBackups()'],
-  ['backup api verification binding', 'backupApi.verifyLocalBackup(row.id)'],
-  ['backup local data scope', "kind === 'backupRestore'"],
-  ['backup snapshot audit', "writeModuleAudit('立即备份'"],
-  ['backup verification audit', "writeModuleAudit('核验备份'"],
-]
-
-const requiredEmployeeCommandSnippets = [
-  ['employee table schema', 'CREATE TABLE IF NOT EXISTS employees'],
-  ['employee list command', 'pub async fn get_employees'],
-  ['employee create command', 'pub async fn create_employee'],
-  ['employee update command', 'pub async fn update_employee'],
-  ['employee company scope', 'WHERE company_id = ?'],
-]
-
-const requiredEmployeePageSnippets = [
-  ['employee api list binding', 'employeeApi.getEmployees(selectedCompanyId)'],
-  ['employee api create binding', 'employeeApi.createEmployee(input)'],
-  ['employee api update binding', 'employeeApi.updateEmployee({'],
-  ['employee row mapper', 'mapLiveEmployeeRows(employees)'],
-  ['employee summary mapper', 'summarizeLiveEmployees(employees)'],
-]
-
-const requiredPayrollCommandSnippets = [
-  ['payroll table schema', 'CREATE TABLE IF NOT EXISTS payroll_records'],
-  ['payroll list command', 'pub async fn get_payroll_records'],
-  ['payroll create command', 'pub async fn create_payroll_record'],
-  ['payroll update command', 'pub async fn update_payroll_record'],
-  ['payroll current period filter', 'AND p.period = ?'],
-]
-
-const requiredPayrollPageSnippets = [
-  ['payroll api list binding', 'payrollApi.getPayrollRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['payroll api create binding', 'payrollApi.createPayrollRecord({'],
-  ['payroll api update binding', 'payrollApi.updatePayrollRecord({'],
-  ['payroll edit state', 'const [editingPayrollId, setEditingPayrollId] = useState<string | null>(null)'],
-  ['payroll row mapper', 'mapLivePayrollRows(payrollRecords)'],
-  ['payroll summary mapper', 'summarizeLivePayroll(payrollRecords)'],
-]
-
-const requiredSettlementRuleEntrySnippets = [
-  ['settlement rule create action', 'createSettlementRule: async'],
-  ['settlement rule update action', 'updateSettlementRule: async'],
-  ['settlement rule delete action', 'deleteSettlementRule: async'],
-]
-
-const requiredSettlementRulePageSnippets = [
-  ['settlement rule edit state', 'const [editingSettlementRuleId, setEditingSettlementRuleId] = useState<string | null>(null)'],
-  ['settlement rule create binding', 'createSettlementRule({'],
-  ['settlement rule update binding', 'updateSettlementRule({'],
-]
-
-const requiredCurrencyEntryPageSnippets = [
-  ['currency edit state', 'const [editingCurrencyId, setEditingCurrencyId] = useState<string | null>(null)'],
-  ['currency create binding', 'createCurrency({'],
-  ['currency update binding', 'updateCurrency({'],
-]
-
-const requiredCommonDigestCommandSnippets = [
-  ['common digest update company scope', 'UPDATE common_digests SET content = ? WHERE id = ? AND company_id = ?'],
-  ['common digest delete company scope', 'pub async fn delete_common_digest(id: String, company_id: String'],
-]
-
-const requiredCommonDigestEntryPageSnippets = [
-  ['common digest edit state', 'const [editingCommonDigestId, setEditingCommonDigestId] = useState<string | null>(null)'],
-  ['common digest create binding', 'createCommonDigest({'],
-  ['common digest update binding', 'updateCommonDigest({'],
-]
-
-const requiredVoucherTemplateCommandSnippets = [
-  ['voucher template type company scope', 'SELECT id FROM voucher_template_types WHERE id = ? AND company_id = ?'],
-  ['voucher template entries validation', '凭证模板分录格式无效'],
-]
-
-const requiredVoucherTemplateEntryStoreSnippets = [
-  ['voucher template create action', 'createVoucherTemplate: async'],
-  ['voucher template update action', 'updateVoucherTemplate: async'],
-  ['voucher template delete action', 'deleteVoucherTemplate: async'],
-]
-
-const requiredVoucherTemplateEntryPageSnippets = [
-  ['voucher template edit state', 'const [editingVoucherTemplateId, setEditingVoucherTemplateId] = useState<string | null>(null)'],
-  ['voucher template create binding', 'createVoucherTemplate({'],
-  ['voucher template update binding', 'updateVoucherTemplate({'],
-]
-
-const requiredAdapterAuthorizationEntryPageSnippets = [
-  ['adapter authorization edit state', 'const [editingAdapterAuthorizationId, setEditingAdapterAuthorizationId] = useState<string | null>(null)'],
-  ['adapter authorization save binding', 'automationApi.upsertAdapterAuthorization({'],
-]
-
-const requiredReportFormulaEntryStoreSnippets = [
-  ['report formula update action', 'updateReportItem: async'],
-]
-
-const requiredReportFormulaEntryPageSnippets = [
-  ['report formula edit state', 'const [editingReportFormulaId, setEditingReportFormulaId] = useState<string | null>(null)'],
-  ['report formula update binding', 'updateReportItem({'],
-]
-
-const requiredAuxiliaryArchiveStoreSnippets = [
-  ['auxiliary item fetch company scope', 'fetchItems: (categoryId: string, companyId: string)'],
-  ['auxiliary category create action', 'createCategory: async'],
-  ['auxiliary category update action', 'updateCategory: async'],
-  ['auxiliary category company scoped delete', 'deleteCategory: async (id, companyId)'],
-  ['auxiliary item create action', 'createItem: async'],
-  ['auxiliary item update action', 'updateItem: async'],
-  ['auxiliary item company scoped delete', 'deleteItem: async (id, companyId)'],
-  ['auxiliary item company scoped toggle', 'toggleItem: async (id, companyId)'],
-]
-
-const requiredAuxiliaryArchiveCommandSnippets = [
-  ['auxiliary category system delete guard', '系统预置辅助核算类别不能删除'],
-  ['auxiliary category system update guard', '系统预置辅助核算类别不能修改'],
-]
-
-const requiredAuxiliaryArchivePageSnippets = [
-  ['auxiliary category create binding', 'const createAuxiliaryCategory = useAuxiliaryStore((state) => state.createCategory)'],
-  ['auxiliary item create binding', 'const createAuxiliaryItem = useAuxiliaryStore((state) => state.createItem)'],
-  ['auxiliary category dialog state', 'const [showAuxiliaryCategoryDialog, setShowAuxiliaryCategoryDialog] = useState(false)'],
-  ['auxiliary item dialog state', 'const [showAuxiliaryItemDialog, setShowAuxiliaryItemDialog] = useState(false)'],
-  ['auxiliary category save handler', 'const handleSaveAuxiliaryCategory = async'],
-  ['auxiliary item save handler', 'const handleSaveAuxiliaryItem = async'],
-  ['auxiliary category create action', 'createAuxiliaryCategory({'],
-  ['auxiliary item create action', 'createAuxiliaryItem({'],
-  ['auxiliary item toggle company scope', 'toggleAuxiliaryItem(item.id, selectedCompanyId)'],
-  ['auxiliary category dialog title', '新增辅助核算类别'],
-  ['auxiliary item dialog title', '新增辅助核算项目'],
-]
-
-const requiredVoucherEntryAuxiliarySnippets = [
-  ['voucher auxiliary item company scope', 'fetchItems(cat.category_id, selectedCompanyId)'],
-]
-
-const requiredMatchingRuleCommandSnippets = [
-  ['matching rule list command', 'pub async fn get_matching_rules'],
-  ['matching rule create command', 'pub async fn create_matching_rule'],
-  ['matching rule update command', 'pub async fn update_matching_rule'],
-  ['matching rule delete command', 'pub async fn delete_matching_rule'],
-  ['AI training rule scope validation', '"ai_training"'],
-]
-
-const requiredMatchingRuleStoreSnippets = [
-  ['AI training rule scope type', "| 'ai_training'"],
-  ['matching rule fetch action', 'fetchMatchingRules: async'],
-  ['matching rule create action', 'createMatchingRule: async'],
-  ['matching rule update action', 'updateMatchingRule: async'],
-  ['matching rule delete action', 'deleteMatchingRule: async'],
-]
-
-const requiredMatchingRulePageSnippets = [
-  ['matching rule store binding', "from '../../stores/matchingRuleStore'"],
-  ['matching rule live scope', "['invoiceMatchingRules', 'billMatchingRules', 'cashFlowMapping', 'aiRuleTraining']"],
-  ['AI training rule scope binding', ": kind === 'aiRuleTraining' ? 'ai_training' : 'cash_flow'"],
-  ['AI training rule import target', "kind === 'aiRuleTraining') return 'matchingRule'"],
-  ['matching rule row mapping', 'mapLiveMatchingRuleRows(isTauri ? matchingRules : scopedPreviewMatchingRules, matchingRuleScope)'],
-  ['matching rule scoped summary', 'summarizeLiveMatchingRules(isTauri ? matchingRules : scopedPreviewMatchingRules, matchingRuleScope)'],
-  ['matching rule editor state', 'const [showMatchingRuleDialog, setShowMatchingRuleDialog] = useState(false)'],
-  ['matching rule save binding', 'createMatchingRule({'],
-  ['AI training rule editor action', "kind === 'aiRuleTraining') {\n      resetMatchingRuleDraft()"],
-  ['AI training workflow add action', '<AiRuleTrainingWorkflowPanel summary={config.summary} onAdd={openMatchingRuleEditor}'],
-]
-
-const requiredAiTrainingRuleMappingSnippets = [
-  ['AI training rule row mapping', "scope === 'ai_training'"],
-  ['AI training rule summary', "if (scope === 'ai_training')"],
-  ['AI training published summary', "label: '已发布'"],
-]
-
-const requiredAiTrainingReviewSnippets = [
-  ['AI training rules start pending review', "isEnabled: matchingRuleScope !== 'ai_training'"],
-  ['AI training imports start pending review', "isEnabled: ruleScope === 'ai_training' ? false"],
-  ['AI training publish action', 'const publishSelectedAiTrainingRules = async () => {'],
-  ['AI training publish confirmation', '确认完成复核并发布'],
-  ['AI training publish audit', "writeModuleAudit('复核并发布AI训练规则'"],
-  ['AI training workflow publish control', 'onPublish={publishSelectedAiTrainingRules}'],
-  ['AI training editor review notice', '新训练规则保存后进入待复核'],
-]
-
-const requiredSettingsOverviewPageSnippets = [
-  ['settings overview live scope', "const usesLiveSettingsOverviewData = Boolean(isTauri && selectedCompanyId && kind === 'settingsData')"],
-  ['settings overview browser mapping', "if (kind === 'settingsData' && (usesLiveSettingsOverviewData || !isTauri))"],
-  ['settings overview preview company', 'const settingsCompany = selectedCompany || (previewCompanyInfo ? buildPreviewCompanyInfo(previewCompanyInfo) : undefined)'],
-  ['settings overview preview period', 'const settingsPeriod = isTauri ? currentPeriod : voucherEditorPeriod'],
-  ['settings overview accounting-system label', 'formatAccountingSystem(settingsCompany?.accounting_system)'],
-  ['settings overview company row', "name: '账套主体'"],
-  ['settings overview period row', "name: '当前账期'"],
-  ['settings overview output row', "name: '固定输出模板'"],
-  ['settings overview review action', "if (kind === 'settingsData') {\n      reviewFoundationConfiguration('account')"],
-]
-
-const forbiddenStaticSettingsOverviewSnippets = [
-  ['static selected-company settings value', "currentValue: '已选择企业'"],
-  ['static accounting-system settings value', "currentValue: '已配置会计制度'"],
-]
-
-const requiredBrowserCompanyInfoSnippets = [
-  ['browser company info empty-state mapping', "if (kind === 'companyInfo' && !isTauri) {\n      const company = selectedCompany || (previewCompanyInfo ? buildPreviewCompanyInfo(previewCompanyInfo) : undefined)"],
-  ['browser company info selected draft', 'const selectedCompanyDraft: PreviewCompanyInfo | null = company'],
-]
-
-const forbiddenStaticCompanyInfoPreviewSnippets = [
-  ['browser company info requires stored preview', "if (kind === 'companyInfo' && !isTauri && previewCompanyInfo)"],
-  ['browser company info preset company name', "name: company?.name || '科旋电气（上海）有限公司'"],
-]
-
-const requiredDashboardBankDataSnippets = [
-  ['dashboard bank transaction API', 'bankTransactionApi.getBankTransactions'],
-  ['dashboard bank transaction state', 'const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])'],
-  ['dashboard bank card uses records', 'value: `${bankTransactions.length} 笔`'],
-  ['dashboard bank risk', '笔银行流水尚未匹配或生成凭证'],
-  ['dashboard bank todo', "module: '银行账单'"],
-]
-
-const requiredFixedPrintTemplateSnippets = [
-  ['fixed print template rows', 'const fixedPrintTemplateRows: ModuleRow[] = fixedPrintTemplatePreviews.map'],
-  ['fixed print template summary', "const fixedPrintTemplateSummary: ModuleConfig['summary']"],
-  ['print template config rows', 'rows: fixedPrintTemplateRows'],
-  ['print template config summary', 'summary: fixedPrintTemplateSummary'],
-  ['fixed template toolbar opens preview', "const handleImportAction = () => {\n    if (kind === 'printTemplateSettings') {\n      openPrintTemplatePreview()"],
-]
-
-const requiredAssetCategoryCommandSnippets = [
-  ['asset category list command', 'pub async fn get_asset_categories'],
-  ['asset category create command', 'pub async fn create_asset_category'],
-  ['asset category update command', 'pub async fn update_asset_category'],
-  ['asset category delete command', 'pub async fn delete_asset_category'],
-  ['asset category toggle command', 'pub async fn toggle_asset_category'],
-]
-const requiredAssetCategoryStoreSnippets = [
-  ['asset category fetch action', 'fetchAssetCategories: async'],
-  ['asset category create action', 'createAssetCategory: async'],
-  ['asset category update action', 'updateAssetCategory: async'],
-  ['asset category delete action', 'deleteAssetCategory: async'],
-  ['asset category toggle action', 'toggleAssetCategory: async'],
-]
-const requiredAssetCategoryPageSnippets = [
-  ['asset category store binding', "from '../../stores/assetCategoryStore'"],
-  ['asset category live scope', "kind === 'assetCategory'"],
-  ['asset category row mapping', 'mapLiveAssetCategoryRows(isTauri ? assetCategories : scopedPreviewAssetCategories)'],
-  ['asset category editor state', 'const [showAssetCategoryDialog, setShowAssetCategoryDialog] = useState(false)'],
-  ['asset category save binding', 'createAssetCategory({'],
-]
-const requiredBusinessTagCommandSnippets = [
-  ['business tag list command', 'pub async fn get_business_tags'],
-  ['business tag create command', 'pub async fn create_business_tag'],
-  ['business tag update command', 'pub async fn update_business_tag'],
-  ['business tag delete command', 'pub async fn delete_business_tag'],
-  ['invoice tag list command', 'pub async fn get_invoice_tag_ids'],
-  ['invoice tag replace command', 'pub async fn replace_invoice_tags'],
-  ['voucher tag list command', 'pub async fn get_voucher_tag_ids'],
-  ['voucher tag replace command', 'pub async fn replace_voucher_tags'],
-  ['bank transaction tag list command', 'pub async fn get_bank_transaction_tag_ids'],
-  ['bank transaction tag replace command', 'pub async fn replace_bank_transaction_tags'],
-]
-const requiredBusinessTagStoreSnippets = [
-  ['business tag fetch action', 'fetchBusinessTags: async'],
-  ['business tag create action', 'createBusinessTag: async'],
-  ['business tag update action', 'updateBusinessTag: async'],
-  ['business tag delete action', 'deleteBusinessTag: async'],
-  ['invoice tag fetch action', 'fetchInvoiceTagIds: async'],
-  ['invoice tag replace action', 'replaceInvoiceTags: async'],
-  ['voucher tag fetch action', 'fetchVoucherTagIds: async'],
-  ['voucher tag replace action', 'replaceVoucherTags: async'],
-  ['bank transaction tag fetch action', 'fetchBankTransactionTagIds: async'],
-  ['bank transaction tag replace action', 'replaceBankTransactionTags: async'],
-]
-const requiredBusinessTagPageSnippets = [
-  ['business tag store binding', "from '../../stores/businessTagStore'"],
-  ['business tag live scope', "kind === 'tagArchive'"],
-  ['business tag row mapping', 'mapLiveBusinessTagRows(effectiveBusinessTags)'],
-  ['business tag editor state', 'const [showBusinessTagDialog, setShowBusinessTagDialog] = useState(false)'],
-  ['business tag save binding', 'createBusinessTag({'],
-  ['invoice tag selection state', 'const [selectedInvoiceTagIds, setSelectedInvoiceTagIds] = useState<string[]>([])'],
-  ['invoice tag save binding', 'replaceInvoiceTags(invoice.id, selectedCompanyId, selectedInvoiceTagIds)'],
-  ['invoice tag live mapper', 'mapLiveInvoiceRows(effectiveInvoices, \'output\', effectiveInvoiceTagIds, effectiveBusinessTags)'],
-  ['voucher tag selection state', 'const [selectedVoucherTagIds, setSelectedVoucherTagIds] = useState<string[]>([])'],
-  ['voucher tag save binding', 'replaceVoucherTags(voucher.id, selectedCompanyId, selectedVoucherTagIds)'],
-  ['voucher tag live mapper', 'mapLiveVoucherRows(activeVouchers, effectiveVoucherTagIds, effectiveBusinessTags)'],
-  ['bank transaction tag selection state', 'const [selectedBankTransactionTagIds, setSelectedBankTransactionTagIds] = useState<string[]>([])'],
-  ['bank transaction tag save binding', 'replaceBankTransactionTags(result.data.id, selectedCompanyId, selectedBankTransactionTagIds)'],
-  ['bank transaction tag live mapper', 'mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, effectiveBusinessTags)'],
-  ['business tag filter state', "const [businessTagFilter, setBusinessTagFilter] = useState('全部')"],
-  ['business tag filter binding', "businessTagFilter === '全部' || row.values.tags?.split(' / ').includes(businessTagFilter)"],
-]
-const requiredBusinessOrderCommandSnippets = [
-  ['business order list command', 'pub async fn get_business_orders'],
-  ['business order create command', 'pub async fn create_business_order'],
-  ['business order update command', 'pub async fn update_business_order'],
-]
-const requiredStructuredAiSuggestionSchemaSnippets = [
-  ['AI suggestion number column', 'suggestion_no TEXT'],
-  ['AI suggestion debit column', 'debit_subject TEXT'],
-  ['AI suggestion credit column', 'credit_subject TEXT'],
-  ['AI suggestion amount column', 'suggestion_amount REAL'],
-]
-const requiredStructuredAiSuggestionCommandSnippets = [
-  ['AI suggestion structured read', 'j.suggestion_no'],
-  ['AI suggestion structured insert', 'suggestion_no, debit_subject, credit_subject, suggestion_amount'],
-]
-const requiredStructuredAiSuggestionApiSnippets = [
-  ['AI suggestion typed debit subject', 'debitSubject: string | null'],
-  ['AI suggestion typed credit subject', 'creditSubject: string | null'],
-  ['AI suggestion typed amount', 'suggestionAmount: number | null'],
-  ['AI suggestion API debit mapping', 'debit_subject: input.debitSubject'],
-  ['AI suggestion API amount mapping', 'suggestion_amount: input.suggestionAmount'],
-]
-const requiredStructuredAiSuggestionAdapterSnippets = [
-  ['AI suggestion structured debit row', 'debit: job.debitSubject ||'],
-  ['AI suggestion structured credit row', 'credit: job.creditSubject ||'],
-  ['AI suggestion structured amount row', 'amount: job.suggestionAmount === null'],
-]
-const requiredMultiColumnLedgerAdapterSnippets = [
-  ['multi-column ledger row mapper', 'export function mapLiveMultiColumnLedgerRows'],
-  ['multi-column ledger summary mapper', 'export function summarizeLiveMultiColumnLedger'],
-]
-const requiredMultiColumnLedgerPageSnippets = [
-  ['multi-column ledger live scope', "'multiColumnLedgerReport'"],
-  ['multi-column ledger report request', "kind === 'multiColumnLedgerReport'"],
-  ['multi-column ledger live mapper', 'mapLiveMultiColumnLedgerRows(multiColumnLedger)'],
-]
-const requiredIncomeQuarterAdapterSnippets = [
-  ['income quarter row mapper', 'export function mapLiveIncomeQuarterRows'],
-  ['income quarter summary mapper', 'export function summarizeLiveIncomeQuarter'],
-]
-const requiredIncomeQuarterPageSnippets = [
-  ['income quarter live scope', "'incomeQuarterReport'"],
-  ['income quarter baseline request', 'getIncomeStatement(priorQuarterPeriod.id)'],
-  ['income quarter live mapper', 'mapLiveIncomeQuarterRows(incomeStatement, incomeQuarterBaseline'],
-]
-const requiredCashFlowQuarterAdapterSnippets = [
-  ['cash flow quarter row mapper', 'export function mapLiveCashFlowQuarterRows'],
-  ['cash flow quarter summary mapper', 'export function summarizeLiveCashFlowQuarter'],
-]
-const requiredCashFlowQuarterPageSnippets = [
-  ['cash flow quarter live scope', "'cashFlowQuarterReport'"],
-  ['cash flow quarter baseline request', 'getCashFlowStatement(priorQuarterPeriod.id)'],
-  ['cash flow quarter live mapper', 'mapLiveCashFlowQuarterRows(cashFlow, cashFlowQuarterBaseline'],
-]
-const requiredEquityChangeAdapterSnippets = [
-  ['equity change row mapper', 'export function mapLiveEquityChangeRows'],
-  ['equity change summary mapper', 'export function summarizeLiveEquityChange'],
-]
-const requiredEquityChangePageSnippets = [
-  ['equity change live scope', "'equityChangeReport'"],
-  ['equity change balance sheet request', 'getBalanceSheet(currentPeriodId)'],
-  ['equity change income statement request', 'getIncomeStatement(currentPeriodId)'],
-  ['equity change live mapper', 'mapLiveEquityChangeRows(financialReports.balanceSheet, financialReports.incomeStatement)'],
-]
-const requiredDeclarationCalendarAdapterSnippets = [
-  ['declaration calendar row mapper', 'export function mapLiveDeclarationCalendarRows'],
-  ['declaration calendar summary mapper', 'export function summarizeLiveDeclarationCalendar'],
-]
-const requiredDeclarationCalendarPageSnippets = [
-  ['declaration calendar live scope', "kind === 'declarationCalendar'"],
-  ['declaration calendar task loader', 'usesLiveDeclarationCalendarData'],
-  ['declaration calendar live mapper', 'mapLiveDeclarationCalendarRows(effectiveTaxDeclarationTasks)'],
-]
-const requiredNonTaxRevenueAdapterSnippets = [
-  ['non-tax revenue row mapper', 'export function mapLiveNonTaxRevenueRows'],
-  ['non-tax revenue summary mapper', 'export function summarizeLiveNonTaxRevenue'],
-  ['non-tax revenue task scope', 'function isNonTaxRevenueTask'],
-]
-const requiredNonTaxRevenuePageSnippets = [
-  ['non-tax revenue live scope', "kind === 'nonTaxRevenueReport'"],
-  ['non-tax revenue task loader', 'usesLiveNonTaxRevenueData'],
-  ['non-tax revenue live mapper', 'mapLiveNonTaxRevenueRows(effectiveTaxDeclarationTasks)'],
-  ['non-tax revenue manual save', 'automationApi.upsertTaxDeclarationTask({'],
-  ['non-tax revenue editor title', '新增非税缴费事项'],
-  ['non-tax revenue external submission boundary', '不会计算法定税额、生成外部缴款书或提交申报'],
-]
-const requiredTaxTaskConfirmationPageSnippets = [
-  ['local tax task kind guard', "const isLocalTaxTaskKind = ['declarationCalendar', 'taxReport', 'financeTaxReport', 'nonTaxRevenueReport'].includes(kind)"],
-  ['local tax task lookup', 'const taxTaskForRow = (row: ModuleRow) =>'],
-  ['local tax task confirmation binding', 'automationApi.confirmTaxDeclarationTask({'],
-  ['local tax task confirmation boundary', '不会向税局提交'],
-  ['local tax task action label', "isConfirmedTaxTask(row) ? '已确认' : '确认事项'"],
-]
-const requiredDeclarationReceiptSchemaSnippets = [
-  ['tax task payment status column', "payment_status TEXT NOT NULL DEFAULT 'unrecorded'"],
-  ['tax task payment number column', 'payment_no TEXT'],
-  ['tax task receipt received column', 'receipt_received_at TEXT'],
-]
-const requiredDeclarationReceiptCommandSnippets = [
-  ['tax task payment select', 't.payment_status'],
-  ['tax task payment insert', 'payment_status, payment_no, receipt_received_at'],
-  ['tax task payment update', 'payment_status = excluded.payment_status'],
-]
-const requiredDeclarationReceiptPageSnippets = [
-  ['receipt payment row mapping', 'paymentStatus: task.paymentStatus'],
-  ['receipt archive editor state', 'const [showDeclarationReceiptDialog, setShowDeclarationReceiptDialog] = useState(false)'],
-  ['receipt archive save binding', 'const handleSaveDeclarationReceipt = async'],
-  ['receipt archive editor title', '归档回执缴款信息'],
-  ['receipt archive external boundary', '不会发起税局申报或银行扣款'],
-]
-const requiredTaxInitPageSnippets = [
-  ['tax init editor state', 'const [showTaxInitDialog, setShowTaxInitDialog] = useState(false)'],
-  ['tax init save binding', 'const handleSaveTaxInit = async'],
-  ['tax init editor title', '新增申报认定事项'],
-  ['tax init upsert', 'automationApi.upsertTaxDeclarationTask({'],
-  ['tax init external boundary', '不会登录税局、提交申报或扣款'],
-]
-const requiredStampTaxSchemaSnippets = [
-  ['stamp tax item column', 'stamp_tax_item TEXT'],
-  ['stamp tax rate column', 'stamp_tax_rate REAL'],
-]
-const requiredStampTaxCommandSnippets = [
-  ['stamp tax item insert', 'stamp_tax_item, stamp_tax_rate'],
-  ['stamp tax rate validation', 'input.stamp_tax_rate.filter'],
-]
-const requiredStampTaxPageSnippets = [
-  ['stamp tax live scope', "kind === 'stampTaxReport'"],
-  ['stamp tax live mapper', 'mapLiveStampTaxRows(documentRecords)'],
-  ['stamp tax manual rate field', '印花税率（%）'],
-]
-const requiredCashFlowQuarterCommandSnippets = [
-  ['cash flow YTD result field', 'net_increase_year_to_date: f64'],
-  ['cash flow item YTD field', 'year_to_date: f64'],
-  ['cash flow YTD period query', 'period_month <= ? ORDER BY period_month'],
-  ['cash flow current period field', 'current_amount,'],
-]
-const requiredStructuredAiSuggestionPageSnippets = [
-  ['AI suggestion editor state', 'const [showAiVoucherSuggestionDialog, setShowAiVoucherSuggestionDialog] = useState(false)'],
-  ['AI suggestion create binding', 'automationApi.createAutomationJob({'],
-  ['AI suggestion editor title', '新增 AI 凭证建议'],
-  ['AI suggestion draft query id', "new URLSearchParams(location.search).get('aiSuggestion')"],
-  ['AI suggestion draft data request', 'automationApi.getAutomationJobs({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['AI suggestion draft confirmation guard', "suggestion.status.toLowerCase() !== 'confirmed'"],
-  ['AI suggestion draft prefill audit', "writeModuleAudit('预填AI凭证草稿'"],
-  ['AI suggestion draft deep link', "navigate(`/vouchers/new?aiSuggestion=${encodeURIComponent(suggestionJobId)}`)"],
-]
-const requiredAiSuggestionVoucherLinkSchemaSnippets = [
-  ['AI suggestion voucher id column', 'generated_voucher_id TEXT'],
-  ['AI suggestion voucher number column', 'generated_voucher_number TEXT'],
-]
-const requiredAiSuggestionVoucherLinkCommandSnippets = [
-  ['AI suggestion confirmed linkage guard', "job_type = 'voucher_suggestion'"],
-  ['AI suggestion confirmed status guard', "status = 'confirmed'"],
-  ['AI suggestion voucher linkage update', 'generated_voucher_id = ?'],
-  ['AI suggestion completion status', "status = 'completed'"],
-]
-const requiredAiSuggestionVoucherLinkPageSnippets = [
-  ['AI suggestion id passed on manual save', 'ai_suggestion_id: aiVoucherSuggestionId || undefined'],
-  ['AI suggestion save audit', "writeModuleAudit('关联AI建议凭证'"],
-]
-const requiredAiSuggestionVoucherLinkAdapterSnippets = [
-  ['AI suggestion actual voucher display', 'voucher: job.generatedVoucherNumber || job.sourceId ||'],
-]
-const requiredAiSuggestionVoucherUnlinkCommandSnippets = [
-  ['AI suggestion permanent-delete reset status', "SET generated_voucher_id = NULL, generated_voucher_number = NULL, status = 'confirmed'"],
-  ['AI suggestion permanent-delete reset scope', 'WHERE generated_voucher_id = ? AND company_id = ?'],
-]
-const requiredAiSuggestionVoucherNavigationPageSnippets = [
-  ['AI suggestion linked voucher lookup', 'job.generatedVoucherId'],
-  ['AI suggestion linked voucher navigation', 'navigate(`/vouchers/detail/${job.generatedVoucherId}`)'],
-  ['AI suggestion linked voucher action label', "row.status === '已生成凭证' ? '查看凭证'"],
-]
-const requiredBusinessOrderPageSnippets = [
-  ['business order live scope', "['purchaseManagement', 'salesManagement'].includes(kind)"],
-  ['business order editor state', 'const [showBusinessOrderDialog, setShowBusinessOrderDialog] = useState(false)'],
-  ['business order list request', 'businessOrderApi.getBusinessOrders'],
-  ['business order purchase mapper', "mapLiveBusinessOrderRows(businessOrders, 'purchase')"],
-  ['business order sales mapper', "mapLiveBusinessOrderRows(businessOrders, 'sales')"],
-]
-const requiredCompanyAccountCommandSnippets = [
-  ['company account list command', 'pub async fn get_company_accounts'],
-  ['company account create command', 'pub async fn create_company_account'],
-  ['company account update command', 'pub async fn update_company_account'],
-  ['company account delete command', 'pub async fn delete_company_account'],
-]
-const requiredCompanyAccountStoreSnippets = [
-  ['company account fetch action', 'fetchCompanyAccounts: async'],
-  ['company account create action', 'createCompanyAccount: async'],
-  ['company account update action', 'updateCompanyAccount: async'],
-  ['company account delete action', 'deleteCompanyAccount: async'],
-]
-const requiredCompanyAccountPageSnippets = [
-  ['company account store binding', "from '../../stores/companyAccountStore'"],
-  ['company account live scope', "kind === 'accountArchive'"],
-  ['company account row mapping', 'mapLiveCompanyAccountRows(isTauri ? companyAccounts : scopedPreviewCompanyAccounts)'],
-  ['company account editor state', 'const [showCompanyAccountDialog, setShowCompanyAccountDialog] = useState(false)'],
-  ['company account save binding', 'createCompanyAccount({'],
-]
-
-const requiredSocialSecurityCommandSnippets = [
-  ['social security table schema', 'CREATE TABLE IF NOT EXISTS social_security_records'],
-  ['social security list command', 'pub async fn get_social_security_records'],
-  ['social security create command', 'pub async fn create_social_security_record'],
-  ['social security update command', 'pub async fn update_social_security_record'],
-]
-
-const requiredSocialSecurityPageSnippets = [
-  ['social security api list binding', 'socialSecurityApi.getSocialSecurityRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['social security api create binding', 'socialSecurityApi.createSocialSecurityRecord(securityInput)'],
-  ['social security api update binding', 'socialSecurityApi.updateSocialSecurityRecord({'],
-  ['social security row mapper', 'mapLiveSocialSecurityRows(socialSecurityRecords)'],
-]
-
-const requiredSpecialDeductionCommandSnippets = [
-  ['special deduction table schema', 'CREATE TABLE IF NOT EXISTS special_deduction_records'],
-  ['special deduction list command', 'pub async fn get_special_deduction_records'],
-  ['special deduction create command', 'pub async fn create_special_deduction_record'],
-  ['special deduction update command', 'pub async fn update_special_deduction_record'],
-]
-
-const requiredSpecialDeductionPageSnippets = [
-  ['special deduction api list binding', 'specialDeductionApi.getSpecialDeductionRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['special deduction api create binding', 'specialDeductionApi.createSpecialDeductionRecord(deductionInput)'],
-  ['special deduction api update binding', 'specialDeductionApi.updateSpecialDeductionRecord({'],
-  ['special deduction row mapper', 'mapLiveSpecialDeductionRows(specialDeductionRecords)'],
-]
-
-const requiredWithholdingPageSnippets = [
-  ['withholding local data boundary', "const usesLiveWithholdingTaxData = Boolean(isTauri && selectedCompanyId && kind === 'withholdingTaxReport')"],
-  ['withholding row mapper', 'mapLiveWithholdingTaxRows(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords)'],
-  ['withholding summary mapper', 'summarizeLiveWithholdingTax(payrollRecords, employees, socialSecurityRecords, specialDeductionRecords)'],
-]
-
-const requiredSocialSecurityTaxPageSnippets = [
-  ['social security tax local data boundary', "const usesLiveSocialSecurityTaxData = Boolean(isTauri && selectedCompanyId && kind === 'socialSecurityTaxReport')"],
-  ['social security tax row mapper', 'mapLiveSocialSecurityTaxRows(socialSecurityRecords)'],
-  ['social security tax summary mapper', 'summarizeLiveSocialSecurityTax(socialSecurityRecords)'],
-]
-
-const requiredIncomeTaxPageSnippets = [
-  ['income tax report loader', "if (kind === 'incomeStatementReport' || kind === 'incomeQuarterReport' || kind === 'incomeTaxReport')"],
-  ['income tax row mapper', 'mapLiveIncomeTaxRows(incomeStatement)'],
-  ['income tax summary mapper', 'summarizeLiveIncomeTax(incomeStatement)'],
-]
-
-const requiredVatTaxPageSnippets = [
-  ['vat tax local data boundary', "const usesLiveVatTaxData = Boolean(isTauri && selectedCompanyId && kind === 'vatTaxReport')"],
-  ['vat tax invoice fetch', 'if (!usesLiveVatTaxData || !selectedCompanyId) return'],
-  ['vat tax row mapper', 'mapLiveVatTaxRows(effectiveInvoices)'],
-  ['vat tax summary mapper', 'summarizeLiveVatTax(effectiveInvoices)'],
-]
-
-const requiredBankTransactionCommandSnippets = [
-  ['bank transaction table schema', 'CREATE TABLE IF NOT EXISTS bank_transactions'],
-  ['bank transaction list command', 'pub async fn get_bank_transactions'],
-  ['bank transaction create command', 'pub async fn create_bank_transaction'],
-  ['bank transaction update command', 'pub async fn update_bank_transaction'],
-]
-
-const requiredBankTransactionPageSnippets = [
-  ['bank transaction api list binding', 'bankTransactionApi.getBankTransactions({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['bank transaction api create binding', 'bankTransactionApi.createBankTransaction({'],
-  ['bank transaction api update binding', 'bankTransactionApi.updateBankTransaction({'],
-  ['bank transaction edit state', 'const [editingBankTransactionId, setEditingBankTransactionId] = useState<string | null>(null)'],
-  ['bank transaction edit row binding', "if (kind === 'billList' || kind === 'bankStatement')"],
-  ['bank transaction row mapper', 'mapLiveBankTransactionRows(bankTransactions, kind, bankTransactionTagIds, effectiveBusinessTags)'],
-]
-
-const requiredDocumentRecordCommandSnippets = [
-  ['document record table schema', 'CREATE TABLE IF NOT EXISTS document_records'],
-  ['document record list command', 'pub async fn get_document_records'],
-  ['document record create command', 'pub async fn create_document_record'],
-  ['document record update command', 'pub async fn update_document_record'],
-]
-
-const requiredDocumentRecordPageSnippets = [
-  ['document record api list binding', 'documentRecordApi.getDocumentRecords({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['document record api create binding', 'documentRecordApi.createDocumentRecord({'],
-  ['document record api update binding', 'documentRecordApi.updateDocumentRecord({'],
-  ['document record edit state', 'const [editingDocumentRecordId, setEditingDocumentRecordId] = useState<string | null>(null)'],
-  ['document record edit row binding', "if (['documentRegister', 'contractLedger', 'expenseReimbursement', 'receipt'].includes(kind))"],
-  ['document record row mapper', 'mapLiveDocumentRecordRows(documentRecords)'],
-  ['contract document import target', "kind === 'contractLedger' || kind === 'receipt'"],
-]
-
-const requiredExpenseReimbursementPageSnippets = [
-  ['expense reimbursement document source', "const usesLiveExpenseReimbursementData = Boolean(isTauri && selectedCompanyId && kind === 'expenseReimbursement')"],
-  ['expense reimbursement row mapper', 'mapLiveExpenseReimbursementRows(documentRecords)'],
-  ['expense reimbursement summary mapper', 'summarizeLiveExpenseReimbursements(documentRecords)'],
-]
-
-const requiredReceiptPageSnippets = [
-  ['receipt local data scope', "const usesLiveReceiptData = Boolean(isTauri && selectedCompanyId && kind === 'receipt')"],
-  ['receipt document record source', 'mapLiveReceiptRows(documentRecords)'],
-  ['receipt summary source', 'summarizeLiveReceipts(documentRecords)'],
-]
-const requiredReconciliationPageSnippets = [
-  ['bank reconciliation local scope', "const usesLiveBankReconciliationRecordData = Boolean(isTauri && selectedCompanyId && kind === 'bankReconciliation')"],
-  ['bank reconciliation list request', 'bankReconciliationApi.getBankReconciliationRecords'],
-  ['bank reconciliation row mapper', 'mapLiveBankReconciliationRows(bankReconciliationRecords)'],
-  ['settlement records live scope', "['receivableSettlement', 'payableSettlement', 'receivablePayableAging'].includes(kind)"],
-  ['settlement records list request', 'settlementRecordApi.getSettlementRecords'],
-  ['receivable settlement row mapper', "mapLiveSettlementRecordRows(settlementRecords, 'receivable')"],
-  ['payable settlement row mapper', "mapLiveSettlementRecordRows(settlementRecords, 'payable')"],
-  ['aging row mapper', 'mapLiveSettlementAgingRows(settlementRecords)'],
-]
-const requiredSettlementRecordCommandSnippets = [
-  ['settlement record list command', 'pub async fn get_settlement_records'],
-  ['settlement record create command', 'pub async fn create_settlement_record'],
-  ['settlement record update command', 'pub async fn update_settlement_record'],
-]
-const requiredBankReconciliationCommandSnippets = [
-  ['bank reconciliation list command', 'pub async fn get_bank_reconciliation_records'],
-  ['bank reconciliation create command', 'pub async fn create_bank_reconciliation_record'],
-  ['bank reconciliation update command', 'pub async fn update_bank_reconciliation_record'],
-]
-
-const requiredAccountTransferPageSnippets = [
-  ['account transfer table schema', 'CREATE TABLE IF NOT EXISTS account_transfers'],
-  ['account transfer list command', 'pub async fn get_account_transfers'],
-  ['account transfer create command', 'pub async fn create_account_transfer'],
-  ['account transfer update command', 'pub async fn update_account_transfer'],
-  ['account transfer api list binding', 'accountTransferApi.getAccountTransfers({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['account transfer api create binding', 'accountTransferApi.createAccountTransfer({'],
-  ['account transfer api update binding', 'accountTransferApi.updateAccountTransfer({'],
-  ['account transfer edit row binding', "if (kind === 'transfer' && (usesLiveAccountTransferData || !isTauri))"],
-  ['account transfer edit state', 'const [editingAccountTransferId, setEditingAccountTransferId] = useState<string | null>(null)'],
-  ['account transfer row mapper', 'mapLiveAccountTransferRows(accountTransfers)'],
-]
-
-const requiredFixedAssetCommandSnippets = [
-  ['fixed asset table schema', 'CREATE TABLE IF NOT EXISTS fixed_assets'],
-  ['fixed asset list command', 'pub async fn get_fixed_assets'],
-  ['fixed asset create command', 'pub async fn create_fixed_asset'],
-  ['fixed asset update command', 'pub async fn update_fixed_asset'],
-]
-
-const requiredFixedAssetPageSnippets = [
-  ['fixed asset api list binding', 'fixedAssetApi.getFixedAssets({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['fixed asset api create binding', 'fixedAssetApi.createFixedAsset({'],
-  ['fixed asset api update binding', 'fixedAssetApi.updateFixedAsset({'],
-  ['fixed asset edit state', 'const [editingFixedAssetId, setEditingFixedAssetId] = useState<string | null>(null)'],
-  ['fixed asset edit row binding', "if (kind === 'depreciation' && (usesLiveFixedAssetData || !isTauri))"],
-  ['fixed asset row mapper', 'mapLiveFixedAssetRows(fixedAssets)'],
-  ['fixed asset category suggestion', "list={field === 'category' ? 'asset-category-options'"],
-  ['fixed asset category default', 'effectiveAssetCategories.find((category) => category.is_enabled === 1)'],
-]
-
-const requiredInventoryMovementCommandSnippets = [
-  ['inventory movement table schema', 'CREATE TABLE IF NOT EXISTS inventory_movements'],
-  ['inventory movement list command', 'pub async fn get_inventory_movements'],
-  ['inventory movement create command', 'pub async fn create_inventory_movement'],
-  ['inventory movement update command', 'pub async fn update_inventory_movement'],
-]
-
-const requiredInventoryMovementPageSnippets = [
-  ['inventory movement api list binding', 'inventoryMovementApi.getInventoryMovements({ companyId: selectedCompanyId, period: currentPeriodLabel })'],
-  ['inventory movement api create binding', 'inventoryMovementApi.createInventoryMovement({'],
-  ['inventory movement api update binding', 'inventoryMovementApi.updateInventoryMovement({'],
-  ['inventory movement edit state', 'const [editingInventoryMovementId, setEditingInventoryMovementId] = useState<string | null>(null)'],
-  ['inventory movement edit row binding', "if (kind === 'inventoryMovement' && (usesLiveInventoryMovementData || !isTauri))"],
-  ['inventory movement row mapper', 'mapLiveInventoryMovementRows(inventoryMovements)'],
-  ['cost carryover live scope', "const usesLiveCostCarryoverData = Boolean(isTauri && selectedCompanyId && kind === 'costCarryover')"],
-  ['cost carryover list request', 'costCarryoverApi.getCostCarryoverRecords'],
-  ['cost carryover row mapper', 'mapLiveCostCarryoverRows(costCarryoverRecords)'],
-]
-const requiredCostCarryoverCommandSnippets = [
-  ['cost carryover list command', 'pub async fn get_cost_carryover_records'],
-  ['cost carryover create command', 'pub async fn create_cost_carryover_record'],
-  ['cost carryover update command', 'pub async fn update_cost_carryover_record'],
-]
-
-const requiredInventoryItemCommandSnippets = [
-  ['inventory item table schema', 'CREATE TABLE IF NOT EXISTS inventory_items'],
-  ['inventory item list command', 'pub async fn get_inventory_items'],
-  ['inventory item create command', 'pub async fn create_inventory_item'],
-  ['inventory item update command', 'pub async fn update_inventory_item'],
-]
-
-const requiredInventoryItemPageSnippets = [
-  ['inventory item api list binding', 'inventoryItemApi.getInventoryItems({ companyId: selectedCompanyId })'],
-  ['inventory item api create binding', 'inventoryItemApi.createInventoryItem(itemInput)'],
-  ['inventory item api update binding', 'inventoryItemApi.updateInventoryItem({'],
-  ['inventory item edit state', 'const [editingInventoryItemId, setEditingInventoryItemId] = useState<string | null>(null)'],
-  ['inventory item row mapper', 'mapLiveInventoryItemRows(inventoryItems)'],
-]
-
-const requiredUnitCommandSnippets = [
-  ['unit table schema', 'CREATE TABLE IF NOT EXISTS measurement_units'],
-  ['unit list command', 'pub async fn get_measurement_units'],
-  ['unit create command', 'pub async fn create_measurement_unit'],
-  ['unit update command', 'pub async fn update_measurement_unit'],
-]
-
-const requiredUnitPageSnippets = [
-  ['unit api list binding', 'measurementUnitApi.getMeasurementUnits({ companyId: selectedCompanyId })'],
-  ['unit api create binding', 'measurementUnitApi.createMeasurementUnit(unitInput)'],
-  ['unit api update binding', 'measurementUnitApi.updateMeasurementUnit({'],
-  ['unit edit state', 'const [editingMeasurementUnitId, setEditingMeasurementUnitId] = useState<string | null>(null)'],
-  ['unit row mapper', 'mapLiveMeasurementUnitRows(measurementUnits)'],
-]
-
-function verify(source, checks, sourceName) {
-  return checks
-    .filter(([, snippet]) => !source.includes(snippet))
-    .map(([label, snippet]) => `${sourceName}: ${label} missing snippet: ${snippet}`)
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+
+const read = (file) => readFileSync(file, "utf8");
+
+function sourceFiles(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) return sourceFiles(path);
+    return /\.(?:ts|tsx|js|jsx)$/.test(entry.name) ? [path] : [];
+  });
 }
 
-function verifyAbsent(source, checks, sourceName) {
-  return checks
-    .filter(([, snippet]) => source.includes(snippet))
-    .map(([label, snippet]) => `${sourceName}: ${label} still contains forbidden snippet: ${snippet}`)
+const appSource = read("src/App.tsx");
+const registrySource = read("src/pages/operations/businessModuleRegistry.ts");
+const rustEntrySource = read("src-tauri/src/lib.rs");
+
+const companyAccountWorkspaceSource = existsSync(
+  "src/pages/operations/CompanyAccountWorkspace.tsx",
+)
+  ? read("src/pages/operations/CompanyAccountWorkspace.tsx")
+  : "";
+const contractLedgerWorkspaceSource = existsSync(
+  "src/pages/operations/ContractLedgerWorkspace.tsx",
+)
+  ? read("src/pages/operations/ContractLedgerWorkspace.tsx")
+  : "";
+const businessTagWorkspaceSource = existsSync(
+  "src/pages/operations/BusinessTagWorkspace.tsx",
+)
+  ? read("src/pages/operations/BusinessTagWorkspace.tsx")
+  : "";
+const voucherRecycleWorkspaceSource = existsSync(
+  "src/pages/operations/VoucherRecycleWorkspace.tsx",
+)
+  ? read("src/pages/operations/VoucherRecycleWorkspace.tsx")
+  : "";
+const companyInfoWorkspaceSource = existsSync(
+  "src/pages/operations/CompanyInfoWorkspace.tsx",
+)
+  ? read("src/pages/operations/CompanyInfoWorkspace.tsx")
+  : "";
+const auditLogWorkspaceSource = existsSync(
+  "src/pages/operations/AuditLogWorkspace.tsx",
+)
+  ? read("src/pages/operations/AuditLogWorkspace.tsx")
+  : "";
+const backupRestoreWorkspaceSource = existsSync(
+  "src/pages/operations/BackupRestoreWorkspace.tsx",
+)
+  ? read("src/pages/operations/BackupRestoreWorkspace.tsx")
+  : "";
+const printTemplateWorkspaceSource = existsSync(
+  "src/pages/operations/PrintTemplateWorkspace.tsx",
+)
+  ? read("src/pages/operations/PrintTemplateWorkspace.tsx")
+  : "";
+const voucherWorkspaceSource = existsSync(
+  "src/pages/operations/VoucherWorkspace.tsx",
+)
+  ? read("src/pages/operations/VoucherWorkspace.tsx")
+  : "";
+const voucherDetailWorkspaceSource = existsSync(
+  "src/pages/operations/VoucherDetailWorkspace.tsx",
+)
+  ? read("src/pages/operations/VoucherDetailWorkspace.tsx")
+  : "";
+const riskCheckWorkspaceSource = existsSync(
+  "src/pages/operations/RiskCheckWorkspace.tsx",
+)
+  ? read("src/pages/operations/RiskCheckWorkspace.tsx")
+  : "";
+const invoiceVoucherMatchingWorkspaceSource = existsSync(
+  "src/pages/operations/InvoiceVoucherMatchingWorkspace.tsx",
+)
+  ? read("src/pages/operations/InvoiceVoucherMatchingWorkspace.tsx")
+  : "";
+const agingWorkspaceSource = existsSync(
+  "src/pages/operations/AgingWorkspace.tsx",
+)
+  ? read("src/pages/operations/AgingWorkspace.tsx")
+  : "";
+const counterpartyReportWorkspaceSource = existsSync(
+  "src/pages/operations/CounterpartyReportWorkspace.tsx",
+)
+  ? read("src/pages/operations/CounterpartyReportWorkspace.tsx")
+  : "";
+const operatingAnalysisWorkspaceSource = existsSync(
+  "src/pages/operations/OperatingAnalysisWorkspace.tsx",
+)
+  ? read("src/pages/operations/OperatingAnalysisWorkspace.tsx")
+  : "";
+const ledgerReportWorkspaceSource = existsSync(
+  "src/pages/operations/LedgerReportWorkspace.tsx",
+)
+  ? read("src/pages/operations/LedgerReportWorkspace.tsx")
+  : "";
+const ledgerDetailWorkspaceSource = existsSync(
+  "src/pages/operations/LedgerDetailWorkspace.tsx",
+)
+  ? read("src/pages/operations/LedgerDetailWorkspace.tsx")
+  : "";
+const financialStatementWorkspaceSource = existsSync(
+  "src/pages/operations/FinancialStatementWorkspace.tsx",
+)
+  ? read("src/pages/operations/FinancialStatementWorkspace.tsx")
+  : "";
+const closingTasksWorkspaceSource = existsSync(
+  "src/pages/operations/ClosingTasksWorkspace.tsx",
+)
+  ? read("src/pages/operations/ClosingTasksWorkspace.tsx")
+  : "";
+const declarationCalendarWorkspaceSource = existsSync(
+  "src/pages/tax/DeclarationCalendarWorkspace.tsx",
+)
+  ? read("src/pages/tax/DeclarationCalendarWorkspace.tsx")
+  : "";
+const taxReportWorkspaceSource = existsSync(
+  "src/pages/tax/TaxReportWorkspace.tsx",
+)
+  ? read("src/pages/tax/TaxReportWorkspace.tsx")
+  : "";
+const aiOperationsWorkspaceSource = existsSync(
+  "src/pages/operations/AiOperationsWorkspace.tsx",
+)
+  ? read("src/pages/operations/AiOperationsWorkspace.tsx")
+  : "";
+const fileCenterWorkspaceSource = existsSync(
+  "src/pages/operations/FileCenterWorkspace.tsx",
+)
+  ? read("src/pages/operations/FileCenterWorkspace.tsx")
+  : "";
+const documentBusinessWorkspaceSource = existsSync(
+  "src/pages/operations/DocumentBusinessWorkspace.tsx",
+)
+  ? read("src/pages/operations/DocumentBusinessWorkspace.tsx")
+  : "";
+const billListWorkspaceSource = existsSync(
+  "src/pages/operations/BillListWorkspace.tsx",
+)
+  ? read("src/pages/operations/BillListWorkspace.tsx")
+  : "";
+const initializationWorkspaceSource = existsSync(
+  "src/pages/operations/InitializationWorkspace.tsx",
+)
+  ? read("src/pages/operations/InitializationWorkspace.tsx")
+  : "";
+const historyMigrationWorkspaceSource = existsSync(
+  "src/pages/operations/HistoryMigrationWorkspace.tsx",
+)
+  ? read("src/pages/operations/HistoryMigrationWorkspace.tsx")
+  : "";
+const voucherEntryWorkspaceSource = existsSync(
+  "src/pages/operations/VoucherEntryWorkspace.tsx",
+)
+  ? read("src/pages/operations/VoucherEntryWorkspace.tsx")
+  : "";
+const systemHubWorkspaceSource = existsSync(
+  "src/pages/operations/SystemHubWorkspace.tsx",
+)
+  ? read("src/pages/operations/SystemHubWorkspace.tsx")
+  : "";
+
+const requiredCompanyAccountWorkspaceSnippets = [
+  ["store binding", "from '../../stores/companyAccountStore'"],
+  ["list refresh", "fetchCompanyAccounts(companyId)"],
+  ["create action", "createCompanyAccount(input)"],
+  ["update action", "updateCompanyAccount(editorAccount.id, input)"],
+  [
+    "preview persistence",
+    "const previewStorageKey = 'accounting-preview-company-accounts-v2'",
+  ],
+];
+const requiredContractLedgerWorkspaceSnippets = [
+  [
+    "list refresh",
+    "documentRecordApi.getDocumentRecords({ companyId, period })",
+  ],
+  ["create action", "documentRecordApi.createDocumentRecord(input)"],
+  [
+    "update action",
+    "documentRecordApi.updateDocumentRecord({ ...input, id: editingRecord.id })",
+  ],
+  ["workflow boundary", "合同台账不替代合同审批或税务申报确认"],
+];
+const requiredBusinessTagWorkspaceSnippets = [
+  ["store binding", "from '../../stores/businessTagStore'"],
+  ["list refresh", "fetchBusinessTags(companyId)"],
+  ["create action", "createBusinessTag(input)"],
+  ["update action", "updateBusinessTag(editorTag.id, input)"],
+  [
+    "preview persistence",
+    'from "../../lib/browserPreviewBusinessTags.js"',
+  ],
+];
+const requiredVoucherRecycleWorkspaceSnippets = [
+  ["list refresh", "getDeletedVouchers(companyId)"],
+  ["restore action", "restoreVoucher(voucher.id, companyId)"],
+  ["shared store error surface", "storeError &&"],
+];
+const requiredCompanyInfoWorkspaceSnippets = [
+  ["company refresh", "fetchCompanies()"],
+  ["company update", "updateCompany(selectedCompanyId, input)"],
+  ["credential boundary", "不会保存税局、个税或工商密码"],
+];
+const requiredAuditLogWorkspaceSnippets = [
+  ["audit query", "automationApi.getOperationAuditLogs"],
+  ["company scope", "companyId: selectedCompanyId"],
+  ["immutable boundary", "不提供新增、修改、删除或覆盖历史记录"],
+];
+const requiredBackupRestoreWorkspaceSnippets = [
+  ["backup list", "backupApi.listLocalBackups"],
+  ["backup create", "backupApi.createLocalBackup"],
+  ["backup verify", "backupApi.verifyLocalBackup"],
+  ["restore scheduling", "backupApi.scheduleLocalBackupRestore"],
+  ["restart-safe boundary", "下次启动、数据库连接建立前"],
+];
+const requiredPrintTemplateWorkspaceSnippets = [
+  ["controlled source", "fixedPrintTemplatePreviews"],
+  ["release boundary", "随应用版本受控发布"],
+];
+const requiredVoucherWorkspaceSnippets = [
+  [
+    "scoped query",
+    "queryVouchers({ company_id: companyId, period_id: periodId",
+  ],
+  ["approval action", "approveVoucher(voucher.id, companyId)"],
+  ["batch approval", "batchApprove(selectedIds, companyId)"],
+  ["closed period boundary", "已结账账期不允许反审核"],
+];
+const requiredVoucherDetailWorkspaceSnippets = [
+  ["voucher lookup", "getVoucher(voucherId, companyId)"],
+  ["entry lookup", "getVoucherEntries(nextVoucher.id)"],
+  ["log lookup", "getVoucherLogs(nextVoucher.id)"],
+];
+const requiredRiskCheckWorkspaceSnippets = [
+  [
+    "invoice query",
+    "fetchInvoices({ company_id: companyId, period_id: periodId })",
+  ],
+  [
+    "voucher query",
+    "queryVouchers({ company_id: companyId, period_id: periodId, page: 1, page_size: 100 })",
+  ],
+  ["risk mapper", "mapLiveRiskCheckRows(vouchers, invoices)"],
+  ["write boundary", "风险页不会直接改写会计数据"],
+];
+const requiredInvoiceVoucherMatchingWorkspaceSnippets = [
+  [
+    "invoice query",
+    "fetchInvoices({ company_id: companyId, period_id: periodId })",
+  ],
+  [
+    "voucher query",
+    "queryVouchers({ company_id: companyId, period_id: periodId, page: 1, page_size: 100 })",
+  ],
+  [
+    "matching action",
+    "matchInvoiceToVoucher(selectedInvoiceId, selectedVoucherId, companyId)",
+  ],
+];
+const requiredAgingWorkspaceSnippets = [
+  [
+    "receivable query",
+    "settlementRecordApi.getSettlementRecords({ companyId, period: periodLabel, settlementType: 'receivable' })",
+  ],
+  [
+    "payable query",
+    "settlementRecordApi.getSettlementRecords({ companyId, period: periodLabel, settlementType: 'payable' })",
+  ],
+];
+const requiredCounterpartyReportWorkspaceSnippets = [
+  ["settlement query", "settlementRecordApi.getSettlementRecords({ companyId, period: periodLabel, settlementType: mode })"],
+  ["summary workflow", "buildCounterpartySummary(records, mode)"],
+  ["detail workflow", "buildCounterpartyDetail(records, mode)"],
+  ["read-only boundary", "报表页不直接修改业务记录"],
+];
+const requiredOperatingAnalysisWorkspaceSnippets = [
+  ["balance sheet query", "getBalanceSheet(periodId)"],
+  ["income statement query", "getIncomeStatement(periodId)"],
+  ["status analysis", "buildOperatingStatus(balanceSheet)"],
+  ["performance analysis", "buildOperatingPerformance(incomeStatement)"],
+  ["read-only boundary", "如需修正，请回到凭证或报表公式处理"],
+];
+const requiredLedgerReportWorkspaceSnippets = [
+  ["trial balance query", "fetchTrialBalance(periodId)"],
+  ["general ledger query", "getGeneralLedger(periodId)"],
+  ["read-only boundary", "账簿页仅查询当前账套与账期"],
+];
+const requiredLedgerDetailWorkspaceSnippets = [
+  [
+    "subsidiary ledger query",
+    "getSubsidiaryLedger(periodId, selectedAccountCode)",
+  ],
+  [
+    "auxiliary ledger query",
+    "fetchAuxiliaryLedger({ auxiliary_item_id: selectedItemId, company_id: selectedCompanyId, period_id: periodId })",
+  ],
+  [
+    "auxiliary balance query",
+    "fetchAuxiliaryBalance(selectedCategoryId, periodId, selectedCompanyId)",
+  ],
+];
+const requiredFinancialStatementWorkspaceSnippets = [
+  ["balance sheet query", "getBalanceSheet(periodId)"],
+  ["quarter period scope", "quarterPeriods(periods, periodId)"],
+  ["income statement query", "incomePeriodIds.map((id) => getIncomeStatement(id))"],
+  ["cash flow query", "cashFlowPeriodIds.map((id) => getCashFlowStatement(id))"],
+  ["quarter income aggregation", "aggregateIncomeQuarter(nextIncomeStatements)"],
+  ["quarter cash flow aggregation", "aggregateCashFlowQuarter(nextCashFlowStatements)"],
+  ["read-only boundary", "报表页仅查询当前账套与账期"],
+];
+const requiredClosingTasksWorkspaceSnippets = [
+  [
+    "voucher query",
+    "queryVouchers({ company_id: companyId, period_id: periodId",
+  ],
+  ["trial balance query", "fetchTrialBalance(periodId)"],
+  ["balance sheet query", "getBalanceSheet(periodId)"],
+  ["close action", "closePeriod(periodId)"],
+  ["controlled boundary", "不会自动结账"],
+];
+const requiredDeclarationCalendarWorkspaceSnippets = [
+  ["task query", "automationApi.getTaxDeclarationTasks"],
+  ["browser period", "loadBrowserPreviewOpenPeriod"],
+  ["external boundary", "不会登录税局、提交申报或发起扣款"],
+];
+const requiredTaxReportWorkspaceSnippets = [
+  [
+    "task query",
+    "automationApi.getTaxDeclarationTasks({ companyId: selectedCompanyId, period: periodLabel })",
+  ],
+  ["confirmation action", "automationApi.confirmTaxDeclarationTask"],
+  ["external boundary", "不会向电子税务局提交申报或发起扣款"],
+];
+const requiredAiOperationsWorkspaceSnippets = [
+  [
+    "job query",
+    "automationApi.getAutomationJobs({ companyId: selectedCompanyId, period: periodLabel })",
+  ],
+  ["job create", "automationApi.createAutomationJob({"],
+  ["review action", "automationApi.updateAutomationJobStatus({"],
+  ["provider query", "automationApi.getAiProviderConfigs({"],
+  ["provider configuration", "automationApi.upsertAiProviderConfig({"],
+  ["recognition execution", "automationApi.runAiRecognitionJob({"],
+  ["training rule store", "useMatchingRuleStore"],
+  ["credential boundary", "凭据不写入数据库"],
+  ["disclosure boundary", "用户逐次确认后发送所选文件"],
+  ["posting boundary", "不会自动生成或入账凭证"],
+];
+const requiredFileCenterWorkspaceSnippets = [
+  ["attachment registration", "recordLocalAttachment"],
+  ["attachment association", "updateLocalAttachmentAssociation"],
+  ["import registration", "recordLocalImportJob"],
+  ["download jobs", "useExportJobs"],
+  ["audit records", "useAuditLogs"],
+  ["upload boundary", "文件不会被静默上传或替换"],
+];
+const requiredDocumentBusinessWorkspaceSnippets = [
+  [
+    "document query",
+    "documentRecordApi.getDocumentRecords({ companyId, period })",
+  ],
+  ["document create", "documentRecordApi.createDocumentRecord(input)"],
+  [
+    "document update",
+    "documentRecordApi.updateDocumentRecord({ ...input, id: editingRecord.id })",
+  ],
+  ["posting boundary", "不自动生成或过账凭证"],
+];
+const requiredBillListWorkspaceSnippets = [
+  [
+    "bill query",
+    "bankTransactionApi.getBankTransactions({ companyId, period })",
+  ],
+  [
+    "bill create",
+    "bankTransactionApi.createBankTransaction({ ...input, period })",
+  ],
+  [
+    "bill update",
+    "bankTransactionApi.updateBankTransaction({ ...input, id: editingRecord.id })",
+  ],
+  ["bank boundary", "不登录银行、不下载回单、不自动生成或过账凭证"],
+];
+const requiredInitializationWorkspaceSnippets = [
+  ["initial balance save", "saveInitialBalance({ period_id: periodId"],
+  ["initial balance validation", "validateInitialBalances(periodId)"],
+  ["initial balance finalize", "finalizeInitialBalances(periodId)"],
+  [
+    "tax task query",
+    "automationApi.getTaxDeclarationTasks({ companyId, period: periodLabel })",
+  ],
+  ["tax task save", "automationApi.upsertTaxDeclarationTask({"],
+];
+const requiredHistoryMigrationWorkspaceSnippets = [
+  [
+    "voucher query",
+    "queryVouchers({ company_id: selectedCompanyId, period_id: currentPeriodId",
+  ],
+  ["trial balance query", "fetchTrialBalance(currentPeriodId)"],
+  ["general ledger query", "getGeneralLedger(currentPeriodId)"],
+  [
+    "subsidiary ledger query",
+    "getSubsidiaryLedger(currentPeriodId, fallbackAccountCode)",
+  ],
+  ["overwrite boundary", "不会覆盖当前账期"],
+];
+const requiredVoucherEntryWorkspaceSnippets = [
+  [
+    "scoped voucher number",
+    "getNextVoucherNumber(currentPeriodId, selectedCompanyId)",
+  ],
+  ["voucher lookup", "getVoucher(id, selectedCompanyId)"],
+  ["voucher create", "addVoucher({ company_id: selectedCompanyId"],
+  ["voucher update", "updateVoucher({ id: loadedVoucher.id"],
+  ["posting boundary", "不会自动审核、过账或修改已结账账期凭证"],
+];
+const requiredSystemHubWorkspaceSnippets = [
+  [
+    "todo query",
+    "companyTodoApi.getAll({ companyId, period: currentPeriodLabel })",
+  ],
+  ["todo create", "companyTodoApi.create({"],
+  ["todo complete", "companyTodoApi.complete({ id: todo.id, companyId })"],
+  ["message boundary", "不会发送短信、邮件或外部消息"],
+  ["template query", "fetchReportTemplateWorkspace(companyId)"],
+];
+
+const dedicatedRouteBindings = [
+  ["accountArchive", "CompanyAccountWorkspace"],
+  ["contractLedger", "ContractLedgerWorkspace"],
+  ["tagArchive", "BusinessTagWorkspace"],
+  ["receivableSummaryReport", "ReceivableSummaryWorkspace"],
+  ["receivableDetailReport", "ReceivableDetailWorkspace"],
+  ["payableSummaryReport", "PayableSummaryWorkspace"],
+  ["payableDetailReport", "PayableDetailWorkspace"],
+  ["operatingStatusReport", "OperatingStatusWorkspace"],
+  ["operatingPerformanceReport", "OperatingPerformanceWorkspace"],
+];
+
+const dedicatedChecks = [
+  [
+    "company account workspace",
+    companyAccountWorkspaceSource,
+    requiredCompanyAccountWorkspaceSnippets,
+  ],
+  [
+    "contract ledger workspace",
+    contractLedgerWorkspaceSource,
+    requiredContractLedgerWorkspaceSnippets,
+  ],
+  [
+    "business tag workspace",
+    businessTagWorkspaceSource,
+    requiredBusinessTagWorkspaceSnippets,
+  ],
+  [
+    "voucher recycle workspace",
+    voucherRecycleWorkspaceSource,
+    requiredVoucherRecycleWorkspaceSnippets,
+  ],
+  [
+    "company information workspace",
+    companyInfoWorkspaceSource,
+    requiredCompanyInfoWorkspaceSnippets,
+  ],
+  [
+    "audit log workspace",
+    auditLogWorkspaceSource,
+    requiredAuditLogWorkspaceSnippets,
+  ],
+  [
+    "backup restoration workspace",
+    backupRestoreWorkspaceSource,
+    requiredBackupRestoreWorkspaceSnippets,
+  ],
+  [
+    "print template workspace",
+    printTemplateWorkspaceSource,
+    requiredPrintTemplateWorkspaceSnippets,
+  ],
+  [
+    "voucher workspace",
+    voucherWorkspaceSource,
+    requiredVoucherWorkspaceSnippets,
+  ],
+  [
+    "voucher detail workspace",
+    voucherDetailWorkspaceSource,
+    requiredVoucherDetailWorkspaceSnippets,
+  ],
+  [
+    "risk check workspace",
+    riskCheckWorkspaceSource,
+    requiredRiskCheckWorkspaceSnippets,
+  ],
+  [
+    "invoice voucher matching workspace",
+    invoiceVoucherMatchingWorkspaceSource,
+    requiredInvoiceVoucherMatchingWorkspaceSnippets,
+  ],
+  ["aging workspace", agingWorkspaceSource, requiredAgingWorkspaceSnippets],
+  ["counterparty report workspace", counterpartyReportWorkspaceSource, requiredCounterpartyReportWorkspaceSnippets],
+  ["operating analysis workspace", operatingAnalysisWorkspaceSource, requiredOperatingAnalysisWorkspaceSnippets],
+  [
+    "ledger report workspace",
+    ledgerReportWorkspaceSource,
+    requiredLedgerReportWorkspaceSnippets,
+  ],
+  [
+    "ledger detail workspace",
+    ledgerDetailWorkspaceSource,
+    requiredLedgerDetailWorkspaceSnippets,
+  ],
+  [
+    "financial statement workspace",
+    financialStatementWorkspaceSource,
+    requiredFinancialStatementWorkspaceSnippets,
+  ],
+  [
+    "closing tasks workspace",
+    closingTasksWorkspaceSource,
+    requiredClosingTasksWorkspaceSnippets,
+  ],
+  [
+    "declaration calendar workspace",
+    declarationCalendarWorkspaceSource,
+    requiredDeclarationCalendarWorkspaceSnippets,
+  ],
+  [
+    "tax report workspace",
+    taxReportWorkspaceSource,
+    requiredTaxReportWorkspaceSnippets,
+  ],
+  [
+    "AI operations workspace",
+    aiOperationsWorkspaceSource,
+    requiredAiOperationsWorkspaceSnippets,
+  ],
+  [
+    "file center workspace",
+    fileCenterWorkspaceSource,
+    requiredFileCenterWorkspaceSnippets,
+  ],
+  [
+    "document business workspace",
+    documentBusinessWorkspaceSource,
+    requiredDocumentBusinessWorkspaceSnippets,
+  ],
+  [
+    "bill list workspace",
+    billListWorkspaceSource,
+    requiredBillListWorkspaceSnippets,
+  ],
+  [
+    "initialization workspace",
+    initializationWorkspaceSource,
+    requiredInitializationWorkspaceSnippets,
+  ],
+  [
+    "history migration workspace",
+    historyMigrationWorkspaceSource,
+    requiredHistoryMigrationWorkspaceSnippets,
+  ],
+  [
+    "voucher entry workspace",
+    voucherEntryWorkspaceSource,
+    requiredVoucherEntryWorkspaceSnippets,
+  ],
+  [
+    "system hub workspace",
+    systemHubWorkspaceSource,
+    requiredSystemHubWorkspaceSnippets,
+  ],
+];
+
+function normalizeContractSource(value) {
+  return value
+    .replace(/["']/g, "'")
+    .replace(/\s+/g, "")
+    .replace(/,([}\]])/g, "$1")
+    .replace(/,\)/g, ")");
 }
+
+function includesContract(source, contract) {
+  return normalizeContractSource(source).includes(
+    normalizeContractSource(contract),
+  );
+}
+
+function verifySnippets(label, source, requirements) {
+  if (!source) return [`${label}: source file is missing`];
+  return requirements
+    .filter(([, snippet]) => !includesContract(source, snippet))
+    .map(([name, snippet]) => `${label}: ${name} missing snippet: ${snippet}`);
+}
+
+function modulePath(importPath) {
+  return importPath.startsWith("./") ? `src/${importPath.slice(2)}.tsx` : "";
+}
+
+const lazyWorkspaceFiles = [
+  ...new Set(
+    [
+      ...appSource.matchAll(
+        /const\s+\w+\s*=\s*lazy\(\(\)\s*=>\s*import\(['"]([^'"]+)['"]/gs,
+      ),
+    ]
+      .map((match) => modulePath(match[1]))
+      .filter((file) => /^src\/pages\/(operations|tax|agency)\//.test(file)),
+  ),
+].sort();
+
+const delegatedWorkspaceImports = new Map([
+  [
+    "src/pages/operations/PayableSettlementWorkspace.tsx",
+    "from './SettlementWorkspace'",
+  ],
+  [
+    "src/pages/operations/ReceivableSettlementWorkspace.tsx",
+    "from './SettlementWorkspace'",
+  ],
+  [
+    "src/pages/operations/PurchaseManagementWorkspace.tsx",
+    "from './BusinessOrderWorkspace'",
+  ],
+  [
+    "src/pages/operations/SalesManagementWorkspace.tsx",
+    "from './BusinessOrderWorkspace'",
+  ],
+]);
+const fixedReferenceWorkspaces = new Map([
+  [
+    "src/pages/operations/PrintTemplateWorkspace.tsx",
+    "fixedPrintTemplatePreviews",
+  ],
+]);
+const liveBindingMarkers = [
+  "from '../../lib/api'",
+  "from '../../stores/",
+  "window.localStorage",
+  "recordLocalAttachment",
+  "recordLocalImportJob",
+  "loadBrowserPreviewOpenPeriod",
+];
+
+const workspaceBindingErrors = lazyWorkspaceFiles.flatMap((file) => {
+  if (!existsSync(file)) return [`routed workspace source is missing: ${file}`];
+  const source = read(file);
+  const delegatedImport = delegatedWorkspaceImports.get(file);
+  if (delegatedImport)
+    return includesContract(source, delegatedImport)
+      ? []
+      : [`${file}: delegated live workspace import is missing`];
+  const fixedReference = fixedReferenceWorkspaces.get(file);
+  if (fixedReference)
+    return includesContract(source, fixedReference)
+      ? []
+      : [`${file}: controlled reference data source is missing`];
+  return liveBindingMarkers.some((marker) => includesContract(source, marker))
+    ? []
+    : [
+        `${file}: no API, store, persistent preview, or local file registry binding found`,
+      ];
+});
+
+const invokeSources = sourceFiles("src").map(read);
+const invokedCommands = [
+  ...new Set(
+    invokeSources.flatMap((source) =>
+      [...source.matchAll(/invoke[^\(]*\(\s*['"]([^'"]+)['"]/g)].map(
+        (match) => match[1],
+      ),
+    ),
+  ),
+].sort();
+const handlerBlock =
+  rustEntrySource.match(/generate_handler!\s*\[([\s\S]*?)\]\);/)?.[1] || "";
+const registeredCommands = new Set(
+  [...handlerBlock.matchAll(/commands::[\w:]+::(\w+)/g)].map(
+    (match) => match[1],
+  ),
+);
+const commandAttributePattern =
+  /#\[tauri::command\]\s*(?:(?:\/\/\/[^\n]*|#\[[^\]\n]+\])\s*)*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+([A-Za-z_]\w*)/g;
+const attributedCommands = new Set(
+  readdirSync("src-tauri/src/commands")
+    .filter((file) => file.endsWith(".rs"))
+    .flatMap((file) => [
+      ...read(`src-tauri/src/commands/${file}`).matchAll(commandAttributePattern),
+    ])
+    .map((match) => match[1]),
+);
+const unregisteredCommands = invokedCommands.filter(
+  (command) => !registeredCommands.has(command),
+);
+const uninvokedRegisteredCommands = [...registeredCommands]
+  .filter((command) => !invokedCommands.includes(command))
+  .sort();
+const unregisteredCommandAnnotations = [...attributedCommands]
+  .filter((command) => !registeredCommands.has(command))
+  .sort();
+const registeredCommandsWithoutAnnotations = [...registeredCommands]
+  .filter((command) => !attributedCommands.has(command))
+  .sort();
 
 const errors = [
-  ...existingRetiredLegacyPagePaths.map((path) => `retired static page still exists: ${path}`),
-  ...verify(adapterSource, requiredAdapterSnippets, 'live module adapter'),
-  ...verify(pageSource, requiredPageSnippets, 'business module page'),
-  ...verify(localFileRegistrySource, requiredLocalFileRegistrySnippets, 'local file registry'),
-  ...verify(taxWorkspaceSource, requiredTaxWorkspaceSnippets, 'tax workspace'),
-  ...verifyAbsent(taxWorkspaceSource, forbiddenStaticTaxWorkspaceSnippets, 'tax workspace'),
-  ...verifyAbsent(pageSource, forbiddenBusinessTaxPreviewSnippets, 'business module page'),
-  ...verify(tauriSource, requiredBrowserTaxPreviewSnippets, 'browser tax preview adapter'),
-  ...verify(welcomeSource, requiredWelcomeSnippets, 'welcome page'),
-  ...verify(companyStoreSource, requiredCompanyPersistenceSnippets.slice(0, 2), 'company store'),
-  ...verify(companyCommandSource, requiredCompanyPersistenceSnippets.slice(2, 3), 'company commands'),
-  ...verify(databaseSource, requiredCompanyPersistenceSnippets.slice(3), 'database schema'),
-  ...verify(companyCommandSource, requiredCompanyMemoPersistenceSnippets.slice(0, 2), 'company memo commands'),
-  ...verify(databaseSource, requiredCompanyMemoPersistenceSnippets.slice(2, 4), 'company memo database schema'),
-  ...verify(apiSource, requiredCompanyMemoPersistenceSnippets.slice(4, 5), 'company memo api'),
-  ...verify(welcomeSource, requiredCompanyMemoPersistenceSnippets.slice(5), 'welcome company memo persistence'),
-  ...verify(agencyModuleSource, requiredAgencyModuleSnippets, 'agency module page'),
-  ...verify(agencyCommandSource, requiredAgencyFeeEntryCommandSnippets, 'agency commands'),
-  ...verify(apiSource, requiredAgencyFeeEntryApiSnippets, 'api bindings'),
-  ...verify(agencyModuleSource, requiredAgencyFeeEntryPageSnippets, 'agency fee entry page'),
-  ...verify(agencyCommandSource, requiredAgencyCollaborationEntryCommandSnippets, 'agency commands'),
-  ...verify(apiSource, requiredAgencyCollaborationEntryApiSnippets, 'api bindings'),
-  ...verify(agencyModuleSource, requiredAgencyCollaborationEntryPageSnippets, 'agency collaboration entry page'),
-  ...verify(agencyModuleSource, requiredAgencyAuthorizationEntryPageSnippets, 'agency authorization entry page'),
-  ...verify(agencyModuleSource, requiredAgencyServiceContractEntryPageSnippets, 'agency service contract entry page'),
-  ...verify(apiSource, requiredAgencyBatchTaskApiSnippets, 'agency batch task api bindings'),
-  ...verify(agencyCommandSource, requiredAgencyBatchTaskCommandSnippets, 'agency batch task commands'),
-  ...verify(agencyModuleSource, requiredAgencyBatchTaskPageSnippets, 'agency batch task page'),
-  ...verify(tauriSource, requiredAgencyBrowserPreviewSnippets, 'browser agency preview adapter'),
-  ...verifyAbsent(agencyModuleSource, forbiddenAgencyStaticPreviewSnippets, 'agency module page'),
-  ...verify(welcomeSource, requiredWelcomeImportHandoffSnippets, 'welcome company import handoff'),
-  ...verify(pageSource, requiredMeasurementUnitEntryPageSnippets, 'measurement unit entry page'),
-  ...verify(pageSource, requiredInventoryItemEntryPageSnippets, 'inventory item entry page'),
-  ...verify(pageSource, requiredSocialSecurityEntryPageSnippets, 'social security entry page'),
-  ...verify(pageSource, requiredInvoiceEntryPageSnippets, 'invoice entry page'),
-  ...verify(pageSource, requiredInvoiceEditPageSnippets, 'invoice edit page'),
-  ...verify(pageSource, requiredVoucherEntryPageSnippets, 'voucher entry page'),
-  ...verify(appSource, requiredAppSnippets, 'application routes'),
-  ...verify(shellSource, requiredShellSnippets, 'application shell'),
-  ...verify(roleManagerSource, requiredRoleManagerSnippets, 'role manager'),
-  ...verify(dashboardSource, requiredDashboardSnippets, 'company dashboard'),
-  ...verifyAbsent(dashboardSource, forbiddenDashboardSnippets, 'company dashboard'),
-  ...verifyAbsent(pageSource, forbiddenBusinessModulePageSnippets, 'business module page'),
-  ...verify(backupCommandSource, requiredBackupCommandSnippets, 'backup commands'),
-  ...verify(pageSource, requiredBackupPageSnippets, 'backup module page'),
-  ...verify(databaseSource, requiredEmployeeCommandSnippets.slice(0, 1), 'database schema'),
-  ...verify(employeeCommandSource, requiredEmployeeCommandSnippets.slice(1), 'employee commands'),
-  ...verify(pageSource, requiredEmployeePageSnippets, 'employee module page'),
-  ...verify(databaseSource, requiredPayrollCommandSnippets.slice(0, 1), 'database schema'),
-  ...verify(payrollCommandSource, requiredPayrollCommandSnippets.slice(1), 'payroll commands'),
-  ...verify(pageSource, requiredPayrollPageSnippets, 'payroll module page'),
-  ...verify(settlementRuleStoreSource, requiredSettlementRuleEntrySnippets, 'settlement rule store'),
-  ...verify(pageSource, requiredSettlementRulePageSnippets, 'settlement rule module page'),
-  ...verify(pageSource, requiredCurrencyEntryPageSnippets, 'currency module page'),
-  ...verify(templateCommandSource, requiredCommonDigestCommandSnippets, 'common digest commands'),
-  ...verify(pageSource, requiredCommonDigestEntryPageSnippets, 'common digest module page'),
-  ...verify(templateCommandSource, requiredVoucherTemplateCommandSnippets, 'voucher template commands'),
-  ...verify(templateStoreSource, requiredVoucherTemplateEntryStoreSnippets, 'voucher template store'),
-  ...verify(pageSource, requiredVoucherTemplateEntryPageSnippets, 'voucher template module page'),
-  ...verify(pageSource, requiredAdapterAuthorizationEntryPageSnippets, 'adapter authorization module page'),
-  ...verify(readFileSync('src/stores/reportTemplateStore.ts', 'utf8'), requiredReportFormulaEntryStoreSnippets, 'report formula store'),
-  ...verify(pageSource, requiredReportFormulaEntryPageSnippets, 'report formula module page'),
-  ...verify(auxiliaryStoreSource, requiredAuxiliaryArchiveStoreSnippets, 'auxiliary archive store'),
-  ...verify(auxiliaryCommandSource, requiredAuxiliaryArchiveCommandSnippets, 'auxiliary archive commands'),
-  ...verify(pageSource, requiredAuxiliaryArchivePageSnippets, 'auxiliary archive module page'),
-  ...verify(voucherEntryRowSource, requiredVoucherEntryAuxiliarySnippets, 'voucher entry auxiliary selector'),
-  ...verify(databaseSource, [['matching rule schema', 'CREATE TABLE IF NOT EXISTS matching_rules']], 'database schema'),
-  ...verify(matchingRuleCommandSource, requiredMatchingRuleCommandSnippets, 'matching rule commands'),
-  ...verify(matchingRuleStoreSource, requiredMatchingRuleStoreSnippets, 'matching rule store'),
-  ...verify(pageSource, requiredMatchingRulePageSnippets, 'matching rule module page'),
-  ...verify(adapterSource, requiredAiTrainingRuleMappingSnippets, 'AI training rule mapping'),
-  ...verify(pageSource, requiredAiTrainingReviewSnippets, 'AI training review controls'),
-  ...verify(pageSource, requiredSettingsOverviewPageSnippets, 'settings overview module page'),
-  ...verifyAbsent(pageSource, forbiddenStaticSettingsOverviewSnippets, 'settings overview module page'),
-  ...verify(pageSource, requiredBrowserCompanyInfoSnippets, 'browser company info module page'),
-  ...verifyAbsent(pageSource, forbiddenStaticCompanyInfoPreviewSnippets, 'browser company info module page'),
-  ...verify(readFileSync('src/pages/Dashboard.tsx', 'utf8'), requiredDashboardBankDataSnippets, 'dashboard bank data'),
-  ...verify(pageSource, requiredFixedPrintTemplateSnippets, 'fixed print template module page'),
-  ...verify(databaseSource, [['asset category schema', 'CREATE TABLE IF NOT EXISTS asset_categories']], 'database schema'),
-  ...verify(assetCategoryCommandSource, requiredAssetCategoryCommandSnippets, 'asset category commands'),
-  ...verify(assetCategoryStoreSource, requiredAssetCategoryStoreSnippets, 'asset category store'),
-  ...verify(pageSource, requiredAssetCategoryPageSnippets, 'asset category module page'),
-  ...verify(databaseSource, [['business tag schema', 'CREATE TABLE IF NOT EXISTS business_tags']], 'database schema'),
-...verify(databaseSource, [['invoice tag schema', 'CREATE TABLE IF NOT EXISTS invoice_tags']], 'database schema'),
-  ...verify(databaseSource, [['voucher tag schema', 'CREATE TABLE IF NOT EXISTS voucher_tags']], 'database schema'),
-  ...verify(databaseSource, [['bank transaction tag schema', 'CREATE TABLE IF NOT EXISTS bank_transaction_tags']], 'database schema'),
-  ...verify(databaseSource, [['business order schema', 'CREATE TABLE IF NOT EXISTS business_orders']], 'database schema'),
-  ...verify(businessTagCommandSource, requiredBusinessTagCommandSnippets, 'business tag commands'),
-  ...verify(businessTagStoreSource, requiredBusinessTagStoreSnippets, 'business tag store'),
-  ...verify(pageSource, requiredBusinessTagPageSnippets, 'business tag module page'),
-  ...verify(businessOrderCommandSource, requiredBusinessOrderCommandSnippets, 'business order commands'),
-  ...verify(pageSource, requiredBusinessOrderPageSnippets, 'business order module page'),
-  ...verify(databaseSource, [['company account schema', 'CREATE TABLE IF NOT EXISTS company_accounts']], 'database schema'),
-  ...verify(companyAccountCommandSource, requiredCompanyAccountCommandSnippets, 'company account commands'),
-  ...verify(companyAccountStoreSource, requiredCompanyAccountStoreSnippets, 'company account store'),
-  ...verify(pageSource, requiredCompanyAccountPageSnippets, 'company account module page'),
-  ...verify(databaseSource, requiredSocialSecurityCommandSnippets.slice(0, 1), 'database schema'),
-  ...verify(socialSecurityCommandSource, requiredSocialSecurityCommandSnippets.slice(1), 'social security commands'),
-  ...verify(pageSource, requiredSocialSecurityPageSnippets, 'social security module page'),
-  ...verify(databaseSource, requiredSpecialDeductionCommandSnippets.slice(0, 1), 'database schema'),
-  ...verify(specialDeductionCommandSource, requiredSpecialDeductionCommandSnippets.slice(1), 'special deduction commands'),
-  ...verify(pageSource, requiredSpecialDeductionPageSnippets, 'special deduction module page'),
-  ...verify(pageSource, requiredWithholdingPageSnippets, 'withholding tax module page'),
-  ...verify(pageSource, requiredSocialSecurityTaxPageSnippets, 'social security tax module page'),
-  ...verify(pageSource, requiredIncomeTaxPageSnippets, 'income tax module page'),
-  ...verify(pageSource, requiredVatTaxPageSnippets, 'vat tax module page'),
-  ...verify(databaseSource, requiredBankTransactionCommandSnippets.slice(0, 1), 'database schema'),
-  ...verify(bankTransactionCommandSource, requiredBankTransactionCommandSnippets.slice(1), 'bank transaction commands'),
-  ...verify(pageSource, requiredBankTransactionPageSnippets, 'bank transaction module page'),
-  ...verify(databaseSource, requiredDocumentRecordCommandSnippets.slice(0, 1), 'database schema'),
-  ...verify(documentRecordCommandSource, requiredDocumentRecordCommandSnippets.slice(1), 'document record commands'),
-  ...verify(pageSource, requiredDocumentRecordPageSnippets, 'document register module page'),
-  ...verify(pageSource, requiredExpenseReimbursementPageSnippets, 'expense reimbursement module page'),
-  ...verify(pageSource, requiredReceiptPageSnippets, 'receipt module page'),
-  ...verify(databaseSource, [['settlement record schema', 'CREATE TABLE IF NOT EXISTS settlement_records']], 'database schema'),
-  ...verify(settlementRecordCommandSource, requiredSettlementRecordCommandSnippets, 'settlement record commands'),
-  ...verify(databaseSource, [['bank reconciliation schema', 'CREATE TABLE IF NOT EXISTS bank_reconciliation_records']], 'database schema'),
-  ...verify(bankReconciliationCommandSource, requiredBankReconciliationCommandSnippets, 'bank reconciliation commands'),
-  ...verify(pageSource, requiredReconciliationPageSnippets, 'reconciliation module page'),
-  ...verify(databaseSource, requiredAccountTransferPageSnippets.slice(0, 1), 'database schema'),
-  ...verify(accountTransferCommandSource, requiredAccountTransferPageSnippets.slice(1, 4), 'account transfer commands'),
-  ...verify(pageSource, requiredAccountTransferPageSnippets.slice(4), 'account transfer module page'),
-  ...verify(databaseSource, requiredFixedAssetCommandSnippets.slice(0, 1), 'database schema'),
-  ...verify(fixedAssetCommandSource, requiredFixedAssetCommandSnippets.slice(1), 'fixed asset commands'),
-  ...verify(pageSource, requiredFixedAssetPageSnippets, 'fixed asset module page'),
-  ...verify(databaseSource, requiredInventoryMovementCommandSnippets.slice(0, 1), 'database schema'),
-  ...verify(inventoryMovementCommandSource, requiredInventoryMovementCommandSnippets.slice(1), 'inventory movement commands'),
-  ...verify(pageSource, requiredInventoryMovementPageSnippets, 'inventory movement module page'),
-  ...verify(databaseSource, [['cost carryover schema', 'CREATE TABLE IF NOT EXISTS cost_carryover_records']], 'database schema'),
-  ...verify(costCarryoverCommandSource, requiredCostCarryoverCommandSnippets, 'cost carryover commands'),
-  ...verify(databaseSource, requiredStructuredAiSuggestionSchemaSnippets, 'structured AI suggestion schema'),
-  ...verify(automationCommandSource, requiredStructuredAiSuggestionCommandSnippets, 'structured AI suggestion commands'),
-  ...verify(databaseSource, requiredAiSuggestionVoucherLinkSchemaSnippets, 'AI suggestion voucher link schema'),
-  ...verify(voucherCommandSource, requiredAiSuggestionVoucherLinkCommandSnippets, 'AI suggestion voucher link commands'),
-  ...verify(apiSource, requiredStructuredAiSuggestionApiSnippets, 'structured AI suggestion API'),
-  ...verify(adapterSource, requiredStructuredAiSuggestionAdapterSnippets, 'structured AI suggestion adapter'),
-  ...verify(adapterSource, requiredMultiColumnLedgerAdapterSnippets, 'multi-column ledger adapter'),
-  ...verify(adapterSource, requiredIncomeQuarterAdapterSnippets, 'income quarter adapter'),
-  ...verify(adapterSource, requiredCashFlowQuarterAdapterSnippets, 'cash flow quarter adapter'),
-  ...verify(adapterSource, requiredEquityChangeAdapterSnippets, 'equity change adapter'),
-  ...verify(adapterSource, requiredDeclarationCalendarAdapterSnippets, 'declaration calendar adapter'),
-  ...verify(databaseSource, requiredDeclarationReceiptSchemaSnippets, 'declaration receipt schema'),
-  ...verify(automationCommandSource, requiredDeclarationReceiptCommandSnippets, 'declaration receipt commands'),
-  ...verify(adapterSource, requiredNonTaxRevenueAdapterSnippets, 'non-tax revenue adapter'),
-  ...verify(databaseSource, requiredStampTaxSchemaSnippets, 'stamp tax schema'),
-  ...verify(documentRecordCommandSource, requiredStampTaxCommandSnippets, 'stamp tax document commands'),
-  ...verify(periodCommandSource, requiredCashFlowQuarterCommandSnippets, 'cash flow quarter commands'),
-  ...verify(pageSource, requiredStructuredAiSuggestionPageSnippets, 'structured AI suggestion module page'),
-  ...verify(pageSource, requiredAiSuggestionVoucherLinkPageSnippets, 'AI suggestion voucher link module page'),
-  ...verify(voucherCommandSource, requiredAiSuggestionVoucherUnlinkCommandSnippets, 'AI suggestion voucher unlink commands'),
-  ...verify(pageSource, requiredAiSuggestionVoucherNavigationPageSnippets, 'AI suggestion voucher navigation module page'),
-  ...verify(pageSource, requiredMultiColumnLedgerPageSnippets, 'multi-column ledger module page'),
-  ...verify(pageSource, requiredIncomeQuarterPageSnippets, 'income quarter module page'),
-  ...verify(pageSource, requiredCashFlowQuarterPageSnippets, 'cash flow quarter module page'),
-  ...verify(pageSource, requiredEquityChangePageSnippets, 'equity change module page'),
-  ...verify(pageSource, requiredDeclarationCalendarPageSnippets, 'declaration calendar module page'),
-  ...verify(pageSource, requiredNonTaxRevenuePageSnippets, 'non-tax revenue module page'),
-  ...verify(pageSource, requiredTaxTaskConfirmationPageSnippets, 'local tax task confirmation'),
-  ...verify(pageSource, requiredDeclarationReceiptPageSnippets, 'declaration receipt module page'),
-  ...verify(pageSource, requiredTaxInitPageSnippets, 'tax initialization module page'),
-  ...verify(pageSource, requiredStampTaxPageSnippets, 'stamp tax module page'),
-  ...verify(databaseSource, requiredInventoryItemCommandSnippets.slice(0, 1), 'database schema'),
-  ...verify(inventoryItemCommandSource, requiredInventoryItemCommandSnippets.slice(1), 'inventory item commands'),
-  ...verify(pageSource, requiredInventoryItemPageSnippets, 'inventory item module page'),
-  ...verify(databaseSource, requiredUnitCommandSnippets.slice(0, 1), 'database schema'),
-  ...verify(unitCommandSource, requiredUnitCommandSnippets.slice(1), 'unit commands'),
-  ...verify(pageSource, requiredUnitPageSnippets, 'unit module page'),
-  ...verify(databaseSource, requiredCompanyTodoSnippets.slice(0, 1), 'company todo schema'),
-  ...verify(companyTodoCommandSource, requiredCompanyTodoSnippets.slice(1, 4), 'company todo commands'),
-  ...verify(apiSource, requiredCompanyTodoSnippets.slice(4, 6), 'company todo API'),
-  ...verify(pageSource, requiredCompanyTodoSnippets.slice(6), 'company todo module page'),
-  ...verify(pageSource, requiredClosingWorkflowSnippets, 'closing workflow panel'),
-  ...verify(pageSource, requiredAiJobWorkflowSnippets, 'AI job workflow panel'),
-  ...verify(pageSource, requiredClosingPrecheckSnippets, 'closing precheck boundary'),
-  ...verify(pageSource, requiredLedgerWorkflowSummarySnippets.slice(0, 3), 'cost and settlement workflow panels'),
-  ...verify(adapterSource, requiredLedgerWorkflowSummarySnippets.slice(3), 'closing task adapter'),
-  ...verify(pageSource, requiredReconciliationAndAgingWorkflowSummarySnippets, 'reconciliation and aging workflow panels'),
-  ...verify(pageSource, requiredInventoryWorkflowSummarySnippets, 'inventory workflow panel'),
-  ...verify(pageSource, requiredPeopleWorkflowSummarySnippets, 'people workflow panels'),
-  ...verify(pageSource, requiredOperationsWorkflowSummarySnippets, 'operations workflow panels'),
-  ...verify(pageSource, requiredInvoiceWorkflowSummarySnippets, 'invoice workflow panels'),
-  ...verify(pageSource, requiredControlWorkflowSummarySnippets, 'control workflow panels'),
-  ...verify(pageSource, requiredFoundationWorkflowSummarySnippets, 'foundation workflow panels'),
-  ...verify(pageSource, requiredCoreWorkflowSummarySnippets, 'core workflow panels'),
-  ...verify(pageSource, requiredRemainingWorkflowSummarySnippets, 'remaining workflow panels'),
-  ...(!tauriSource.includes("const PREVIEW_COMPANY_STORAGE_KEY = 'accounting-preview-companies-v1'") ? ['browser company preview storage', 'company preview must persist a browser company list'] : []),
-  ...(!tauriSource.includes("if (cmd === 'create_company')") ? ['browser company creation', 'company preview must create local companies instead of returning a mock response'] : []),
-  ...(!tauriSource.includes("if (cmd === 'update_company')") ? ['browser company update', 'company preview must update local companies instead of returning a mock response'] : []),
-  ...(!tauriSource.includes("cmd === 'deactivate_company'") ? ['browser company deactivation', 'company preview must persist local company status changes'] : []),
-  ...(tauriSource.includes("create_company: { id: 'mock-1'") ? ['browser company mock', 'company preview must not return a fabricated company record'] : []),
-  ...(tauriSource.includes('return null as T') ? ['browser invoke fallback', 'unsupported browser preview commands must fail explicitly instead of returning null'] : []),
-  ...(!tauriSource.includes('throw new Error(`浏览器预览暂不支持命令：${cmd}`)') ? ['browser invoke fallback', 'unsupported browser preview commands must return an actionable error'] : []),
-  ...[
-    "create_employee: { id: 'employee-dev-1'",
-    "create_payroll_record: { id: 'payroll-dev-1'",
-    "create_special_deduction_record: { id: 'deduction-dev-1'",
-    "create_bank_transaction: { id: 'bank-dev-1'",
-    "create_document_record: { id: 'document-dev-1'",
-    "company_name: '示例公司'",
-    "period: '2026-05'",
-    "result_summary: '浏览器预览 mock'",
-    "file_name: 'accounting-preview.db'",
-  ].filter((snippet) => tauriSource.includes(snippet)).map((snippet) => `browser invoke fallback must not fabricate mutable business records: ${snippet}`),
-  ...(welcomeSource.includes('演示账套') ? ['welcome page demo branch', 'welcome page must treat every displayed company as a persisted local or desktop record'] : []),
-  ...(welcomeSource.includes('本机演示记录') ? ['welcome page demo notice', 'welcome page must not describe persisted preview records as demonstration data'] : []),
-]
-
-const agencyPrintButtonCount = (agencyModuleSource.match(/label=\"打印\"/g) ?? []).length
-if (agencyPrintButtonCount !== 1) {
-  errors.push(`agency module page: expected one print toolbar button, found ${agencyPrintButtonCount}`)
-}
-
-if (welcomeSource.includes('<button type="button" className="h-9 text-sm font-medium text-[#1f65a7]">新增人员</button>')) {
-  errors.push('welcome page: unbound company-creation person button must not be rendered')
-}
-
-for (const sensitiveCompanyAuthorizationField of ['taxLoginPassword', 'individualTaxPassword', '电子税务局账号密码', '办税人手机号验证码', '代理记账登录', '工商联络员身份证号码']) {
-  if (welcomeSource.includes(sensitiveCompanyAuthorizationField)) {
-    errors.push(`welcome page: sensitive authorization field must not be collected: ${sensitiveCompanyAuthorizationField}`)
-  }
-}
-
-for (const requiredRiskActionSnippet of [
-  "const [pendingRiskAction, setPendingRiskAction] = useState<{ action: 'deactivate' | 'delete'; ids: string[]; label: string } | null>(null)",
-  'function requestCompanyRiskAction(',
-  "if (pendingRiskAction.action === 'delete') {",
-  'aria-label="确认高风险账套操作"',
-]) {
-  if (!welcomeSource.includes(requiredRiskActionSnippet)) {
-    errors.push(`welcome page: missing account risk-action guard: ${requiredRiskActionSnippet}`)
-  }
-}
-
-for (const requiredTaxConfirmationSnippet of [
-  "const [pendingDeclarationConfirmation, setPendingDeclarationConfirmation] = useState<{ rows: DeclarationRow[]; action: string } | null>(null)",
-  'function requestDeclarationConfirmation(',
-  'aria-label="确认本地申报事项"',
-  '不会向电子税务局提交申报或发起扣款。',
-]) {
-  if (!taxWorkspaceSource.includes(requiredTaxConfirmationSnippet)) {
-    errors.push(`tax workspace: missing local declaration confirmation: ${requiredTaxConfirmationSnippet}`)
-  }
-}
-
-for (const requiredBusinessRiskConfirmationSnippet of [
-  "const [pendingBusinessRiskConfirmation, setPendingBusinessRiskConfirmation] = useState<{ title: string; description: string; confirmLabel: string } | null>(null)",
-  'function requestBusinessRiskConfirmation(',
-  'aria-label="确认高风险业务操作"',
-  'await requestBusinessRiskConfirmation(',
-]) {
-  if (!pageSource.includes(requiredBusinessRiskConfirmationSnippet)) {
-    errors.push(`business module page: missing risk confirmation boundary: ${requiredBusinessRiskConfirmationSnippet}`)
-  }
-}
-
-if (pageSource.includes('window.confirm')) {
-  errors.push('business module page: native confirmation dialogs must use the in-app risk confirmation panel')
-}
-
-for (const requiredRoleDeletionSnippet of [
-  'const [pendingRoleDeletion, setPendingRoleDeletion] = useState<RoleWithPermissions | null>(null)',
-  'aria-label="确认删除角色权限"',
-  '删除角色后，已分配成员需要重新授权。',
-]) {
-  if (!roleManagerSource.includes(requiredRoleDeletionSnippet)) {
-    errors.push(`role manager: missing role deletion confirmation boundary: ${requiredRoleDeletionSnippet}`)
-  }
-}
-
-if (roleManagerSource.includes('confirm(')) {
-  errors.push('role manager: native confirmation dialogs must use the in-app role deletion panel')
-}
-
-const moduleConfigStart = pageSource.indexOf('const moduleConfigs')
-const moduleListMetaStart = pageSource.indexOf('function getModuleListMeta')
-const moduleDetailMetaStart = pageSource.indexOf('function getModuleDetailMeta')
-const configuredModuleKinds = [...pageSource.slice(moduleConfigStart, moduleListMetaStart).matchAll(/^  ([A-Za-z][A-Za-z0-9]*): \{/gm)].map((match) => match[1])
-const metadataBlock = pageSource.slice(moduleListMetaStart, pageSource.indexOf('if (metadata[kind])', moduleListMetaStart))
-const directModuleMetadataKinds = [...metadataBlock.matchAll(/^    ([A-Za-z][A-Za-z0-9]*): \{/gm)].map((match) => match[1])
-const missingModuleMetadata = configuredModuleKinds.filter((kind) => !directModuleMetadataKinds.includes(kind))
-if (moduleConfigStart === -1 || moduleListMetaStart === -1 || moduleDetailMetaStart === -1 || missingModuleMetadata.length > 0) {
-  errors.push(`business module page: every module needs dedicated list metadata; missing: ${missingModuleMetadata.join(', ') || 'metadata section'}`)
-}
+  ...(existsSync("src/pages/operations/BusinessModulePage.tsx")
+    ? ["retired generic BusinessModulePage.tsx still exists"]
+    : []),
+  ...(appSource.includes("BusinessModulePage")
+    ? ["application still references the retired generic business page"]
+    : []),
+  ...(lazyWorkspaceFiles.length !== 63
+    ? [
+        `routed operational workspace file count must remain 63, received ${lazyWorkspaceFiles.length}`,
+      ]
+    : []),
+  ...(invokedCommands.length < 200
+    ? [
+        `front-end command coverage unexpectedly dropped to ${invokedCommands.length}`,
+      ]
+    : []),
+  ...dedicatedChecks.flatMap(([label, source, requirements]) =>
+    verifySnippets(label, source, requirements),
+  ),
+  ...dedicatedRouteBindings.flatMap(([kind, component]) => [
+    ...(registrySource.includes(`'${kind}',`)
+      ? []
+      : [`business module kind is missing: ${kind}`]),
+    ...(appSource.includes(`<${component} />`)
+      ? []
+      : [`dedicated route component is missing: ${component}`]),
+  ]),
+  ...workspaceBindingErrors,
+  ...unregisteredCommands.map(
+    (command) =>
+      `front-end invoke command is not registered in Rust: ${command}`,
+  ),
+  ...uninvokedRegisteredCommands.map(
+    (command) =>
+      `registered Rust command is not invoked by the front end: ${command}`,
+  ),
+  ...unregisteredCommandAnnotations.map(
+    (command) => `Rust command attribute is not registered by Tauri: ${command}`,
+  ),
+  ...registeredCommandsWithoutAnnotations.map(
+    (command) => `registered Tauri command has no command attribute: ${command}`,
+  ),
+];
 
 if (errors.length > 0) {
-  console.error('Live data adapter verification failed:')
-  for (const error of errors) console.error(`- ${error}`)
-  process.exit(1)
+  console.error("Live data verification failed:");
+  for (const error of errors) console.error(`- ${error}`);
+  process.exit(1);
 }
 
-console.log('Live data adapter verification passed:')
-console.log(JSON.stringify({
-  modules: ['outputInvoice', 'inputInvoice', 'voucher', 'riskCheck', 'closingTasks', 'invoiceVoucherMatching', 'ledgerReport', 'accountSummaryReport', 'trialBalanceReport', 'generalLedgerReport', 'subsidiaryLedgerReport', 'auxiliaryLedgerReport', 'auxiliaryBalanceReport', 'balanceSheetReport', 'incomeStatementReport', 'cashFlowReport', 'financialReport', 'companyInfo', 'initialBalance', 'subjectSettings', 'customerArchive', 'supplierArchive', 'otherContactArchive', 'projectArchive', 'departmentArchive', 'periodManagement', 'historyVoucher', 'historyBalance', 'historyGeneralLedger', 'historySubsidiaryLedger', 'settlementRules', 'currencySettings', 'commonDigests', 'voucherTemplateSettings', 'reportFormulaSettings', 'taxAdapterSettings', 'bankAdapterSettings', 'auditLog', 'auxiliaryCategories', 'auxiliaryItems', 'voucherRecycle', 'declarationReceipt', 'taxInit', 'taxReport', 'aiJobQueue', 'aiRecognitionResults', 'aiVoucherSuggestions', 'financeTaxReport'],
-  scope: 'selected company and accounting period',
-  browserFallback: 'persisted browser preview records',
-}, null, 2))
+console.log("Live data verification passed:");
+console.log(
+  JSON.stringify(
+    {
+      routedWorkspaceFiles: lazyWorkspaceFiles.length,
+      dedicatedWorkspaceContracts: dedicatedChecks.length,
+      delegatedWorkspaceFiles: delegatedWorkspaceImports.size,
+      controlledReferenceWorkspaces: fixedReferenceWorkspaces.size,
+      frontendInvokeCommands: invokedCommands.length,
+      registeredRustCommands: registeredCommands.size,
+      attributedRustCommands: attributedCommands.size,
+      unregisteredInvokeCommands: unregisteredCommands.length,
+      uninvokedRegisteredCommands: uninvokedRegisteredCommands.length,
+      unregisteredCommandAnnotations: unregisteredCommandAnnotations.length,
+      registeredCommandsWithoutAnnotations:
+        registeredCommandsWithoutAnnotations.length,
+      legacyGenericWorkspacePresent: false,
+    },
+    null,
+    2,
+  ),
+);

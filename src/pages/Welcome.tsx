@@ -16,6 +16,8 @@ import {
 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { useWarningToast } from '../components/ui/Toast'
+import { OperationalPagination } from '../components/operations/OperationalPagination'
+import { ChinaRegionSelect } from '../components/forms/ChinaRegionSelect'
 import { useCompanyStore } from '../stores/companyStore'
 import { usePeriodStore } from '../stores/periodStore'
 import { TaxpayerType, AccountingSystem, accountingSystemLabels } from '../lib/constants'
@@ -23,8 +25,20 @@ import { cn } from '../lib/utils'
 import { agencyNavItems } from './agency/agencyNav'
 import { recordAuditLog, recordExportJob } from '../lib/exportJobs'
 import { exportRowsToXlsx } from '../lib/xlsxExport'
-import { automationApi, companyMemoApi } from '../lib/api'
+import { assertLocalFileWithinLimit, MAX_STRUCTURED_IMPORT_FILE_BYTES } from '../lib/fileLimits'
+import { agencyApi, automationApi, companyMemoApi, type AgencyCompanyProgress } from '../lib/api'
+import { validateCompanyCreation } from '../lib/companyValidation.js'
+import { buildFilterValues } from '../lib/filterOptions.js'
 import { isTauri } from '../lib/tauri'
+import { paginateOperationalRows } from '../lib/operationalPagination'
+import {
+  buildEnableYearOptions,
+  defaultChinaRegion,
+  enterpriseTypeOptions,
+  industryOptions,
+  isValidEnableYear,
+  withCurrentReferenceOption,
+} from '../lib/companyReferenceData.js'
 
 interface SummaryMetric {
   label: string
@@ -84,9 +98,9 @@ const emptyCompanyForm = {
   name: '',
   code: '',
   taxId: '',
-  province: '江苏省',
-  city: '南京市',
-  district: '市辖区',
+  province: defaultChinaRegion.province,
+  city: defaultChinaRegion.city,
+  district: defaultChinaRegion.district,
   taxpayerType: 'general' as TaxpayerType,
   accountingSystem: 'small_enterprise' as AccountingSystem,
   enableYear: currentYear,
@@ -175,6 +189,7 @@ function importCellText(value: unknown) {
 }
 
 async function readCompanyImportTable(file: File) {
+  assertLocalFileWithinLimit(file, MAX_STRUCTURED_IMPORT_FILE_BYTES, '企业档案导入文件')
   const fileName = file.name.toLowerCase()
   if (fileName.endsWith('.xlsx')) {
     const { readSheet } = await import('read-excel-file/browser')
@@ -206,8 +221,9 @@ function mapImportedAccountingSystem(value: string): AccountingSystem {
 
 function parseImportedEnablePeriod(row: Record<string, string>) {
   const period = importValue(row, '启用期间', '账期')
-  const match = period.match(/(20\d{2})\D+(\d{1,2})/)
-  const year = Number(importValue(row, '启用年')) || Number(match?.[1]) || currentYear
+  const match = period.match(/((?:19|20)\d{2})\D+(\d{1,2})/)
+  const importedYear = Number(importValue(row, '启用年')) || Number(match?.[1]) || currentYear
+  const year = isValidEnableYear(importedYear, currentYear) ? importedYear : currentYear
   const month = Number(importValue(row, '启用月')) || Number(match?.[2]) || new Date().getMonth() + 1
   return { enable_year: year, enable_month: Math.min(Math.max(month, 1), 12) }
 }
@@ -338,7 +354,12 @@ export function Welcome() {
   const [memoCompany, setMemoCompany] = useState<AccountRow | null>(null)
   const [memoDraft, setMemoDraft] = useState({ content: '', reminderDate: '' })
   const [statusFilter, setStatusFilter] = useState<'normal' | 'disabled'>('normal')
+  const [accountView, setAccountView] = useState<'progress' | 'archive'>('progress')
+  const [companyProgress, setCompanyProgress] = useState<Record<string, AgencyCompanyProgress>>({})
+  const [companyProgressError, setCompanyProgressError] = useState<string | null>(null)
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
+  const [accountPageNumber, setAccountPageNumber] = useState(1)
+  const [accountPageSize, setAccountPageSize] = useState(20)
   const [showAddModal, setShowAddModal] = useState(false)
   const [newCompany, setNewCompany] = useState<CompanyForm>(emptyCompanyForm)
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
@@ -349,6 +370,17 @@ export function Welcome() {
   useEffect(() => {
     fetchCompanies().catch((err) => console.error('[Welcome] fetchCompanies failed:', err))
   }, [fetchCompanies])
+
+  useEffect(() => {
+    agencyApi.getCompanyProgress().then((result) => {
+      if (!result.success || !result.data) {
+        setCompanyProgressError(result.error || '客户进度加载失败')
+        return
+      }
+      setCompanyProgress(Object.fromEntries(result.data.map((item) => [item.companyId, item])))
+      setCompanyProgressError(null)
+    })
+  }, [])
 
   useEffect(() => {
     if (!isTauri) {
@@ -382,7 +414,9 @@ export function Welcome() {
 
   const realRows = useMemo(
     () =>
-      companies.map((company) => ({
+      companies.map((company) => {
+        const progress = companyProgress[company.id]
+        return {
         id: company.id,
         code: company.code,
         name: company.name,
@@ -390,7 +424,11 @@ export function Welcome() {
         region: [company.province, company.city, company.district].filter(Boolean).join('') || '-',
         enterpriseType: company.enterprise_type || '未设置',
         taxType: company.tax_type === 'general' ? '一般纳税人' : '小规模纳税人',
-        collectStatus: '待采集',
+        collectStatus: !progress || progress.invoiceCount === 0
+          ? '待采集'
+          : progress.invoicePendingCount > 0
+            ? `待处理 ${progress.invoicePendingCount}`
+            : '已采集',
         credit: 'M',
         importedAt: company.created_at?.slice(0, 16).replace('T', ' ') || '-',
         accountant: '未分配',
@@ -398,40 +436,62 @@ export function Welcome() {
           ? `${company.service_start || '-'} 至 ${company.service_end || '-'}`
           : '-',
         supervisor: '未分配',
-        period: `${company.enable_year || currentYear}-${String(company.enable_month || 1).padStart(2, '0')}`,
+        period: progress?.period || `${company.enable_year || currentYear}-${String(company.enable_month || 1).padStart(2, '0')}`,
         taxOffice: company.city ? `${company.city}主管税务机关` : '-',
         status: company.is_active ? '做账中' : '停用',
-        invoices: '0/0',
-        vouchers: '0',
-        tax: '未取数',
-        risk: '0',
-      })),
-    [companies],
+        invoices: progress ? `${progress.invoiceCount - progress.invoicePendingCount}/${progress.invoiceCount}` : '0/0',
+        vouchers: progress ? `${progress.approvedVoucherCount}/${progress.voucherCount}` : '0/0',
+        tax: progress ? `${progress.declaredTaxTaskCount}/${progress.taxTaskCount}` : '0/0',
+        risk: String(progress?.riskCount || 0),
+      }
+      }),
+    [companies, companyProgress],
   )
 
   const allRows = realRows
+  const accountFilterOptions = useMemo(() => ({
+    region: buildFilterValues(allRows.map((row) => row.region), accountFilters.region),
+    enterpriseType: buildFilterValues(allRows.map((row) => row.enterpriseType), accountFilters.enterpriseType),
+    taxType: buildFilterValues(allRows.map((row) => row.taxType), accountFilters.taxType),
+    collectStatus: buildFilterValues(allRows.map((row) => row.collectStatus), accountFilters.collectStatus),
+    accountant: buildFilterValues(allRows.map((row) => row.accountant), accountFilters.accountant),
+    period: buildFilterValues(allRows.map((row) => row.period), accountFilters.period),
+  }), [accountFilters.accountant, accountFilters.collectStatus, accountFilters.enterpriseType, accountFilters.period, accountFilters.region, accountFilters.taxType, allRows])
   const rows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     return allRows.filter((row) => {
       const statusMatch = statusFilter === 'disabled' ? row.status === '停用' : row.status !== '停用'
       if (!statusMatch) return false
-      const filterableAccountFields = [
-        [accountFilters.region, row.region],
+      const textAccountFields = [
         [accountFilters.code, row.code],
         [accountFilters.taxId, row.taxId],
+      ]
+      const selectionAccountFields = [
+        [accountFilters.region, row.region],
         [accountFilters.enterpriseType, row.enterpriseType],
         [accountFilters.taxType, row.taxType],
         [accountFilters.collectStatus, row.collectStatus],
         [accountFilters.accountant, row.accountant],
         [accountFilters.period, row.period],
       ]
-      const advancedFiltersMatch = filterableAccountFields.every(([filterValue, rowValue]) => (
+      const textFiltersMatch = textAccountFields.every(([filterValue, rowValue]) => (
         !filterValue.trim() || rowValue.toLowerCase().includes(filterValue.trim().toLowerCase())
       ))
-      if (!advancedFiltersMatch) return false
+      const selectionFiltersMatch = selectionAccountFields.every(([filterValue, rowValue]) => (
+        !filterValue || rowValue === filterValue
+      ))
+      if (!textFiltersMatch || !selectionFiltersMatch) return false
       return !q || [row.name, row.code, row.taxId, row.taxType, row.taxOffice, row.accountant].some((value) => value.toLowerCase().includes(q))
     })
   }, [accountFilters, allRows, searchQuery, statusFilter])
+  const accountPage = useMemo(
+    () => paginateOperationalRows(rows, accountPageNumber, accountPageSize),
+    [accountPageNumber, accountPageSize, rows],
+  )
+
+  useEffect(() => {
+    setAccountPageNumber(1)
+  }, [accountFilters, searchQuery, statusFilter])
 
   const activeAccountFilterScope = useMemo(() => {
     const filters = [
@@ -487,7 +547,6 @@ export function Welcome() {
       riskLevel: level,
       result,
       detail: `${status}｜${activeAccountFilterScope}`,
-      operator: 'admin',
     })
   }
 
@@ -500,8 +559,9 @@ export function Welcome() {
   }
 
   const handleCreateCompany = async (shouldContinue = false) => {
-    if (!newCompany.name.trim() || !newCompany.taxId.trim()) {
-      warningToast('请填写企业名称和纳税人识别号')
+    const validationMessage = validateCompanyCreation(newCompany)
+    if (validationMessage) {
+      warningToast(validationMessage)
       return
     }
 
@@ -638,7 +698,6 @@ export function Welcome() {
         status: 'queued',
         resultSummary: '待检查税务授权、办税人信息和采集范围；不执行真实税局登录、资料抓取或外部提交',
         riskLevel: 'high',
-        createdBy: 'admin',
       })
       if (result.success) created += 1
       else failed += 1
@@ -760,15 +819,20 @@ export function Welcome() {
       sheetName: '账套管理',
       fileName,
     })
-    recordExportJob({
-      fileName,
-      moduleName: '机构-账套管理',
-      format: 'Excel',
-      scope: activeAccountFilterScope,
-      templateKind: 'agency',
-      rowCount: rows.length,
-    })
-    setOperationNotice(`${fileName} 已生成并写入下载中心；导出范围为当前账套管理筛选结果。`)
+    try {
+      await recordExportJob({
+        scopeKind: 'agency',
+        fileName,
+        moduleName: '机构-账套管理',
+        format: 'Excel',
+        scope: activeAccountFilterScope,
+        templateKind: 'agency',
+        rowCount: rows.length,
+      })
+      setOperationNotice(`${fileName} 已生成并写入下载中心；导出范围为当前账套管理筛选结果。`)
+    } catch (error) {
+      setOperationNotice(`${fileName} 已生成，但下载中心登记失败：${String(error)}`)
+    }
   }
 
   const handleEditCompany = async (company: AccountRow) => {
@@ -796,8 +860,12 @@ export function Welcome() {
       code: company.code,
       taxId: company.taxId,
       taxpayerType: company.taxType.includes('小规模') ? 'small' : 'general',
-      enterpriseType: company.enterpriseType,
-      district: persistedCompany?.district || '市辖区',
+      province: persistedCompany?.province || emptyCompanyForm.province,
+      city: persistedCompany?.city || emptyCompanyForm.city,
+      district: persistedCompany?.district || emptyCompanyForm.district,
+      accountingSystem: (persistedCompany?.accounting_system || emptyCompanyForm.accountingSystem) as AccountingSystem,
+      industry: persistedCompany?.industry || '',
+      enterpriseType: persistedCompany?.enterprise_type || company.enterpriseType || emptyCompanyForm.enterpriseType,
       enableYear: Number(company.period.slice(0, 4)) || currentYear,
       enableMonth: Number(company.period.slice(5, 7)) || 1,
       serviceStart: persistedCompany?.service_start || '',
@@ -848,7 +916,6 @@ export function Welcome() {
         companyId: memoCompany.id,
         content,
         reminderDate: memoDraft.reminderDate,
-        updatedBy: '机构管理员',
       })
       if (!result.success || !result.data) {
         warningToast(result.error || '客户备忘录保存失败')
@@ -947,27 +1014,33 @@ export function Welcome() {
 
           <div className="rounded border border-slate-200 bg-white">
             <div className="border-b border-slate-200 px-4 py-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h1 className="text-lg font-semibold">账套管理</h1>
-                  <p className="text-xs text-slate-500">跨客户账套筛选、采集、导入导出、停用删除和进入账套。</p>
+                  <p className="text-xs text-slate-500">客户进度汇总资料、账务、申报和缴款状态；账套档案用于维护企业基础资料。</p>
                 </div>
-                <div className="inline-flex rounded border border-slate-300 bg-white p-0.5 text-sm">
-                  <button type="button" onClick={() => setStatusFilter('normal')} className={cn('h-8 rounded px-3', statusFilter === 'normal' && 'bg-[#eef6ff] text-[#1f65a7]')}>正常</button>
-                  <button type="button" onClick={() => setStatusFilter('disabled')} className={cn('h-8 rounded px-3', statusFilter === 'disabled' && 'bg-[#eef6ff] text-[#1f65a7]')}>停用</button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex rounded border border-slate-300 bg-white p-0.5 text-sm dark:border-slate-700 dark:bg-[#0d0d0d]" aria-label="账套管理视图">
+                    <button type="button" onClick={() => setAccountView('progress')} className={cn('h-8 rounded px-3', accountView === 'progress' && 'bg-[#eef6ff] text-[#1f65a7] dark:bg-slate-800 dark:text-sky-300')}>客户进度</button>
+                    <button type="button" onClick={() => setAccountView('archive')} className={cn('h-8 rounded px-3', accountView === 'archive' && 'bg-[#eef6ff] text-[#1f65a7] dark:bg-slate-800 dark:text-sky-300')}>账套档案</button>
+                  </div>
+                  <div className="inline-flex rounded border border-slate-300 bg-white p-0.5 text-sm dark:border-slate-700 dark:bg-[#0d0d0d]">
+                    <button type="button" onClick={() => setStatusFilter('normal')} className={cn('h-8 rounded px-3', statusFilter === 'normal' && 'bg-[#eef6ff] text-[#1f65a7] dark:bg-slate-800 dark:text-sky-300')}>正常</button>
+                    <button type="button" onClick={() => setStatusFilter('disabled')} className={cn('h-8 rounded px-3', statusFilter === 'disabled' && 'bg-[#eef6ff] text-[#1f65a7] dark:bg-slate-800 dark:text-sky-300')}>停用</button>
+                  </div>
                 </div>
               </div>
 
               <div className="mt-4 grid gap-3 text-xs md:grid-cols-3 xl:grid-cols-5">
-                <FilterField label="地区" value={accountFilters.region} onChange={(value) => setAccountFilters((filters) => ({ ...filters, region: value }))} placeholder="省/市/区" />
+                <FilterSelect label="地区" value={accountFilters.region} options={accountFilterOptions.region} onChange={(value) => setAccountFilters((filters) => ({ ...filters, region: value }))} />
                 <FilterField label="企业名称" value={searchQuery} onChange={setSearchQuery} placeholder="搜索企业名称" />
                 <FilterField label="企业编码" value={accountFilters.code} onChange={(value) => setAccountFilters((filters) => ({ ...filters, code: value }))} placeholder="输入编码" />
                 <FilterField label="纳税人识别号" value={accountFilters.taxId} onChange={(value) => setAccountFilters((filters) => ({ ...filters, taxId: value }))} placeholder="输入税号" />
-                <FilterField label="企业类型" value={accountFilters.enterpriseType} onChange={(value) => setAccountFilters((filters) => ({ ...filters, enterpriseType: value }))} placeholder="输入企业类型" />
-                <FilterField label="纳税人资格" value={accountFilters.taxType} onChange={(value) => setAccountFilters((filters) => ({ ...filters, taxType: value }))} placeholder="一般/小规模" />
-                <FilterField label="采集状态" value={accountFilters.collectStatus} onChange={(value) => setAccountFilters((filters) => ({ ...filters, collectStatus: value }))} placeholder="待采集/成功" />
-                <FilterField label="主办会计" value={accountFilters.accountant} onChange={(value) => setAccountFilters((filters) => ({ ...filters, accountant: value }))} placeholder="输入人员" />
-                <FilterField label="账期" value={accountFilters.period} onChange={(value) => setAccountFilters((filters) => ({ ...filters, period: value }))} placeholder="2026-05" />
+                <FilterSelect label="企业类型" value={accountFilters.enterpriseType} options={accountFilterOptions.enterpriseType} onChange={(value) => setAccountFilters((filters) => ({ ...filters, enterpriseType: value }))} />
+                <FilterSelect label="纳税人资格" value={accountFilters.taxType} options={accountFilterOptions.taxType} onChange={(value) => setAccountFilters((filters) => ({ ...filters, taxType: value }))} />
+                <FilterSelect label="采集状态" value={accountFilters.collectStatus} options={accountFilterOptions.collectStatus} onChange={(value) => setAccountFilters((filters) => ({ ...filters, collectStatus: value }))} />
+                <FilterSelect label="主办会计" value={accountFilters.accountant} options={accountFilterOptions.accountant} onChange={(value) => setAccountFilters((filters) => ({ ...filters, accountant: value }))} />
+                <FilterSelect label="账期" value={accountFilters.period} options={accountFilterOptions.period} onChange={(value) => setAccountFilters((filters) => ({ ...filters, period: value }))} />
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -986,7 +1059,103 @@ export function Welcome() {
               </div>
             )}
 
-            <div className="overflow-hidden">
+            {companyProgressError && (
+              <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs leading-5 text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
+                客户进度暂时不可用：{companyProgressError}
+              </div>
+            )}
+
+            {accountView === 'progress' && (
+              <>
+                <div className="hidden overflow-hidden xl:block">
+                  <table className="w-full table-fixed text-left text-xs">
+                    <colgroup>
+                      <col className="w-[3%]" />
+                      <col className="w-[20%]" />
+                      <col className="w-[8%]" />
+                      <col className="w-[13%]" />
+                      <col className="w-[11%]" />
+                      <col className="w-[11%]" />
+                      <col className="w-[11%]" />
+                      <col className="w-[7%]" />
+                      <col className="w-[9%]" />
+                      <col className="w-[7%]" />
+                    </colgroup>
+                    <thead className="bg-[#f3f7fb] text-xs font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                      <tr>
+                        <th className="px-2 py-2"><input type="checkbox" aria-label="选择当前页全部账套" checked={allChecked} onChange={toggleAllRows} /></th>
+                        <th className="px-2 py-2">客户账套</th>
+                        <th className="px-2 py-2">账期</th>
+                        <th className="px-2 py-2">资料采集</th>
+                        <th className="px-2 py-2">账务进度</th>
+                        <th className="px-2 py-2">申报进度</th>
+                        <th className="px-2 py-2">缴款进度</th>
+                        <th className="px-2 py-2">风险</th>
+                        <th className="px-2 py-2">最近更新</th>
+                        <th className="px-2 py-2 text-center">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {accountPage.rows.map((company) => {
+                        const progress = companyProgress[company.id]
+                        return (
+                          <tr key={company.id} className="hover:bg-[#f8fbff] dark:hover:bg-slate-900/80">
+                            <td className="px-2 py-2 align-top"><input type="checkbox" aria-label={`选择账套 ${company.name}`} checked={selectedRows.has(company.id)} onChange={() => toggleRow(company.id)} /></td>
+                            <td className="px-2 py-2 align-top">
+                              <div className="flex min-w-0 items-start gap-2">
+                                <button type="button" onClick={() => handleMemoCompany(company)} className="shrink-0 text-[#1f65a7]" title={companyMemos[company.id]?.content || '添加备忘录'}>{companyMemos[company.id] ? '●' : '✎'}</button>
+                                <span className="min-w-0"><span className="block break-words font-medium">{company.name}</span><span className="mt-0.5 block font-mono text-[11px] text-slate-500">{company.code}</span></span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-2 align-top tabular-nums">{company.period}</td>
+                            <td className="px-2 py-2 align-top"><CollectionProgress progress={progress} /></td>
+                            <td className="px-2 py-2 align-top"><ProgressFraction done={progress?.approvedVoucherCount || 0} total={progress?.voucherCount || 0} emptyLabel="暂无凭证" /></td>
+                            <td className="px-2 py-2 align-top"><ProgressFraction done={progress?.declaredTaxTaskCount || 0} total={progress?.taxTaskCount || 0} emptyLabel="待取数" /></td>
+                            <td className="px-2 py-2 align-top"><ProgressFraction done={progress?.paidTaxTaskCount || 0} total={progress?.taxTaskCount || 0} emptyLabel="待申报" /></td>
+                            <td className="px-2 py-2 align-top"><RiskCount value={progress?.riskCount || 0} /></td>
+                            <td className="break-words px-2 py-2 align-top text-slate-500">{formatProgressTime(progress?.latestActivityAt)}</td>
+                            <td className="px-2 py-2 align-top">
+                              <div className="flex flex-col items-center gap-1 text-[#1f65a7]">
+                                <button type="button" onClick={() => handleSelectCompany(company.id)}>进入</button>
+                                <button type="button" onClick={() => handleCollect(company)}>采集</button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="space-y-2 p-3 xl:hidden">
+                  {accountPage.rows.map((company) => {
+                    const progress = companyProgress[company.id]
+                    return (
+                      <article key={company.id} className="border border-slate-200 p-3 dark:border-slate-800">
+                        <div className="flex items-start justify-between gap-3">
+                          <label className="flex min-w-0 items-start gap-2">
+                            <input type="checkbox" aria-label={`选择账套 ${company.name}`} checked={selectedRows.has(company.id)} onChange={() => toggleRow(company.id)} />
+                            <span className="min-w-0"><span className="block break-words text-sm font-medium">{company.name}</span><span className="mt-0.5 block font-mono text-xs text-slate-500">{company.code} · {company.period}</span></span>
+                          </label>
+                          <RiskCount value={progress?.riskCount || 0} />
+                        </div>
+                        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                          <div><dt className="text-slate-500">资料采集</dt><dd className="mt-0.5"><CollectionProgress progress={progress} /></dd></div>
+                          <div><dt className="text-slate-500">账务进度</dt><dd className="mt-0.5"><ProgressFraction done={progress?.approvedVoucherCount || 0} total={progress?.voucherCount || 0} emptyLabel="暂无凭证" /></dd></div>
+                          <div><dt className="text-slate-500">申报进度</dt><dd className="mt-0.5"><ProgressFraction done={progress?.declaredTaxTaskCount || 0} total={progress?.taxTaskCount || 0} emptyLabel="待取数" /></dd></div>
+                          <div><dt className="text-slate-500">缴款进度</dt><dd className="mt-0.5"><ProgressFraction done={progress?.paidTaxTaskCount || 0} total={progress?.taxTaskCount || 0} emptyLabel="待申报" /></dd></div>
+                        </dl>
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <span className="text-slate-500">更新 {formatProgressTime(progress?.latestActivityAt)}</span>
+                          <span className="flex gap-3 text-[#1f65a7]"><button type="button" onClick={() => handleMemoCompany(company)}>备忘录</button><button type="button" onClick={() => handleCollect(company)}>采集</button><button type="button" onClick={() => handleSelectCompany(company.id)}>进入账套</button></span>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+
+            {accountView === 'archive' && <div className="hidden overflow-hidden xl:block">
               <table className="w-full table-fixed text-left text-xs">
                 <colgroup>
                   <col className="w-[3%]" />
@@ -1008,7 +1177,7 @@ export function Welcome() {
                 <thead className="bg-[#f3f7fb] text-xs font-semibold text-slate-600">
                   <tr>
                     <th className="px-2 py-2">
-                      <input type="checkbox" checked={allChecked} onChange={toggleAllRows} />
+                      <input type="checkbox" aria-label="选择当前页全部账套" checked={allChecked} onChange={toggleAllRows} />
                     </th>
                     <th className="px-2 py-2">企业标签</th>
                     <th className="px-2 py-2">编码</th>
@@ -1027,9 +1196,9 @@ export function Welcome() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {rows.map((company) => (
+                  {accountPage.rows.map((company) => (
                     <tr key={company.id} className="hover:bg-[#f8fbff]">
-                      <td className="px-2 py-2 align-top"><input type="checkbox" checked={selectedRows.has(company.id)} onChange={() => toggleRow(company.id)} /></td>
+                      <td className="px-2 py-2 align-top"><input type="checkbox" aria-label={`选择账套 ${company.name}`} checked={selectedRows.has(company.id)} onChange={() => toggleRow(company.id)} /></td>
                       <td className="break-words px-2 py-2 align-top text-[#1f65a7]" title={companyMemos[company.id]?.content || '暂无备忘录'}>{companyMemos[company.id] ? '●' : '✎'}</td>
                       <td className="break-words px-2 py-2 align-top font-mono text-xs text-slate-500">{company.code}</td>
                       <td className="break-words px-2 py-2 align-top font-medium">{company.name}</td>
@@ -1057,7 +1226,39 @@ export function Welcome() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </div>}
+            {accountView === 'archive' && <div className="space-y-2 p-3 xl:hidden">
+              {accountPage.rows.map((company) => (
+                <article key={company.id} className="border border-slate-200 p-3 dark:border-slate-800">
+                  <div className="flex items-start justify-between gap-3">
+                    <label className="flex min-w-0 items-start gap-2">
+                      <input type="checkbox" aria-label={`选择账套 ${company.name}`} checked={selectedRows.has(company.id)} onChange={() => toggleRow(company.id)} />
+                      <span className="min-w-0"><span className="block break-words text-sm font-medium">{company.name}</span><span className="mt-0.5 block font-mono text-xs text-slate-500">{company.code}</span></span>
+                    </label>
+                    <CollectStatus value={company.collectStatus} />
+                  </div>
+                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                    <div><dt className="text-slate-500">企业类型</dt><dd className="mt-0.5 break-words">{company.enterpriseType}</dd></div>
+                    <div><dt className="text-slate-500">纳税资格</dt><dd className="mt-0.5">{company.taxType}</dd></div>
+                    <div><dt className="text-slate-500">主办会计</dt><dd className="mt-0.5">{company.accountant}</dd></div>
+                    <div><dt className="text-slate-500">账期</dt><dd className="mt-0.5">{company.period}</dd></div>
+                  </dl>
+                  <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2 text-xs text-[#1f65a7]">
+                    <button type="button" onClick={() => handleEditCompany(company)}>编辑</button>
+                    <button type="button" onClick={() => handleDeleteCompany(company)}>删除</button>
+                    <button type="button" onClick={() => handleDeactivateCompany(company)}>停用</button>
+                    <button type="button" onClick={() => handleMemoCompany(company)}>备忘录</button>
+                    <button type="button" onClick={() => handleSelectCompany(company.id)}>进入账套</button>
+                    <button type="button" onClick={() => handleTaxAuthorizationCheck(company)}>校验税务授权</button>
+                  </div>
+                </article>
+              ))}
+            </div>}
+            <OperationalPagination
+              page={accountPage}
+              onPageChange={setAccountPageNumber}
+              onPageSizeChange={(size) => { setAccountPageSize(size); setAccountPageNumber(1) }}
+            />
           </div>
         </section>
       </main>
@@ -1091,7 +1292,7 @@ export function Welcome() {
       )}
 
       {memoCompany && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true" aria-label="客户备忘录">
           <form onSubmit={(event) => { event.preventDefault(); handleSaveCompanyMemo() }} className="w-full max-w-lg rounded border border-slate-200 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
@@ -1120,23 +1321,19 @@ export function Welcome() {
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true" aria-label={editingCompanyId ? '编辑企业' : '新增企业'}>
           <div className="flex max-h-[92vh] w-full max-w-[1180px] flex-col rounded border border-slate-200 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <h2 className="text-2xl font-semibold">{editingCompanyId ? '编辑企业' : '新增企业'}</h2>
               <button type="button" onClick={() => { setShowAddModal(false); setEditingCompanyId(null); setNewCompany(emptyCompanyForm) }} className="text-2xl text-slate-400 hover:text-slate-600">×</button>
             </div>
-            <div className="min-h-0 flex-1 overflow-auto px-8 py-6">
+            <div className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-8 sm:py-6">
               <FormSection title="企业基本信息">
                 <FormRow label="企业名称" required className="xl:col-span-2">
                   <TextInput value={newCompany.name} onChange={(value) => setNewCompany({ ...newCompany, name: value })} />
                 </FormRow>
                 <FormRow label="地区" required>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Select value={newCompany.province} onChange={(value) => setNewCompany({ ...newCompany, province: value })} options={['江苏省', '上海市', '浙江省', '广东省']} />
-                    <Select value={newCompany.city} onChange={(value) => setNewCompany({ ...newCompany, city: value })} options={['南京市', '上海市', '杭州市', '深圳市']} />
-                    <Select value={newCompany.district} onChange={(value) => setNewCompany({ ...newCompany, district: value })} options={['市辖区', '浦东新区', '宝山区', '西湖区']} />
-                  </div>
+                  <ChinaRegionSelect required value={newCompany} onChange={(region) => setNewCompany({ ...newCompany, ...region })} />
                 </FormRow>
                 <FormRow label="纳税人资格" required>
                   <div className="flex h-9 items-center gap-4">
@@ -1158,7 +1355,7 @@ export function Welcome() {
                 </FormRow>
                 <FormRow label="启用期间" required>
                   <div className="grid grid-cols-2 gap-2">
-                    <Select value={String(newCompany.enableYear)} onChange={(value) => setNewCompany({ ...newCompany, enableYear: Number(value) })} options={[String(currentYear - 1), String(currentYear), String(currentYear + 1)]} />
+                    <Select value={String(newCompany.enableYear)} onChange={(value) => setNewCompany({ ...newCompany, enableYear: Number(value) })} options={buildEnableYearOptions(currentYear, String(newCompany.enableYear))} />
                     <Select value={String(newCompany.enableMonth)} onChange={(value) => setNewCompany({ ...newCompany, enableMonth: Number(value) })} options={Array.from({ length: 12 }, (_, index) => String(index + 1))} labels={Object.fromEntries(Array.from({ length: 12 }, (_, index) => [String(index + 1), `${index + 1}月`]))} />
                   </div>
                 </FormRow>
@@ -1169,10 +1366,10 @@ export function Welcome() {
                   <TextInput type="date" value={newCompany.serviceEnd} onChange={(value) => setNewCompany({ ...newCompany, serviceEnd: value })} />
                 </FormRow>
                 <FormRow label="会计行业">
-                  <Select value={newCompany.industry} onChange={(value) => setNewCompany({ ...newCompany, industry: value })} options={['', '软件和信息技术服务业', '批发和零售业', '制造业', '商务服务业', '餐饮业']} labels={{ '': '--请选择--' }} />
+                  <Select value={newCompany.industry} onChange={(value) => setNewCompany({ ...newCompany, industry: value })} options={['', ...withCurrentReferenceOption(industryOptions, newCompany.industry)]} labels={{ '': '--请选择--' }} />
                 </FormRow>
                 <FormRow label="企业类型">
-                  <Select value={newCompany.enterpriseType} onChange={(value) => setNewCompany({ ...newCompany, enterpriseType: value })} options={['私营有限责任公司', '内资企业', '个体工商户', '外商投资企业']} />
+                  <Select value={newCompany.enterpriseType} onChange={(value) => setNewCompany({ ...newCompany, enterpriseType: value })} options={withCurrentReferenceOption(enterpriseTypeOptions, newCompany.enterpriseType)} />
                 </FormRow>
               </FormSection>
 
@@ -1224,13 +1421,52 @@ function FilterField({ label, value, placeholder, onChange }: { label: string; v
   return (
     <label className="block">
       <span className="mb-1 block font-medium text-slate-600">{label}</span>
-      <input value={value ?? ''} onChange={(event) => onChange?.(event.target.value)} placeholder={placeholder || '全部'} className="h-9 w-full rounded border border-slate-300 bg-white px-3 text-sm outline-none focus:border-[#1f65a7]" />
+      <input value={value ?? ''} onChange={(event) => onChange?.(event.target.value)} placeholder={placeholder || '请输入'} className="h-9 w-full rounded border border-slate-300 bg-white px-3 text-sm outline-none focus:border-[#1f65a7]" />
     </label>
   )
 }
 
+function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block font-medium text-slate-600">{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="h-9 w-full rounded border border-slate-300 bg-white px-3 text-sm outline-none focus:border-[#1f65a7]">
+        <option value="">全部</option>
+        {options.map((option) => <option key={option} value={option}>{option === '-' ? '未设置' : option}</option>)}
+      </select>
+    </label>
+  )
+}
+
+function formatProgressTime(value?: string | null) {
+  if (!value) return '暂无活动'
+  return value.replace('T', ' ').slice(0, 16)
+}
+
+function ProgressFraction({ done, total, emptyLabel }: { done: number; total: number; emptyLabel: string }) {
+  if (total <= 0) return <span className="text-slate-500">{emptyLabel}</span>
+  const completed = done >= total
+  return (
+    <span className={cn('font-medium tabular-nums', completed ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300')}>
+      {done}/{total} {completed ? '已完成' : '处理中'}
+    </span>
+  )
+}
+
+function CollectionProgress({ progress }: { progress?: AgencyCompanyProgress }) {
+  if (!progress || progress.invoiceCount <= 0) return <span className="text-slate-500">待采集</span>
+  const ready = progress.invoiceCount - progress.invoicePendingCount
+  return <ProgressFraction done={ready} total={progress.invoiceCount} emptyLabel="待采集" />
+}
+
+function RiskCount({ value }: { value: number }) {
+  return value > 0
+    ? <span className="font-medium tabular-nums text-red-700 dark:text-red-300">{value} 项</span>
+    : <span className="font-medium text-emerald-700 dark:text-emerald-300">无</span>
+}
+
 function CollectStatus({ value }: { value: string }) {
-  const cls = value.includes('失败') ? 'text-red-600' : value.includes('警告') ? 'text-amber-600' : value.includes('成功') ? 'text-blue-600' : 'text-slate-500'
+  const cls = value.includes('失败') ? 'text-red-600' : value.includes('警告') || value.includes('待处理') ? 'text-amber-600' : value.includes('成功') || value.includes('已采集') ? 'text-blue-600' : 'text-slate-500'
   return <span className={cn('font-medium', cls)}>{value}</span>
 }
 
@@ -1248,8 +1484,8 @@ function FormSection({ title, warning, children }: { title: string; warning?: st
 
 function FormRow({ label, required, children, className }: { label: string; required?: boolean; children: React.ReactNode; className?: string }) {
   return (
-    <label className={cn('grid grid-cols-[160px_minmax(0,1fr)] items-center gap-3', className)}>
-      <span className="text-right text-sm font-semibold text-slate-700">
+    <label className={cn('grid min-w-0 grid-cols-1 items-center gap-1 sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-3', className)}>
+      <span className="text-left text-sm font-semibold text-slate-700 sm:text-right">
         {label}
         {required && <span className="ml-1 rounded bg-red-500 px-1 py-0.5 text-[11px] text-white">必须</span>}
       </span>

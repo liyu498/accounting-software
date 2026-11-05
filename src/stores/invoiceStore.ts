@@ -35,43 +35,6 @@ interface InvoiceState {
     invoice_type?: string
   }) => Promise<void>
   getInvoice: (id: string, companyId: string) => Promise<Invoice | null>
-  createInvoice: (input: {
-    company_id: string
-    period_id?: string
-    invoice_type: string
-    invoice_no: string
-    invoice_code?: string
-    invoice_date: string
-    amount: number
-    tax_amount: number
-    tax_rate?: number
-    seller_name?: string
-    seller_tax_id?: string
-    buyer_name?: string
-    buyer_tax_id?: string
-    remarks?: string
-  }) => Promise<Invoice>
-  updateInvoice: (
-    id: string,
-    input: {
-      company_id?: string
-      invoice_type?: string
-      invoice_no?: string
-      invoice_code?: string
-      invoice_date?: string
-      amount?: number
-      tax_amount?: number
-      tax_rate?: number
-      seller_name?: string
-      seller_tax_id?: string
-      buyer_name?: string
-      buyer_tax_id?: string
-      status?: string
-      voucher_id?: string
-      remarks?: string
-    },
-  ) => Promise<Invoice>
-  deleteInvoice: (id: string, companyId: string) => Promise<void>
   matchInvoiceToVoucher: (invoiceId: string, voucherId: string, companyId: string) => Promise<void>
   getInvoicesByVoucher: (voucherId: string, companyId: string) => Promise<Invoice[]>
 }
@@ -101,46 +64,6 @@ export const useInvoiceStore = create<InvoiceState>((set) => ({
     } catch (error) {
       set({ error: String(error) })
       return null
-    }
-  },
-
-  createInvoice: async (input) => {
-    set({ isLoading: true, error: null })
-    try {
-      const result = await invoke<Invoice>('create_invoice', { input })
-      set((state) => ({
-        invoices: [result, ...state.invoices],
-        isLoading: false,
-      }))
-      return result
-    } catch (error) {
-      set({ error: String(error), isLoading: false })
-      throw error
-    }
-  },
-
-  updateInvoice: async (id, input) => {
-    try {
-      const result = await invoke<Invoice>('update_invoice', { id, input })
-      set((state) => ({
-        invoices: state.invoices.map((inv) => (inv.id === id ? result : inv)),
-      }))
-      return result
-    } catch (error) {
-      set({ error: String(error) })
-      throw error
-    }
-  },
-
-  deleteInvoice: async (id, companyId) => {
-    try {
-      await invoke('delete_invoice', { id, companyId })
-      set((state) => ({
-        invoices: state.invoices.filter((inv) => inv.id !== id),
-      }))
-    } catch (error) {
-      set({ error: String(error) })
-      throw error
     }
   },
 

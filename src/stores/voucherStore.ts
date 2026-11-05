@@ -11,6 +11,7 @@ export interface Voucher {
   sequence_num: number
   voucher_date: string
   summary: string | null
+  reference_number: string | null
   attachment_count: number
   status: string
   total_debit: number
@@ -26,6 +27,8 @@ export interface Voucher {
   reversed_at: string | null
   reversal_of_id: string | null
   is_system: number
+  is_settlement: number
+  settlement_rule_id: string | null
   is_deleted: number
   deleted_at: string | null
   entries: VoucherEntry[]
@@ -42,6 +45,10 @@ export interface VoucherEntry {
   summary: string | null
   auxiliary_type: string | null
   auxiliary_id: string | null
+  auxiliary_items?: {
+    auxiliary_category_id: string
+    auxiliary_item_id: string
+  }[]
   doc_number: string | null
   quantity: number | null
   unit_price: number | null
@@ -71,6 +78,7 @@ interface VoucherListResponse {
     sequence_num: number
     voucher_date: string
     summary: string | null
+    reference_number: string | null
     attachment_count: number
     status: string
     total_debit: number
@@ -86,6 +94,8 @@ interface VoucherListResponse {
     reversed_at: string | null
     reversal_of_id: string | null
     is_system: number
+    is_settlement: number
+    settlement_rule_id: string | null
     is_deleted: number
     deleted_at: string | null
     entries: VoucherEntry[]
@@ -115,6 +125,8 @@ interface VoucherState {
     page_size?: number
   }) => Promise<Voucher[]>
   getVoucher: (id: string, companyId: string) => Promise<Voucher | null>
+  getNextVoucherNumber: (periodId: string, companyId: string) => Promise<string>
+  suggestSummaries: (accountCode: string, companyId: string) => Promise<string[]>
 
   addVoucher: (input: {
     company_id: string
@@ -123,9 +135,12 @@ interface VoucherState {
     voucher_date: string
     voucher_number?: string
     summary?: string
+    reference_number?: string
     attachment_count?: number
-    created_by?: string
     ai_suggestion_id?: string
+    bank_transaction_id?: string
+    business_source_kind?: string
+    business_source_id?: string
     entries: {
       account_code: string
       account_name: string
@@ -135,6 +150,15 @@ interface VoucherState {
       auxiliary_type?: string
       auxiliary_id?: string
       doc_number?: string
+      quantity?: number
+      unit_price?: number
+      unit?: string
+      currency_id?: string
+      exchange_rate?: number
+      auxiliary_items?: {
+        auxiliary_category_id: string
+        auxiliary_item_id: string
+      }[]
     }[]
   }) => Promise<Voucher>
 
@@ -142,8 +166,8 @@ interface VoucherState {
     id: string
     voucher_date?: string
     summary?: string
+    reference_number?: string
     attachment_count?: number
-    modified_by?: string
     version?: number
     entries?: {
       account_code: string
@@ -154,21 +178,35 @@ interface VoucherState {
       auxiliary_type?: string
       auxiliary_id?: string
       doc_number?: string
+      quantity?: number
+      unit_price?: number
+      unit?: string
+      currency_id?: string
+      exchange_rate?: number
+      auxiliary_items?: {
+        auxiliary_category_id: string
+        auxiliary_item_id: string
+      }[]
     }[]
   }, companyId: string) => Promise<Voucher>
 
   deleteVoucher: (id: string, companyId: string) => Promise<void>
 
-  approveVoucher: (id: string, approvedBy: string, companyId: string) => Promise<Voucher>
+  approveVoucher: (id: string, companyId: string) => Promise<Voucher>
   reverseApproveVoucher: (id: string, companyId: string) => Promise<Voucher>
-  reverseVoucher: (id: string, companyId: string, reversedBy?: string) => Promise<Voucher>
+  reverseVoucher: (id: string, companyId: string) => Promise<Voucher>
   copyVoucher: (id: string, companyId: string) => Promise<Voucher>
 
   getVoucherEntries: (voucherId: string) => Promise<VoucherEntry[]>
   getVoucherLogs: (voucherId: string) => Promise<VoucherLog[]>
+  addVoucherAnnotation: (input: {
+    voucherId: string
+    companyId: string
+    content: string
+  }) => Promise<VoucherLog>
 
   reorganizeNumbers: (periodId: string, companyId: string) => Promise<void>
-  batchApprove: (ids: string[], approvedBy: string, companyId: string) => Promise<void>
+  batchApprove: (ids: string[], companyId: string) => Promise<void>
   batchReverseApprove: (ids: string[], companyId: string) => Promise<void>
 
   deleteCompanyVouchers: (companyId: string) => Promise<number>
@@ -193,6 +231,7 @@ function mapVoucher(raw: VoucherListResponse['vouchers'][0]): Voucher {
     sequence_num: raw.sequence_num,
     voucher_date: raw.voucher_date,
     summary: raw.summary,
+    reference_number: raw.reference_number ?? null,
     attachment_count: raw.attachment_count,
     status: raw.status,
     total_debit: raw.total_debit,
@@ -208,6 +247,8 @@ function mapVoucher(raw: VoucherListResponse['vouchers'][0]): Voucher {
     reversed_at: raw.reversed_at,
     reversal_of_id: raw.reversal_of_id,
     is_system: raw.is_system,
+    is_settlement: raw.is_settlement ?? 0,
+    settlement_rule_id: raw.settlement_rule_id ?? null,
     is_deleted: raw.is_deleted ?? 0,
     deleted_at: raw.deleted_at ?? null,
     entries: raw.entries,
@@ -272,6 +313,24 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
     }
   },
 
+  getNextVoucherNumber: async (periodId, companyId) => {
+    try {
+      return await invoke<string>('get_next_voucher_number', { periodId, companyId })
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
+  suggestSummaries: async (accountCode, companyId) => {
+    try {
+      return await invoke<string[]>('suggest_summary', { accountCode, companyId })
+    } catch (error) {
+      set({ error: String(error) })
+      return []
+    }
+  },
+
   addVoucher: async (input) => {
     set({ isLoading: true, error: null })
     try {
@@ -327,11 +386,10 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
     }
   },
 
-  approveVoucher: async (id, approvedBy, companyId) => {
+  approveVoucher: async (id, companyId) => {
     try {
       const result = await invoke<Voucher>('approve_voucher', {
         id,
-        approvedBy,
         companyId,
       })
       set((state) => ({
@@ -359,12 +417,11 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
     }
   },
 
-  reverseVoucher: async (id, companyId, reversedBy) => {
+  reverseVoucher: async (id, companyId) => {
     try {
       const result = await invoke<Voucher>('reverse_voucher', {
         id,
         companyId,
-        reversedBy: reversedBy || null,
       })
       set((state) => ({
         vouchers: [result, ...state.vouchers],
@@ -413,6 +470,19 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
     }
   },
 
+  addVoucherAnnotation: async (input) => {
+    try {
+      return await invoke<VoucherLog>('add_voucher_annotation', {
+        voucherId: input.voucherId,
+        companyId: input.companyId,
+        content: input.content,
+      })
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
   reorganizeNumbers: async (periodId, companyId) => {
     try {
       await invoke('reorganize_voucher_numbers', { periodId, companyId })
@@ -422,12 +492,28 @@ export const useVoucherStore = create<VoucherState>((set, get) => ({
     }
   },
 
-  batchApprove: async (ids, approvedBy, companyId) => {
+  batchApprove: async (ids, companyId) => {
     try {
-      await invoke('batch_approve_vouchers', { ids, approvedBy, companyId })
+      await invoke('batch_approve_vouchers', { ids, companyId })
+      const refreshed = await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const voucher = await invoke<VoucherListResponse['vouchers'][0] | null>(
+              'get_voucher',
+              { id, companyId },
+            )
+            return voucher ? mapVoucher(voucher) : null
+          } catch {
+            return null
+          }
+        }),
+      )
+      const refreshedById = new Map(
+        refreshed.filter((voucher): voucher is Voucher => voucher !== null).map((voucher) => [voucher.id, voucher]),
+      )
       set((state) => ({
         vouchers: state.vouchers.map((v) =>
-          ids.includes(v.id) ? { ...v, status: 'approved', approved_by: approvedBy } : v,
+          ids.includes(v.id) ? refreshedById.get(v.id) ?? { ...v, status: 'approved' } : v,
         ),
       }))
       usePeriodStore.getState().notifyDataChange()

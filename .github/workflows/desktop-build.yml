@@ -22,9 +22,34 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
+      - run: npx playwright install chromium
+      - run: npm run test
+      - run: npm run verify:modules
+      - run: npm run verify:live-data
+      - run: npm run verify:exports
       - run: npm run verify:desktop
+      - run: npm run verify:pdf-sanitization
+      - run: npm run verify:source-reachability
+      - run: npm run verify:route-content
+      - run: npm run verify:routes
+      - run: npm run verify:accessibility
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run build
-      - run: npm run tauri build
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      - run: cargo check --manifest-path src-tauri/Cargo.toml
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Build sealed macOS CI bundle
+        if: runner.os == 'macOS'
+        run: npm run tauri build -- --config src-tauri/tauri.macos.ci.conf.json
+      - name: Verify macOS app and disk image integrity
+        if: runner.os == 'macOS'
+        run: npm run verify:macos-bundle
+      - name: Build Windows bundle
+        if: runner.os == 'Windows'
+        run: npm run tauri build
+      - name: Verify Windows installer integrity
+        if: runner.os == 'Windows'
+        run: npm run verify:windows-bundle
       - uses: actions/upload-artifact@v4
         with:
           name: accounting-desktop-${{ matrix.os }}

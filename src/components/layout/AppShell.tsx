@@ -36,6 +36,7 @@ import {
   Shield,
   Sun,
   Table2,
+  TrendingUp,
   User,
   Users,
   Wallet,
@@ -101,6 +102,8 @@ const allSections: SidebarSection[] = [
       { id: 'special-deductions', label: '专项附加扣除', icon: <FileSpreadsheet className="h-4 w-4" />, path: '/special-deductions' },
       { id: 'depreciation', label: '折旧摊销', icon: <Calculator className="h-4 w-4" />, path: '/depreciation' },
       { id: 'inventory', label: '存货设置', icon: <Package className="h-4 w-4" />, path: '/inventory' },
+      { id: 'inventory-opening', label: '期初库存', icon: <Package className="h-4 w-4" />, path: '/inventory/opening' },
+      { id: 'inventory-stocktakes', label: '库存盘点', icon: <CheckSquare className="h-4 w-4" />, path: '/inventory/stocktakes' },
       { id: 'inventory-movements', label: '出入库单', icon: <Package className="h-4 w-4" />, path: '/inventory/movements' },
       { id: 'cost-carryover', label: '成本结转', icon: <Calculator className="h-4 w-4" />, path: '/cost-carryover' },
       { id: 'import-center', label: '导入历史', icon: <FileSpreadsheet className="h-4 w-4" />, path: '/imports' },
@@ -140,6 +143,12 @@ const allSections: SidebarSection[] = [
       { id: 'cash-flow', label: '现金流量表', icon: <ArrowLeftRight className="h-4 w-4" />, path: '/reports/cash-flow' },
       { id: 'cash-flow-quarter', label: '现金流量表季报', icon: <ArrowLeftRight className="h-4 w-4" />, path: '/reports/cash-flow-quarter' },
       { id: 'equity-change', label: '所有者权益变动表', icon: <Notebook className="h-4 w-4" />, path: '/reports/equity-change' },
+      { id: 'receivable-summary', label: '应收汇总表', icon: <Wallet className="h-4 w-4" />, path: '/reports/receivable-summary' },
+      { id: 'receivable-detail', label: '应收明细表', icon: <ScrollText className="h-4 w-4" />, path: '/reports/receivable-detail' },
+      { id: 'payable-summary', label: '应付汇总表', icon: <PiggyBank className="h-4 w-4" />, path: '/reports/payable-summary' },
+      { id: 'payable-detail', label: '应付明细表', icon: <ScrollText className="h-4 w-4" />, path: '/reports/payable-detail' },
+      { id: 'operating-status', label: '经营状况表', icon: <Landmark className="h-4 w-4" />, path: '/reports/operating-status' },
+      { id: 'operating-performance', label: '经营业绩表', icon: <TrendingUp className="h-4 w-4" />, path: '/reports/operating-performance' },
     ],
   },
   {
@@ -189,6 +198,7 @@ const allSections: SidebarSection[] = [
       { id: 'voucher-templates', label: '凭证模板', icon: <FileText className="h-4 w-4" />, path: '/settings/voucher-templates' },
       { id: 'report-formulas', label: '报表公式', icon: <FileBarChart className="h-4 w-4" />, path: '/settings/report-formulas' },
       { id: 'cash-flow-mapping', label: '现金流量映射', icon: <ArrowLeftRight className="h-4 w-4" />, path: '/settings/cash-flow-mapping' },
+      { id: 'equity-change-mapping', label: '权益变动映射', icon: <ArrowLeftRight className="h-4 w-4" />, path: '/settings/equity-change-mapping' },
       { id: 'settlement-rules', label: '结转规则', icon: <ArrowLeftRight className="h-4 w-4" />, path: '/settings/settlement-rules' },
       { id: 'currencies', label: '币别管理', icon: <Coins className="h-4 w-4" />, path: '/settings/currencies' },
       { id: 'print-templates', label: '打印模板', icon: <FileBarChart className="h-4 w-4" />, path: '/settings/print-templates' },
@@ -245,7 +255,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       result,
       voucher: `${auditPeriodLabel}/${auditCompanyLabel}`,
       attachment: '顶栏操作快照',
-      operator: user?.username || 'admin',
     })
   }
 
@@ -335,7 +344,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="relative z-[60] flex min-h-12 items-center justify-between gap-2 overflow-visible border-b border-[#1f66c7] bg-[#2d79e6] px-2 py-1 text-white dark:border-[#303030] dark:bg-[#171717] sm:px-4">
+        <header className="relative z-[60] flex min-h-12 items-center justify-between gap-2 overflow-visible border-b border-[#1e40af] bg-[#1d4ed8] px-2 py-1 text-white dark:border-[#303030] dark:bg-[#171717] sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             <div className="min-w-0 flex-1 sm:flex-none">
               <CompanySelector />

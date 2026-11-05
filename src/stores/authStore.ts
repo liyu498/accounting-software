@@ -1,65 +1,81 @@
-import { create } from 'zustand'
-import { invoke, isTauri } from '../lib/tauri'
+import { create } from "zustand";
+import { invoke, isTauri } from "../lib/tauri";
 
 const DEV_USER: User = {
-  id: 'dev-user-001',
-  username: 'admin',
-  realName: '开发测试用户',
-  role: 'admin',
+  id: "dev-user-001",
+  username: "admin",
+  realName: "开发测试用户",
+  role: "admin",
   roleId: null,
+  permissions: [],
+};
+
+interface PermissionGrant {
+  resource: string;
+  action: string;
 }
 
 interface User {
-  id: string
-  username: string
-  realName: string
-  role: string
-  roleId: string | null
+  id: string;
+  username: string;
+  realName: string;
+  role: string;
+  roleId: string | null;
+  permissions: PermissionGrant[];
 }
 
 interface AuthState {
-  isAuthenticated: boolean
-  user: User | null
-  token: string | null
-  isLoading: boolean
-  error: string | null
-  login: (username: string, password: string) => Promise<boolean>
-  logout: () => void
-  checkAuth: () => Promise<void>
-  register: (username: string, password: string, realName: string) => Promise<boolean>
+  isAuthenticated: boolean;
+  user: User | null;
+  token: string | null;
+  isLoading: boolean;
+  error: string | null;
+  login: (username: string, password: string) => Promise<boolean>;
+  logout: () => void;
+  checkAuth: () => Promise<void>;
+}
+
+if (isTauri) {
+  localStorage.removeItem("auth_token");
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: !isTauri,
   user: !isTauri ? DEV_USER : null,
-  token: !isTauri ? 'dev-browser-token' : localStorage.getItem('auth_token'),
+  token: !isTauri ? "dev-browser-token" : sessionStorage.getItem("auth_token"),
   isLoading: false,
   error: null,
 
   login: async (username, password) => {
-    set({ isLoading: true, error: null })
+    set({ isLoading: true, error: null });
 
     if (!isTauri) {
-      localStorage.setItem('auth_token', 'dev-browser-token')
       set({
         isAuthenticated: true,
-        token: 'dev-browser-token',
+        token: "dev-browser-token",
         user: { ...DEV_USER, username },
         isLoading: false,
-      })
-      return true
+      });
+      return true;
     }
 
     try {
       const result = await invoke<{
-        success: boolean
-        token: string | null
-        user: { id: string; username: string; real_name: string; role: string; role_id: string | null } | null
-        error: string | null
-      }>('login', { request: { username, password } })
+        success: boolean;
+        token: string | null;
+        user: {
+          id: string;
+          username: string;
+          real_name: string;
+          role: string;
+          role_id: string | null;
+          permissions: PermissionGrant[];
+        } | null;
+        error: string | null;
+      }>("login", { request: { username, password } });
 
       if (result.success && result.token && result.user) {
-        localStorage.setItem('auth_token', result.token)
+        sessionStorage.setItem("auth_token", result.token);
         set({
           isAuthenticated: true,
           token: result.token,
@@ -69,46 +85,59 @@ export const useAuthStore = create<AuthState>((set) => ({
             realName: result.user.real_name,
             role: result.user.role,
             roleId: result.user.role_id,
+            permissions: result.user.permissions,
           },
           isLoading: false,
-        })
-        return true
+        });
+        return true;
       }
 
       set({
         isLoading: false,
-        error: result.error || '登录失败',
-      })
-      return false
+        error: result.error || "登录失败",
+      });
+      return false;
     } catch (error) {
-      set({ isLoading: false, error: String(error) })
-      return false
+      set({ isLoading: false, error: String(error) });
+      return false;
     }
   },
 
   logout: () => {
-    localStorage.removeItem('auth_token')
-    invoke('logout').catch(() => {})
-    set({ isAuthenticated: false, user: null, token: null })
+    sessionStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_token");
+    invoke("logout").catch(() => {});
+    set({ isAuthenticated: false, user: null, token: null });
   },
 
   checkAuth: async () => {
     if (!isTauri) {
-      set({ isAuthenticated: true, user: DEV_USER, token: 'dev-browser-token' })
-      return
+      set({
+        isAuthenticated: true,
+        user: DEV_USER,
+        token: "dev-browser-token",
+      });
+      return;
     }
 
-    const token = localStorage.getItem('auth_token')
+    const token = sessionStorage.getItem("auth_token");
     if (!token) {
-      set({ isAuthenticated: false, user: null, token: null })
-      return
+      set({ isAuthenticated: false, user: null, token: null });
+      return;
     }
 
     try {
       const result = await invoke<{
-        is_authenticated: boolean
-        user: { id: string; username: string; real_name: string; role: string; role_id: string | null } | null
-      }>('check', { token })
+        is_authenticated: boolean;
+        user: {
+          id: string;
+          username: string;
+          real_name: string;
+          role: string;
+          role_id: string | null;
+          permissions: PermissionGrant[];
+        } | null;
+      }>("check", { token });
 
       if (result.is_authenticated && result.user) {
         set({
@@ -120,29 +149,23 @@ export const useAuthStore = create<AuthState>((set) => ({
             realName: result.user.real_name,
             role: result.user.role,
             roleId: result.user.role_id,
+            permissions: result.user.permissions,
           },
-        })
+        });
       } else {
-        localStorage.removeItem('auth_token')
-        set({ isAuthenticated: false, user: null, token: null })
+        sessionStorage.removeItem("auth_token");
+        localStorage.removeItem("auth_token");
+        set({ isAuthenticated: false, user: null, token: null });
       }
     } catch {
-      localStorage.removeItem('auth_token')
-      set({ isAuthenticated: false, user: null, token: null })
+      sessionStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_token");
+      set({ isAuthenticated: false, user: null, token: null });
     }
   },
+}));
 
-  register: async (username, password, realName) => {
-    set({ isLoading: true, error: null })
-    try {
-      await invoke('register', {
-        input: { username, password, real_name: realName },
-      })
-      set({ isLoading: false })
-      return true
-    } catch (error) {
-      set({ isLoading: false, error: String(error) })
-      return false
-    }
-  },
-}))
+export function currentActorName() {
+  const user = useAuthStore.getState().user;
+  return user?.realName?.trim() || user?.username?.trim() || "本地预览用户";
+}

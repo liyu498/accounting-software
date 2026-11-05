@@ -90,8 +90,15 @@ Desktop development app:
 npm run tauri -- dev
 ```
 
-Targeted smoke tests exist in the repository as `test-*.cjs`. Use the relevant
-one when the changed workflow has a matching test script.
+Use the maintained route audits for browser smoke coverage. The content audit
+waits for lazy route content and rejects blank, duplicated, or runtime-error
+pages; the visual audit checks every route in desktop/mobile and light/dark
+modes:
+
+```powershell
+npm run verify:route-content
+npm run verify:routes
+```
 
 ## SQLite Recovery Note
 

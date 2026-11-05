@@ -1,6 +1,6 @@
 use crate::db::{
-    CommonDigest, CreateCommonDigestInput, CreateVoucherTemplateInput, Database, VoucherTemplate,
-    VoucherTemplateType,
+    CommonDigest, CreateCommonDigestInput, CreateVoucherTemplateInput, Database,
+    EntryAuxiliaryInput, VoucherTemplate, VoucherTemplateType,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -47,40 +47,14 @@ pub async fn create_voucher_template_type(
     .await
     .map_err(|e| format!("创建模板类型失败: {}", e))?;
 
-    let result: VoucherTemplateType = sqlx::query_as(
-        "SELECT * FROM voucher_template_types WHERE id = ?",
-    )
-    .bind(&id)
-    .fetch_one(db.pool())
-    .await
-    .map_err(|e| format!("查询新创建的模板类型失败: {}", e))?;
+    let result: VoucherTemplateType =
+        sqlx::query_as("SELECT * FROM voucher_template_types WHERE id = ?")
+            .bind(&id)
+            .fetch_one(db.pool())
+            .await
+            .map_err(|e| format!("查询新创建的模板类型失败: {}", e))?;
 
     Ok(result)
-}
-
-#[tauri::command]
-pub async fn delete_voucher_template_type(id: String, company_id: String, db: State<'_, Database>) -> Result<(), String> {
-    let count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM voucher_templates WHERE type_id = ? AND company_id = ?",
-    )
-    .bind(&id)
-    .bind(&company_id)
-    .fetch_one(db.pool())
-    .await
-    .map_err(|e| format!("查询失败: {}", e))?;
-
-    if count.0 > 0 {
-        return Err("该类型下存在模板，不能删除".to_string());
-    }
-
-    sqlx::query("DELETE FROM voucher_template_types WHERE id = ? AND company_id = ?")
-        .bind(&id)
-        .bind(&company_id)
-        .execute(db.pool())
-        .await
-        .map_err(|e| format!("删除模板类型失败: {}", e))?;
-
-    Ok(())
 }
 
 // ─── Voucher Templates ─────────────────────────────────────────────
@@ -90,9 +64,18 @@ pub struct TemplateEntry {
     pub account_code: String,
     pub account_name: String,
     pub direction: String,
+    pub amount: Option<f64>,
     pub summary: String,
     pub auxiliary_type: Option<String>,
     pub auxiliary_id: Option<String>,
+    #[serde(default)]
+    pub auxiliary_items: Option<Vec<EntryAuxiliaryInput>>,
+    pub doc_number: Option<String>,
+    pub quantity: Option<f64>,
+    pub unit_price: Option<f64>,
+    pub unit: Option<String>,
+    pub currency_id: Option<String>,
+    pub exchange_rate: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -108,14 +91,13 @@ async fn validate_voucher_template_input(
     if input.name.trim().is_empty() {
         return Err("凭证模板名称不能为空".to_string());
     }
-    let template_type: Option<(String,)> = sqlx::query_as(
-        "SELECT id FROM voucher_template_types WHERE id = ? AND company_id = ?",
-    )
-    .bind(&input.type_id)
-    .bind(&input.company_id)
-    .fetch_optional(db.pool())
-    .await
-    .map_err(|error| format!("查询模板类型失败: {error}"))?;
+    let template_type: Option<(String,)> =
+        sqlx::query_as("SELECT id FROM voucher_template_types WHERE id = ? AND company_id = ?")
+            .bind(&input.type_id)
+            .bind(&input.company_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|error| format!("查询模板类型失败: {error}"))?;
     if template_type.is_none() {
         return Err("模板类型不属于当前账套".to_string());
     }
@@ -150,8 +132,7 @@ pub async fn get_voucher_templates(
 
     let mut result = Vec::new();
     for t in templates {
-        let entries: Vec<TemplateEntry> =
-            serde_json::from_str(&t.entries_json).unwrap_or_default();
+        let entries: Vec<TemplateEntry> = serde_json::from_str(&t.entries_json).unwrap_or_default();
         result.push(VoucherTemplateWithEntries {
             template: t,
             entries,
@@ -181,13 +162,11 @@ pub async fn create_voucher_template(
     .await
     .map_err(|e| format!("创建模板失败: {}", e))?;
 
-    let result: VoucherTemplate = sqlx::query_as(
-        "SELECT * FROM voucher_templates WHERE id = ?",
-    )
-    .bind(&id)
-    .fetch_one(db.pool())
-    .await
-    .map_err(|e| format!("查询新创建的模板失败: {}", e))?;
+    let result: VoucherTemplate = sqlx::query_as("SELECT * FROM voucher_templates WHERE id = ?")
+        .bind(&id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|e| format!("查询新创建的模板失败: {}", e))?;
 
     Ok(result)
 }
@@ -214,20 +193,23 @@ pub async fn update_voucher_template(
         return Err("未找到当前账套凭证模板".to_string());
     }
 
-    let result: VoucherTemplate = sqlx::query_as(
-        "SELECT * FROM voucher_templates WHERE id = ? AND company_id = ?",
-    )
-    .bind(&id)
-    .bind(&input.company_id)
-    .fetch_one(db.pool())
-    .await
-    .map_err(|e| format!("查询更新后的模板失败: {}", e))?;
+    let result: VoucherTemplate =
+        sqlx::query_as("SELECT * FROM voucher_templates WHERE id = ? AND company_id = ?")
+            .bind(&id)
+            .bind(&input.company_id)
+            .fetch_one(db.pool())
+            .await
+            .map_err(|e| format!("查询更新后的模板失败: {}", e))?;
 
     Ok(result)
 }
 
 #[tauri::command]
-pub async fn delete_voucher_template(id: String, company_id: String, db: State<'_, Database>) -> Result<(), String> {
+pub async fn delete_voucher_template(
+    id: String,
+    company_id: String,
+    db: State<'_, Database>,
+) -> Result<(), String> {
     sqlx::query("DELETE FROM voucher_templates WHERE id = ? AND company_id = ?")
         .bind(&id)
         .bind(&company_id)
@@ -245,13 +227,11 @@ pub async fn get_common_digests(
     company_id: String,
     db: State<'_, Database>,
 ) -> Result<Vec<CommonDigest>, String> {
-    sqlx::query_as(
-        "SELECT * FROM common_digests WHERE company_id = ? ORDER BY content",
-    )
-    .bind(&company_id)
-    .fetch_all(db.pool())
-    .await
-    .map_err(|e| format!("查询常用摘要失败: {}", e))
+    sqlx::query_as("SELECT * FROM common_digests WHERE company_id = ? ORDER BY content")
+        .bind(&company_id)
+        .fetch_all(db.pool())
+        .await
+        .map_err(|e| format!("查询常用摘要失败: {}", e))
 }
 
 #[tauri::command]
@@ -261,23 +241,19 @@ pub async fn create_common_digest(
 ) -> Result<CommonDigest, String> {
     let id = uuid::Uuid::new_v4().to_string();
 
-    sqlx::query(
-        "INSERT INTO common_digests (id, company_id, content) VALUES (?, ?, ?)",
-    )
-    .bind(&id)
-    .bind(&input.company_id)
-    .bind(&input.content)
-    .execute(db.pool())
-    .await
-    .map_err(|e| format!("创建常用摘要失败: {}", e))?;
+    sqlx::query("INSERT INTO common_digests (id, company_id, content) VALUES (?, ?, ?)")
+        .bind(&id)
+        .bind(&input.company_id)
+        .bind(&input.content)
+        .execute(db.pool())
+        .await
+        .map_err(|e| format!("创建常用摘要失败: {}", e))?;
 
-    let result: CommonDigest = sqlx::query_as(
-        "SELECT * FROM common_digests WHERE id = ?",
-    )
-    .bind(&id)
-    .fetch_one(db.pool())
-    .await
-    .map_err(|e| format!("查询新创建的常用摘要失败: {}", e))?;
+    let result: CommonDigest = sqlx::query_as("SELECT * FROM common_digests WHERE id = ?")
+        .bind(&id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|e| format!("查询新创建的常用摘要失败: {}", e))?;
 
     Ok(result)
 }
@@ -288,31 +264,35 @@ pub async fn update_common_digest(
     input: CreateCommonDigestInput,
     db: State<'_, Database>,
 ) -> Result<CommonDigest, String> {
-    let affected = sqlx::query("UPDATE common_digests SET content = ? WHERE id = ? AND company_id = ?")
-        .bind(&input.content)
-        .bind(&id)
-        .bind(&input.company_id)
-        .execute(db.pool())
-        .await
-        .map_err(|e| format!("更新常用摘要失败: {}", e))?;
+    let affected =
+        sqlx::query("UPDATE common_digests SET content = ? WHERE id = ? AND company_id = ?")
+            .bind(&input.content)
+            .bind(&id)
+            .bind(&input.company_id)
+            .execute(db.pool())
+            .await
+            .map_err(|e| format!("更新常用摘要失败: {}", e))?;
     if affected.rows_affected() == 0 {
         return Err("未找到当前账套常用摘要".to_string());
     }
 
-    let result: CommonDigest = sqlx::query_as(
-        "SELECT * FROM common_digests WHERE id = ? AND company_id = ?",
-    )
-    .bind(&id)
-    .bind(&input.company_id)
-    .fetch_one(db.pool())
-    .await
-    .map_err(|e| format!("查询更新后的常用摘要失败: {}", e))?;
+    let result: CommonDigest =
+        sqlx::query_as("SELECT * FROM common_digests WHERE id = ? AND company_id = ?")
+            .bind(&id)
+            .bind(&input.company_id)
+            .fetch_one(db.pool())
+            .await
+            .map_err(|e| format!("查询更新后的常用摘要失败: {}", e))?;
 
     Ok(result)
 }
 
 #[tauri::command]
-pub async fn delete_common_digest(id: String, company_id: String, db: State<'_, Database>) -> Result<(), String> {
+pub async fn delete_common_digest(
+    id: String,
+    company_id: String,
+    db: State<'_, Database>,
+) -> Result<(), String> {
     let affected = sqlx::query("DELETE FROM common_digests WHERE id = ? AND company_id = ?")
         .bind(&id)
         .bind(&company_id)

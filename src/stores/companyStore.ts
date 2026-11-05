@@ -1,5 +1,9 @@
 import { create } from 'zustand'
 import { invoke } from '../lib/tauri'
+import {
+  loadWorkspaceSelection,
+  saveSelectedCompanyId,
+} from '../lib/workspaceSelection.js'
 
 export interface Company {
   id: string
@@ -85,7 +89,7 @@ interface CompanyState {
 
 export const useCompanyStore = create<CompanyState>((set, get) => ({
   companies: [],
-  selectedCompanyId: null,
+  selectedCompanyId: loadWorkspaceSelection().companyId,
   isLoading: false,
   error: null,
 
@@ -93,7 +97,14 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const result = await invoke<Company[]>('get_companies')
-      set({ companies: result, isLoading: false })
+      const selectedCompanyId = get().selectedCompanyId
+      const validSelectedCompanyId = result.some((company) => company.id === selectedCompanyId)
+        ? selectedCompanyId
+        : null
+      if (validSelectedCompanyId !== selectedCompanyId) {
+        saveSelectedCompanyId(validSelectedCompanyId)
+      }
+      set({ companies: result, selectedCompanyId: validSelectedCompanyId, isLoading: false })
     } catch (error) {
       set({ error: String(error), isLoading: false })
     }
@@ -114,6 +125,7 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
         selectedCompanyId: result.id,
         isLoading: false,
       })
+      saveSelectedCompanyId(result.id)
       return result
     } catch (error) {
       set({ error: String(error), isLoading: false })
@@ -145,6 +157,7 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
         selectedCompanyId:
           state.selectedCompanyId === id ? null : state.selectedCompanyId,
       }))
+      if (get().selectedCompanyId === null) saveSelectedCompanyId(null)
     } catch (error) {
       set({ error: String(error) })
       throw error
@@ -217,6 +230,7 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
   },
 
   selectCompany: (companyId) => {
+    saveSelectedCompanyId(companyId)
     set({ selectedCompanyId: companyId })
   },
 }))

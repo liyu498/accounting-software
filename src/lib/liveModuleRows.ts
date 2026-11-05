@@ -1735,8 +1735,12 @@ export function summarizeLiveBalanceSheet(result: BalanceSheetResult): LiveSumma
   ]
 }
 
-function equityBalanceItems(result: BalanceSheetResult): Map<string, BalanceSheetItem> {
-  return new Map(flattenBalanceSheetItems(result.items).filter((item) => item.section === 'equity').map((item) => [item.item_code, item]))
+function equityBalanceItems(result: BalanceSheetResult): BalanceSheetItem[] {
+  return flattenBalanceSheetItems(result.items).filter((item) => item.section === 'equity')
+}
+
+function findEquityItemByName(items: BalanceSheetItem[], patterns: readonly RegExp[]): BalanceSheetItem | undefined {
+  return items.find((item) => patterns.some((pattern) => pattern.test(item.item_name)))
 }
 
 function equityValue(item: BalanceSheetItem | undefined, field: 'opening_balance' | 'ending_balance'): string {
@@ -1748,18 +1752,20 @@ export function mapLiveEquityChangeRows(
   incomeStatement: IncomeStatementResult,
 ): LiveModuleRow[] {
   const items = equityBalanceItems(balanceSheet)
-  const value = (itemCode: string, field: 'opening_balance' | 'ending_balance') => items.get(itemCode)?.[field] || 0
   const total = (field: 'opening_balance' | 'ending_balance') => balanceSheet.items
     ? field === 'opening_balance' ? balanceSheet.opening_total_equity : balanceSheet.total_equity
     : 0
   const columns = [
-    ['paidInCapital', 'BS601'],
-    ['capitalReserve', 'BS602'],
-    ['surplusReserve', 'BS603'],
-    ['undistributedProfit', 'BS604'],
+    ['paidInCapital', [/实收资本/, /股金$/]],
+    ['capitalReserve', [/资本公积/]],
+    ['surplusReserve', [/盈余公积/]],
+    ['undistributedProfit', [/未分配利润/, /未分配盈余/]],
   ] as const
-  const display = (field: 'opening_balance' | 'ending_balance') => Object.fromEntries(columns.map(([key, itemCode]) => [key, equityValue(items.get(itemCode), field)]))
-  const changes = Object.fromEntries(columns.map(([key, itemCode]) => [key, currency(value(itemCode, 'ending_balance') - value(itemCode, 'opening_balance'))]))
+  const display = (field: 'opening_balance' | 'ending_balance') => Object.fromEntries(columns.map(([key, patterns]) => [key, equityValue(findEquityItemByName(items, patterns), field)]))
+  const changes = Object.fromEntries(columns.map(([key, patterns]) => {
+    const item = findEquityItemByName(items, patterns)
+    return [key, currency((item?.ending_balance || 0) - (item?.opening_balance || 0))]
+  }))
   const status: LiveModuleStatus = balanceSheet.is_balanced ? '已通过' : '异常'
   return [
     {
@@ -1895,8 +1901,8 @@ export function mapLiveCashFlowRows(result: CashFlowResult): LiveModuleRow[] {
       line: item.item_code,
       item: item.item_name,
       rule: '报表模板公式',
-      current: currency(item.item_code === 'CF999' ? result.net_increase : item.current_amount),
-      yearTotal: currency(item.item_code === 'CF999' ? result.net_increase_year_to_date : item.year_to_date),
+      current: currency(item.current_amount),
+      yearTotal: currency(item.year_to_date),
       source: '本地账套凭证',
       check: '通过',
     },
@@ -1924,11 +1930,13 @@ export function mapLiveCashFlowQuarterRows(
 ): LiveModuleRow[] {
   const priorItems = cashFlowItemsByCode(priorQuarterBaseline)
   return result.items.map((item) => {
-    const yearToDate = item.item_code === 'CF999' ? result.net_increase_year_to_date : item.year_to_date
-    const priorYearToDate = item.item_code === 'CF999'
-      ? priorQuarterBaseline?.net_increase_year_to_date || 0
-      : priorItems.get(item.item_code)?.year_to_date || 0
-    const quarterAmount = baselineMissing ? null : yearToDate - priorYearToDate
+    const yearToDate = item.year_to_date
+    const priorYearToDate = priorItems.get(item.item_code)?.year_to_date || 0
+    const quarterAmount = baselineMissing
+      ? null
+      : item.item_code === 'CF999'
+        ? item.current_amount
+        : yearToDate - priorYearToDate
     return {
       id: `cash-flow-quarter-${item.item_code}`,
       status: baselineMissing ? '待确认' : item.is_total ? '已通过' : '待确认',
@@ -1955,15 +1963,14 @@ export function summarizeLiveCashFlowQuarter(
   const priorItems = cashFlowItemsByCode(priorQuarterBaseline)
   const quarterAmount = (itemCode: string) => {
     if (baselineMissing) return null
-    if (itemCode === 'CF999') {
-      return result.net_increase_year_to_date - (priorQuarterBaseline?.net_increase_year_to_date || 0)
-    }
     return (result.items.find((item) => item.item_code === itemCode)?.year_to_date || 0) - (priorItems.get(itemCode)?.year_to_date || 0)
   }
   const operating = quarterAmount('CF199')
   const investing = quarterAmount('CF299')
   const financing = quarterAmount('CF399')
-  const netIncrease = quarterAmount('CF999')
+  const netIncrease = baselineMissing
+    ? null
+    : result.net_increase_year_to_date - (priorQuarterBaseline?.net_increase_year_to_date || 0)
   const formatAmount = (amount: number | null) => amount === null ? '待取数' : currency(amount)
   return [
     { label: '本季经营现金流', value: formatAmount(operating), tone: baselineMissing ? 'amber' : 'blue' },

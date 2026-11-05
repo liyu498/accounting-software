@@ -1,8 +1,13 @@
+use crate::commands::period_guard::ensure_period_label_open;
 use crate::db::{CreateDocumentRecordInput, Database, DocumentRecord, UpdateDocumentRecordInput};
 use tauri::State;
 
 #[tauri::command]
-pub async fn get_document_records(company_id: String, period: String, db: State<'_, Database>) -> Result<Vec<DocumentRecord>, String> {
+pub async fn get_document_records(
+    company_id: String,
+    period: String,
+    db: State<'_, Database>,
+) -> Result<Vec<DocumentRecord>, String> {
     sqlx::query_as("SELECT * FROM document_records WHERE company_id = ? AND period = ? ORDER BY business_date DESC, created_at DESC")
         .bind(company_id)
         .bind(period)
@@ -12,10 +17,19 @@ pub async fn get_document_records(company_id: String, period: String, db: State<
 }
 
 #[tauri::command]
-pub async fn create_document_record(input: CreateDocumentRecordInput, db: State<'_, Database>) -> Result<DocumentRecord, String> {
-    if input.period.trim().is_empty() || input.business_date.trim().is_empty() || input.document_code.trim().is_empty() || input.business_type.trim().is_empty() || input.amount <= 0.0 {
+pub async fn create_document_record(
+    input: CreateDocumentRecordInput,
+    db: State<'_, Database>,
+) -> Result<DocumentRecord, String> {
+    if input.period.trim().is_empty()
+        || input.business_date.trim().is_empty()
+        || input.document_code.trim().is_empty()
+        || input.business_type.trim().is_empty()
+        || input.amount <= 0.0
+    {
         return Err("单据日期、编号、业务类型不能为空且金额必须大于零".to_string());
     }
+    ensure_period_label_open(db.pool(), &input.company_id, &input.period, "新增业务单据").await?;
     let id = uuid::Uuid::new_v4().to_string();
     sqlx::query(
         "INSERT INTO document_records (id, company_id, period, business_date, document_code, business_type, partner, amount, owner, attachment_status, stamp_tax_item, stamp_tax_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -27,17 +41,45 @@ pub async fn create_document_record(input: CreateDocumentRecordInput, db: State<
     .bind(input.stamp_tax_rate.filter(|value| *value >= 0.0))
     .execute(db.pool()).await.map_err(|error| format!("新增登记单据失败: {error}"))?;
     sqlx::query_as("SELECT * FROM document_records WHERE id = ? AND company_id = ?")
-        .bind(id).bind(&input.company_id).fetch_one(db.pool()).await.map_err(|error| format!("查询新增登记单据失败: {error}"))
+        .bind(id)
+        .bind(&input.company_id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|error| format!("查询新增登记单据失败: {error}"))
 }
 
 #[tauri::command]
-pub async fn update_document_record(input: UpdateDocumentRecordInput, db: State<'_, Database>) -> Result<DocumentRecord, String> {
-    if input.id.trim().is_empty() || input.business_date.trim().is_empty() || input.document_code.trim().is_empty() || input.business_type.trim().is_empty() || input.amount <= 0.0 {
+pub async fn update_document_record(
+    input: UpdateDocumentRecordInput,
+    db: State<'_, Database>,
+) -> Result<DocumentRecord, String> {
+    if input.id.trim().is_empty()
+        || input.business_date.trim().is_empty()
+        || input.document_code.trim().is_empty()
+        || input.business_type.trim().is_empty()
+        || input.amount <= 0.0
+    {
         return Err("单据日期、编号、业务类型不能为空且金额必须大于零".to_string());
     }
+    let period: String =
+        sqlx::query_scalar("SELECT period FROM document_records WHERE id = ? AND company_id = ?")
+            .bind(&input.id)
+            .bind(&input.company_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|error| format!("查询业务单据账期失败: {error}"))?
+            .ok_or_else(|| "未找到当前账套的业务单据".to_string())?;
+    ensure_period_label_open(db.pool(), &input.company_id, &period, "修改业务单据").await?;
     let affected = sqlx::query("UPDATE document_records SET business_date = ?, document_code = ?, business_type = ?, partner = ?, amount = ?, owner = ?, attachment_status = ?, stamp_tax_item = ?, stamp_tax_rate = ?, updated_at = datetime('now') WHERE id = ? AND company_id = ? AND status != '已生成凭证'")
         .bind(input.business_date.trim()).bind(input.document_code.trim()).bind(input.business_type.trim()).bind(input.partner.as_deref().map(str::trim).filter(|value| !value.is_empty())).bind(input.amount).bind(input.owner.as_deref().map(str::trim).filter(|value| !value.is_empty())).bind(input.attachment_status.as_deref().unwrap_or("待补附件")).bind(input.stamp_tax_item.as_deref().map(str::trim).filter(|value| !value.is_empty())).bind(input.stamp_tax_rate.filter(|value| *value >= 0.0)).bind(&input.id).bind(&input.company_id)
         .execute(db.pool()).await.map_err(|error| format!("更新登记单据失败: {error}"))?;
-    if affected.rows_affected() == 0 { return Err("未找到可编辑的登记单据，已生成凭证的单据不可修改".to_string()); }
-    sqlx::query_as("SELECT * FROM document_records WHERE id = ? AND company_id = ?").bind(&input.id).bind(&input.company_id).fetch_one(db.pool()).await.map_err(|error| format!("查询更新登记单据失败: {error}"))
+    if affected.rows_affected() == 0 {
+        return Err("未找到可编辑的登记单据，已生成凭证的单据不可修改".to_string());
+    }
+    sqlx::query_as("SELECT * FROM document_records WHERE id = ? AND company_id = ?")
+        .bind(&input.id)
+        .bind(&input.company_id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|error| format!("查询更新登记单据失败: {error}"))
 }

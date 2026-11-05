@@ -60,8 +60,26 @@ async function ensureServer() {
   return child
 }
 
-function luminance([r, g, b]) {
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+async function waitForRouteContent(page) {
+  await page.waitForFunction(() => {
+    const main = document.querySelector('main')
+    return Boolean(main?.innerText.trim())
+  }, null, { timeout: 8_000 })
+}
+
+async function navigateWithRetry(page, url) {
+  let lastError
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 8_000 })
+      await waitForRouteContent(page)
+      return
+    } catch (error) {
+      lastError = error
+      if (attempt < 2) await page.waitForTimeout(250)
+    }
+  }
+  throw new Error(`Route did not become ready after 2 attempts: ${String(lastError?.message || lastError)}`)
 }
 
 async function auditPage(page) {
@@ -100,6 +118,7 @@ async function auditPage(page) {
     return {
       title: document.title,
       bodyTextLength: document.body.innerText.trim().length,
+      mainTextLength: document.querySelector('main')?.innerText.trim().length || 0,
       overflow,
       scrollWidth: doc.scrollWidth,
       clientWidth: doc.clientWidth,
@@ -133,17 +152,28 @@ async function main() {
         })
         await context.addInitScript((themeMode) => {
           localStorage.setItem('app-theme-mode', themeMode)
-          if (themeMode === 'dark') document.documentElement.classList.add('dark')
+          if (themeMode === 'dark') document.documentElement?.classList.add('dark')
         }, theme)
         const page = await context.newPage()
+        let runtimeErrors = []
+        page.on('pageerror', (error) => runtimeErrors.push(String(error?.message || error)))
         for (const route of routes) {
           const url = `${BASE_URL}${route.startsWith('/') ? route : `/${route}`}`
           try {
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 8_000 })
-            await page.waitForTimeout(80)
+            runtimeErrors = []
+            await navigateWithRetry(page, url)
             const result = await auditPage(page)
-            if (result.bodyTextLength === 0) {
+            if (result.mainTextLength === 0) {
               failures.push({ route, viewport: viewport.name, theme, issue: 'blank-page' })
+            }
+            if (runtimeErrors.length > 0) {
+              failures.push({
+                route,
+                viewport: viewport.name,
+                theme,
+                issue: 'runtime-error',
+                errors: runtimeErrors.slice(0, 5),
+              })
             }
             if (result.overflow) {
               failures.push({

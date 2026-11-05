@@ -1,3 +1,5 @@
+import DOMPurify from 'dompurify'
+
 interface ExportHtmlToPdfOptions {
   html: string
   fileName: string
@@ -16,11 +18,33 @@ async function waitForChineseFonts() {
   await document.fonts.ready
 }
 
-function extractPrintableHtml(html: string) {
-  const documentHtml = new DOMParser().parseFromString(html, 'text/html')
-  const styles = Array.from(documentHtml.querySelectorAll('style')).map((style) => style.textContent || '').join('\n')
-  const body = documentHtml.body.innerHTML
-  return { styles, body }
+function sanitizePrintableStyles(styles: string) {
+  return styles
+    .replace(/@(?:import|namespace)\s+[^;]+;?/gi, '')
+    .replace(/(?:-moz-)?binding\s*:[^;]+;?/gi, '')
+    .replace(/behavior\s*:[^;]+;?/gi, '')
+    .replace(/expression\s*\([^)]*\)/gi, '')
+    .replace(/url\s*\([^)]*\)/gi, 'none')
+}
+
+export function sanitizePrintableHtml(html: string) {
+  const sanitized = DOMPurify.sanitize(html, {
+    WHOLE_DOCUMENT: true,
+    ADD_TAGS: ['style'],
+    FORBID_TAGS: ['base', 'embed', 'form', 'iframe', 'link', 'meta', 'object', 'script'],
+    FORBID_ATTR: ['formaction', 'srcset'],
+  })
+  const documentHtml = new DOMParser().parseFromString(sanitized, 'text/html')
+  for (const style of documentHtml.querySelectorAll('style')) {
+    style.textContent = sanitizePrintableStyles(style.textContent || '')
+  }
+  return `<!doctype html>${documentHtml.documentElement.outerHTML}`
+}
+
+function extractPrintableHtml(sanitizedHtml: string) {
+  const documentHtml = new DOMParser().parseFromString(sanitizedHtml, 'text/html')
+  const styles = sanitizePrintableStyles(Array.from(documentHtml.querySelectorAll('style')).map((style) => style.textContent || '').join('\n'))
+  return { styles, bodyNodes: Array.from(documentHtml.body.childNodes) }
 }
 
 function isLandscapeDocument(html: string) {
@@ -55,8 +79,9 @@ function collectPdfPageBreaks(root: HTMLElement, canvas: HTMLCanvasElement, slic
 
 export async function exportHtmlToPdf({ html, fileName, pageTitle }: ExportHtmlToPdfOptions) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
-  const { styles, body } = extractPrintableHtml(html)
-  const isLandscape = isLandscapeDocument(html)
+  const sanitizedHtml = sanitizePrintableHtml(html)
+  const { styles, bodyNodes } = extractPrintableHtml(sanitizedHtml)
+  const isLandscape = isLandscapeDocument(sanitizedHtml)
   const renderWidth = isLandscape ? 1500 : 1120
   const host = document.createElement('div')
   host.setAttribute('aria-hidden', 'true')
@@ -66,20 +91,21 @@ export async function exportHtmlToPdf({ html, fileName, pageTitle }: ExportHtmlT
   host.style.width = `${renderWidth}px`
   host.style.background = '#ffffff'
   host.style.color = '#111827'
-  host.innerHTML = `
-    <style>
-      * { box-sizing: border-box; }
-      body, table, input, button { font-family: ${chineseFontStack}; letter-spacing: 0; }
-      .pdf-render-root { width: ${renderWidth}px; min-height: 1px; background: #ffffff; padding: 0; font-family: ${chineseFontStack}; }
-      ${styles}
-    </style>
-    <div class="pdf-render-root">${body}</div>
+  const style = document.createElement('style')
+  style.textContent = `
+    * { box-sizing: border-box; }
+    body, table, input, button { font-family: ${chineseFontStack}; letter-spacing: 0; }
+    .pdf-render-root { width: ${renderWidth}px; min-height: 1px; background: #ffffff; padding: 0; font-family: ${chineseFontStack}; }
+    ${styles}
   `
+  const target = document.createElement('div')
+  target.className = 'pdf-render-root'
+  for (const node of bodyNodes) target.appendChild(document.importNode(node, true))
+  host.append(style, target)
   document.body.appendChild(host)
 
   try {
     await waitForChineseFonts()
-    const target = host.querySelector('.pdf-render-root') as HTMLElement
     const canvas = await html2canvas(target, {
       backgroundColor: '#ffffff',
       scale: 2,

@@ -52,7 +52,7 @@ export function AgencyLayout() {
               {item.label}
             </Link>
           ))}
-          <span className="ml-auto shrink-0 text-xs text-slate-400">机构级批量处理，不进入单公司账套</span>
+          <span className="ml-auto shrink-0 text-xs text-slate-600 dark:text-slate-300">机构级批量处理，不进入单公司账套</span>
         </div>
       </div>
 

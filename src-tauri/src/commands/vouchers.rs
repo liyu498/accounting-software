@@ -1,3 +1,5 @@
+use crate::commands::auth::authenticated_actor;
+use crate::commands::period_guard::ensure_period_id_open;
 use crate::db::{
     CreateVoucherEntryInput, CreateVoucherInput, Database, UpdateVoucherInput, Voucher,
     VoucherEntry, VoucherLog,
@@ -5,13 +7,12 @@ use crate::db::{
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-/// Simple command to read a text file (used by import dialog for JSON files)
-#[tauri::command]
-pub async fn read_text_file(path: String) -> Result<String, String> {
-    tokio::fs::read_to_string(&path)
-        .await
-        .map_err(|e| format!("无法读取文件: {}", e))
-}
+const MAX_VOUCHER_IMPORT_FILE_BYTES: u64 = 25 * 1024 * 1024;
+const MAX_VOUCHER_IMPORT_ROWS: usize = 50_000;
+const MAX_VOUCHER_IMPORT_COLUMNS: usize = 128;
+const MAX_VOUCHER_IMPORT_VOUCHERS: usize = 10_000;
+const MAX_VOUCHER_IMPORT_ENTRIES_PER_VOUCHER: usize = 500;
+const MAX_VOUCHER_IMPORT_PERIOD_SPAN_MONTHS: i32 = 120;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VoucherWithEntries {
@@ -77,7 +78,10 @@ pub async fn query_vouchers(
     let offset = (page - 1) * page_size;
 
     // Build parameterized query to avoid SQL injection
-    let mut conditions = vec!["v.company_id = ?".to_string(), "(v.is_deleted = 0 OR v.is_deleted IS NULL)".to_string()];
+    let mut conditions = vec![
+        "v.company_id = ?".to_string(),
+        "(v.is_deleted = 0 OR v.is_deleted IS NULL)".to_string(),
+    ];
     let mut param_index = 2u32; // $1 is company_id
 
     if input.period_id.is_some() {
@@ -101,7 +105,10 @@ pub async fn query_vouchers(
         param_index += 1;
     }
     if input.keyword.is_some() {
-        conditions.push(format!("(v.voucher_number LIKE ${} OR v.summary LIKE ${})", param_index, param_index));
+        conditions.push(format!(
+            "(v.voucher_number LIKE ${} OR v.summary LIKE ${})",
+            param_index, param_index
+        ));
         param_index += 1;
     }
     if input.account_code.is_some() {
@@ -120,16 +127,28 @@ pub async fn query_vouchers(
     let count_sql = format!("SELECT COUNT(*) FROM vouchers v{}", where_clause);
     let mut count_query = sqlx::query_as::<_, (i64,)>(&count_sql);
     count_query = count_query.bind(&input.company_id);
-    if let Some(ref v) = input.period_id { count_query = count_query.bind(v); }
-    if let Some(ref v) = input.start_date { count_query = count_query.bind(v); }
-    if let Some(ref v) = input.end_date { count_query = count_query.bind(v); }
-    if let Some(ref v) = input.status { count_query = count_query.bind(v); }
-    if let Some(ref v) = input.voucher_word_id { count_query = count_query.bind(v); }
+    if let Some(ref v) = input.period_id {
+        count_query = count_query.bind(v);
+    }
+    if let Some(ref v) = input.start_date {
+        count_query = count_query.bind(v);
+    }
+    if let Some(ref v) = input.end_date {
+        count_query = count_query.bind(v);
+    }
+    if let Some(ref v) = input.status {
+        count_query = count_query.bind(v);
+    }
+    if let Some(ref v) = input.voucher_word_id {
+        count_query = count_query.bind(v);
+    }
     let keyword_pattern = input.keyword.as_ref().map(|v| format!("%{}%", v));
     if let Some(ref p) = keyword_pattern {
         count_query = count_query.bind(p).bind(p);
     }
-    if let Some(ref v) = input.account_code { count_query = count_query.bind(v); }
+    if let Some(ref v) = input.account_code {
+        count_query = count_query.bind(v);
+    }
 
     let total: (i64,) = count_query
         .fetch_one(db.pool())
@@ -139,7 +158,10 @@ pub async fn query_vouchers(
     // Data query - SQLite uses ? placeholders, not $N
     // Rebuild with ? placeholders for SQLite compatibility
     let mut where_params: Vec<String> = vec![input.company_id.clone()];
-    let mut sqlite_conditions = vec!["v.company_id = ?".to_string(), "(v.is_deleted = 0 OR v.is_deleted IS NULL)".to_string()];
+    let mut sqlite_conditions = vec![
+        "v.company_id = ?".to_string(),
+        "(v.is_deleted = 0 OR v.is_deleted IS NULL)".to_string(),
+    ];
 
     if let Some(ref v) = input.period_id {
         sqlite_conditions.push("v.period_id = ?".to_string());
@@ -212,17 +234,21 @@ pub async fn get_voucher(
 ) -> Result<Option<VoucherWithEntries>, String> {
     log::info!("Fetching voucher: {} for company: {}", id, company_id);
 
-    let voucher: Option<Voucher> = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
-        .bind(&id)
-        .bind(&company_id)
-        .fetch_optional(db.pool())
-        .await
-        .map_err(|e| format!("Database error: {}", e))?;
+    let voucher: Option<Voucher> =
+        sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
+            .bind(&id)
+            .bind(&company_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
 
     match voucher {
         Some(v) => {
             let entries = fetch_entries(&id, db.pool()).await?;
-            Ok(Some(VoucherWithEntries { voucher: v, entries }))
+            Ok(Some(VoucherWithEntries {
+                voucher: v,
+                entries,
+            }))
         }
         None => Ok(None),
     }
@@ -231,8 +257,10 @@ pub async fn get_voucher(
 #[tauri::command]
 pub async fn create_voucher(
     input: CreateVoucherInput,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<VoucherWithEntries, String> {
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
     log::info!("Creating voucher for company: {}", input.company_id);
 
     // Validate period exists and is open
@@ -247,7 +275,9 @@ pub async fn create_voucher(
 
     let (period_year, period_month) = match period {
         None => return Err("会计期间不存在".to_string()),
-        Some((_, status, _, _)) if status != "open" => return Err("该会计期间已结账，不能新增凭证".to_string()),
+        Some((_, status, _, _)) if status != "open" => {
+            return Err("该会计期间已结账，不能新增凭证".to_string())
+        }
         Some((_, _, year, month)) => (year, month),
     };
     let suggestion_period = format!("{}-{:02}", period_year, period_month);
@@ -270,21 +300,199 @@ pub async fn create_voucher(
     // Validate entries: direction-based debit/credit balance
     let (total_debit, total_credit) = validate_entries(&input.entries)?;
 
-    // Validate account codes exist and are detail (leaf) accounts
-    for (i, entry) in input.entries.iter().enumerate() {
-        let code_info: Option<(i32,)> = sqlx::query_as(
-            "SELECT is_detail FROM account_codes WHERE code = ? AND company_id = ?",
+    if let Some(bank_transaction_id) = input.bank_transaction_id.as_deref() {
+        let source: Option<(String, f64, f64, Option<String>)> = sqlx::query_as(
+            "SELECT period, income_amount, expense_amount, voucher_id FROM bank_transactions WHERE id = ? AND company_id = ?",
         )
-        .bind(&entry.account_code)
+        .bind(bank_transaction_id)
         .bind(&input.company_id)
         .fetch_optional(db.pool())
         .await
-        .map_err(|e| format!("Database error: {}", e))?;
+        .map_err(|e| format!("Failed to validate bank transaction: {}", e))?;
+        let Some((source_period, income_amount, expense_amount, linked_voucher_id)) = source else {
+            return Err("银行流水不存在或不属于当前账套".to_string());
+        };
+        if linked_voucher_id.is_some() {
+            return Err("银行流水已关联凭证，不能重复生成草稿".to_string());
+        }
+        if source_period != suggestion_period {
+            return Err("银行流水账期与当前账期不一致".to_string());
+        }
+        let source_amount = if income_amount > 0.0 {
+            income_amount
+        } else {
+            expense_amount
+        };
+        if source_amount <= 0.0 || (total_debit - source_amount).abs() >= 0.005 {
+            return Err("凭证金额与银行流水金额不一致".to_string());
+        }
+    }
+
+    match (
+        input.business_source_kind.as_deref(),
+        input.business_source_id.as_deref(),
+    ) {
+        (None, None) => {}
+        (Some(kind), Some(source_id)) => {
+            if kind == "depreciation_batch" {
+                if source_id != format!("{}:{}", input.company_id, suggestion_period) {
+                    return Err("折旧批次账期或账套不一致".to_string());
+                }
+                let batch: Option<(i64, f64, Option<String>, String, i64, f64)> = sqlx::query_as(
+                    r#"SELECT batch.asset_count, batch.depreciation_amount,
+                              batch.voucher_id, batch.status,
+                              COUNT(line.id), COALESCE(SUM(line.depreciation_amount), 0)
+                       FROM depreciation_batches batch
+                       LEFT JOIN fixed_asset_depreciation_lines line
+                         ON line.batch_id = batch.id
+                        AND line.company_id = batch.company_id
+                        AND line.period = batch.period
+                       WHERE batch.company_id = ? AND batch.period = ?
+                       GROUP BY batch.id"#,
+                )
+                .bind(&input.company_id)
+                .bind(&suggestion_period)
+                .fetch_optional(db.pool())
+                .await
+                .map_err(|e| format!("Failed to validate depreciation batch source: {}", e))?;
+                let Some((asset_count, source_amount, voucher_id, status, line_count, line_amount)) =
+                    batch
+                else {
+                    return Err("请先计算并复核当前账期折旧批次".to_string());
+                };
+                if voucher_id.is_some() {
+                    return Err("当前账期折旧批次已关联凭证，不能重复生成草稿".to_string());
+                }
+                if status != "待复核" {
+                    return Err("当前账期折旧批次状态不是待复核".to_string());
+                }
+                if asset_count == 0
+                    || asset_count != line_count
+                    || source_amount <= 0.0
+                    || (source_amount - line_amount).abs() >= 0.005
+                    || (total_debit - source_amount).abs() >= 0.005
+                {
+                    return Err("凭证金额与折旧批次金额不一致".to_string());
+                }
+            } else if kind == "payroll_batch" || kind == "social_security_batch" {
+                if source_id != suggestion_period {
+                    return Err("批次账期与当前账期不一致".to_string());
+                }
+                let (row_count, source_amount, linked_count): (i64, f64, i64) = if kind
+                    == "payroll_batch"
+                {
+                    sqlx::query_as(
+                            r#"
+                            SELECT COUNT(*),
+                                   COALESCE(SUM(base_salary + bonus), 0),
+                                   COALESCE(SUM(CASE WHEN voucher_id IS NOT NULL OR status = '已生成凭证' THEN 1 ELSE 0 END), 0)
+                            FROM payroll_records
+                            WHERE company_id = ? AND period = ?
+                            "#,
+                        )
+                        .bind(&input.company_id)
+                        .bind(&suggestion_period)
+                        .fetch_one(db.pool())
+                        .await
+                        .map_err(|e| format!("Failed to validate payroll batch source: {}", e))?
+                } else {
+                    sqlx::query_as(
+                            r#"
+                            SELECT COUNT(*),
+                                   COALESCE(SUM(company_amount + fund_amount), 0),
+                                   COALESCE(SUM(CASE WHEN voucher_id IS NOT NULL OR status = '已生成凭证' THEN 1 ELSE 0 END), 0)
+                            FROM social_security_records
+                            WHERE company_id = ? AND period = ?
+                            "#,
+                        )
+                        .bind(&input.company_id)
+                        .bind(&suggestion_period)
+                        .fetch_one(db.pool())
+                        .await
+                        .map_err(|e| format!("Failed to validate social security batch source: {}", e))?
+                };
+                if row_count == 0 {
+                    return Err("当前账期没有可生成凭证的批次明细".to_string());
+                }
+                if linked_count > 0 {
+                    return Err("当前账期批次已关联凭证，不能重复生成草稿".to_string());
+                }
+                if source_amount <= 0.0 || (total_debit - source_amount).abs() >= 0.005 {
+                    return Err("凭证金额与批次来源金额不一致".to_string());
+                }
+                // Period batches are linked as one unit below.
+            } else {
+                let source: Option<(String, f64, Option<String>, String)> = match kind {
+                "document_record" => sqlx::query_as(
+                    "SELECT period, amount, voucher_id, status FROM document_records WHERE id = ? AND company_id = ?",
+                )
+                .bind(source_id)
+                .bind(&input.company_id)
+                .fetch_optional(db.pool())
+                .await
+                .map_err(|e| format!("Failed to validate document source: {}", e))?,
+                "business_order" => sqlx::query_as(
+                    "SELECT period, amount, voucher_id, status FROM business_orders WHERE id = ? AND company_id = ?",
+                )
+                .bind(source_id)
+                .bind(&input.company_id)
+                .fetch_optional(db.pool())
+                .await
+                .map_err(|e| format!("Failed to validate business order source: {}", e))?,
+                "account_transfer" => sqlx::query_as(
+                    "SELECT period, amount + fee, voucher_id, status FROM account_transfers WHERE id = ? AND company_id = ?",
+                )
+                .bind(source_id)
+                .bind(&input.company_id)
+                .fetch_optional(db.pool())
+                .await
+                .map_err(|e| format!("Failed to validate account transfer source: {}", e))?,
+                "cost_carryover" => sqlx::query_as(
+                    "SELECT period, cost_amount, COALESCE(voucher_id, voucher_no), status FROM cost_carryover_records WHERE id = ? AND company_id = ?",
+                )
+                .bind(source_id)
+                .bind(&input.company_id)
+                .fetch_optional(db.pool())
+                .await
+                .map_err(|e| format!("Failed to validate cost carryover source: {}", e))?,
+                _ => return Err("不支持的业务凭证来源类型".to_string()),
+            };
+                let Some((source_period, source_amount, linked_voucher_id, source_status)) = source
+                else {
+                    return Err("业务来源不存在或不属于当前账套".to_string());
+                };
+                if linked_voucher_id.is_some() || source_status == "已生成凭证" {
+                    return Err("业务来源已关联凭证，不能重复生成草稿".to_string());
+                }
+                if source_period != suggestion_period {
+                    return Err("业务来源账期与当前账期不一致".to_string());
+                }
+                if source_amount <= 0.0 || (total_debit - source_amount).abs() >= 0.005 {
+                    return Err("凭证金额与业务来源金额不一致".to_string());
+                }
+            }
+        }
+        _ => return Err("业务凭证来源类型和标识必须同时提供".to_string()),
+    }
+
+    // Validate account codes exist and are detail (leaf) accounts
+    for (i, entry) in input.entries.iter().enumerate() {
+        let code_info: Option<(i32,)> =
+            sqlx::query_as("SELECT is_detail FROM account_codes WHERE code = ? AND company_id = ?")
+                .bind(&entry.account_code)
+                .bind(&input.company_id)
+                .fetch_optional(db.pool())
+                .await
+                .map_err(|e| format!("Database error: {}", e))?;
 
         match code_info {
             None => return Err(format!("科目编码 {} 不存在", entry.account_code)),
-            Some((is_detail,)) if is_detail == 0 => {
-                return Err(format!("第{}行: 科目 {} 是汇总科目，不能直接使用", i + 1, entry.account_code));
+            Some((0,)) => {
+                return Err(format!(
+                    "第{}行: 科目 {} 是汇总科目，不能直接使用",
+                    i + 1,
+                    entry.account_code
+                ));
             }
             _ => {}
         }
@@ -296,7 +504,7 @@ pub async fn create_voucher(
         let seq = vn
             .trim_end_matches('号')
             .split('第')
-            .last()
+            .next_back()
             .and_then(|s| s.parse::<i32>().ok())
             .unwrap_or(1);
         (vn.clone(), seq)
@@ -322,7 +530,11 @@ pub async fn create_voucher(
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
 
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
 
     sqlx::query(
         r#"
@@ -343,7 +555,7 @@ pub async fn create_voucher(
     .bind(input.attachment_count.unwrap_or(0))
     .bind(total_debit)
     .bind(total_credit)
-    .bind(&input.created_by)
+    .bind(&actor)
     .bind(&now)
     .bind(&input.reference_number)
     .execute(&mut *tx)
@@ -354,7 +566,8 @@ pub async fn create_voucher(
     for (line_num, entry) in input.entries.iter().enumerate() {
         let entry_id = uuid::Uuid::new_v4().to_string();
         // Build full hierarchical account name for display
-        let display_name = build_full_account_name(&entry.account_code, &input.company_id, &mut *tx).await;
+        let display_name =
+            build_full_account_name(&entry.account_code, &input.company_id, &mut tx).await;
         sqlx::query(
             r#"
             INSERT INTO voucher_entries (id, voucher_id, line_num, account_code, account_name,
@@ -432,10 +645,152 @@ pub async fn create_voucher(
         }
     }
 
-    // Audit log
-    log_voucher_operation(&id, "create", None, Some(&id), input.created_by.as_deref(), &mut tx).await?;
+    if let Some(bank_transaction_id) = input.bank_transaction_id.as_deref() {
+        let linked = sqlx::query(
+            r#"
+            UPDATE bank_transactions
+            SET voucher_id = ?, voucher_number = ?, status = '已生成凭证',
+                match_result = ?, updated_at = datetime('now')
+            WHERE id = ? AND company_id = ? AND period = ? AND voucher_id IS NULL
+            "#,
+        )
+        .bind(&id)
+        .bind(&voucher_number)
+        .bind(format!("已关联凭证 {}", voucher_number))
+        .bind(bank_transaction_id)
+        .bind(&input.company_id)
+        .bind(&suggestion_period)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Failed to link bank transaction: {}", e))?;
+        if linked.rows_affected() != 1 {
+            return Err("银行流水不存在、账期不匹配或已关联其他凭证".to_string());
+        }
+    }
 
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    if let (Some(kind), Some(source_id)) = (
+        input.business_source_kind.as_deref(),
+        input.business_source_id.as_deref(),
+    ) {
+        let linked = match kind {
+            "depreciation_batch" => {
+                let linked = sqlx::query(
+                    r#"UPDATE depreciation_batches
+                       SET voucher_id = ?, voucher_number = ?, status = '已生成凭证',
+                           updated_at = datetime('now')
+                       WHERE company_id = ? AND period = ? AND voucher_id IS NULL
+                         AND status = '待复核'"#,
+                )
+                .bind(&id)
+                .bind(&voucher_number)
+                .bind(&input.company_id)
+                .bind(&suggestion_period)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| format!("Failed to link depreciation batch source: {}", e))?;
+                if linked.rows_affected() != 1 {
+                    return Err("折旧批次不存在、未复核或已关联其他凭证".to_string());
+                }
+                let line_result = sqlx::query(
+                    r#"UPDATE fixed_asset_depreciation_lines
+                       SET voucher_id = ?, status = '已生成凭证', updated_at = datetime('now')
+                       WHERE company_id = ? AND period = ? AND voucher_id IS NULL
+                         AND status = '待复核'"#,
+                )
+                .bind(&id)
+                .bind(&input.company_id)
+                .bind(&suggestion_period)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| format!("Failed to link depreciation lines: {}", e))?;
+                if line_result.rows_affected() == 0 {
+                    return Err("折旧批次缺少可关联的明细".to_string());
+                }
+                linked
+            }
+            "payroll_batch" => sqlx::query(
+                "UPDATE payroll_records SET voucher_id = ?, voucher_number = ?, status = '已生成凭证', updated_at = datetime('now') WHERE company_id = ? AND period = ? AND voucher_id IS NULL AND status != '已生成凭证'",
+            )
+            .bind(&id)
+            .bind(&voucher_number)
+            .bind(&input.company_id)
+            .bind(&suggestion_period)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Failed to link payroll batch source: {}", e))?,
+            "social_security_batch" => sqlx::query(
+                "UPDATE social_security_records SET voucher_id = ?, voucher_number = ?, status = '已生成凭证', updated_at = datetime('now') WHERE company_id = ? AND period = ? AND voucher_id IS NULL AND status != '已生成凭证'",
+            )
+            .bind(&id)
+            .bind(&voucher_number)
+            .bind(&input.company_id)
+            .bind(&suggestion_period)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Failed to link social security batch source: {}", e))?,
+            "document_record" => sqlx::query(
+                "UPDATE document_records SET voucher_id = ?, voucher_number = ?, status = '已生成凭证', updated_at = datetime('now') WHERE id = ? AND company_id = ? AND period = ? AND voucher_id IS NULL AND status != '已生成凭证'",
+            )
+            .bind(&id)
+            .bind(&voucher_number)
+            .bind(source_id)
+            .bind(&input.company_id)
+            .bind(&suggestion_period)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Failed to link document source: {}", e))?,
+            "business_order" => sqlx::query(
+                "UPDATE business_orders SET voucher_id = ?, voucher_number = ?, status = '已生成凭证', updated_at = datetime('now') WHERE id = ? AND company_id = ? AND period = ? AND voucher_id IS NULL AND status != '已生成凭证'",
+            )
+            .bind(&id)
+            .bind(&voucher_number)
+            .bind(source_id)
+            .bind(&input.company_id)
+            .bind(&suggestion_period)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Failed to link business order source: {}", e))?,
+            "account_transfer" => sqlx::query(
+                "UPDATE account_transfers SET voucher_id = ?, voucher_number = ?, status = '已生成凭证', updated_at = datetime('now') WHERE id = ? AND company_id = ? AND period = ? AND voucher_id IS NULL AND status != '已生成凭证'",
+            )
+            .bind(&id)
+            .bind(&voucher_number)
+            .bind(source_id)
+            .bind(&input.company_id)
+            .bind(&suggestion_period)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Failed to link account transfer source: {}", e))?,
+            "cost_carryover" => sqlx::query(
+                "UPDATE cost_carryover_records SET voucher_id = ?, voucher_no = ?, status = '已生成凭证', updated_at = datetime('now') WHERE id = ? AND company_id = ? AND period = ? AND voucher_id IS NULL AND voucher_no IS NULL AND status != '已生成凭证'",
+            )
+            .bind(&id)
+            .bind(&voucher_number)
+            .bind(source_id)
+            .bind(&input.company_id)
+            .bind(&suggestion_period)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Failed to link cost carryover source: {}", e))?,
+            _ => return Err("不支持的业务凭证来源类型".to_string()),
+        };
+        let rows_affected = linked.rows_affected();
+        let linked_ok = if kind == "payroll_batch" || kind == "social_security_batch" {
+            rows_affected > 0
+        } else {
+            rows_affected == 1
+        };
+        if !linked_ok {
+            return Err("业务来源不存在、账期不匹配或已关联其他凭证".to_string());
+        }
+    }
+
+    // Audit log
+    log_voucher_operation(&id, "create", None, Some(&id), Some(&actor), &mut tx).await?;
+
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     let voucher: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
         .bind(&id)
@@ -454,20 +809,23 @@ pub async fn create_voucher(
 pub async fn update_voucher(
     input: UpdateVoucherInput,
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<VoucherWithEntries, String> {
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
     log::info!("Updating voucher: {} for company: {}", input.id, company_id);
 
     let now = chrono::Utc::now().to_rfc3339();
 
     // Fetch existing voucher with company isolation
-    let existing: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
-        .bind(&input.id)
-        .bind(&company_id)
-        .fetch_optional(db.pool())
-        .await
-        .map_err(|e| format!("Database error: {}", e))?
-        .ok_or_else(|| "凭证不存在或不属于当前公司".to_string())?;
+    let existing: Voucher =
+        sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
+            .bind(&input.id)
+            .bind(&company_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|e| format!("Database error: {}", e))?
+            .ok_or_else(|| "凭证不存在或不属于当前公司".to_string())?;
 
     // Check period is open
     if existing.status != "draft" {
@@ -485,13 +843,12 @@ pub async fn update_voucher(
     }
 
     // Check period status
-    let period_status: Option<(String,)> = sqlx::query_as(
-        "SELECT status FROM accounting_periods WHERE id = ?",
-    )
-    .bind(&existing.period_id)
-    .fetch_optional(db.pool())
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
+    let period_status: Option<(String,)> =
+        sqlx::query_as("SELECT status FROM accounting_periods WHERE id = ?")
+            .bind(&existing.period_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
 
     if let Some((status,)) = period_status {
         if status != "open" {
@@ -499,7 +856,11 @@ pub async fn update_voucher(
         }
     }
 
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
 
     // Capture before state for audit
     let before_data = serde_json::to_string(&existing).unwrap_or_default();
@@ -511,7 +872,7 @@ pub async fn update_voucher(
         sqlx::query("UPDATE vouchers SET voucher_date = ?, version = ?, modified_by = ?, modified_at = ? WHERE id = ? AND company_id = ?")
             .bind(voucher_date)
             .bind(new_version)
-            .bind(&input.modified_by)
+            .bind(&actor)
             .bind(&now)
             .bind(&input.id)
             .bind(&company_id)
@@ -524,7 +885,7 @@ pub async fn update_voucher(
         sqlx::query("UPDATE vouchers SET summary = ?, version = ?, modified_by = ?, modified_at = ? WHERE id = ? AND company_id = ?")
             .bind(summary)
             .bind(new_version)
-            .bind(&input.modified_by)
+            .bind(&actor)
             .bind(&now)
             .bind(&input.id)
             .bind(&company_id)
@@ -537,7 +898,7 @@ pub async fn update_voucher(
         sqlx::query("UPDATE vouchers SET attachment_count = ?, version = ?, modified_by = ?, modified_at = ? WHERE id = ? AND company_id = ?")
             .bind(attachment_count)
             .bind(new_version)
-            .bind(&input.modified_by)
+            .bind(&actor)
             .bind(&now)
             .bind(&input.id)
             .bind(&company_id)
@@ -550,7 +911,7 @@ pub async fn update_voucher(
         sqlx::query("UPDATE vouchers SET reference_number = ?, version = ?, modified_by = ?, modified_at = ? WHERE id = ? AND company_id = ?")
             .bind(reference_number)
             .bind(new_version)
-            .bind(&input.modified_by)
+            .bind(&actor)
             .bind(&now)
             .bind(&input.id)
             .bind(&company_id)
@@ -576,8 +937,12 @@ pub async fn update_voucher(
 
             match code_info {
                 None => return Err(format!("科目编码 {} 不存在", entry.account_code)),
-                Some((is_detail,)) if is_detail == 0 => {
-                    return Err(format!("第{}行: 科目 {} 是汇总科目，不能直接使用", i + 1, entry.account_code));
+                Some((0,)) => {
+                    return Err(format!(
+                        "第{}行: 科目 {} 是汇总科目，不能直接使用",
+                        i + 1,
+                        entry.account_code
+                    ));
                 }
                 _ => {}
             }
@@ -593,7 +958,8 @@ pub async fn update_voucher(
         // Insert new entries
         for (line_num, entry) in entries.iter().enumerate() {
             let entry_id = uuid::Uuid::new_v4().to_string();
-            let display_name = build_full_account_name(&entry.account_code, &company_id, &mut *tx).await;
+            let display_name =
+                build_full_account_name(&entry.account_code, &company_id, &mut tx).await;
             sqlx::query(
                 r#"
                 INSERT INTO voucher_entries (id, voucher_id, line_num, account_code, account_name,
@@ -646,7 +1012,7 @@ pub async fn update_voucher(
         .bind(total_debit)
         .bind(total_credit)
         .bind(new_version)
-        .bind(&input.modified_by)
+        .bind(&actor)
         .bind(&now)
         .bind(&input.id)
         .bind(&company_id)
@@ -656,17 +1022,28 @@ pub async fn update_voucher(
     }
 
     // Audit log
-    let after_voucher: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
-        .bind(&input.id)
-        .bind(&company_id)
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(|e| format!("Database error: {}", e))?;
+    let after_voucher: Voucher =
+        sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
+            .bind(&input.id)
+            .bind(&company_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
     let after_data = serde_json::to_string(&after_voucher).unwrap_or_default();
 
-    log_voucher_operation_raw(&input.id, "update", Some(&before_data), Some(&after_data), input.modified_by.as_deref(), &mut tx).await?;
+    log_voucher_operation_raw(
+        &input.id,
+        "update",
+        Some(&before_data),
+        Some(&after_data),
+        Some(&actor),
+        &mut tx,
+    )
+    .await?;
 
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     let voucher: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
         .bind(&input.id)
@@ -685,46 +1062,81 @@ pub async fn update_voucher(
 pub async fn delete_voucher(
     id: String,
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<(), String> {
     log::info!("Soft-deleting voucher: {} for company: {}", id, company_id);
 
-    let voucher: Option<Voucher> = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
+
+    let voucher: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
         .bind(&id)
         .bind(&company_id)
         .fetch_optional(db.pool())
         .await
-        .map_err(|e| format!("Database error: {}", e))?;
+        .map_err(|e| format!("Database error: {}", e))?
+        .ok_or_else(|| "凭证不存在".to_string())?;
 
-    let v = voucher.ok_or_else(|| "凭证不存在".to_string())?;
-
-    if v.status != "draft" {
+    if voucher.status != "draft" {
         return Err("只能删除草稿状态的凭证".to_string());
     }
-
-    // Check period is open
-    let period_status: Option<(String,)> = sqlx::query_as(
-        "SELECT status FROM accounting_periods WHERE id = ?",
-    )
-    .bind(&v.period_id)
-    .fetch_optional(db.pool())
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
-
-    if let Some((status,)) = period_status {
-        if status != "open" {
-            return Err("该会计期间已结账，不能删除凭证".to_string());
-        }
+    if voucher.is_deleted != 0 {
+        return Err("凭证已在回收站中".to_string());
     }
 
-    // Soft delete: set is_deleted = 1, deleted_at = now
+    ensure_period_id_open(db.pool(), &company_id, &voucher.period_id, "删除凭证").await?;
+
     let now = chrono::Utc::now().to_rfc3339();
-    sqlx::query("UPDATE vouchers SET is_deleted = 1, deleted_at = ? WHERE id = ?")
+    let before_data = serde_json::to_string(&voucher).unwrap_or_default();
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
+    let affected = sqlx::query(
+        "UPDATE vouchers SET is_deleted = 1, deleted_at = ?, modified_by = ?, modified_at = ? WHERE id = ? AND company_id = ? AND status = 'draft' AND is_deleted = 0",
+    )
+        .bind(&now)
+        .bind(&actor)
         .bind(&now)
         .bind(&id)
-        .execute(db.pool())
+        .bind(&company_id)
+        .execute(&mut *tx)
         .await
         .map_err(|e| format!("Failed to soft-delete voucher: {}", e))?;
+    if affected.rows_affected() != 1 {
+        return Err("凭证状态已变化，请刷新后重试".to_string());
+    }
+
+    let updated: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
+        .bind(&id)
+        .bind(&company_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|e| format!("Database error: {}", e))?;
+    let after_data = serde_json::to_string(&updated).unwrap_or_default();
+    log_voucher_operation_raw(
+        &id,
+        "delete",
+        Some(&before_data),
+        Some(&after_data),
+        Some(&actor),
+        &mut tx,
+    )
+    .await?;
+    log_operation_audit(
+        &company_id,
+        "删除凭证",
+        Some(&voucher.voucher_number),
+        "high",
+        "草稿凭证移入回收站",
+        &actor,
+        &mut tx,
+    )
+    .await?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     log::info!("Voucher soft-deleted: {}", id);
     Ok(())
@@ -750,28 +1162,74 @@ pub async fn get_deleted_vouchers(
 pub async fn restore_voucher(
     id: String,
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<(), String> {
     log::info!("Restoring voucher: {} for company: {}", id, company_id);
 
-    let exists: Option<(String,)> = sqlx::query_as(
-        "SELECT id FROM vouchers WHERE id = ? AND company_id = ? AND is_deleted = 1",
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
+
+    let voucher: Voucher =
+        sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ? AND is_deleted = 1")
+            .bind(&id)
+            .bind(&company_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|e| format!("Database error: {}", e))?
+            .ok_or_else(|| "凭证不存在或未被删除".to_string())?;
+
+    ensure_period_id_open(db.pool(), &company_id, &voucher.period_id, "恢复凭证").await?;
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let before_data = serde_json::to_string(&voucher).unwrap_or_default();
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
+    let affected = sqlx::query(
+        "UPDATE vouchers SET is_deleted = 0, deleted_at = NULL, modified_by = ?, modified_at = ? WHERE id = ? AND company_id = ? AND is_deleted = 1",
     )
-    .bind(&id)
-    .bind(&company_id)
-    .fetch_optional(db.pool())
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
-
-    if exists.is_none() {
-        return Err("凭证不存在或未被删除".to_string());
-    }
-
-    sqlx::query("UPDATE vouchers SET is_deleted = 0, deleted_at = NULL WHERE id = ?")
+        .bind(&actor)
+        .bind(&now)
         .bind(&id)
-        .execute(db.pool())
+        .bind(&company_id)
+        .execute(&mut *tx)
         .await
         .map_err(|e| format!("Failed to restore voucher: {}", e))?;
+    if affected.rows_affected() != 1 {
+        return Err("凭证状态已变化，请刷新后重试".to_string());
+    }
+
+    let updated: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
+        .bind(&id)
+        .bind(&company_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|e| format!("Database error: {}", e))?;
+    let after_data = serde_json::to_string(&updated).unwrap_or_default();
+    log_voucher_operation_raw(
+        &id,
+        "restore",
+        Some(&before_data),
+        Some(&after_data),
+        Some(&actor),
+        &mut tx,
+    )
+    .await?;
+    log_operation_audit(
+        &company_id,
+        "恢复凭证",
+        Some(&voucher.voucher_number),
+        "high",
+        "从回收站恢复草稿凭证",
+        &actor,
+        &mut tx,
+    )
+    .await?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     log::info!("Voucher restored: {}", id);
     Ok(())
@@ -781,24 +1239,32 @@ pub async fn restore_voucher(
 pub async fn permanent_delete_voucher(
     id: String,
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<(), String> {
-    log::info!("Permanently deleting voucher: {} for company: {}", id, company_id);
+    log::info!(
+        "Permanently deleting voucher: {} for company: {}",
+        id,
+        company_id
+    );
 
-    let exists: Option<(String,)> = sqlx::query_as(
-        "SELECT id FROM vouchers WHERE id = ? AND company_id = ? AND is_deleted = 1",
-    )
-    .bind(&id)
-    .bind(&company_id)
-    .fetch_optional(db.pool())
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
+    let voucher: Voucher =
+        sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ? AND is_deleted = 1")
+            .bind(&id)
+            .bind(&company_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|e| format!("Database error: {}", e))?
+            .ok_or_else(|| "只能永久删除已在回收站的凭证".to_string())?;
 
-    if exists.is_none() {
-        return Err("只能永久删除已在回收站的凭证".to_string());
-    }
+    ensure_period_id_open(db.pool(), &company_id, &voucher.period_id, "永久删除凭证").await?;
 
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
 
     sqlx::query(
         "UPDATE automation_jobs SET generated_voucher_id = NULL, generated_voucher_number = NULL, status = 'confirmed', updated_at = datetime('now') WHERE generated_voucher_id = ? AND company_id = ?",
@@ -808,6 +1274,96 @@ pub async fn permanent_delete_voucher(
     .execute(&mut *tx)
     .await
     .map_err(|e| format!("Failed to unlink AI voucher suggestion: {}", e))?;
+
+    sqlx::query(
+        "UPDATE bank_transactions SET voucher_id = NULL, voucher_number = NULL, status = '待处理', match_result = NULL, updated_at = datetime('now') WHERE voucher_id = ? AND company_id = ?",
+    )
+    .bind(&id)
+    .bind(&company_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| format!("Failed to unlink bank transaction: {}", e))?;
+
+    sqlx::query("UPDATE document_records SET voucher_id = NULL, voucher_number = NULL, status = '待审核', updated_at = datetime('now') WHERE voucher_id = ? AND company_id = ?")
+        .bind(&id)
+        .bind(&company_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Failed to unlink document source: {}", e))?;
+
+    sqlx::query("UPDATE business_orders SET voucher_id = NULL, voucher_number = NULL, status = '待确认', updated_at = datetime('now') WHERE voucher_id = ? AND company_id = ?")
+        .bind(&id)
+        .bind(&company_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Failed to unlink business order source: {}", e))?;
+
+    sqlx::query("UPDATE account_transfers SET voucher_id = NULL, voucher_number = NULL, status = '待确认', updated_at = datetime('now') WHERE voucher_id = ? AND company_id = ?")
+        .bind(&id)
+        .bind(&company_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Failed to unlink account transfer source: {}", e))?;
+
+    sqlx::query("UPDATE cost_carryover_records SET voucher_id = NULL, voucher_no = NULL, status = '待确认', updated_at = datetime('now') WHERE voucher_id = ? AND company_id = ?")
+        .bind(&id)
+        .bind(&company_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Failed to unlink cost carryover source: {}", e))?;
+
+    sqlx::query("UPDATE payroll_records SET voucher_id = NULL, voucher_number = NULL, status = '待确认', updated_at = datetime('now') WHERE voucher_id = ? AND company_id = ?")
+        .bind(&id)
+        .bind(&company_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Failed to unlink payroll batch source: {}", e))?;
+
+    sqlx::query("UPDATE social_security_records SET voucher_id = NULL, voucher_number = NULL, status = '待确认', updated_at = datetime('now') WHERE voucher_id = ? AND company_id = ?")
+        .bind(&id)
+        .bind(&company_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Failed to unlink social security batch source: {}", e))?;
+
+    sqlx::query("UPDATE depreciation_batches SET voucher_id = NULL, voucher_number = NULL, status = '待复核', updated_at = datetime('now') WHERE voucher_id = ? AND company_id = ?")
+        .bind(&id)
+        .bind(&company_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Failed to unlink depreciation batch source: {}", e))?;
+
+    sqlx::query("UPDATE fixed_asset_depreciation_lines SET voucher_id = NULL, status = '待复核', updated_at = datetime('now') WHERE voucher_id = ? AND company_id = ?")
+        .bind(&id)
+        .bind(&company_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Failed to unlink depreciation lines: {}", e))?;
+
+    log_operation_audit(
+        &company_id,
+        "永久删除凭证",
+        Some(&voucher.voucher_number),
+        "critical",
+        "永久删除回收站凭证及其分录、辅助核算和标签关联",
+        &actor,
+        &mut tx,
+    )
+    .await?;
+
+    sqlx::query(
+        "DELETE FROM voucher_entry_auxiliaries WHERE entry_id IN (SELECT id FROM voucher_entries WHERE voucher_id = ?)",
+    )
+    .bind(&id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| format!("Failed to delete voucher entry auxiliaries: {}", e))?;
+
+    sqlx::query("DELETE FROM voucher_tags WHERE voucher_id = ?")
+        .bind(&id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Failed to delete voucher tags: {}", e))?;
 
     sqlx::query("DELETE FROM voucher_logs WHERE voucher_id = ?")
         .bind(&id)
@@ -827,7 +1383,9 @@ pub async fn permanent_delete_voucher(
         .await
         .map_err(|e| format!("Failed to delete voucher: {}", e))?;
 
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     log::info!("Voucher permanently deleted: {}", id);
     Ok(())
@@ -836,8 +1394,8 @@ pub async fn permanent_delete_voucher(
 #[tauri::command]
 pub async fn approve_voucher(
     id: String,
-    approved_by: String,
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<Voucher, String> {
     log::info!("Approving voucher: {} for company: {}", id, company_id);
@@ -854,9 +1412,14 @@ pub async fn approve_voucher(
         return Err("只能审核草稿状态的凭证".to_string());
     }
 
+    let approved_by = authenticated_actor(db.pool(), &auth_token).await?;
     let now = chrono::Utc::now().to_rfc3339();
 
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
 
     let before_data = serde_json::to_string(&voucher).unwrap_or_default();
 
@@ -882,9 +1445,19 @@ pub async fn approve_voucher(
         .await
         .map_err(|e| format!("Database error: {}", e))?;
     let after_data = serde_json::to_string(&updated).unwrap_or_default();
-    log_voucher_operation_raw(&id, "approve", Some(&before_data), Some(&after_data), Some(&approved_by), &mut tx).await?;
+    log_voucher_operation_raw(
+        &id,
+        "approve",
+        Some(&before_data),
+        Some(&after_data),
+        Some(&approved_by),
+        &mut tx,
+    )
+    .await?;
 
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     let result: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
         .bind(&id)
@@ -901,9 +1474,14 @@ pub async fn approve_voucher(
 pub async fn reverse_approve_voucher(
     id: String,
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<Voucher, String> {
-    log::info!("Reversing approval for voucher: {} for company: {}", id, company_id);
+    log::info!(
+        "Reversing approval for voucher: {} for company: {}",
+        id,
+        company_id
+    );
 
     let voucher: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
         .bind(&id)
@@ -918,13 +1496,12 @@ pub async fn reverse_approve_voucher(
     }
 
     // Check period is still open
-    let period_status: Option<(String,)> = sqlx::query_as(
-        "SELECT status FROM accounting_periods WHERE id = ?",
-    )
-    .bind(&voucher.period_id)
-    .fetch_optional(db.pool())
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
+    let period_status: Option<(String,)> =
+        sqlx::query_as("SELECT status FROM accounting_periods WHERE id = ?")
+            .bind(&voucher.period_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
 
     if let Some((status,)) = period_status {
         if status != "open" {
@@ -932,7 +1509,12 @@ pub async fn reverse_approve_voucher(
         }
     }
 
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
 
     let before_data = serde_json::to_string(&voucher).unwrap_or_default();
 
@@ -953,9 +1535,19 @@ pub async fn reverse_approve_voucher(
         .await
         .map_err(|e| format!("Database error: {}", e))?;
     let after_data = serde_json::to_string(&updated).unwrap_or_default();
-    log_voucher_operation_raw(&id, "reverse_approve", Some(&before_data), Some(&after_data), None, &mut tx).await?;
+    log_voucher_operation_raw(
+        &id,
+        "reverse_approve",
+        Some(&before_data),
+        Some(&after_data),
+        Some(&actor),
+        &mut tx,
+    )
+    .await?;
 
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     let result: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
         .bind(&id)
@@ -971,19 +1563,24 @@ pub async fn reverse_approve_voucher(
 #[tauri::command]
 pub async fn reverse_voucher(
     id: String,
-    reversed_by: Option<String>,
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<Voucher, String> {
-    log::info!("Reversing voucher (红冲): {} for company: {}", id, company_id);
+    log::info!(
+        "Reversing voucher (红冲): {} for company: {}",
+        id,
+        company_id
+    );
 
-    let original: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
-        .bind(&id)
-        .bind(&company_id)
-        .fetch_optional(db.pool())
-        .await
-        .map_err(|e| format!("Database error: {}", e))?
-        .ok_or_else(|| "凭证不存在或不属于当前公司".to_string())?;
+    let original: Voucher =
+        sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
+            .bind(&id)
+            .bind(&company_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|e| format!("Database error: {}", e))?
+            .ok_or_else(|| "凭证不存在或不属于当前公司".to_string())?;
 
     if original.status == "reversed" {
         return Err("凭证已红冲，不能重复操作".to_string());
@@ -993,13 +1590,12 @@ pub async fn reverse_voucher(
     }
 
     // Check period is open for the reversal
-    let period_status: Option<(String,)> = sqlx::query_as(
-        "SELECT status FROM accounting_periods WHERE id = ?",
-    )
-    .bind(&original.period_id)
-    .fetch_optional(db.pool())
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
+    let period_status: Option<(String,)> =
+        sqlx::query_as("SELECT status FROM accounting_periods WHERE id = ?")
+            .bind(&original.period_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
 
     if let Some((status,)) = period_status {
         if status != "open" {
@@ -1007,6 +1603,7 @@ pub async fn reverse_voucher(
         }
     }
 
+    let reversed_by = authenticated_actor(db.pool(), &auth_token).await?;
     let entries: Vec<VoucherEntry> = fetch_entries(&id, db.pool()).await?;
 
     // Auto-number for reversal
@@ -1025,27 +1622,29 @@ pub async fn reverse_voucher(
     };
 
     // Get word name for voucher number
-    let word_name: (String,) = sqlx::query_as(
-        "SELECT word_name FROM voucher_words WHERE id = ?",
-    )
-    .bind(&original.voucher_word_id)
-    .fetch_one(db.pool())
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
+    let word_name: (String,) = sqlx::query_as("SELECT word_name FROM voucher_words WHERE id = ?")
+        .bind(&original.voucher_word_id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|e| format!("Database error: {}", e))?;
 
     let reversal_id = uuid::Uuid::new_v4().to_string();
     let reversal_number = format!("{}字第{:03}号", word_name.0, sequence_num);
     let now = chrono::Utc::now().to_rfc3339();
 
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
 
     // Create reversal voucher with reversed debit/credit
     sqlx::query(
         r#"
         INSERT INTO vouchers (id, company_id, period_id, voucher_word_id, voucher_number, sequence_num,
             voucher_date, summary, attachment_count, status, total_debit, total_credit, version,
-            created_by, created_at, reversal_of_id, is_system)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, 1, ?, ?, ?, 1)
+            created_by, created_at, approved_by, approved_at, reference_number, reversal_of_id, is_system)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, 1, ?, ?, ?, ?, ?, ?, 1)
         "#,
     )
     .bind(&reversal_id)
@@ -1059,8 +1658,11 @@ pub async fn reverse_voucher(
     .bind(0)
     .bind(original.total_credit) // swap: original credit becomes reversal debit
     .bind(original.total_debit)  // swap: original debit becomes reversal credit
-    .bind(reversed_by.as_deref().unwrap_or("system"))
+    .bind(&reversed_by)
     .bind(&now)
+    .bind(&reversed_by)
+    .bind(&now)
+    .bind(&original.reference_number)
     .bind(&id)
     .execute(&mut *tx)
     .await
@@ -1102,13 +1704,28 @@ pub async fn reverse_voucher(
         .execute(&mut *tx)
         .await
         .map_err(|e| format!("Failed to create reversal entry: {}", e))?;
+
+        for auxiliary in &entry.auxiliary_items {
+            sqlx::query(
+                "INSERT INTO voucher_entry_auxiliaries (id, entry_id, auxiliary_category_id, auxiliary_item_id) VALUES (?, ?, ?, ?)",
+            )
+            .bind(uuid::Uuid::new_v4().to_string())
+            .bind(&entry_id)
+            .bind(&auxiliary.auxiliary_category_id)
+            .bind(&auxiliary.auxiliary_item_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Failed to copy reversal entry auxiliary: {}", e))?;
+        }
     }
+
+    copy_voucher_tag_links(&id, &reversal_id, &company_id, &mut tx).await?;
 
     // Mark original as reversed
     sqlx::query(
         "UPDATE vouchers SET status = 'reversed', reversed_by = ?, reversed_at = ? WHERE id = ? AND company_id = ?",
     )
-    .bind(&reversal_id)
+    .bind(&reversed_by)
     .bind(&now)
     .bind(&id)
     .bind(&company_id)
@@ -1120,9 +1737,19 @@ pub async fn reverse_voucher(
     update_balances_on_approve(&reversal_id, &original.period_id, &mut tx).await?;
 
     // Audit log
-    log_voucher_operation_raw(&id, "reverse", None, Some(&reversal_id), reversed_by.as_deref(), &mut tx).await?;
+    log_voucher_operation_raw(
+        &id,
+        "reverse",
+        None,
+        Some(&reversal_id),
+        Some(&reversed_by),
+        &mut tx,
+    )
+    .await?;
 
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     let result: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
         .bind(&reversal_id)
@@ -1139,16 +1766,21 @@ pub async fn reverse_voucher(
 pub async fn copy_voucher(
     id: String,
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<VoucherWithEntries, String> {
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
     log::info!("Copying voucher: {} for company: {}", id, company_id);
 
-    let original: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
-        .bind(&id)
-        .bind(&company_id)
-        .fetch_one(db.pool())
-        .await
-        .map_err(|e| format!("Database error: {}", e))?;
+    let original: Voucher =
+        sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
+            .bind(&id)
+            .bind(&company_id)
+            .fetch_one(db.pool())
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
+
+    ensure_period_id_open(db.pool(), &company_id, &original.period_id, "复制凭证").await?;
 
     let entries: Vec<VoucherEntry> = fetch_entries(&id, db.pool()).await?;
 
@@ -1167,25 +1799,27 @@ pub async fn copy_voucher(
         _ => 1,
     };
 
-    let word_name: (String,) = sqlx::query_as(
-        "SELECT word_name FROM voucher_words WHERE id = ?",
-    )
-    .bind(&original.voucher_word_id)
-    .fetch_one(db.pool())
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
+    let word_name: (String,) = sqlx::query_as("SELECT word_name FROM voucher_words WHERE id = ?")
+        .bind(&original.voucher_word_id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|e| format!("Database error: {}", e))?;
 
     let copy_id = uuid::Uuid::new_v4().to_string();
     let copy_number = format!("{}字第{:03}号", word_name.0, sequence_num);
     let now = chrono::Utc::now().to_rfc3339();
 
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
 
     sqlx::query(
         r#"
         INSERT INTO vouchers (id, company_id, period_id, voucher_word_id, voucher_number, sequence_num,
-            voucher_date, summary, attachment_count, status, total_debit, total_credit, version, created_by, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, 1, ?, ?)
+            voucher_date, summary, attachment_count, status, total_debit, total_credit, version, created_by, created_at, reference_number)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, 1, ?, ?, ?)
         "#,
     )
     .bind(&copy_id)
@@ -1199,8 +1833,9 @@ pub async fn copy_voucher(
     .bind(original.attachment_count)
     .bind(original.total_debit)
     .bind(original.total_credit)
-    .bind(&original.created_by)
+    .bind(&actor)
     .bind(&now)
+    .bind(&original.reference_number)
     .execute(&mut *tx)
     .await
     .map_err(|e| format!("Failed to copy voucher: {}", e))?;
@@ -1234,11 +1869,36 @@ pub async fn copy_voucher(
         .execute(&mut *tx)
         .await
         .map_err(|e| format!("Failed to copy entry: {}", e))?;
+
+        for auxiliary in &entry.auxiliary_items {
+            sqlx::query(
+                "INSERT INTO voucher_entry_auxiliaries (id, entry_id, auxiliary_category_id, auxiliary_item_id) VALUES (?, ?, ?, ?)",
+            )
+            .bind(uuid::Uuid::new_v4().to_string())
+            .bind(&entry_id)
+            .bind(&auxiliary.auxiliary_category_id)
+            .bind(&auxiliary.auxiliary_item_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Failed to copy entry auxiliary: {}", e))?;
+        }
     }
 
-    log_voucher_operation_raw(&id, "copy", Some(&id), Some(&copy_id), None, &mut tx).await?;
+    copy_voucher_tag_links(&id, &copy_id, &company_id, &mut tx).await?;
 
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    log_voucher_operation_raw(
+        &id,
+        "copy",
+        Some(&id),
+        Some(&copy_id),
+        Some(&actor),
+        &mut tx,
+    )
+    .await?;
+
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     let voucher: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
         .bind(&copy_id)
@@ -1250,7 +1910,10 @@ pub async fn copy_voucher(
     let copied_entries = fetch_entries(&copy_id, db.pool()).await?;
 
     log::info!("Voucher copied: {} -> {}", id, copy_id);
-    Ok(VoucherWithEntries { voucher, entries: copied_entries })
+    Ok(VoucherWithEntries {
+        voucher,
+        entries: copied_entries,
+    })
 }
 
 #[tauri::command]
@@ -1266,11 +1929,24 @@ pub async fn get_voucher_entries(
 pub async fn reorganize_voucher_numbers(
     period_id: String,
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<(), String> {
-    log::info!("Reorganizing voucher numbers for period: {} company: {}", period_id, company_id);
+    log::info!(
+        "Reorganizing voucher numbers for period: {} company: {}",
+        period_id,
+        company_id
+    );
 
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
+    ensure_period_id_open(db.pool(), &company_id, &period_id, "整理凭证号").await?;
+
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
+    let mut changed_count = 0usize;
 
     // Get all voucher words for this period
     let words: Vec<(String, String)> = sqlx::query_as(
@@ -1302,17 +1978,59 @@ pub async fn reorganize_voucher_numbers(
         for (idx, voucher) in vouchers.iter().enumerate() {
             let seq = idx as i32 + 1;
             let new_number = format!("{}字第{:03}号", word_name, seq);
-            sqlx::query("UPDATE vouchers SET voucher_number = ?, sequence_num = ? WHERE id = ?")
+            if voucher.voucher_number == new_number && voucher.sequence_num == seq {
+                continue;
+            }
+            sqlx::query(
+                "UPDATE vouchers SET voucher_number = ?, sequence_num = ?, modified_by = ?, modified_at = ? WHERE id = ? AND company_id = ?",
+            )
                 .bind(&new_number)
                 .bind(seq)
+                .bind(&actor)
+                .bind(chrono::Utc::now().to_rfc3339())
                 .bind(&voucher.id)
+                .bind(&company_id)
                 .execute(&mut *tx)
                 .await
                 .map_err(|e| format!("Failed to renumber: {}", e))?;
+
+            let before_data = serde_json::json!({
+                "voucher_number": voucher.voucher_number,
+                "sequence_num": voucher.sequence_num,
+            })
+            .to_string();
+            let after_data = serde_json::json!({
+                "voucher_number": new_number,
+                "sequence_num": seq,
+            })
+            .to_string();
+            log_voucher_operation_raw(
+                &voucher.id,
+                "renumber",
+                Some(&before_data),
+                Some(&after_data),
+                Some(&actor),
+                &mut tx,
+            )
+            .await?;
+            changed_count += 1;
         }
     }
 
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    log_operation_audit(
+        &company_id,
+        "整理凭证号",
+        Some(&period_id),
+        "high",
+        &format!("按凭证字和日期连续重排，共调整{}张凭证", changed_count),
+        &actor,
+        &mut tx,
+    )
+    .await?;
+
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     log::info!("Voucher numbers reorganized for period: {}", period_id);
     Ok(())
@@ -1321,18 +2039,28 @@ pub async fn reorganize_voucher_numbers(
 #[tauri::command]
 pub async fn batch_approve_vouchers(
     ids: Vec<String>,
-    approved_by: String,
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<(), String> {
-    log::info!("Batch approving {} vouchers for company: {}", ids.len(), company_id);
+    log::info!(
+        "Batch approving {} vouchers for company: {}",
+        ids.len(),
+        company_id
+    );
 
+    let approved_by = authenticated_actor(db.pool(), &auth_token).await?;
     let now = chrono::Utc::now().to_rfc3339();
 
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
 
     for id in &ids {
-        let voucher: Option<Voucher> = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
+        let voucher: Option<Voucher> =
+            sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
                 .bind(id)
                 .bind(&company_id)
                 .fetch_optional(&mut *tx)
@@ -1356,10 +2084,31 @@ pub async fn batch_approve_vouchers(
             .map_err(|e| format!("Failed to approve voucher {}: {}", id, e))?;
 
             update_balances_on_approve(id, &v.period_id, &mut tx).await?;
+
+            let updated: Voucher =
+                sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
+                    .bind(id)
+                    .bind(&company_id)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Database error: {}", e))?;
+            let before_data = serde_json::to_string(&v).unwrap_or_default();
+            let after_data = serde_json::to_string(&updated).unwrap_or_default();
+            log_voucher_operation_raw(
+                id,
+                "approve",
+                Some(&before_data),
+                Some(&after_data),
+                Some(&approved_by),
+                &mut tx,
+            )
+            .await?;
         }
     }
 
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     log::info!("Batch approval completed");
     Ok(())
@@ -1369,14 +2118,25 @@ pub async fn batch_approve_vouchers(
 pub async fn batch_reverse_approve_vouchers(
     ids: Vec<String>,
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<(), String> {
-    log::info!("Batch reversing approval for {} vouchers for company: {}", ids.len(), company_id);
+    log::info!(
+        "Batch reversing approval for {} vouchers for company: {}",
+        ids.len(),
+        company_id
+    );
 
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
 
     for id in &ids {
-        let voucher: Option<Voucher> = sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
+        let voucher: Option<Voucher> =
+            sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
                 .bind(id)
                 .bind(&company_id)
                 .fetch_optional(&mut *tx)
@@ -1389,13 +2149,12 @@ pub async fn batch_reverse_approve_vouchers(
             }
 
             // Check period is open
-            let period_status: Option<(String,)> = sqlx::query_as(
-                "SELECT status FROM accounting_periods WHERE id = ?",
-            )
-            .bind(&v.period_id)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|e| format!("Database error: {}", e))?;
+            let period_status: Option<(String,)> =
+                sqlx::query_as("SELECT status FROM accounting_periods WHERE id = ?")
+                    .bind(&v.period_id)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Database error: {}", e))?;
 
             if let Some((status,)) = period_status {
                 if status != "open" {
@@ -1411,13 +2170,87 @@ pub async fn batch_reverse_approve_vouchers(
                 .map_err(|e| format!("Failed to reverse approve {}: {}", id, e))?;
 
             update_balances_on_reverse_approve(id, &v.period_id, &mut tx).await?;
+
+            let updated: Voucher =
+                sqlx::query_as("SELECT * FROM vouchers WHERE id = ? AND company_id = ?")
+                    .bind(id)
+                    .bind(&company_id)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Database error: {}", e))?;
+            let before_data = serde_json::to_string(&v).unwrap_or_default();
+            let after_data = serde_json::to_string(&updated).unwrap_or_default();
+            log_voucher_operation_raw(
+                id,
+                "reverse_approve",
+                Some(&before_data),
+                Some(&after_data),
+                Some(&actor),
+                &mut tx,
+            )
+            .await?;
         }
     }
 
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     log::info!("Batch reverse approval completed");
     Ok(())
+}
+
+#[tauri::command]
+pub async fn add_voucher_annotation(
+    voucher_id: String,
+    company_id: String,
+    content: String,
+    auth_token: String,
+    db: State<'_, Database>,
+) -> Result<VoucherLog, String> {
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
+    let content = content.trim();
+    if content.is_empty() {
+        return Err("批注内容不能为空".to_string());
+    }
+    if content.chars().count() > 500 {
+        return Err("批注内容不能超过 500 个字符".to_string());
+    }
+
+    let voucher: Option<(String,)> =
+        sqlx::query_as("SELECT id FROM vouchers WHERE id = ? AND company_id = ?")
+            .bind(&voucher_id)
+            .bind(&company_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
+    if voucher.is_none() {
+        return Err("凭证不存在或不属于当前公司".to_string());
+    }
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let created_at = chrono::Utc::now().to_rfc3339();
+    sqlx::query(
+        "INSERT INTO voucher_logs (id, voucher_id, operation_type, after_data, operator_id, created_at) VALUES (?, ?, 'ANNOTATION', ?, ?, ?)",
+    )
+    .bind(&id)
+    .bind(&voucher_id)
+    .bind(content)
+    .bind(&actor)
+    .bind(&created_at)
+    .execute(db.pool())
+    .await
+    .map_err(|e| format!("保存凭证批注失败: {}", e))?;
+
+    Ok(VoucherLog {
+        id,
+        voucher_id,
+        operation_type: "ANNOTATION".to_string(),
+        before_data: None,
+        after_data: Some(content.to_string()),
+        operator_id: Some(actor),
+        created_at,
+    })
 }
 
 #[tauri::command]
@@ -1427,13 +2260,12 @@ pub async fn get_voucher_logs(
 ) -> Result<Vec<VoucherLog>, String> {
     log::info!("Fetching logs for voucher: {}", voucher_id);
 
-    let logs: Vec<VoucherLog> = sqlx::query_as(
-        "SELECT * FROM voucher_logs WHERE voucher_id = ? ORDER BY created_at DESC",
-    )
-    .bind(&voucher_id)
-    .fetch_all(db.pool())
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
+    let logs: Vec<VoucherLog> =
+        sqlx::query_as("SELECT * FROM voucher_logs WHERE voucher_id = ? ORDER BY created_at DESC")
+            .bind(&voucher_id)
+            .fetch_all(db.pool())
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
 
     Ok(logs)
 }
@@ -1510,13 +2342,68 @@ async fn fetch_entries(
     voucher_id: &str,
     pool: &sqlx::Pool<sqlx::Sqlite>,
 ) -> Result<Vec<VoucherEntry>, String> {
-    sqlx::query_as(
-        "SELECT * FROM voucher_entries WHERE voucher_id = ? ORDER BY line_num",
+    let mut entries: Vec<VoucherEntry> =
+        sqlx::query_as("SELECT * FROM voucher_entries WHERE voucher_id = ? ORDER BY line_num")
+            .bind(voucher_id)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
+    let auxiliary_rows: Vec<(String, String, String)> = sqlx::query_as(
+        r#"
+        SELECT vea.entry_id, vea.auxiliary_category_id, vea.auxiliary_item_id
+        FROM voucher_entry_auxiliaries vea
+        INNER JOIN voucher_entries ve ON ve.id = vea.entry_id
+        WHERE ve.voucher_id = ?
+        ORDER BY ve.line_num, vea.auxiliary_category_id
+        "#,
     )
     .bind(voucher_id)
     .fetch_all(pool)
     .await
-    .map_err(|e| format!("Database error: {}", e))
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    for (entry_id, category_id, item_id) in auxiliary_rows {
+        if let Some(entry) = entries.iter_mut().find(|entry| entry.id == entry_id) {
+            entry
+                .auxiliary_items
+                .push(crate::db::VoucherEntryAuxiliaryValue {
+                    auxiliary_category_id: category_id,
+                    auxiliary_item_id: item_id,
+                });
+        }
+    }
+    Ok(entries)
+}
+
+async fn copy_voucher_tag_links(
+    source_voucher_id: &str,
+    target_voucher_id: &str,
+    company_id: &str,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> Result<(), String> {
+    sqlx::query(
+        r#"
+        INSERT INTO voucher_tags (voucher_id, tag_id, company_id)
+        SELECT ?, tag_id, company_id FROM voucher_tags
+        WHERE voucher_id = ? AND company_id = ?
+        "#,
+    )
+    .bind(target_voucher_id)
+    .bind(source_voucher_id)
+    .bind(company_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(|error| format!("Failed to copy voucher tags: {}", error))?;
+
+    sqlx::query(
+        "UPDATE business_tags SET usage_count = (SELECT COUNT(*) FROM invoice_tags WHERE tag_id = business_tags.id) + (SELECT COUNT(*) FROM voucher_tags WHERE tag_id = business_tags.id) + (SELECT COUNT(*) FROM bank_transaction_tags WHERE tag_id = business_tags.id), updated_at = datetime('now') WHERE company_id = ?",
+    )
+    .bind(company_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(|error| format!("Failed to refresh business tag usage: {}", error))?;
+
+    Ok(())
 }
 
 fn validate_entries(entries: &[CreateVoucherEntryInput]) -> Result<(f64, f64), String> {
@@ -1573,18 +2460,17 @@ async fn validate_voucher_date(
     let month: i32 = parts[1].parse().unwrap_or(0);
     let day: i32 = parts[2].parse().unwrap_or(0);
 
-    if year < 2000 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31 {
+    if !(2000..=2100).contains(&year) || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
         return Err("日期数值超出合理范围".to_string());
     }
 
     // Check date falls within the period
-    let period: Option<(String, String)> = sqlx::query_as(
-        "SELECT start_date, end_date FROM accounting_periods WHERE id = ?",
-    )
-    .bind(period_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
+    let period: Option<(String, String)> =
+        sqlx::query_as("SELECT start_date, end_date FROM accounting_periods WHERE id = ?")
+            .bind(period_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
 
     if let Some((start_date, end_date)) = period {
         if voucher_date < start_date.as_str() || voucher_date > end_date.as_str() {
@@ -1603,13 +2489,12 @@ async fn update_balances_on_approve(
     period_id: &str,
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> Result<(), String> {
-    let entries: Vec<VoucherEntry> = sqlx::query_as(
-        "SELECT * FROM voucher_entries WHERE voucher_id = ? ORDER BY line_num",
-    )
-    .bind(voucher_id)
-    .fetch_all(&mut **tx)
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
+    let entries: Vec<VoucherEntry> =
+        sqlx::query_as("SELECT * FROM voucher_entries WHERE voucher_id = ? ORDER BY line_num")
+            .bind(voucher_id)
+            .fetch_all(&mut **tx)
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
 
     for entry in &entries {
         // Ensure account_balances row exists
@@ -1647,12 +2532,12 @@ async fn update_balances_on_approve(
             .map_err(|e| format!("Failed to create balance row: {}", e))?;
         }
 
-        // Update period debit/credit
+        // Update period debit/credit, then derive a single-sided net closing
+        // balance and carry it through every later period for this account.
         if entry.direction == "debit" {
             sqlx::query(
-                "UPDATE account_balances SET period_debit = period_debit + ?, closing_debit = opening_debit + period_debit + ?, closing_credit = opening_credit + period_credit WHERE period_id = ? AND account_code = ?",
+                "UPDATE account_balances SET period_debit = period_debit + ? WHERE period_id = ? AND account_code = ?",
             )
-            .bind(entry.amount)
             .bind(entry.amount)
             .bind(period_id)
             .bind(&entry.account_code)
@@ -1661,9 +2546,8 @@ async fn update_balances_on_approve(
             .map_err(|e| format!("Failed to update balance: {}", e))?;
         } else {
             sqlx::query(
-                "UPDATE account_balances SET period_credit = period_credit + ?, closing_credit = opening_credit + period_credit + ?, closing_debit = opening_debit + period_debit WHERE period_id = ? AND account_code = ?",
+                "UPDATE account_balances SET period_credit = period_credit + ? WHERE period_id = ? AND account_code = ?",
             )
-            .bind(entry.amount)
             .bind(entry.amount)
             .bind(period_id)
             .bind(&entry.account_code)
@@ -1671,6 +2555,7 @@ async fn update_balances_on_approve(
             .await
             .map_err(|e| format!("Failed to update balance: {}", e))?;
         }
+        recompute_account_closing_balance(period_id, &entry.account_code, tx).await?;
     }
 
     Ok(())
@@ -1681,18 +2566,17 @@ async fn update_balances_on_reverse_approve(
     period_id: &str,
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> Result<(), String> {
-    let entries: Vec<VoucherEntry> = sqlx::query_as(
-        "SELECT * FROM voucher_entries WHERE voucher_id = ? ORDER BY line_num",
-    )
-    .bind(voucher_id)
-    .fetch_all(&mut **tx)
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
+    let entries: Vec<VoucherEntry> =
+        sqlx::query_as("SELECT * FROM voucher_entries WHERE voucher_id = ? ORDER BY line_num")
+            .bind(voucher_id)
+            .fetch_all(&mut **tx)
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
 
     for entry in &entries {
         if entry.direction == "debit" {
             sqlx::query(
-                "UPDATE account_balances SET period_debit = period_debit - ?, closing_debit = opening_debit + period_debit, closing_credit = opening_credit + period_credit WHERE period_id = ? AND account_code = ?",
+                "UPDATE account_balances SET period_debit = period_debit - ? WHERE period_id = ? AND account_code = ?",
             )
             .bind(entry.amount)
             .bind(period_id)
@@ -1702,7 +2586,7 @@ async fn update_balances_on_reverse_approve(
             .map_err(|e| format!("Failed to reverse balance: {}", e))?;
         } else {
             sqlx::query(
-                "UPDATE account_balances SET period_credit = period_credit - ?, closing_credit = opening_credit + period_credit, closing_debit = opening_debit + period_debit WHERE period_id = ? AND account_code = ?",
+                "UPDATE account_balances SET period_credit = period_credit - ? WHERE period_id = ? AND account_code = ?",
             )
             .bind(entry.amount)
             .bind(period_id)
@@ -1711,6 +2595,112 @@ async fn update_balances_on_reverse_approve(
             .await
             .map_err(|e| format!("Failed to reverse balance: {}", e))?;
         }
+        recompute_account_closing_balance(period_id, &entry.account_code, tx).await?;
+    }
+
+    Ok(())
+}
+
+async fn normalize_account_balance_row(
+    period_id: &str,
+    account_code: &str,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> Result<(), String> {
+    sqlx::query(
+        r#"UPDATE account_balances
+           SET closing_debit = CASE
+                 WHEN opening_debit - opening_credit + period_debit - period_credit > 0
+                 THEN opening_debit - opening_credit + period_debit - period_credit
+                 ELSE 0
+               END,
+               closing_credit = CASE
+                 WHEN opening_debit - opening_credit + period_debit - period_credit < 0
+                 THEN -(opening_debit - opening_credit + period_debit - period_credit)
+                 ELSE 0
+               END,
+               updated_at = datetime('now')
+           WHERE period_id = ? AND account_code = ?"#,
+    )
+    .bind(period_id)
+    .bind(account_code)
+    .execute(&mut **tx)
+    .await
+    .map_err(|e| format!("Failed to normalize account balance: {}", e))?;
+    Ok(())
+}
+
+pub(crate) async fn recompute_account_closing_balance(
+    period_id: &str,
+    account_code: &str,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> Result<(), String> {
+    normalize_account_balance_row(period_id, account_code, tx).await?;
+
+    let (company_id, period_year, period_month): (String, i32, i32) = sqlx::query_as(
+        "SELECT company_id, period_year, period_month FROM accounting_periods WHERE id = ?",
+    )
+    .bind(period_id)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(|e| format!("Failed to load balance period: {}", e))?;
+    let mut previous: (f64, f64) = sqlx::query_as(
+        "SELECT closing_debit, closing_credit FROM account_balances WHERE period_id = ? AND account_code = ?",
+    )
+    .bind(period_id)
+    .bind(account_code)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(|e| format!("Failed to load closing balance: {}", e))?;
+    let future_periods: Vec<String> = sqlx::query_scalar(
+        r#"SELECT id FROM accounting_periods
+           WHERE company_id = ?
+             AND (period_year > ? OR (period_year = ? AND period_month > ?))
+           ORDER BY period_year, period_month"#,
+    )
+    .bind(&company_id)
+    .bind(period_year)
+    .bind(period_year)
+    .bind(period_month)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(|e| format!("Failed to load later periods: {}", e))?;
+
+    for future_period_id in future_periods {
+        sqlx::query(
+            r#"INSERT OR IGNORE INTO account_balances
+               (id, period_id, account_code, opening_debit, opening_credit,
+                period_debit, period_credit, closing_debit, closing_credit)
+               VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)"#,
+        )
+        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(&future_period_id)
+        .bind(account_code)
+        .bind(previous.0)
+        .bind(previous.1)
+        .bind(previous.0)
+        .bind(previous.1)
+        .execute(&mut **tx)
+        .await
+        .map_err(|e| format!("Failed to create later balance: {}", e))?;
+        sqlx::query(
+            "UPDATE account_balances SET opening_debit = ?, opening_credit = ? WHERE period_id = ? AND account_code = ?",
+        )
+        .bind(previous.0)
+        .bind(previous.1)
+        .bind(&future_period_id)
+        .bind(account_code)
+        .execute(&mut **tx)
+        .await
+        .map_err(|e| format!("Failed to carry balance forward: {}", e))?;
+        normalize_account_balance_row(&future_period_id, account_code, tx).await?;
+        previous = sqlx::query_as(
+            "SELECT closing_debit, closing_credit FROM account_balances WHERE period_id = ? AND account_code = ?",
+        )
+        .bind(&future_period_id)
+        .bind(account_code)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(|e| format!("Failed to load carried balance: {}", e))?;
     }
 
     Ok(())
@@ -1740,6 +2730,33 @@ async fn log_voucher_operation(
     Ok(())
 }
 
+async fn log_operation_audit(
+    company_id: &str,
+    action: &str,
+    object_ref: Option<&str>,
+    risk_level: &str,
+    detail: &str,
+    actor: &str,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> Result<(), String> {
+    sqlx::query(
+        r#"INSERT INTO operation_audit_logs
+           (id, company_id, module_name, action, object_ref, risk_level, result, detail, operator)
+           VALUES (?, ?, '会计凭证', ?, ?, ?, 'success', ?, ?)"#,
+    )
+    .bind(uuid::Uuid::new_v4().to_string())
+    .bind(company_id)
+    .bind(action)
+    .bind(object_ref)
+    .bind(risk_level)
+    .bind(detail)
+    .bind(actor)
+    .execute(&mut **tx)
+    .await
+    .map_err(|error| format!("Failed to write operation audit log: {error}"))?;
+    Ok(())
+}
+
 async fn log_voucher_operation_raw(
     voucher_id: &str,
     operation_type: &str,
@@ -1748,7 +2765,15 @@ async fn log_voucher_operation_raw(
     operator_id: Option<&str>,
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> Result<(), String> {
-    log_voucher_operation(voucher_id, operation_type, before_data, after_data, operator_id, tx).await
+    log_voucher_operation(
+        voucher_id,
+        operation_type,
+        before_data,
+        after_data,
+        operator_id,
+        tx,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -1801,187 +2826,53 @@ pub struct ImportResult {
 }
 
 #[tauri::command]
-pub async fn insert_voucher(
-    period_id: String,
-    voucher_word_id: String,
-    voucher_date: String,
-    summary: String,
-    entries: Vec<CreateVoucherEntryInput>,
-    insert_after_seq: Option<i32>,
-    created_by: Option<String>,
-    db: State<'_, Database>,
-) -> Result<VoucherWithEntries, String> {
-    log::info!("Inserting voucher at position after seq {:?}", insert_after_seq);
-
-    let insert_pos = insert_after_seq.unwrap_or(0);
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
-
-    // Shift all subsequent sequence numbers up by 1
-    sqlx::query(
-        "UPDATE vouchers SET sequence_num = sequence_num + 1 WHERE period_id = ? AND voucher_word_id = ? AND sequence_num > ?",
-    )
-    .bind(&period_id)
-    .bind(&voucher_word_id)
-    .bind(insert_pos)
-    .execute(&mut *tx)
-    .await
-    .map_err(|e| format!("Failed to shift sequence numbers: {}", e))?;
-
-    let new_seq = insert_pos + 1;
-
-    // Get word name for voucher number
-    let word_name: (String,) = sqlx::query_as(
-        "SELECT word_name FROM voucher_words WHERE id = ?",
-    )
-    .bind(&voucher_word_id)
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
-
-    let id = uuid::Uuid::new_v4().to_string();
-    let voucher_number = format!("{}字第{:03}号", word_name.0, new_seq);
-    let now = chrono::Utc::now().to_rfc3339();
-
-    // Calculate totals
-    let total_debit: f64 = entries.iter()
-        .filter(|e| e.direction == "debit")
-        .map(|e| e.amount)
-        .sum();
-    let total_credit: f64 = entries.iter()
-        .filter(|e| e.direction == "credit")
-        .map(|e| e.amount)
-        .sum();
-
-    // Get company_id from period
-    let company_id: (String,) = sqlx::query_as(
-        "SELECT company_id FROM accounting_periods WHERE id = ?",
-    )
-    .bind(&period_id)
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(|e| format!("数据库错误: {}", e))?;
-
-    sqlx::query(
-        "INSERT INTO vouchers (id, company_id, period_id, voucher_word_id, voucher_number, sequence_num,
-            voucher_date, summary, attachment_count, status, total_debit, total_credit, version, created_by, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'draft', ?, ?, 1, ?, ?)",
-    )
-    .bind(&id)
-    .bind(&company_id.0)
-    .bind(&period_id)
-    .bind(&voucher_word_id)
-    .bind(&voucher_number)
-    .bind(new_seq)
-    .bind(&voucher_date)
-    .bind(&summary)
-    .bind(total_debit)
-    .bind(total_credit)
-    .bind(created_by.as_deref().unwrap_or("system"))
-    .bind(&now)
-    .execute(&mut *tx)
-    .await
-    .map_err(|e| format!("Failed to insert voucher: {}", e))?;
-
-    // Insert entries
-    for (idx, entry) in entries.iter().enumerate() {
-        let entry_id = uuid::Uuid::new_v4().to_string();
-        let line_num = idx as i32 + 1;
-
-        let account_name: (String,) = sqlx::query_as(
-            "SELECT name FROM account_codes WHERE code = ? AND company_id = ?",
-        )
-        .bind(&entry.account_code)
-        .bind(&company_id.0)
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(|e| format!("科目 {} 不存在: {}", entry.account_code, e))?;
-
-        sqlx::query(
-            "INSERT INTO voucher_entries (id, voucher_id, line_num, account_code, account_name,
-                direction, amount, summary, auxiliary_type, auxiliary_id, doc_number,
-                quantity, unit_price, unit, currency_id, exchange_rate)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        )
-        .bind(&entry_id)
-        .bind(&id)
-        .bind(line_num)
-        .bind(&entry.account_code)
-        .bind(&account_name.0)
-        .bind(&entry.direction)
-        .bind(entry.amount)
-        .bind(&entry.summary)
-        .bind(&entry.auxiliary_type)
-        .bind(&entry.auxiliary_id)
-        .bind(&entry.doc_number)
-        .bind(entry.quantity)
-        .bind(entry.unit_price)
-        .bind(&entry.unit)
-        .bind(&entry.currency_id)
-        .bind(entry.exchange_rate)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| format!("Failed to insert entry: {}", e))?;
-
-        if let Some(ref aux_items) = entry.auxiliary_items {
-            for aux in aux_items {
-                let aux_id = uuid::Uuid::new_v4().to_string();
-                sqlx::query(
-                    "INSERT INTO voucher_entry_auxiliaries (id, entry_id, auxiliary_category_id, auxiliary_item_id) VALUES (?, ?, ?, ?)",
-                )
-                .bind(&aux_id)
-                .bind(&entry_id)
-                .bind(&aux.auxiliary_category_id)
-                .bind(&aux.auxiliary_item_id)
-                .execute(&mut *tx)
-                .await
-                .map_err(|e| format!("Failed to insert entry auxiliary: {}", e))?;
-            }
-        }
-    }
-
-    log_voucher_operation(&id, "create", None, Some(&id), created_by.as_deref(), &mut tx).await?;
-
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
-
-    let voucher: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ?")
-        .bind(&id)
-        .fetch_one(db.pool())
-        .await
-        .map_err(|e| format!("Database error: {}", e))?;
-
-    let saved_entries = fetch_entries(&id, db.pool()).await?;
-
-    log::info!("Voucher inserted at seq {}: {}", new_seq, id);
-    Ok(VoucherWithEntries { voucher, entries: saved_entries })
-}
-
-#[tauri::command]
 pub async fn download_voucher_template() -> Result<String, String> {
     use rust_xlsxwriter::*;
 
     let mut workbook = Workbook::new();
     let sheet = workbook.add_worksheet();
 
-    let headers = ["日期(YYYY-MM-DD)", "摘要", "科目编码", "方向(debit/credit)", "金额", "分录摘要"];
+    let headers = [
+        "日期(YYYY-MM-DD)",
+        "摘要",
+        "科目编码",
+        "方向(debit/credit)",
+        "金额",
+        "分录摘要",
+    ];
     for (col, h) in headers.iter().enumerate() {
-        sheet.write_string(0, col as u16, *h)
+        sheet
+            .write_string(0, col as u16, *h)
             .map_err(|e| format!("{}", e))?;
     }
 
-    sheet.set_column_width(0, 18).map_err(|e| format!("{}", e))?;
-    sheet.set_column_width(1, 30).map_err(|e| format!("{}", e))?;
-    sheet.set_column_width(2, 15).map_err(|e| format!("{}", e))?;
-    sheet.set_column_width(3, 14).map_err(|e| format!("{}", e))?;
-    sheet.set_column_width(4, 15).map_err(|e| format!("{}", e))?;
-    sheet.set_column_width(5, 30).map_err(|e| format!("{}", e))?;
+    sheet
+        .set_column_width(0, 18)
+        .map_err(|e| format!("{}", e))?;
+    sheet
+        .set_column_width(1, 30)
+        .map_err(|e| format!("{}", e))?;
+    sheet
+        .set_column_width(2, 15)
+        .map_err(|e| format!("{}", e))?;
+    sheet
+        .set_column_width(3, 14)
+        .map_err(|e| format!("{}", e))?;
+    sheet
+        .set_column_width(4, 15)
+        .map_err(|e| format!("{}", e))?;
+    sheet
+        .set_column_width(5, 30)
+        .map_err(|e| format!("{}", e))?;
 
     let path = std::env::temp_dir().join("voucher_import_template.xlsx");
-    workbook.save(&path).map_err(|e| format!("Failed to save template: {}", e))?;
+    workbook
+        .save(&path)
+        .map_err(|e| format!("Failed to save template: {}", e))?;
 
     Ok(path.to_string_lossy().to_string())
 }
 
-#[tauri::command]
 /// Resolve or create an accounting period for the given company + year + month.
 /// Returns the period_id. Also updates the company's enable_year/enable_month
 /// if the period is earlier than the current setting.
@@ -2046,7 +2937,7 @@ async fn resolve_period_for_date(
     .map_err(|e| format!("查询上期失败: {}", e))?;
 
     let account_codes: Vec<(String,)> = sqlx::query_as(
-        "SELECT code FROM account_codes WHERE company_id = ? AND is_enabled = 1",
+        "SELECT code FROM account_codes WHERE company_id = ? AND is_enabled = 1 AND is_detail = 1",
     )
     .bind(company_id)
     .fetch_all(&mut *tx)
@@ -2072,7 +2963,7 @@ async fn resolve_period_for_date(
         sqlx::query(
             "INSERT OR IGNORE INTO account_balances (id, period_id, account_code, opening_debit, opening_credit, period_debit, period_credit, closing_debit, closing_credit) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)",
         )
-        .bind(&uuid::Uuid::new_v4().to_string())
+        .bind(uuid::Uuid::new_v4().to_string())
         .bind(&period_id)
         .bind(code)
         .bind(opening_debit)
@@ -2085,18 +2976,15 @@ async fn resolve_period_for_date(
     }
 
     // Update company's enable_year/enable_month if this period is earlier
-    let current_enable: Option<(Option<i32>, Option<i32>)> = sqlx::query_as(
-        "SELECT enable_year, enable_month FROM companies WHERE id = ?",
-    )
-    .bind(company_id)
-    .fetch_optional(&mut *tx)
-    .await
-    .map_err(|e| format!("查询公司失败: {}", e))?;
+    let current_enable: Option<(Option<i32>, Option<i32>)> =
+        sqlx::query_as("SELECT enable_year, enable_month FROM companies WHERE id = ?")
+            .bind(company_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| format!("查询公司失败: {}", e))?;
 
     let should_update = match current_enable {
-        Some((Some(ey), Some(em))) => {
-            year < ey || (year == ey && month < em)
-        }
+        Some((Some(ey), Some(em))) => year < ey || (year == ey && month < em),
         _ => true,
     };
 
@@ -2115,30 +3003,40 @@ async fn resolve_period_for_date(
     Ok(period_id)
 }
 
+async fn ensure_import_period_open(
+    period_id: &str,
+    tx: &mut sqlx::SqliteConnection,
+) -> Result<(), String> {
+    let status: Option<(String,)> =
+        sqlx::query_as("SELECT status FROM accounting_periods WHERE id = ?")
+            .bind(period_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|error| format!("校验导入账期失败: {error}"))?;
+    match status {
+        Some((status,)) if status == "open" => Ok(()),
+        Some(_) => Err("已结账期间不能导入凭证，请先反结账".to_string()),
+        None => Err("导入账期不存在".to_string()),
+    }
+}
+
 /// Extract year and month from a voucher_date string (e.g., "2026-03-15" → (2026, 3))
 fn parse_year_month(date_str: &str) -> Result<(i32, i32), String> {
-    let parts: Vec<&str> = date_str.split('-').collect();
-    if parts.len() >= 2 {
-        let year: i32 = parts[0].parse().map_err(|_| format!("无效年份: {}", parts[0]))?;
-        let month: i32 = parts[1].parse().map_err(|_| format!("无效月份: {}", parts[1]))?;
-        if month < 1 || month > 12 {
-            return Err(format!("月份超出范围: {}", month));
-        }
-        Ok((year, month))
-    } else {
-        // Try other date formats like "2026/03/15" or "20260315"
-        let cleaned: String = date_str.chars().filter(|c| c.is_ascii_digit()).collect();
-        if cleaned.len() >= 6 {
-            let year: i32 = cleaned[..4].parse().map_err(|_| format!("无效年份"))?;
-            let month: i32 = cleaned[4..6].parse().map_err(|_| format!("无效月份"))?;
-            if month < 1 || month > 12 {
-                return Err(format!("月份超出范围: {}", month));
-            }
-            Ok((year, month))
-        } else {
-            Err(format!("无法解析日期: {}", date_str))
-        }
+    let trimmed = date_str.trim();
+    let normalized = trimmed.replace('/', "-");
+    let parsed = chrono::NaiveDate::parse_from_str(&normalized, "%Y-%m-%d").or_else(|_| {
+        let compact: String = trimmed
+            .chars()
+            .filter(|value| value.is_ascii_digit())
+            .collect();
+        chrono::NaiveDate::parse_from_str(&compact, "%Y%m%d")
+    });
+    let date = parsed.map_err(|_| format!("无法解析日期: {}", date_str))?;
+    let year = chrono::Datelike::year(&date);
+    if !(1900..=2100).contains(&year) {
+        return Err(format!("年份超出允许范围: {}", year));
     }
+    Ok((year, chrono::Datelike::month(&date) as i32))
 }
 
 #[tauri::command]
@@ -2147,11 +3045,88 @@ pub async fn import_vouchers(
     _period_id: Option<String>,
     voucher_word_id: String,
     vouchers: Vec<ImportVoucherInput>,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<ImportResult, String> {
-    log::info!("Importing {} vouchers for company {}", vouchers.len(), company_id);
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
+    log::info!(
+        "Importing {} vouchers for company {}",
+        vouchers.len(),
+        company_id
+    );
 
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    if vouchers.is_empty() {
+        return Err("没有可导入的凭证".to_string());
+    }
+    if vouchers.len() > MAX_VOUCHER_IMPORT_VOUCHERS {
+        return Err(format!(
+            "单次最多导入 {} 张凭证",
+            MAX_VOUCHER_IMPORT_VOUCHERS
+        ));
+    }
+
+    let mut total_entries = 0usize;
+    let mut minimum_period_index = i32::MAX;
+    let mut maximum_period_index = i32::MIN;
+    for (voucher_index, voucher) in vouchers.iter().enumerate() {
+        let (year, month) = parse_year_month(&voucher.voucher_date)
+            .map_err(|error| format!("第 {} 张凭证日期无效: {error}", voucher_index + 1))?;
+        let period_index = year * 12 + month - 1;
+        minimum_period_index = minimum_period_index.min(period_index);
+        maximum_period_index = maximum_period_index.max(period_index);
+        if voucher.entries.len() < 2
+            || voucher.entries.len() > MAX_VOUCHER_IMPORT_ENTRIES_PER_VOUCHER
+        {
+            return Err(format!(
+                "第 {} 张凭证分录数须为 2 至 {} 条",
+                voucher_index + 1,
+                MAX_VOUCHER_IMPORT_ENTRIES_PER_VOUCHER
+            ));
+        }
+        total_entries = total_entries
+            .checked_add(voucher.entries.len())
+            .ok_or_else(|| "导入分录数量溢出".to_string())?;
+        if total_entries > MAX_VOUCHER_IMPORT_ROWS {
+            return Err(format!("单次最多导入 {} 条分录", MAX_VOUCHER_IMPORT_ROWS));
+        }
+        for (entry_index, entry) in voucher.entries.iter().enumerate() {
+            if entry.account_code.len() < 4
+                || entry.account_code.len() > 32
+                || !entry
+                    .account_code
+                    .chars()
+                    .all(|value| value.is_ascii_digit())
+            {
+                return Err(format!(
+                    "第 {} 张凭证第 {} 条分录科目编码无效",
+                    voucher_index + 1,
+                    entry_index + 1
+                ));
+            }
+            if !matches!(entry.direction.as_str(), "debit" | "credit")
+                || !entry.amount.is_finite()
+                || entry.amount <= 0.0
+            {
+                return Err(format!(
+                    "第 {} 张凭证第 {} 条分录方向或金额无效",
+                    voucher_index + 1,
+                    entry_index + 1
+                ));
+            }
+        }
+    }
+    if maximum_period_index - minimum_period_index + 1 > MAX_VOUCHER_IMPORT_PERIOD_SPAN_MONTHS {
+        return Err(format!(
+            "单次导入的账期跨度不能超过 {} 个月",
+            MAX_VOUCHER_IMPORT_PERIOD_SPAN_MONTHS
+        ));
+    }
+
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
 
     // Resolve voucher word — default to first word for the company if not specified
     let resolved_word_id: String = if voucher_word_id.is_empty() {
@@ -2167,16 +3142,17 @@ pub async fn import_vouchers(
         voucher_word_id.clone()
     };
 
-    let word_name: (String,) = sqlx::query_as(
-        "SELECT word_name FROM voucher_words WHERE id = ?",
-    )
-    .bind(&resolved_word_id)
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(|e| format!("凭证字不存在: {}", e))?;
+    let word_name: (String,) =
+        sqlx::query_as("SELECT word_name FROM voucher_words WHERE id = ? AND company_id = ?")
+            .bind(&resolved_word_id)
+            .bind(&company_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|e| format!("凭证字不存在: {}", e))?;
 
     // Cache for period_id lookup: (year, month) → period_id
-    let mut period_cache: std::collections::HashMap<(i32, i32), String> = std::collections::HashMap::new();
+    let mut period_cache: std::collections::HashMap<(i32, i32), String> =
+        std::collections::HashMap::new();
 
     // Pre-scan all voucher dates to find the min/max range,
     // then create ALL periods in that range continuously (no gaps).
@@ -2187,14 +3163,23 @@ pub async fn import_vouchers(
         for v in &vouchers {
             if let Ok((y, m)) = parse_year_month(&v.voucher_date) {
                 match min_ym {
-                    None => { min_ym = Some((y, m)); max_ym = Some((y, m)); }
+                    None => {
+                        min_ym = Some((y, m));
+                        max_ym = Some((y, m));
+                    }
                     Some((my, mm)) => {
-                        if y < my || (y == my && m < mm) { min_ym = Some((y, m)); }
-                        if y > my || (y == my && m > mm) { max_ym = Some((y, m)); }
+                        if y < my || (y == my && m < mm) {
+                            min_ym = Some((y, m));
+                        }
+                        if y > my || (y == my && m > mm) {
+                            max_ym = Some((y, m));
+                        }
                     }
                 }
                 if let Some((cy, cm)) = max_ym {
-                    if y > cy || (y == cy && m > cm) { max_ym = Some((y, m)); }
+                    if y > cy || (y == cy && m > cm) {
+                        max_ym = Some((y, m));
+                    }
                 }
             }
         }
@@ -2204,12 +3189,17 @@ pub async fn import_vouchers(
             let mut cur_y = min_y;
             let mut cur_m = min_m;
             loop {
-                let pid = resolve_period_for_date(&company_id, cur_y, cur_m, &mut *tx).await?;
+                let pid = resolve_period_for_date(&company_id, cur_y, cur_m, &mut tx).await?;
                 period_cache.insert((cur_y, cur_m), pid);
 
-                if cur_y == max_y && cur_m == max_m { break; }
+                if cur_y == max_y && cur_m == max_m {
+                    break;
+                }
                 cur_m += 1;
-                if cur_m > 12 { cur_m = 1; cur_y += 1; }
+                if cur_m > 12 {
+                    cur_m = 1;
+                    cur_y += 1;
+                }
             }
         }
     }
@@ -2222,17 +3212,26 @@ pub async fn import_vouchers(
 
     for (idx, v) in vouchers.iter().enumerate() {
         // Validate
-        let total_debit: f64 = v.entries.iter()
+        let total_debit: f64 = v
+            .entries
+            .iter()
             .filter(|e| e.direction == "debit")
             .map(|e| e.amount)
             .sum();
-        let total_credit: f64 = v.entries.iter()
+        let total_credit: f64 = v
+            .entries
+            .iter()
             .filter(|e| e.direction == "credit")
             .map(|e| e.amount)
             .sum();
 
         if (total_debit - total_credit).abs() > 0.01 {
-            errors.push(format!("第{}行凭证借贷不平衡(借:{:.2} 贷:{:.2})", idx + 1, total_debit, total_credit));
+            errors.push(format!(
+                "第{}行凭证借贷不平衡(借:{:.2} 贷:{:.2})",
+                idx + 1,
+                total_debit,
+                total_credit
+            ));
             continue;
         }
 
@@ -2247,14 +3246,13 @@ pub async fn import_vouchers(
         // system seeds 6602 for 管理费用).
         let mut auto_created: Vec<String> = Vec::new();
         for e in &v.entries {
-            let exists: Option<(String,)> = sqlx::query_as(
-                "SELECT code FROM account_codes WHERE code = ? AND company_id = ?",
-            )
-            .bind(&e.account_code)
-            .bind(&company_id)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|err| format!("查询失败: {}", err))?;
+            let exists: Option<(String,)> =
+                sqlx::query_as("SELECT code FROM account_codes WHERE code = ? AND company_id = ?")
+                    .bind(&e.account_code)
+                    .bind(&company_id)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(|err| format!("查询失败: {}", err))?;
 
             if exists.is_some() || auto_created.contains(&e.account_code) {
                 continue;
@@ -2267,9 +3265,17 @@ pub async fn import_vouchers(
             // e.g., "应交税费_应交增值税_销项税额" → ["应交税费", "应交增值税", "销项税额"]
             // Each element corresponds to a level in the account hierarchy.
             let mut name_path: Vec<String> = if !full_name.is_empty() {
-                full_name.split('_').filter(|s| !s.is_empty()).map(|s| s.to_string()).collect()
+                full_name
+                    .split('_')
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string())
+                    .collect()
             } else if let Some(an) = e.account_name.as_deref() {
-                if !an.is_empty() && an != code { vec![an.to_string()] } else { vec![] }
+                if !an.is_empty() && an != code {
+                    vec![an.to_string()]
+                } else {
+                    vec![]
+                }
             } else {
                 vec![]
             };
@@ -2389,7 +3395,11 @@ pub async fn import_vouchers(
 
                     let mut i = 0;
                     while i < chars.len() {
-                        let chunk_len = if i + 2 <= chars.len() { 2 } else { chars.len() - i };
+                        let chunk_len = if i + 2 <= chars.len() {
+                            2
+                        } else {
+                            chars.len() - i
+                        };
                         let chunk: String = chars[i..i + chunk_len].iter().collect();
                         current_prefix = format!("{}{}", current_prefix, chunk);
                         current_level += 1;
@@ -2407,7 +3417,12 @@ pub async fn import_vouchers(
                             Some(codes_to_create.last().unwrap().0.clone())
                         };
 
-                        codes_to_create.push((current_prefix.clone(), name, current_level, p_for_this));
+                        codes_to_create.push((
+                            current_prefix.clone(),
+                            name,
+                            current_level,
+                            p_for_this,
+                        ));
                         i += chunk_len;
                     }
                 }
@@ -2512,7 +3527,13 @@ pub async fn import_vouchers(
                     if !all_auto_created_codes.contains(c_code) {
                         all_auto_created_codes.push(c_code.clone());
                     }
-                    log::info!("Auto-created account: {} {} (level {}, type {})", c_code, c_name, c_level, account_type);
+                    log::info!(
+                        "Auto-created account: {} {} (level {}, type {})",
+                        c_code,
+                        c_name,
+                        c_level,
+                        account_type
+                    );
                 }
             }
         }
@@ -2522,17 +3543,20 @@ pub async fn import_vouchers(
         // Validate account codes again (catch any that couldn't be auto-created)
         let mut acct_errors = Vec::new();
         for (ei, e) in v.entries.iter().enumerate() {
-            let exists: Option<(String,)> = sqlx::query_as(
-                "SELECT code FROM account_codes WHERE code = ? AND company_id = ?",
-            )
-            .bind(&e.account_code)
-            .bind(&company_id)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|err| format!("查询失败: {}", err))?;
+            let exists: Option<(String,)> =
+                sqlx::query_as("SELECT code FROM account_codes WHERE code = ? AND company_id = ?")
+                    .bind(&e.account_code)
+                    .bind(&company_id)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(|err| format!("查询失败: {}", err))?;
 
             if exists.is_none() {
-                acct_errors.push(format!("分录{} 科目编码{}不存在(无法自动创建,未找到父级科目)", ei + 1, e.account_code));
+                acct_errors.push(format!(
+                    "分录{} 科目编码{}不存在(无法自动创建,未找到父级科目)",
+                    ei + 1,
+                    e.account_code
+                ));
             }
         }
         if !acct_errors.is_empty() {
@@ -2546,7 +3570,7 @@ pub async fn import_vouchers(
                 if let Some(pid) = period_cache.get(&(year, month)) {
                     pid.clone()
                 } else {
-                    let pid = resolve_period_for_date(&company_id, year, month, &mut *tx).await?;
+                    let pid = resolve_period_for_date(&company_id, year, month, &mut tx).await?;
                     period_cache.insert((year, month), pid.clone());
                     pid
                 }
@@ -2556,6 +3580,7 @@ pub async fn import_vouchers(
                 continue;
             }
         };
+        ensure_import_period_open(&resolved_period_id, &mut tx).await?;
 
         // Get current max sequence for this specific period
         let last_seq_in_period: Option<(Option<i32>,)> = sqlx::query_as(
@@ -2576,11 +3601,11 @@ pub async fn import_vouchers(
         let voucher_number = format!("{}字第{:03}号", word_name.0, seq_in_period);
         let now = chrono::Utc::now().to_rfc3339();
 
-        // Imported vouchers are auto-approved since 序时账 represents already-posted entries
+        // Imported vouchers remain drafts until an authorized operator reviews and approves them.
         let insert_result = sqlx::query(
             "INSERT INTO vouchers (id, company_id, period_id, voucher_word_id, voucher_number, sequence_num,
-                voucher_date, summary, attachment_count, status, total_debit, total_credit, version, created_by, created_at, approved_by, approved_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'approved', ?, ?, 1, 'import', ?, 'import', ?)",
+                voucher_date, summary, attachment_count, status, total_debit, total_credit, version, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'draft', ?, ?, 1, ?, ?)",
         )
         .bind(&id)
         .bind(&company_id)
@@ -2592,8 +3617,8 @@ pub async fn import_vouchers(
         .bind(&v.summary)
         .bind(total_debit)
         .bind(total_credit)
+        .bind(&actor)
         .bind(&now)
-        .bind(&now) // approved_at
         .execute(&mut *tx)
         .await;
 
@@ -2613,10 +3638,10 @@ pub async fn import_vouchers(
                 if !full_name.is_empty() {
                     full_name.clone()
                 } else {
-                    build_full_account_name(&e.account_code, &company_id, &mut *tx).await
+                    build_full_account_name(&e.account_code, &company_id, &mut tx).await
                 }
             } else {
-                build_full_account_name(&e.account_code, &company_id, &mut *tx).await
+                build_full_account_name(&e.account_code, &company_id, &mut tx).await
             };
 
             let entry_result = sqlx::query(
@@ -2647,109 +3672,111 @@ pub async fn import_vouchers(
             continue;
         }
 
-        // Update account_balances since imported vouchers are auto-approved
-        if let Err(e) = update_balances_on_approve(&id, &resolved_period_id, &mut tx).await {
-            errors.push(format!("第{}行凭证余额更新失败: {}", idx + 1, e));
-            continue;
-        }
+        log_voucher_operation_raw(&id, "import", None, Some(&id), Some(&actor), &mut tx).await?;
 
         success += 1;
         voucher_ids.push(id);
     }
 
-    // After all vouchers are imported, recalculate closing balances for each
-    // affected period and carry forward to subsequent periods.
-    // This ensures that when multiple periods are created during import,
-    // each period's closing balance correctly feeds into the next period's opening.
-    {
-        // Collect all affected period IDs in chronological order
-        let mut affected_periods: Vec<(i32, i32, String)> = Vec::new();
-        for ((y, m), pid) in &period_cache {
-            affected_periods.push((*y, *m, pid.clone()));
-        }
-        affected_periods.sort_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
-
-        // For each period, recalculate closing balances from opening + period activity
-        for (idx, (_y, _m, pid)) in affected_periods.iter().enumerate() {
-            // Recalculate closing balances for this period based on actual period_debit/period_credit
-            sqlx::query(
-                "UPDATE account_balances SET closing_debit = opening_debit + period_debit, closing_credit = opening_credit + period_credit WHERE period_id = ?",
-            )
-            .bind(pid)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| format!("更新期间{}期末余额失败: {}", pid, e))?;
-
-            // Carry forward closing balances to the next period's opening balances
-            if idx + 1 < affected_periods.len() {
-                let next_pid = &affected_periods[idx + 1].2;
-                // Update opening balances of next period from this period's closing balances
-                let closings: Vec<(String, f64, f64)> = sqlx::query_as(
-                    "SELECT account_code, closing_debit, closing_credit FROM account_balances WHERE period_id = ?",
-                )
-                .bind(pid)
-                .fetch_all(&mut *tx)
-                .await
-                .map_err(|e| format!("查询期间{}期末余额失败: {}", pid, e))?;
-
-                for (code, cd, cc) in &closings {
-                    sqlx::query(
-                        "UPDATE account_balances SET opening_debit = ?, opening_credit = ?, closing_debit = opening_debit + period_debit, closing_credit = opening_credit + period_credit WHERE period_id = ? AND account_code = ?",
-                    )
-                    .bind(cd)
-                    .bind(cc)
-                    .bind(next_pid)
-                    .bind(code)
-                    .execute(&mut *tx)
-                    .await
-                    .map_err(|e| format!("结转余额到期间{}失败: {}", next_pid, e))?;
-                }
-            }
-        }
-    }
-
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
     log::info!("Imported {}/{} vouchers", success, vouchers.len());
     let auto_created_periods = period_cache.len();
-    Ok(ImportResult { success, errors, voucher_ids, auto_created_accounts: total_auto_created_accounts, auto_created_periods })
+    Ok(ImportResult {
+        success,
+        errors,
+        voucher_ids,
+        auto_created_accounts: total_auto_created_accounts,
+        auto_created_periods,
+    })
 }
 
 #[tauri::command]
 pub async fn delete_company_vouchers(
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<u64, String> {
-    log::info!("Deleting all vouchers for company: {}", company_id);
+    log::info!("Soft-deleting draft vouchers for company: {}", company_id);
 
-    let voucher_ids: Vec<(String,)> = sqlx::query_as(
-        "SELECT id FROM vouchers WHERE company_id = ? AND status = 'draft'",
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
+
+    let vouchers: Vec<Voucher> = sqlx::query_as(
+        r#"SELECT v.*
+           FROM vouchers v
+           INNER JOIN accounting_periods p ON p.id = v.period_id AND p.company_id = v.company_id
+           WHERE v.company_id = ? AND v.status = 'draft'
+             AND (v.is_deleted = 0 OR v.is_deleted IS NULL) AND p.status = 'open'"#,
     )
     .bind(&company_id)
-    .fetch_all(db.pool())
+    .fetch_all(&mut *tx)
     .await
     .map_err(|e| format!("Database error: {}", e))?;
 
-    let count = voucher_ids.len() as u64;
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut count = 0u64;
+    for voucher in &vouchers {
+        let before_data = serde_json::to_string(voucher).unwrap_or_default();
+        let affected = sqlx::query(
+            "UPDATE vouchers SET is_deleted = 1, deleted_at = ?, modified_by = ?, modified_at = ? WHERE id = ? AND company_id = ? AND status = 'draft' AND (is_deleted = 0 OR is_deleted IS NULL)",
+        )
+        .bind(&now)
+        .bind(&actor)
+        .bind(&now)
+        .bind(&voucher.id)
+        .bind(&company_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Failed to soft-delete voucher: {}", e))?;
+        if affected.rows_affected() == 0 {
+            continue;
+        }
 
-    for (vid,) in &voucher_ids {
-        sqlx::query("DELETE FROM voucher_logs WHERE voucher_id = ?")
-            .bind(vid)
-            .execute(&mut *tx)
+        let updated: Voucher = sqlx::query_as("SELECT * FROM vouchers WHERE id = ?")
+            .bind(&voucher.id)
+            .fetch_one(&mut *tx)
             .await
-            .map_err(|e| format!("Failed to delete logs: {}", e))?;
-
-        sqlx::query("DELETE FROM vouchers WHERE id = ?")
-            .bind(vid)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| format!("Failed to delete voucher: {}", e))?;
+            .map_err(|e| format!("Database error: {}", e))?;
+        let after_data = serde_json::to_string(&updated).unwrap_or_default();
+        log_voucher_operation_raw(
+            &voucher.id,
+            "delete",
+            Some(&before_data),
+            Some(&after_data),
+            Some(&actor),
+            &mut tx,
+        )
+        .await?;
+        count += 1;
     }
 
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    log_operation_audit(
+        &company_id,
+        "批量删除草稿凭证",
+        None,
+        "critical",
+        &format!("开放期间内共{}张草稿凭证移入回收站", count),
+        &actor,
+        &mut tx,
+    )
+    .await?;
 
-    log::info!("Deleted {} vouchers for company: {}", count, company_id);
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
+
+    log::info!(
+        "Soft-deleted {} draft vouchers for company: {}",
+        count,
+        company_id
+    );
     Ok(count)
 }
 
@@ -2784,46 +3811,86 @@ pub async fn export_vouchers_excel(
     let sheet = workbook.add_worksheet();
 
     // Header
-    let headers = ["日期", "凭证号", "摘要", "科目编码", "科目名称", "方向", "金额", "状态"];
+    let headers = [
+        "日期",
+        "凭证号",
+        "摘要",
+        "科目编码",
+        "科目名称",
+        "方向",
+        "金额",
+        "状态",
+    ];
     for (col, h) in headers.iter().enumerate() {
-        sheet.write_string(0, col as u16, *h).map_err(|e| format!("{}", e))?;
+        sheet
+            .write_string(0, col as u16, *h)
+            .map_err(|e| format!("{}", e))?;
     }
 
     let mut row = 1u32;
     for v in &vouchers {
-        let entries: Vec<VoucherEntry> = sqlx::query_as(
-            "SELECT * FROM voucher_entries WHERE voucher_id = ? ORDER BY line_num",
-        )
-        .bind(&v.id)
-        .fetch_all(db.pool())
-        .await
-        .map_err(|e| format!("Database error: {}", e))?;
+        let entries: Vec<VoucherEntry> =
+            sqlx::query_as("SELECT * FROM voucher_entries WHERE voucher_id = ? ORDER BY line_num")
+                .bind(&v.id)
+                .fetch_all(db.pool())
+                .await
+                .map_err(|e| format!("Database error: {}", e))?;
 
         for e in &entries {
-            sheet.write_string(row, 0, &v.voucher_date).map_err(|e| format!("{}", e))?;
-            sheet.write_string(row, 1, &v.voucher_number).map_err(|e| format!("{}", e))?;
-            sheet.write_string(row, 2, e.summary.as_deref().unwrap_or("")).map_err(|e| format!("{}", e))?;
-            sheet.write_string(row, 3, &e.account_code).map_err(|e| format!("{}", e))?;
-            sheet.write_string(row, 4, &e.account_name).map_err(|e| format!("{}", e))?;
-            sheet.write_string(row, 5, &e.direction).map_err(|e| format!("{}", e))?;
-            sheet.write_number(row, 6, e.amount).map_err(|e| format!("{}", e))?;
-            sheet.write_string(row, 7, &v.status).map_err(|e| format!("{}", e))?;
+            sheet
+                .write_string(row, 0, &v.voucher_date)
+                .map_err(|e| format!("{}", e))?;
+            sheet
+                .write_string(row, 1, &v.voucher_number)
+                .map_err(|e| format!("{}", e))?;
+            sheet
+                .write_string(row, 2, e.summary.as_deref().unwrap_or(""))
+                .map_err(|e| format!("{}", e))?;
+            sheet
+                .write_string(row, 3, &e.account_code)
+                .map_err(|e| format!("{}", e))?;
+            sheet
+                .write_string(row, 4, &e.account_name)
+                .map_err(|e| format!("{}", e))?;
+            sheet
+                .write_string(row, 5, &e.direction)
+                .map_err(|e| format!("{}", e))?;
+            sheet
+                .write_number(row, 6, e.amount)
+                .map_err(|e| format!("{}", e))?;
+            sheet
+                .write_string(row, 7, &v.status)
+                .map_err(|e| format!("{}", e))?;
             row += 1;
         }
     }
 
     // Set column widths
-    sheet.set_column_width(0, 12).map_err(|e| format!("{}", e))?;
-    sheet.set_column_width(1, 18).map_err(|e| format!("{}", e))?;
-    sheet.set_column_width(2, 30).map_err(|e| format!("{}", e))?;
-    sheet.set_column_width(3, 15).map_err(|e| format!("{}", e))?;
-    sheet.set_column_width(4, 20).map_err(|e| format!("{}", e))?;
+    sheet
+        .set_column_width(0, 12)
+        .map_err(|e| format!("{}", e))?;
+    sheet
+        .set_column_width(1, 18)
+        .map_err(|e| format!("{}", e))?;
+    sheet
+        .set_column_width(2, 30)
+        .map_err(|e| format!("{}", e))?;
+    sheet
+        .set_column_width(3, 15)
+        .map_err(|e| format!("{}", e))?;
+    sheet
+        .set_column_width(4, 20)
+        .map_err(|e| format!("{}", e))?;
     sheet.set_column_width(5, 8).map_err(|e| format!("{}", e))?;
-    sheet.set_column_width(6, 15).map_err(|e| format!("{}", e))?;
+    sheet
+        .set_column_width(6, 15)
+        .map_err(|e| format!("{}", e))?;
     sheet.set_column_width(7, 8).map_err(|e| format!("{}", e))?;
 
     let path = std::env::temp_dir().join(format!("vouchers_export_{}.xlsx", uuid::Uuid::new_v4()));
-    workbook.save(&path).map_err(|e| format!("Failed to save Excel: {}", e))?;
+    workbook
+        .save(&path)
+        .map_err(|e| format!("Failed to save Excel: {}", e))?;
 
     Ok(path.to_string_lossy().to_string())
 }
@@ -2865,28 +3932,78 @@ pub async fn parse_voucher_excel(
 ) -> Result<ParseExcelResult, String> {
     use calamine::{open_workbook_auto, DataType, Reader};
 
-    let mut workbook = open_workbook_auto(&file_path)
-        .map_err(|e| format!("无法打开Excel文件: {}", e))?;
+    if !matches!(format_type.as_str(), "chronological" | "standard") {
+        return Err("不支持的凭证导入格式".to_string());
+    }
+    let extension = std::path::Path::new(&file_path)
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .ok_or_else(|| "凭证导入文件缺少扩展名".to_string())?;
+    if !matches!(extension.as_str(), "xlsx" | "xls") {
+        return Err("凭证导入仅支持 .xlsx 或 .xls 文件".to_string());
+    }
+    let metadata =
+        std::fs::metadata(&file_path).map_err(|error| format!("无法读取Excel文件信息: {error}"))?;
+    if !metadata.is_file() {
+        return Err("凭证导入路径不是文件".to_string());
+    }
+    if metadata.len() == 0 || metadata.len() > MAX_VOUCHER_IMPORT_FILE_BYTES {
+        return Err(format!(
+            "凭证导入文件须大于 0 且不超过 {} MB",
+            MAX_VOUCHER_IMPORT_FILE_BYTES / 1024 / 1024
+        ));
+    }
+
+    let mut workbook =
+        open_workbook_auto(&file_path).map_err(|e| format!("无法打开Excel文件: {}", e))?;
 
     let sheet_names = workbook.sheet_names().to_vec();
-    let sheet_name = sheet_names.first()
+    let sheet_name = sheet_names
+        .first()
         .ok_or_else(|| "Excel文件没有工作表".to_string())?
         .clone();
 
-    let range = workbook.worksheet_range(&sheet_name)
+    let range = workbook
+        .worksheet_range(&sheet_name)
         .map_err(|e| format!("读取工作表失败: {}", e))?;
+
+    if range.height() > MAX_VOUCHER_IMPORT_ROWS + 5 {
+        return Err(format!(
+            "凭证导入工作表最多允许 {} 行数据",
+            MAX_VOUCHER_IMPORT_ROWS
+        ));
+    }
+    if range.width() > MAX_VOUCHER_IMPORT_COLUMNS {
+        return Err(format!(
+            "凭证导入工作表最多允许 {} 列",
+            MAX_VOUCHER_IMPORT_COLUMNS
+        ));
+    }
 
     let all_rows: Vec<Vec<calamine::Data>> = range.rows().map(|r| r.to_vec()).collect();
 
     // Find header row: scan first 5 rows for known column names
-    let header_keywords = ["日期", "凭证号", "凭证字号", "摘要", "科目编码", "科目全称", "科目名称", "借方金额", "贷方金额", "方向", "金额"];
+    let header_keywords = [
+        "日期",
+        "凭证号",
+        "凭证字号",
+        "摘要",
+        "科目编码",
+        "科目全称",
+        "科目名称",
+        "借方金额",
+        "贷方金额",
+        "方向",
+        "金额",
+    ];
     let mut header_row_idx = 0usize;
     let mut col_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
 
-    for ri in 0..std::cmp::min(all_rows.len(), 5) {
-        let row = &all_rows[ri];
+    for (ri, row) in all_rows.iter().enumerate().take(5) {
         let mut found = 0usize;
-        let mut local_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut local_map: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
 
         for (ci, cell) in row.iter().enumerate() {
             if let Some(s) = cell.get_string() {
@@ -2914,10 +4031,23 @@ pub async fn parse_voucher_excel(
     }
 
     // Helper to get cell string value by column name
-    let get_cell_str = |row: &[calamine::Data], col_name: &str, map: &std::collections::HashMap<String, usize>| -> String {
+    let get_cell_str = |row: &[calamine::Data],
+                        col_name: &str,
+                        map: &std::collections::HashMap<String, usize>|
+     -> String {
         if let Some(&ci) = map.get(col_name) {
             row.get(ci)
-                .and_then(|c| if let Some(s) = c.get_string() { Some(s.trim().to_string()) } else if let calamine::Data::Float(f) = c { Some(format!("{}", f)) } else if let calamine::Data::Int(i) = c { Some(format!("{}", i)) } else { None })
+                .and_then(|c| {
+                    if let Some(s) = c.get_string() {
+                        Some(s.trim().to_string())
+                    } else if let calamine::Data::Float(f) = c {
+                        Some(format!("{}", f))
+                    } else if let calamine::Data::Int(i) = c {
+                        Some(format!("{}", i))
+                    } else {
+                        None
+                    }
+                })
                 .unwrap_or_default()
         } else {
             String::new()
@@ -2926,7 +4056,9 @@ pub async fn parse_voucher_excel(
 
     // Helper to parse amount from cell
     let parse_amt = |s: &str| -> f64 {
-        if s.is_empty() { return 0.0; }
+        if s.is_empty() {
+            return 0.0;
+        }
         s.parse::<f64>().unwrap_or(0.0)
     };
 
@@ -2954,17 +4086,25 @@ pub async fn parse_voucher_excel(
             let debit_str = get_cell_str(row, "借方金额", &col_map);
             let credit_str = get_cell_str(row, "贷方金额", &col_map);
 
-            if date_str.is_empty() && acct_code.is_empty() && debit_str.is_empty() && credit_str.is_empty() {
+            if date_str.is_empty()
+                && acct_code.is_empty()
+                && debit_str.is_empty()
+                && credit_str.is_empty()
+            {
                 continue;
             }
 
             let debit = parse_amt(&debit_str);
             let credit = parse_amt(&credit_str);
 
-            let direction = if debit > 0.0 { "debit".to_string() } else { "credit".to_string() };
+            let direction = if debit > 0.0 {
+                "debit".to_string()
+            } else {
+                "credit".to_string()
+            };
             let amount = if debit > 0.0 { debit } else { credit };
 
-            if amount <= 0.0 {
+            if !amount.is_finite() || amount <= 0.0 {
                 row_errors.push("借贷金额均为零或负数".to_string());
             }
             if acct_code.is_empty() {
@@ -2999,9 +4139,13 @@ pub async fn parse_voucher_excel(
                 continue;
             }
 
-            let direction = if direction_str == "debit" || direction_str == "借" || direction_str == "借方" {
+            let direction = if direction_str == "debit"
+                || direction_str == "借"
+                || direction_str == "借方"
+            {
                 "debit".to_string()
-            } else if direction_str == "credit" || direction_str == "贷" || direction_str == "贷方" {
+            } else if direction_str == "credit" || direction_str == "贷" || direction_str == "贷方"
+            {
                 "credit".to_string()
             } else {
                 row_errors.push(format!("方向无法识别: '{}'", direction_str));
@@ -3013,7 +4157,7 @@ pub async fn parse_voucher_excel(
             if acct_code.is_empty() {
                 row_errors.push("科目编码为空".to_string());
             }
-            if amount <= 0.0 {
+            if !amount.is_finite() || amount <= 0.0 {
                 row_errors.push("金额为零或负数".to_string());
             }
 
@@ -3025,7 +4169,11 @@ pub async fn parse_voucher_excel(
                 row_index,
                 voucher_date: date_str,
                 voucher_number: String::new(),
-                summary: if entry_summary.is_empty() { summary } else { entry_summary },
+                summary: if entry_summary.is_empty() {
+                    summary
+                } else {
+                    entry_summary
+                },
                 account_code: acct_code,
                 account_name: String::new(),
                 account_full_name: String::new(),
@@ -3049,19 +4197,34 @@ pub async fn parse_voucher_excel(
 }
 
 /// Recalculate all account_balances for a company.
-/// This will:
-/// 1. Approve all draft vouchers (imported vouchers should be auto-approved)
-/// 2. Recalculate period_debit/period_credit/closing for each period
-/// 3. Carry forward closing balances to next period's opening
-/// 4. Create missing periods between min and max voucher dates
+/// This preserves draft status and recalculates balances from approved vouchers only.
+/// It also removes duplicate periods and creates missing periods between the
+/// earliest and latest existing accounting data.
 #[tauri::command]
 pub async fn recalculate_balances(
     company_id: String,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<String, String> {
     log::info!("Recalculating balances for company: {}", company_id);
 
-    let mut tx = db.pool().begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
+    let locked_periods: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM accounting_periods WHERE company_id = ? AND status != 'open'",
+    )
+    .bind(&company_id)
+    .fetch_one(db.pool())
+    .await
+    .map_err(|e| format!("校验会计期间失败: {}", e))?;
+    if locked_periods.0 > 0 {
+        return Err("账套存在已结账期间，不能重算余额；请先按会计期间顺序反结账".to_string());
+    }
+
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|e| format!("Transaction error: {}", e))?;
 
     // Step 0: Deduplicate periods — keep the earliest created one per (year, month)
     let dup_periods: Vec<(String, i32, i32)> = sqlx::query_as(
@@ -3117,21 +4280,7 @@ pub async fn recalculate_balances(
         log::info!("Removed {} duplicate periods", duplicates_removed);
     }
 
-    // Step 1: Approve all draft vouchers
-    let now = chrono::Utc::now().to_rfc3339();
-    let draft_count = sqlx::query(
-        "UPDATE vouchers SET status = 'approved', approved_by = 'recalculate', approved_at = ? WHERE company_id = ? AND status = 'draft' AND (is_deleted = 0 OR is_deleted IS NULL)",
-    )
-    .bind(&now)
-    .bind(&company_id)
-    .execute(&mut *tx)
-    .await
-    .map_err(|e| format!("审批草稿凭证失败: {}", e))?
-    .rows_affected();
-
-    log::info!("Approved {} draft vouchers", draft_count);
-
-    // Step 2: Determine the full date range from both voucher dates AND existing periods,
+    // Determine the full date range from both voucher dates and existing periods,
     // then create all missing periods to ensure continuity (no gaps between months).
     let voucher_range: Option<(String, String)> = sqlx::query_as(
         "SELECT MIN(voucher_date), MAX(voucher_date) FROM vouchers WHERE company_id = ? AND (is_deleted = 0 OR is_deleted IS NULL)",
@@ -3156,14 +4305,20 @@ pub async fn recalculate_balances(
     let mut max_m = 0i32;
 
     if let Some((min_date, max_date)) = voucher_range {
-        if let (Ok((vy1, vm1)), Ok((vy2, vm2))) = (parse_year_month(&min_date), parse_year_month(&max_date)) {
-            min_y = min_y.min(vy1); min_m = min_m.min(vm1);
-            max_y = max_y.max(vy2); max_m = max_m.max(vm2);
+        if let (Ok((vy1, vm1)), Ok((vy2, vm2))) =
+            (parse_year_month(&min_date), parse_year_month(&max_date))
+        {
+            min_y = min_y.min(vy1);
+            min_m = min_m.min(vm1);
+            max_y = max_y.max(vy2);
+            max_m = max_m.max(vm2);
         }
     }
     if let Some((py1, pm1, py2, pm2)) = period_range {
-        min_y = min_y.min(py1); min_m = min_m.min(pm1);
-        max_y = max_y.max(py2); max_m = max_m.max(pm2);
+        min_y = min_y.min(py1);
+        min_m = min_m.min(pm1);
+        max_y = max_y.max(py2);
+        max_m = max_m.max(pm2);
     }
 
     let mut periods_created = 0u32;
@@ -3183,14 +4338,19 @@ pub async fn recalculate_balances(
             .map_err(|e| format!("查询期间失败: {}", e))?;
 
             if existing.is_none() {
-                let _pid = resolve_period_for_date(&company_id, cur_y, cur_m, &mut *tx).await?;
+                let _pid = resolve_period_for_date(&company_id, cur_y, cur_m, &mut tx).await?;
                 log::info!("Created missing period {}-{}", cur_y, cur_m);
                 periods_created += 1;
             }
 
-            if cur_y == max_y && cur_m == max_m { break; }
+            if cur_y == max_y && cur_m == max_m {
+                break;
+            }
             cur_m += 1;
-            if cur_m > 12 { cur_m = 1; cur_y += 1; }
+            if cur_m > 12 {
+                cur_m = 1;
+                cur_y += 1;
+            }
         }
     }
 
@@ -3206,7 +4366,7 @@ pub async fn recalculate_balances(
 
     // Get all enabled account codes
     let account_codes: Vec<(String,)> = sqlx::query_as(
-        "SELECT code FROM account_codes WHERE company_id = ? AND is_enabled = 1",
+        "SELECT code FROM account_codes WHERE company_id = ? AND is_enabled = 1 AND is_detail = 1",
     )
     .bind(&company_id)
     .fetch_all(&mut *tx)
@@ -3214,13 +4374,27 @@ pub async fn recalculate_balances(
     .map_err(|e| format!("查询科目失败: {}", e))?;
 
     // First period gets opening from initial_balances or zero
-    let mut prev_closing: std::collections::HashMap<String, (f64, f64)> = std::collections::HashMap::new();
+    let mut prev_closing: std::collections::HashMap<String, (f64, f64)> =
+        std::collections::HashMap::new();
 
     for (period_id, _year, _month) in &periods {
         // For each account, reset period activity and recalculate from vouchers
         for (code,) in &account_codes {
-            // Get opening from previous period's closing
-            let (opening_debit, opening_credit) = prev_closing.get(code).copied().unwrap_or((0.0, 0.0));
+            // The first period keeps its finalized initial balance. Every later
+            // period opens from the immediately preceding net closing balance.
+            let (opening_debit, opening_credit) = if let Some(previous) = prev_closing.get(code) {
+                *previous
+            } else {
+                sqlx::query_as(
+                    "SELECT opening_debit, opening_credit FROM initial_balances WHERE period_id = ? AND account_code = ?",
+                )
+                .bind(period_id)
+                .bind(code)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|e| format!("查询期初余额失败: {}", e))?
+                .unwrap_or((0.0, 0.0))
+            };
 
             // Sum debit/credit from approved, non-deleted vouchers in this period
             let activity: (f64, f64) = sqlx::query_as(
@@ -3237,8 +4411,14 @@ pub async fn recalculate_balances(
             .map_err(|e| format!("查询期间活动失败: {}", e))?;
 
             let (period_debit, period_credit) = activity;
-            let closing_debit = opening_debit + period_debit;
-            let closing_credit = opening_credit + period_credit;
+            let closing_net = opening_debit - opening_credit + period_debit - period_credit;
+            let (closing_debit, closing_credit) = if closing_net > 0.001 {
+                (closing_net, 0.0)
+            } else if closing_net < -0.001 {
+                (0.0, -closing_net)
+            } else {
+                (0.0, 0.0)
+            };
 
             // Upsert the balance row
             let existing_bal: Option<(String,)> = sqlx::query_as(
@@ -3287,9 +4467,102 @@ pub async fn recalculate_balances(
         }
     }
 
-    tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+    let msg = format!(
+        "重算完成: 清理{}个重复期间, 新建{}个期间, 按已审核凭证重算{}个期间余额",
+        duplicates_removed,
+        periods_created,
+        periods.len()
+    );
+    log_operation_audit(
+        &company_id,
+        "重算科目余额",
+        None,
+        "critical",
+        &msg,
+        &actor,
+        &mut tx,
+    )
+    .await?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Commit error: {}", e))?;
 
-    let msg = format!("重算完成: 清理{}个重复期间, 审批{}张草稿凭证, 新建{}个期间, 重算{}个期间余额", duplicates_removed, draft_count, periods_created, periods.len());
     log::info!("{}", msg);
     Ok(msg)
+}
+
+#[cfg(test)]
+mod account_balance_posting_tests {
+    use super::{update_balances_on_approve, update_balances_on_reverse_approve};
+    use crate::db::Database;
+
+    #[tokio::test]
+    async fn voucher_posting_and_reversal_keep_closing_balance_on_one_side() {
+        let data_dir = std::env::temp_dir().join(format!(
+            "accounting-voucher-balance-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let database = Database::new(data_dir.clone())
+            .await
+            .expect("initializes voucher balance database");
+        for statement in [
+            "INSERT INTO companies (id, code, name) VALUES ('c1', 'C1', '余额测试')",
+            "INSERT INTO accounting_periods (id, company_id, period_year, period_month, start_date, end_date) VALUES ('p1', 'c1', 2026, 10, '2026-10-01', '2026-10-31')",
+            "INSERT INTO accounting_periods (id, company_id, period_year, period_month, start_date, end_date) VALUES ('p2', 'c1', 2026, 11, '2026-11-01', '2026-11-30')",
+            "INSERT INTO voucher_words (id, company_id, word_code, word_name) VALUES ('w1', 'c1', '记', '记')",
+            "INSERT INTO account_codes (company_id, code, name, account_type, normal_balance, level, is_detail) VALUES ('c1', '1001', '库存现金', 'asset', 'debit', 1, 1)",
+            "INSERT INTO account_balances (id, period_id, account_code, opening_debit, closing_debit) VALUES ('b1', 'p1', '1001', 100, 100)",
+            "INSERT INTO account_balances (id, period_id, account_code, period_debit, closing_debit) VALUES ('b2', 'p2', '1001', 10, 10)",
+            "INSERT INTO vouchers (id, company_id, period_id, voucher_word_id, voucher_number, sequence_num, voucher_date, status, total_debit, total_credit) VALUES ('v1', 'c1', 'p1', 'w1', '记-1', 1, '2026-10-10', 'draft', 130, 130)",
+            "INSERT INTO voucher_entries (id, voucher_id, line_num, account_code, account_name, direction, amount) VALUES ('e1', 'v1', 1, '1001', '库存现金', 'credit', 130)",
+        ] {
+            sqlx::query(statement)
+                .execute(database.pool())
+                .await
+                .expect("seeds voucher balance data");
+        }
+
+        let mut tx = database.pool().begin().await.expect("starts posting");
+        update_balances_on_approve("v1", "p1", &mut tx)
+            .await
+            .expect("posts voucher balance");
+        tx.commit().await.expect("commits posting");
+        let posted: (f64, f64, f64) = sqlx::query_as(
+            "SELECT period_credit, closing_debit, closing_credit FROM account_balances WHERE id = 'b1'",
+        )
+        .fetch_one(database.pool())
+        .await
+        .expect("reads posted balance");
+        assert_eq!(posted, (130.0, 0.0, 30.0));
+        let carried: (f64, f64, f64, f64) = sqlx::query_as(
+            "SELECT opening_debit, opening_credit, closing_debit, closing_credit FROM account_balances WHERE id = 'b2'",
+        )
+        .fetch_one(database.pool())
+        .await
+        .expect("reads carried balance");
+        assert_eq!(carried, (0.0, 30.0, 0.0, 20.0));
+
+        let mut tx = database.pool().begin().await.expect("starts reversal");
+        update_balances_on_reverse_approve("v1", "p1", &mut tx)
+            .await
+            .expect("reverses voucher balance");
+        tx.commit().await.expect("commits reversal");
+        let reversed: (f64, f64, f64) = sqlx::query_as(
+            "SELECT period_credit, closing_debit, closing_credit FROM account_balances WHERE id = 'b1'",
+        )
+        .fetch_one(database.pool())
+        .await
+        .expect("reads reversed balance");
+        assert_eq!(reversed, (0.0, 100.0, 0.0));
+        let restored: (f64, f64, f64, f64) = sqlx::query_as(
+            "SELECT opening_debit, opening_credit, closing_debit, closing_credit FROM account_balances WHERE id = 'b2'",
+        )
+        .fetch_one(database.pool())
+        .await
+        .expect("reads restored carried balance");
+        assert_eq!(restored, (100.0, 0.0, 110.0, 0.0));
+
+        database.pool().close().await;
+        std::fs::remove_dir_all(data_dir).expect("removes voucher balance test data directory");
+    }
 }

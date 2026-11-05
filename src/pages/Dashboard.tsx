@@ -16,8 +16,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { recordAuditLog } from '../lib/exportJobs'
+import { hasDashboardDataScope } from '../lib/dashboardDataScope.js'
 import { automationApi, bankTransactionApi, type AutomationJob, type BankTransaction, type TaxDeclarationTask } from '../lib/api'
-import { isTauri } from '../lib/tauri'
 import { useCompanyStore } from '../stores/companyStore'
 import { useInvoiceStore } from '../stores/invoiceStore'
 import { usePeriodStore } from '../stores/periodStore'
@@ -96,10 +96,10 @@ export function Dashboard() {
   const currentPeriodLabel = currentPeriod
     ? `${currentPeriod.period_year}-${String(currentPeriod.period_month).padStart(2, '0')}`
     : ''
-  const usesLiveDashboardData = Boolean(isTauri && selectedCompanyId && currentPeriodId)
+  const usesLiveDashboardData = hasDashboardDataScope({ companyId: selectedCompanyId, periodId: currentPeriodId })
 
   const reloadDashboardData = useCallback(async () => {
-    if (!isTauri || !selectedCompanyId) return
+    if (!selectedCompanyId) return
     if (!currentPeriodId) {
       await fetchPeriods(selectedCompanyId)
       return
@@ -207,7 +207,7 @@ export function Dashboard() {
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">账套工作台</h1>
-          <p className="mt-1 text-sm text-slate-500">{headline}</p>
+          <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{headline}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/ai/jobs" className="inline-flex h-9 items-center gap-2 rounded border border-[#1f65a7] bg-white px-3 text-sm font-medium text-[#1f65a7] hover:bg-[#eef6ff]">

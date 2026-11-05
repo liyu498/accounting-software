@@ -1,133 +1,218 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Button } from '../components/ui/Button'
-import { Input } from '../components/ui/Input'
-import { Card, CardContent } from '../components/ui/Card'
-import { useAuthStore } from '../stores/authStore'
-import { Lock, User } from 'lucide-react'
+import { Lock, ShieldCheck, User } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
+import { invoke, isTauri } from "../lib/tauri";
+import { useAuthStore } from "../stores/authStore";
+
+type AuthSetupStatus = {
+  initialized: boolean;
+};
+
+const inputClassName =
+  "rounded border-slate-300 pl-10 text-sm dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder:text-neutral-500";
 
 export function LoginPage() {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const navigate = useNavigate()
+  const [username, setUsername] = useState("");
+  const [realName, setRealName] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [setupRequired, setSetupRequired] = useState(false);
+  const [checkingSetup, setCheckingSetup] = useState(isTauri);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuthStore();
 
-  const { login, isAuthenticated } = useAuthStore()
-
-  // Check if running in Tauri webview
-  const isTauri = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
-
-  // In browser dev mode, auto-login and redirect
   useEffect(() => {
-    if (!isTauri && !isAuthenticated) {
-      login('admin', 'admin123').then((ok) => {
-        if (ok) navigate('/', { replace: true })
-      })
+    if (!isTauri) {
+      setCheckingSetup(false);
+      return;
     }
-  }, [isTauri, isAuthenticated, login, navigate])
 
-  // Redirect if already authenticated
+    let active = true;
+    void invoke<AuthSetupStatus>("get_auth_setup_status").then(
+      (status) => {
+        if (!active) return;
+        setSetupRequired(!status.initialized);
+        setCheckingSetup(false);
+      },
+      (reason) => {
+        if (!active) return;
+        setError(`无法读取管理员初始化状态：${String(reason)}`);
+        setCheckingSetup(false);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/', { replace: true })
+    if (isAuthenticated) navigate("/", { replace: true });
+  }, [isAuthenticated, navigate]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+
+    if (!username.trim() || !password) {
+      setError("请输入用户名和密码");
+      return;
     }
-  }, [isAuthenticated, navigate])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-
-    if (!username.trim() || !password.trim()) {
-      setError('请输入用户名和密码')
-      return
+    if (setupRequired && !realName.trim()) {
+      setError("请输入管理员姓名");
+      return;
+    }
+    if (setupRequired && password !== passwordConfirm) {
+      setError("两次输入的密码不一致");
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const success = await login(username, password)
-      if (success) {
-        navigate('/', { replace: true })
-      } else {
-        const currentError = useAuthStore.getState().error
-        setError(currentError || '用户名或密码错误')
+      if (setupRequired) {
+        await invoke("initialize_admin", {
+          input: {
+            username: username.trim(),
+            password,
+            real_name: realName.trim(),
+          },
+        });
+        setSetupRequired(false);
       }
-    } catch (err) {
-      setError('登录失败: ' + String(err))
+
+      const success = await login(username.trim(), password);
+      if (success) {
+        navigate("/", { replace: true });
+      } else {
+        setError(useAuthStore.getState().error || "用户名或密码错误");
+      }
+    } catch (reason) {
+      setError(`${setupRequired ? "初始化" : "登录"}失败：${String(reason)}`);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo and Title */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-lg mb-4">
-            <span className="text-3xl font-bold text-primary-600">账</span>
+    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-4 text-slate-900 dark:bg-black dark:text-neutral-100">
+      <section className="w-full max-w-sm border border-slate-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
+        <header className="border-b border-slate-200 px-6 py-5 dark:border-neutral-800">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center bg-[#1f65a7] text-lg font-semibold text-white">
+              账
+            </div>
+            <div>
+              <h1 className="text-base font-semibold">AI 代理记账</h1>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-neutral-400">
+                {setupRequired ? "首次启动安全初始化" : "桌面端身份验证"}
+              </p>
+            </div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">会计软件</h1>
-          <p className="text-primary-100">智能记账，轻松管理</p>
-        </div>
+        </header>
 
-        {/* Login Card */}
-        <Card className="shadow-xl">
-          <CardContent className="p-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6 text-center">
-              用户登录
-            </h2>
-
-            <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4 p-6">
+          {setupRequired && (
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-neutral-300">
+                管理员姓名
+              </span>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <ShieldCheck className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
-                  type="text"
-                  placeholder="用户名"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="pl-10"
-                  autoComplete="username"
+                  value={realName}
+                  onChange={(event) => setRealName(event.target.value)}
+                  className={inputClassName}
+                  autoComplete="name"
+                  disabled={checkingSetup || isLoading}
                 />
               </div>
+            </label>
+          )}
 
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-neutral-300">
+              用户名
+            </span>
+            <div className="relative">
+              <User className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Input
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                className={inputClassName}
+                autoComplete="username"
+                disabled={checkingSetup || isLoading}
+              />
+            </div>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-neutral-300">
+              密码
+            </span>
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className={inputClassName}
+                autoComplete={
+                  setupRequired ? "new-password" : "current-password"
+                }
+                disabled={checkingSetup || isLoading}
+              />
+            </div>
+          </label>
+
+          {setupRequired && (
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-neutral-300">
+                确认密码
+              </span>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
                   type="password"
-                  placeholder="密码"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
-                  autoComplete="current-password"
+                  value={passwordConfirm}
+                  onChange={(event) => setPasswordConfirm(event.target.value)}
+                  className={inputClassName}
+                  autoComplete="new-password"
+                  disabled={checkingSetup || isLoading}
                 />
               </div>
+              <p className="mt-1.5 text-xs leading-5 text-slate-500 dark:text-neutral-400">
+                至少 12 位，包含大小写字母、数字和符号，且不能包含用户名。
+              </p>
+            </label>
+          )}
 
-              {error && (
-                <div className="text-sm text-red-500 text-center">{error}</div>
-              )}
+          {error && (
+            <p
+              role="alert"
+              className="border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700 dark:border-red-950 dark:bg-red-950/30 dark:text-red-300"
+            >
+              {error}
+            </p>
+          )}
 
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                loading={isLoading}
-                className="w-full"
-              >
-                登录
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center text-sm text-gray-500">
-              <p>演示账号: admin / admin123</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <p className="text-center text-primary-200 text-sm mt-6">
-          © 2024 会计软件. 保留所有权利.
-        </p>
-      </div>
-    </div>
-  )
+          <Button
+            type="submit"
+            size="md"
+            loading={isLoading}
+            disabled={checkingSetup}
+            className="w-full rounded bg-[#1f65a7] text-sm dark:bg-blue-600"
+          >
+            {checkingSetup
+              ? "正在检查"
+              : setupRequired
+                ? "创建管理员并进入系统"
+                : "登录"}
+          </Button>
+        </form>
+      </section>
+    </main>
+  );
 }

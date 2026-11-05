@@ -8,6 +8,8 @@
 
 **Tech Stack:** React 19, React Router, TypeScript, Tailwind CSS, lucide-react, existing Zustand stores where already present.
 
+> **Completion note:** The phase-one generic `BusinessModulePage` was subsequently replaced by dedicated routed workspaces for all 98 business module kinds and has been removed. The task descriptions below are retained as historical implementation context.
+
 ---
 
 ### Task 1: Add Competitor-Aligned Module Pages
@@ -16,15 +18,15 @@
 - Create: `src/pages/operations/BusinessModulePage.tsx`
 - Create: `src/pages/tax/TaxWorkspace.tsx`
 
-- [ ] **Step 1: Create a reusable business module page**
+- [x] **Step 1: Create a reusable business module page**
 
 Implement a dense operation page with query controls, toolbar actions, summary strips, a horizontally scrollable table, status tags, source/voucher/attachment columns, and export/print buttons.
 
-- [ ] **Step 2: Create a tax declaration workspace**
+- [x] **Step 2: Create a tax declaration workspace**
 
 Implement a tax workbench with declaration status flow, validation findings, snapshot/log placeholders, and explicit adapter boundary text for real tax bureau submission.
 
-- [ ] **Step 3: Verify TypeScript compiles**
+- [x] **Step 3: Verify TypeScript compiles**
 
 Run: `npm run build`
 Expected: TypeScript and Vite build pass.
@@ -34,15 +36,15 @@ Expected: TypeScript and Vite build pass.
 **Files:**
 - Modify: `src/App.tsx`
 
-- [ ] **Step 1: Import the new module pages**
+- [x] **Step 1: Import the new module pages**
 
 Import `BusinessModulePage` and `TaxWorkspace`.
 
-- [ ] **Step 2: Add missing business-processing routes**
+- [x] **Step 2: Add missing business-processing routes**
 
 Add routes for invoice selection, bills, documents, transfers, employees, payroll, social security, special deductions, depreciation, inventory settings, and units.
 
-- [ ] **Step 3: Add tax workspace and settings routes**
+- [x] **Step 3: Add tax workspace and settings routes**
 
 Route the tax declaration workspace under `/tax/workspace` and add settings pages for declaration initialization, history ledgers, customers, projects, departments, tags, asset categories, invoice matching rules, and bill matching rules.
 
@@ -51,15 +53,15 @@ Route the tax declaration workspace under `/tax/workspace` and add settings page
 **Files:**
 - Modify: `src/components/layout/AppShell.tsx`
 
-- [ ] **Step 1: Expand business navigation**
+- [x] **Step 1: Expand business navigation**
 
 Expose all observed business modules in the sidebar in the competitor order.
 
-- [ ] **Step 2: Expand finance/report/tax/settings navigation**
+- [x] **Step 2: Expand finance/report/tax/settings navigation**
 
 Add risk check, quarterly reports, tax workspace, and missing settings modules while keeping existing functional pages linked.
 
-- [ ] **Step 3: Improve header context**
+- [x] **Step 3: Improve header context**
 
 Show desktop period/status context and keep the company selector as the primary tenant switcher.
 
@@ -68,12 +70,12 @@ Show desktop period/status context and keep the company selector as the primary 
 **Files:**
 - No additional files.
 
-- [ ] **Step 1: Run build**
+- [x] **Step 1: Run build**
 
 Run: `npm run build`
 Expected: Build succeeds.
 
-- [ ] **Step 2: Inspect git diff**
+- [x] **Step 2: Inspect git diff**
 
 Run: `git status --short && git diff --stat`
 Expected: Only planned docs and frontend files changed.

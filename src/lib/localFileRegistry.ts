@@ -1,4 +1,8 @@
 import { useEffect, useState } from 'react'
+import { assertLocalFileWithinLimit, MAX_LOCAL_ATTACHMENT_FILE_BYTES, MAX_STRUCTURED_IMPORT_FILE_BYTES } from './fileLimits'
+import { cloneVoucherAttachmentAssociations, filterVoucherAttachments } from './voucherAttachmentWorkflow.js'
+import { currentActorName } from '../stores/authStore'
+import { invoke, isTauri } from './tauri'
 
 const IMPORT_STORAGE_KEY = 'accounting_local_import_jobs_v1'
 const ATTACHMENT_STORAGE_KEY = 'accounting_local_attachment_records_v1'
@@ -51,6 +55,93 @@ export interface LocalAttachmentRecord {
 interface LocalFileScope {
   companyId: string
   period: string
+}
+
+export interface RawLocalFileRecord {
+  id: string
+  record_kind: 'import' | 'attachment'
+  company_id: string
+  period: string
+  module_name: string
+  operation: string | null
+  file_name: string
+  file_size: number
+  file_format: string
+  checksum: string
+  status: LocalFileStatus
+  row_count: number | null
+  column_preview: string | null
+  preview_rows: string | null
+  validation_note: string | null
+  written_row_count: number | null
+  failed_row_count: number | null
+  failure_rows: string | null
+  related_document: string | null
+  operator: string
+  created_at: string
+  updated_at: string
+}
+
+function parseJsonValue<T>(value: string | null, fallback: T): T {
+  if (!value) return fallback
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return fallback
+  }
+}
+
+function mapImportRecord(record: RawLocalFileRecord): LocalImportJob {
+  return {
+    id: record.id,
+    companyId: record.company_id,
+    period: record.period,
+    moduleName: record.module_name,
+    operation: record.operation || '导入批次登记',
+    fileName: record.file_name,
+    fileSize: record.file_size,
+    fileFormat: record.file_format,
+    checksum: record.checksum,
+    status: record.status,
+    rowCount: record.row_count,
+    columnPreview: parseJsonValue<string[]>(record.column_preview, []),
+    previewRows: parseJsonValue<string[][]>(record.preview_rows, []),
+    validationNote: record.validation_note || '等待人工校验。',
+    writtenRowCount: record.written_row_count ?? undefined,
+    failedRowCount: record.failed_row_count ?? undefined,
+    failureRows: parseJsonValue<LocalImportFailure[]>(record.failure_rows, []),
+    operator: record.operator,
+    createdAt: record.created_at,
+  }
+}
+
+function mapAttachmentRecord(record: RawLocalFileRecord): LocalAttachmentRecord {
+  return {
+    id: record.id,
+    companyId: record.company_id,
+    period: record.period,
+    sourceModule: record.module_name,
+    fileName: record.file_name,
+    fileSize: record.file_size,
+    fileFormat: record.file_format,
+    checksum: record.checksum,
+    relatedDocument: record.related_document || '待关联单据',
+    status: record.status,
+    operator: record.operator,
+    createdAt: record.created_at,
+  }
+}
+
+function emitRegistryChange() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CHANGE_EVENT))
+}
+
+async function loadDesktopRecords(scope: LocalFileScope, recordKind: 'import' | 'attachment') {
+  return invoke<RawLocalFileRecord[]>('get_local_file_records', {
+    companyId: scope.companyId,
+    period: scope.period,
+    recordKind,
+  })
 }
 
 function safeStorage() {
@@ -125,6 +216,7 @@ function parseCsvRows(text: string) {
 }
 
 export async function parseLocalImportFile(file: File) {
+  assertLocalFileWithinLimit(file, MAX_STRUCTURED_IMPORT_FILE_BYTES, '导入文件')
   const name = file.name.toLowerCase()
   try {
     const rows = name.endsWith('.xlsx')
@@ -183,8 +275,36 @@ export function listLocalAttachmentRecords(scope: LocalFileScope) {
   return scopedRows<LocalAttachmentRecord>(ATTACHMENT_STORAGE_KEY, scope)
 }
 
-export async function recordLocalImportJob(input: Omit<LocalImportJob, 'id' | 'fileName' | 'fileSize' | 'fileFormat' | 'checksum' | 'status' | 'rowCount' | 'columnPreview' | 'previewRows' | 'validationNote' | 'createdAt'> & { file: File }) {
+export function listLocalVoucherAttachments(scope: LocalFileScope, voucherId: string) {
+  return filterVoucherAttachments(listLocalAttachmentRecords(scope), voucherId) as LocalAttachmentRecord[]
+}
+
+export async function recordLocalImportJob(input: Omit<LocalImportJob, 'id' | 'fileName' | 'fileSize' | 'fileFormat' | 'checksum' | 'status' | 'rowCount' | 'columnPreview' | 'previewRows' | 'validationNote' | 'operator' | 'createdAt'> & { file: File }) {
+  assertLocalFileWithinLimit(input.file, MAX_STRUCTURED_IMPORT_FILE_BYTES, '导入文件')
   const inspection = await inspectImportFile(input.file)
+  const checksum = await fileChecksum(input.file)
+  if (isTauri) {
+    const record = await invoke<RawLocalFileRecord>('create_local_file_record', {
+      input: {
+        record_kind: 'import',
+        company_id: input.companyId,
+        period: input.period,
+        module_name: input.moduleName,
+        operation: input.operation,
+        file_name: input.file.name,
+        file_size: input.file.size,
+        file_format: fileFormat(input.file),
+        checksum,
+        status: '待确认',
+        row_count: inspection.rowCount,
+        column_preview: JSON.stringify(inspection.columnPreview),
+        preview_rows: JSON.stringify(inspection.previewRows),
+        validation_note: inspection.validationNote,
+      },
+    })
+    emitRegistryChange()
+    return mapImportRecord(record)
+  }
   const record: LocalImportJob = {
     id: `import-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     companyId: input.companyId,
@@ -194,19 +314,40 @@ export async function recordLocalImportJob(input: Omit<LocalImportJob, 'id' | 'f
     fileName: input.file.name,
     fileSize: input.file.size,
     fileFormat: fileFormat(input.file),
-    checksum: await fileChecksum(input.file),
+    checksum,
     status: '待确认',
     rowCount: inspection.rowCount,
     columnPreview: inspection.columnPreview,
     previewRows: inspection.previewRows,
     validationNote: inspection.validationNote,
-    operator: input.operator,
+    operator: currentActorName(),
     createdAt: new Date().toLocaleString('zh-CN'),
   }
   return writeRecords(IMPORT_STORAGE_KEY, record)
 }
 
-export async function recordLocalAttachment(input: Omit<LocalAttachmentRecord, 'id' | 'fileName' | 'fileSize' | 'fileFormat' | 'checksum' | 'relatedDocument' | 'status' | 'createdAt'> & { file: File }) {
+export async function recordLocalAttachment(input: Omit<LocalAttachmentRecord, 'id' | 'fileName' | 'fileSize' | 'fileFormat' | 'checksum' | 'relatedDocument' | 'status' | 'operator' | 'createdAt'> & { file: File }) {
+  assertLocalFileWithinLimit(input.file, MAX_LOCAL_ATTACHMENT_FILE_BYTES, '附件')
+  const checksum = await fileChecksum(input.file)
+  if (isTauri) {
+    const record = await invoke<RawLocalFileRecord>('create_local_file_record', {
+      input: {
+        record_kind: 'attachment',
+        company_id: input.companyId,
+        period: input.period,
+        module_name: input.sourceModule,
+        operation: '附件登记',
+        file_name: input.file.name,
+        file_size: input.file.size,
+        file_format: fileFormat(input.file),
+        checksum,
+        status: '待确认',
+        related_document: '待关联单据',
+      },
+    })
+    emitRegistryChange()
+    return mapAttachmentRecord(record)
+  }
   const record: LocalAttachmentRecord = {
     id: `attachment-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     companyId: input.companyId,
@@ -215,72 +356,166 @@ export async function recordLocalAttachment(input: Omit<LocalAttachmentRecord, '
     fileName: input.file.name,
     fileSize: input.file.size,
     fileFormat: fileFormat(input.file),
-    checksum: await fileChecksum(input.file),
+    checksum,
     relatedDocument: '待关联单据',
     status: '待确认',
-    operator: input.operator,
+    operator: currentActorName(),
     createdAt: new Date().toLocaleString('zh-CN'),
   }
   return writeRecords(ATTACHMENT_STORAGE_KEY, record)
 }
 
-export function removeLocalImportJob(id: string) {
+export async function removeLocalImportJob(id: string, companyId: string) {
+  if (isTauri) {
+    const removed = await invoke<boolean>('delete_local_file_record', {
+      input: { id, company_id: companyId },
+    })
+    emitRegistryChange()
+    return removed
+  }
   return removeRecord<LocalImportJob>(IMPORT_STORAGE_KEY, id)
 }
 
-export function updateLocalImportJobValidation(id: string) {
+export async function updateLocalImportJobValidation(id: string, companyId: string) {
+  const validationNote = '已完成人工表头与行数核验；未执行字段映射或写入账套。'
+  if (isTauri) {
+    const record = await invoke<RawLocalFileRecord>('update_local_file_record', {
+      input: {
+        id,
+        company_id: companyId,
+        status: '已校验',
+        validation_note: validationNote,
+      },
+    })
+    emitRegistryChange()
+    return mapImportRecord(record)
+  }
   return updateRecord<LocalImportJob>(IMPORT_STORAGE_KEY, id, {
     status: '已校验',
-    validationNote: '已完成人工表头与行数核验；未执行字段映射或写入账套。',
+    validationNote,
   })
 }
 
-export function updateLocalImportJobCommit(id: string, successCount: number, failedCount: number, failureRows: LocalImportFailure[] = []) {
+export async function updateLocalImportJobCommit(id: string, companyId: string, successCount: number, failedCount: number, failureRows: LocalImportFailure[] = []) {
+  const validationNote = `已人工确认并写入本地账套：成功 ${successCount} 行，失败 ${failedCount} 行；未调用税局、银行或发票外部系统。`
+  if (isTauri) {
+    const record = await invoke<RawLocalFileRecord>('update_local_file_record', {
+      input: {
+        id,
+        company_id: companyId,
+        status: '已写入',
+        validation_note: validationNote,
+        written_row_count: successCount,
+        failed_row_count: failedCount,
+        failure_rows: JSON.stringify(failureRows.slice(0, 20)),
+      },
+    })
+    emitRegistryChange()
+    return mapImportRecord(record)
+  }
   return updateRecord<LocalImportJob>(IMPORT_STORAGE_KEY, id, {
     status: '已写入',
     writtenRowCount: successCount,
     failedRowCount: failedCount,
     failureRows: failureRows.slice(0, 20),
-    validationNote: `已人工确认并写入本地账套：成功 ${successCount} 行，失败 ${failedCount} 行；未调用税局、银行或发票外部系统。`,
+    validationNote,
   })
 }
 
-export function removeLocalAttachment(id: string) {
+export async function removeLocalAttachment(id: string, companyId: string) {
+  if (isTauri) {
+    const removed = await invoke<boolean>('delete_local_file_record', {
+      input: { id, company_id: companyId },
+    })
+    emitRegistryChange()
+    return removed
+  }
   return removeRecord<LocalAttachmentRecord>(ATTACHMENT_STORAGE_KEY, id)
 }
 
-export function updateLocalAttachmentAssociation(id: string, relatedDocument: string) {
+export async function updateLocalAttachmentAssociation(id: string, relatedDocument: string, companyId: string) {
   const normalizedRelatedDocument = relatedDocument.trim()
   if (!normalizedRelatedDocument) return null
+  if (isTauri) {
+    const record = await invoke<RawLocalFileRecord>('update_local_file_record', {
+      input: {
+        id,
+        company_id: companyId,
+        status: '已关联',
+        related_document: normalizedRelatedDocument,
+      },
+    })
+    emitRegistryChange()
+    return mapAttachmentRecord(record)
+  }
   return updateRecord<LocalAttachmentRecord>(ATTACHMENT_STORAGE_KEY, id, {
     relatedDocument: normalizedRelatedDocument,
     status: '已关联',
   })
 }
 
-function useScopedRegistryRows<T extends { companyId: string; period: string }>(key: string, scope: LocalFileScope, list: (nextScope: LocalFileScope) => T[]) {
+export async function copyLocalVoucherAttachmentAssociations(scope: LocalFileScope, sourceVoucherId: string, targetVoucherId: string) {
+  if (isTauri) {
+    const records = await invoke<RawLocalFileRecord[]>('copy_local_voucher_attachments', {
+      input: {
+        company_id: scope.companyId,
+        period: scope.period,
+        source_document: sourceVoucherId,
+        target_document: targetVoucherId,
+      },
+    })
+    emitRegistryChange()
+    return records.map(mapAttachmentRecord)
+  }
+  const copies = cloneVoucherAttachmentAssociations({
+    records: listLocalAttachmentRecords(scope),
+    sourceVoucherId,
+    targetVoucherId,
+  }) as LocalAttachmentRecord[]
+  return copies.map((record) => writeRecords(ATTACHMENT_STORAGE_KEY, record)).filter((record): record is LocalAttachmentRecord => Boolean(record))
+}
+
+function useScopedRegistryRows<T extends { companyId: string; period: string }>(
+  key: string,
+  scope: LocalFileScope,
+  recordKind: 'import' | 'attachment',
+  list: (nextScope: LocalFileScope) => T[],
+  mapRecord: (record: RawLocalFileRecord) => T,
+) {
   const [rows, setRows] = useState<T[]>(() => list(scope))
 
   useEffect(() => {
-    const refresh = () => setRows(list(scope))
-    refresh()
-    window.addEventListener(CHANGE_EVENT, refresh)
-    window.addEventListener('storage', refresh)
-    return () => {
-      window.removeEventListener(CHANGE_EVENT, refresh)
-      window.removeEventListener('storage', refresh)
+    let active = true
+    const refresh = async () => {
+      try {
+        const nextRows = isTauri
+          ? (await loadDesktopRecords(scope, recordKind)).map(mapRecord)
+          : list(scope)
+        if (active) setRows(nextRows)
+      } catch {
+        if (active) setRows([])
+      }
     }
-  }, [key, list, scope.companyId, scope.period])
+    const handleRefresh = () => void refresh()
+    void refresh()
+    window.addEventListener(CHANGE_EVENT, handleRefresh)
+    window.addEventListener('storage', handleRefresh)
+    return () => {
+      active = false
+      window.removeEventListener(CHANGE_EVENT, handleRefresh)
+      window.removeEventListener('storage', handleRefresh)
+    }
+  }, [key, list, mapRecord, recordKind, scope.companyId, scope.period])
 
   return rows
 }
 
 export function useLocalImportJobs(scope: LocalFileScope) {
-  return useScopedRegistryRows(IMPORT_STORAGE_KEY, scope, listLocalImportJobs)
+  return useScopedRegistryRows(IMPORT_STORAGE_KEY, scope, 'import', listLocalImportJobs, mapImportRecord)
 }
 
 export function useLocalAttachmentRecords(scope: LocalFileScope) {
-  return useScopedRegistryRows(ATTACHMENT_STORAGE_KEY, scope, listLocalAttachmentRecords)
+  return useScopedRegistryRows(ATTACHMENT_STORAGE_KEY, scope, 'attachment', listLocalAttachmentRecords, mapAttachmentRecord)
 }
 
 export function formatLocalFileSize(size: number) {

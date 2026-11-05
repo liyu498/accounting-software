@@ -26,14 +26,48 @@ export interface SettlementRuleInput {
   isEnabled?: boolean
 }
 
+export interface SettlementRulePreviewEntry {
+  accountCode: string
+  accountName: string
+  direction: 'debit' | 'credit'
+  amount: number
+  summary: string
+}
+
+export interface SettlementRulePreview {
+  ruleId: string
+  ruleName: string
+  periodId: string
+  periodLabel: string
+  voucherDate: string
+  voucherWordId: string
+  voucherWordName: string
+  targetAccountCode: string
+  summary: string
+  entries: SettlementRulePreviewEntry[]
+  totalDebit: number
+  totalCredit: number
+  totalAmount: number
+}
+
+export interface SettlementVoucherDraft {
+  id: string
+  voucherNumber: string
+  ruleId: string
+  totalDebit: number
+  totalCredit: number
+}
+
 interface SettlementRuleState {
   rules: SettlementRule[]
   isLoading: boolean
   error: string | null
-  fetchSettlementRules: (companyId: string) => Promise<void>
+  fetchSettlementRules: (companyId: string) => Promise<SettlementRule[]>
   createSettlementRule: (input: SettlementRuleInput) => Promise<SettlementRule>
   updateSettlementRule: (input: SettlementRuleInput & { id: string }) => Promise<SettlementRule>
   deleteSettlementRule: (id: string, companyId: string) => Promise<void>
+  previewSettlementRule: (ruleId: string, companyId: string, periodId: string) => Promise<SettlementRulePreview>
+  createSettlementVoucherDraft: (ruleId: string, companyId: string, periodId: string) => Promise<SettlementVoucherDraft>
 }
 
 export const useSettlementRuleStore = create<SettlementRuleState>((set) => ({
@@ -46,8 +80,10 @@ export const useSettlementRuleStore = create<SettlementRuleState>((set) => ({
     try {
       const rules = await invoke<SettlementRule[]>('get_settlement_rules', { companyId })
       set({ rules, isLoading: false })
+      return rules
     } catch (error) {
       set({ error: String(error), isLoading: false })
+      throw error
     }
   },
 
@@ -101,6 +137,28 @@ export const useSettlementRuleStore = create<SettlementRuleState>((set) => ({
     try {
       await invoke('delete_settlement_rule', { id, companyId })
       set((state) => ({ rules: state.rules.filter((item) => item.id !== id) }))
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
+  previewSettlementRule: async (ruleId, companyId, periodId) => {
+    try {
+      return await invoke<SettlementRulePreview>('preview_settlement_rule', { ruleId, companyId, periodId })
+    } catch (error) {
+      set({ error: String(error) })
+      throw error
+    }
+  },
+
+  createSettlementVoucherDraft: async (ruleId, companyId, periodId) => {
+    try {
+      return await invoke<SettlementVoucherDraft>('create_settlement_voucher_draft', {
+        ruleId,
+        companyId,
+        periodId,
+      })
     } catch (error) {
       set({ error: String(error) })
       throw error

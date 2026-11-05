@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { invoke } from '../lib/tauri'
 
-export type MatchingRuleScope = 'invoice' | 'bill' | 'cash_flow' | 'ai_training'
+export type MatchingRuleScope = 'invoice' | 'bill' | 'cash_flow' | 'equity_change' | 'ai_training'
+export type MatchingRuleDirection = 'inflow' | 'outflow' | 'increase' | 'decrease'
 
 export interface MatchingRule {
   id: string
@@ -12,6 +13,10 @@ export interface MatchingRule {
   action_text: string
   target_account_code: string | null
   voucher_template_id: string | null
+  source_account_code: string | null
+  cash_direction: MatchingRuleDirection | null
+  cash_flow_item_code: string | null
+  summary_keyword: string | null
   priority: number
   is_enabled: number
   hit_count: number
@@ -27,6 +32,10 @@ export interface MatchingRuleInput {
   actionText: string
   targetAccountCode?: string
   voucherTemplateId?: string
+  sourceAccountCode?: string
+  cashDirection?: MatchingRuleDirection
+  cashFlowItemCode?: string
+  summaryKeyword?: string
   priority?: number
   isEnabled?: boolean
 }
@@ -45,6 +54,8 @@ const toCommandInput = (input: MatchingRuleInput) => ({
   company_id: input.companyId, rule_scope: input.ruleScope, name: input.name,
   condition_text: input.conditionText, action_text: input.actionText,
   target_account_code: input.targetAccountCode, voucher_template_id: input.voucherTemplateId,
+  source_account_code: input.sourceAccountCode, cash_direction: input.cashDirection,
+  cash_flow_item_code: input.cashFlowItemCode, summary_keyword: input.summaryKeyword,
   priority: input.priority, is_enabled: input.isEnabled === undefined ? undefined : input.isEnabled ? 1 : 0,
 })
 

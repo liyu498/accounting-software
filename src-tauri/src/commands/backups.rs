@@ -1,8 +1,10 @@
-use crate::db::Database;
+use crate::commands::auth::authenticated_actor;
+use crate::db::{secure_private_directory, secure_private_file, Database};
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::fs;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::Path;
 use tauri::State;
 
@@ -24,20 +26,73 @@ pub struct LocalBackupVerification {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct PendingLocalRestore {
+    pub backup_id: String,
+    pub actor: String,
+    pub scheduled_at: String,
+    pub safety_backup_id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalBackupRestoreSchedule {
+    pub backup_id: String,
+    pub safety_backup_id: String,
+    pub scheduled_at: String,
+    pub restart_required: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct AppliedLocalRestore {
+    pub backup_id: String,
+    pub actor: String,
+    pub scheduled_at: String,
+    pub safety_backup_id: String,
+}
+
+const PENDING_RESTORE_FILE: &str = "pending-restore.json";
+const RESTORE_STAGING_FILE: &str = ".restore-staging.db";
+const RESTORE_ORIGINAL_FILE: &str = ".restore-original.db";
+
 fn backup_directory(db: &Database) -> Result<std::path::PathBuf, String> {
-    let directory = db.app_data_dir().join("backups");
-    fs::create_dir_all(&directory).map_err(|error| format!("Unable to create backup directory: {error}"))?;
+    backup_directory_for(&db.app_data_dir())
+}
+
+fn backup_directory_for(app_data_dir: &Path) -> Result<std::path::PathBuf, String> {
+    let directory = app_data_dir.join("backups");
+    fs::create_dir_all(&directory)
+        .map_err(|error| format!("Unable to create backup directory: {error}"))?;
+    secure_private_directory(&directory)
+        .map_err(|error| format!("Unable to secure backup directory: {error}"))?;
+    for entry in fs::read_dir(&directory)
+        .map_err(|error| format!("Unable to inspect backup directory: {error}"))?
+    {
+        let entry = entry.map_err(|error| format!("Unable to inspect backup entry: {error}"))?;
+        if entry
+            .file_type()
+            .map_err(|error| format!("Unable to inspect backup entry type: {error}"))?
+            .is_file()
+        {
+            secure_private_file(&entry.path())
+                .map_err(|error| format!("Unable to secure backup file: {error}"))?;
+        }
+    }
     Ok(directory)
 }
 
 fn snapshot_from_path(path: &std::path::Path) -> Result<LocalBackupSnapshot, String> {
-    let metadata = fs::metadata(path).map_err(|error| format!("Unable to read backup metadata: {error}"))?;
+    let metadata =
+        fs::metadata(path).map_err(|error| format!("Unable to read backup metadata: {error}"))?;
     let file_name = path
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| "Backup file name is invalid".to_string())?
         .to_string();
-    let modified_at = metadata.modified().map_err(|error| format!("Unable to read backup timestamp: {error}"))?;
+    let modified_at = metadata
+        .modified()
+        .map_err(|error| format!("Unable to read backup timestamp: {error}"))?;
 
     Ok(LocalBackupSnapshot {
         id: file_name.clone(),
@@ -48,50 +103,122 @@ fn snapshot_from_path(path: &std::path::Path) -> Result<LocalBackupSnapshot, Str
 }
 
 fn local_backup_path(db: &Database, backup_id: &str) -> Result<std::path::PathBuf, String> {
+    local_backup_path_for(&db.app_data_dir(), backup_id)
+}
+
+fn local_backup_path_for(
+    app_data_dir: &Path,
+    backup_id: &str,
+) -> Result<std::path::PathBuf, String> {
     let requested_path = Path::new(backup_id);
     let is_plain_file_name = requested_path
         .file_name()
         .and_then(|name| name.to_str())
         .is_some_and(|file_name| file_name == backup_id);
-    let is_database = requested_path.extension().and_then(|extension| extension.to_str()) == Some("db");
+    let is_database = requested_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        == Some("db");
     if !is_plain_file_name || !is_database {
         return Err("Backup identifier is invalid".to_string());
     }
 
-    let path = backup_directory(db)?.join(backup_id);
+    let path = backup_directory_for(app_data_dir)?.join(backup_id);
     if !path.is_file() {
         return Err("Backup file does not exist".to_string());
     }
     Ok(path)
 }
 
-#[tauri::command]
-pub async fn create_local_backup(db: State<'_, Database>) -> Result<LocalBackupSnapshot, String> {
-    let directory = backup_directory(&db)?;
+async fn verify_sqlite_snapshot(path: &Path) -> Result<(), String> {
+    let mut file =
+        fs::File::open(path).map_err(|error| format!("Unable to open backup file: {error}"))?;
+    let mut header = [0_u8; 16];
+    let bytes_read = file
+        .read(&mut header)
+        .map_err(|error| format!("Unable to read backup file: {error}"))?;
+    if bytes_read != header.len() || header != *b"SQLite format 3\0" {
+        return Err("文件不是有效的 SQLite 快照".to_string());
+    }
+
+    let options = SqliteConnectOptions::new()
+        .filename(path)
+        .read_only(true)
+        .create_if_missing(false);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(options)
+        .await
+        .map_err(|error| format!("Unable to open backup database: {error}"))?;
+    let integrity: String = sqlx::query_scalar("PRAGMA quick_check")
+        .fetch_one(&pool)
+        .await
+        .map_err(|error| format!("Unable to verify backup integrity: {error}"))?;
+    pool.close().await;
+    if integrity.trim().eq_ignore_ascii_case("ok") {
+        Ok(())
+    } else {
+        Err(format!("SQLite 完整性校验失败: {integrity}"))
+    }
+}
+
+async fn create_backup_snapshot(
+    db: &Database,
+    prefix: &str,
+) -> Result<LocalBackupSnapshot, String> {
+    let directory = backup_directory(db)?;
     let timestamp = Utc::now().format("%Y%m%d-%H%M%S-%3f");
-    let file_name = format!("accounting-{timestamp}.db");
+    let file_name = format!("{prefix}-{timestamp}.db");
     let target_path = directory.join(&file_name);
     let target_sql = target_path.to_string_lossy().replace('\'', "''");
 
-    // SQLite creates a transactionally consistent copy without pausing normal reads.
     sqlx::query(&format!("VACUUM INTO '{target_sql}'"))
         .execute(db.pool())
         .await
         .map_err(|error| format!("Unable to create backup snapshot: {error}"))?;
+    secure_private_file(&target_path)
+        .map_err(|error| format!("Unable to secure backup snapshot: {error}"))?;
 
     snapshot_from_path(&target_path)
 }
 
+fn write_pending_restore(app_data_dir: &Path, pending: &PendingLocalRestore) -> Result<(), String> {
+    let marker = app_data_dir.join(PENDING_RESTORE_FILE);
+    if marker.exists() {
+        return Err("已有待执行的恢复任务，请先重启应用完成恢复".to_string());
+    }
+    let temporary = app_data_dir.join(format!("{PENDING_RESTORE_FILE}.tmp"));
+    let payload = serde_json::to_vec_pretty(pending)
+        .map_err(|error| format!("Unable to serialize restore request: {error}"))?;
+    let mut file = fs::File::create(&temporary)
+        .map_err(|error| format!("Unable to create restore request: {error}"))?;
+    secure_private_file(&temporary)
+        .map_err(|error| format!("Unable to secure restore request: {error}"))?;
+    file.write_all(&payload)
+        .and_then(|_| file.sync_all())
+        .map_err(|error| format!("Unable to persist restore request: {error}"))?;
+    fs::rename(&temporary, &marker)
+        .map_err(|error| format!("Unable to activate restore request: {error}"))
+}
+
 #[tauri::command]
-pub async fn list_local_backups(db: State<'_, Database>) -> Result<Vec<LocalBackupSnapshot>, String> {
+pub async fn create_local_backup(db: State<'_, Database>) -> Result<LocalBackupSnapshot, String> {
+    create_backup_snapshot(&db, "accounting").await
+}
+
+#[tauri::command]
+pub async fn list_local_backups(
+    db: State<'_, Database>,
+) -> Result<Vec<LocalBackupSnapshot>, String> {
     let directory = backup_directory(&db)?;
     let mut snapshots = fs::read_dir(directory)
         .map_err(|error| format!("Unable to read backup directory: {error}"))?
         .filter_map(Result::ok)
         .filter_map(|entry| {
             let path = entry.path();
-            (path.is_file() && path.extension().and_then(|extension| extension.to_str()) == Some("db"))
-                .then(|| snapshot_from_path(&path))
+            (path.is_file()
+                && path.extension().and_then(|extension| extension.to_str()) == Some("db"))
+            .then(|| snapshot_from_path(&path))
         })
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -105,10 +232,8 @@ pub async fn verify_local_backup(
     db: State<'_, Database>,
 ) -> Result<LocalBackupVerification, String> {
     let path = local_backup_path(&db, &backup_id)?;
-    let mut file = fs::File::open(&path).map_err(|error| format!("Unable to open backup file: {error}"))?;
-    let mut header = [0_u8; 16];
-    let bytes_read = file.read(&mut header).map_err(|error| format!("Unable to read backup file: {error}"))?;
-    let valid = bytes_read == header.len() && header == *b"SQLite format 3\0";
+    let verification = verify_sqlite_snapshot(&path).await;
+    let valid = verification.is_ok();
     let file_name = path
         .file_name()
         .and_then(|name| name.to_str())
@@ -120,9 +245,364 @@ pub async fn verify_local_backup(
         file_name,
         valid,
         message: if valid {
-            "SQLite 文件头校验通过；恢复仍需人工确认。".to_string()
+            "SQLite 文件头与完整性校验通过；可进入受控恢复确认。".to_string()
         } else {
-            "文件不是有效的 SQLite 快照，禁止恢复。".to_string()
+            format!(
+                "快照校验失败，禁止恢复：{}",
+                verification.expect_err("invalid verification has an error")
+            )
         },
     })
+}
+
+#[tauri::command]
+pub async fn schedule_local_backup_restore(
+    backup_id: String,
+    auth_token: String,
+    db: State<'_, Database>,
+) -> Result<LocalBackupRestoreSchedule, String> {
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
+    let backup_path = local_backup_path(&db, &backup_id)?;
+    verify_sqlite_snapshot(&backup_path)
+        .await
+        .map_err(|error| format!("快照不满足恢复条件：{error}"))?;
+
+    let safety_snapshot = create_backup_snapshot(&db, "pre-restore").await?;
+    let scheduled_at = Utc::now().to_rfc3339();
+    let pending = PendingLocalRestore {
+        backup_id: backup_id.clone(),
+        actor: actor.clone(),
+        scheduled_at: scheduled_at.clone(),
+        safety_backup_id: safety_snapshot.id.clone(),
+    };
+    write_pending_restore(&db.app_data_dir(), &pending)?;
+
+    let audit_result = sqlx::query(
+        r#"INSERT INTO operation_audit_logs
+           (id, company_id, module_name, action, object_ref, risk_level, result, detail, operator)
+           VALUES (?, NULL, '系统备份', '安排备份恢复', ?, 'critical', 'pending', ?, ?)"#,
+    )
+    .bind(uuid::Uuid::new_v4().to_string())
+    .bind(&backup_id)
+    .bind(format!(
+        "已生成恢复前安全快照 {}；目标快照将在下次启动、数据库连接建立前恢复",
+        safety_snapshot.file_name
+    ))
+    .bind(&actor)
+    .execute(db.pool())
+    .await;
+    if let Err(error) = audit_result {
+        let _ = fs::remove_file(db.app_data_dir().join(PENDING_RESTORE_FILE));
+        return Err(format!("Unable to record restore audit: {error}"));
+    }
+
+    Ok(LocalBackupRestoreSchedule {
+        backup_id,
+        safety_backup_id: safety_snapshot.id,
+        scheduled_at,
+        restart_required: true,
+        message: "恢复任务已安排。请立即退出并重新打开应用；恢复将在数据库连接建立前执行。"
+            .to_string(),
+    })
+}
+
+pub(crate) async fn apply_pending_restore(
+    app_data_dir: &Path,
+) -> Result<Option<AppliedLocalRestore>, String> {
+    let marker = app_data_dir.join(PENDING_RESTORE_FILE);
+    if !marker.is_file() {
+        return Ok(None);
+    }
+    let pending: PendingLocalRestore = serde_json::from_slice(
+        &fs::read(&marker).map_err(|error| format!("Unable to read restore request: {error}"))?,
+    )
+    .map_err(|error| format!("Unable to parse restore request: {error}"))?;
+    let source = local_backup_path_for(app_data_dir, &pending.backup_id)?;
+    verify_sqlite_snapshot(&source)
+        .await
+        .map_err(|error| format!("Pending restore snapshot is invalid: {error}"))?;
+
+    let current = app_data_dir.join("accounting.db");
+    let staging = app_data_dir.join(RESTORE_STAGING_FILE);
+    let original = app_data_dir.join(RESTORE_ORIGINAL_FILE);
+    if !current.exists() && original.is_file() {
+        fs::rename(&original, &current)
+            .map_err(|error| format!("Unable to recover interrupted restore: {error}"))?;
+    }
+    let _ = fs::remove_file(&staging);
+    fs::copy(&source, &staging)
+        .map_err(|error| format!("Unable to stage restore snapshot: {error}"))?;
+    secure_private_file(&staging)
+        .map_err(|error| format!("Unable to secure staged restore snapshot: {error}"))?;
+    fs::File::open(&staging)
+        .and_then(|file| file.sync_all())
+        .map_err(|error| format!("Unable to sync staged restore snapshot: {error}"))?;
+
+    for suffix in ["-wal", "-shm", "-journal"] {
+        let _ = fs::remove_file(app_data_dir.join(format!("accounting.db{suffix}")));
+    }
+    let _ = fs::remove_file(&original);
+    if current.exists() {
+        fs::rename(&current, &original)
+            .map_err(|error| format!("Unable to preserve current database: {error}"))?;
+    }
+    if let Err(error) = fs::rename(&staging, &current) {
+        if original.is_file() {
+            let _ = fs::rename(&original, &current);
+        }
+        return Err(format!("Unable to activate restored database: {error}"));
+    }
+    let _ = fs::remove_file(&original);
+    fs::remove_file(&marker)
+        .map_err(|error| format!("Unable to complete restore request: {error}"))?;
+
+    Ok(Some(AppliedLocalRestore {
+        backup_id: pending.backup_id,
+        actor: pending.actor,
+        scheduled_at: pending.scheduled_at,
+        safety_backup_id: pending.safety_backup_id,
+    }))
+}
+
+pub(crate) async fn apply_pending_restore_safely(
+    app_data_dir: &Path,
+) -> (Option<AppliedLocalRestore>, Option<String>) {
+    match apply_pending_restore(app_data_dir).await {
+        Ok(applied) => (applied, None),
+        Err(error) => {
+            let marker = app_data_dir.join(PENDING_RESTORE_FILE);
+            if marker.is_file() {
+                let failed_name = format!(
+                    "failed-restore-request-{}.json",
+                    Utc::now().format("%Y%m%d-%H%M%S-%3f")
+                );
+                match backup_directory_for(app_data_dir).and_then(|directory| {
+                    fs::rename(&marker, directory.join(failed_name))
+                        .map_err(|rename_error| rename_error.to_string())
+                }) {
+                    Ok(()) => {}
+                    Err(quarantine_error) => log::error!(
+                        "Unable to quarantine failed restore request: {}",
+                        quarantine_error
+                    ),
+                }
+            }
+            (None, Some(error))
+        }
+    }
+}
+
+pub(crate) async fn record_applied_restore(
+    db: &Database,
+    applied: &AppliedLocalRestore,
+) -> Result<(), String> {
+    sqlx::query(
+        r#"INSERT INTO operation_audit_logs
+           (id, company_id, module_name, action, object_ref, risk_level, result, detail, operator)
+           VALUES (?, NULL, '系统备份', '完成备份恢复', ?, 'critical', 'success', ?, ?)"#,
+    )
+    .bind(uuid::Uuid::new_v4().to_string())
+    .bind(&applied.backup_id)
+    .bind(format!(
+        "已恢复目标快照；安排时间 {}；恢复前安全快照 {}",
+        applied.scheduled_at, applied.safety_backup_id
+    ))
+    .bind(&applied.actor)
+    .execute(db.pool())
+    .await
+    .map_err(|error| format!("Unable to record completed restore audit: {error}"))?;
+    Ok(())
+}
+
+pub(crate) async fn record_restore_failure(db: &Database, error: &str) -> Result<(), String> {
+    sqlx::query(
+        r#"INSERT INTO operation_audit_logs
+           (id, company_id, module_name, action, object_ref, risk_level, result, detail, operator)
+           VALUES (?, NULL, '系统备份', '备份恢复失败', NULL, 'critical', 'failed', ?, '系统启动')"#,
+    )
+    .bind(uuid::Uuid::new_v4().to_string())
+    .bind(error)
+    .execute(db.pool())
+    .await
+    .map_err(|audit_error| format!("Unable to record restore failure audit: {audit_error}"))?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        apply_pending_restore, apply_pending_restore_safely, backup_directory_for,
+        PendingLocalRestore,
+    };
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::str::FromStr;
+
+    #[cfg(unix)]
+    #[test]
+    fn backup_storage_repairs_existing_file_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let app_dir = std::env::temp_dir().join(format!(
+            "accounting-backup-permissions-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let backup_dir = app_dir.join("backups");
+        std::fs::create_dir_all(&backup_dir).expect("creates backup directory");
+        let backup = backup_dir.join("legacy.db");
+        std::fs::write(&backup, b"legacy").expect("creates legacy backup");
+        std::fs::set_permissions(&backup_dir, std::fs::Permissions::from_mode(0o777))
+            .expect("widens backup directory");
+        std::fs::set_permissions(&backup, std::fs::Permissions::from_mode(0o666))
+            .expect("widens backup file");
+
+        backup_directory_for(&app_dir).expect("secures backup storage");
+
+        assert_eq!(
+            std::fs::metadata(&backup_dir)
+                .expect("reads backup directory metadata")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+        assert_eq!(
+            std::fs::metadata(&backup)
+                .expect("reads backup metadata")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
+
+        std::fs::remove_dir_all(app_dir).expect("removes backup test directory");
+    }
+
+    async fn create_database(path: &std::path::Path, value: &str) {
+        let options = SqliteConnectOptions::from_str(&format!("sqlite:{}", path.display()))
+            .expect("builds sqlite options")
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .expect("opens sqlite database");
+        sqlx::query("CREATE TABLE restore_probe (value TEXT NOT NULL)")
+            .execute(&pool)
+            .await
+            .expect("creates restore probe");
+        sqlx::query("INSERT INTO restore_probe (value) VALUES (?)")
+            .bind(value)
+            .execute(&pool)
+            .await
+            .expect("stores restore probe");
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn pending_restore_replaces_database_before_connections_open() {
+        let app_dir = std::env::temp_dir().join(format!(
+            "accounting-backup-restore-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let backup_dir = app_dir.join("backups");
+        std::fs::create_dir_all(&backup_dir).expect("creates backup directory");
+        create_database(&app_dir.join("accounting.db"), "current").await;
+        create_database(&backup_dir.join("restore-point.db"), "restored").await;
+
+        let pending = PendingLocalRestore {
+            backup_id: "restore-point.db".to_string(),
+            actor: "恢复管理员".to_string(),
+            scheduled_at: "2026-10-27T10:00:00Z".to_string(),
+            safety_backup_id: "pre-restore.db".to_string(),
+        };
+        std::fs::write(
+            app_dir.join("pending-restore.json"),
+            serde_json::to_vec(&pending).expect("serializes restore marker"),
+        )
+        .expect("writes restore marker");
+
+        let applied = apply_pending_restore(&app_dir)
+            .await
+            .expect("applies pending restore")
+            .expect("returns restore metadata");
+        assert_eq!(applied.backup_id, "restore-point.db");
+        assert_eq!(applied.actor, "恢复管理员");
+        assert!(!app_dir.join("pending-restore.json").exists());
+
+        let options = SqliteConnectOptions::from_str(&format!(
+            "sqlite:{}",
+            app_dir.join("accounting.db").display()
+        ))
+        .expect("builds restored sqlite options");
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .expect("opens restored database");
+        let value: String = sqlx::query_scalar("SELECT value FROM restore_probe")
+            .fetch_one(&pool)
+            .await
+            .expect("reads restored content");
+        assert_eq!(value, "restored");
+        pool.close().await;
+
+        std::fs::remove_dir_all(app_dir).expect("removes backup restore test directory");
+    }
+
+    #[tokio::test]
+    async fn invalid_pending_restore_is_quarantined_without_replacing_current_database() {
+        let app_dir = std::env::temp_dir().join(format!(
+            "accounting-backup-restore-failure-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let backup_dir = app_dir.join("backups");
+        std::fs::create_dir_all(&backup_dir).expect("creates backup directory");
+        create_database(&app_dir.join("accounting.db"), "current").await;
+        std::fs::write(backup_dir.join("broken.db"), b"not a sqlite database")
+            .expect("writes invalid backup");
+        let pending = PendingLocalRestore {
+            backup_id: "broken.db".to_string(),
+            actor: "恢复管理员".to_string(),
+            scheduled_at: "2026-10-27T10:00:00Z".to_string(),
+            safety_backup_id: "pre-restore.db".to_string(),
+        };
+        std::fs::write(
+            app_dir.join("pending-restore.json"),
+            serde_json::to_vec(&pending).expect("serializes restore marker"),
+        )
+        .expect("writes restore marker");
+
+        let (applied, failure) = apply_pending_restore_safely(&app_dir).await;
+        assert!(applied.is_none());
+        assert!(failure
+            .as_deref()
+            .is_some_and(|message| message.contains("invalid")));
+        assert!(!app_dir.join("pending-restore.json").exists());
+        assert!(std::fs::read_dir(&backup_dir)
+            .expect("reads backup directory")
+            .filter_map(Result::ok)
+            .any(|entry| entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("failed-restore-request-")));
+
+        let options = SqliteConnectOptions::from_str(&format!(
+            "sqlite:{}",
+            app_dir.join("accounting.db").display()
+        ))
+        .expect("builds current sqlite options");
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .expect("opens current database");
+        let value: String = sqlx::query_scalar("SELECT value FROM restore_probe")
+            .fetch_one(&pool)
+            .await
+            .expect("reads current content");
+        assert_eq!(value, "current");
+        pool.close().await;
+
+        std::fs::remove_dir_all(app_dir).expect("removes failed restore test directory");
+    }
 }

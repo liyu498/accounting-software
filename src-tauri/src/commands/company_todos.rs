@@ -1,3 +1,4 @@
+use crate::commands::auth::authenticated_actor;
 use crate::db::Database;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -42,7 +43,6 @@ pub struct CreateCompanyTodoInput {
 pub struct CompleteCompanyTodoInput {
     pub id: String,
     pub company_id: String,
-    pub completed_by: Option<String>,
     pub note: Option<String>,
 }
 
@@ -81,7 +81,10 @@ pub async fn create_company_todo(
     input: CreateCompanyTodoInput,
     db: State<'_, Database>,
 ) -> Result<CompanyTodo, String> {
-    if input.company_id.trim().is_empty() || input.title.trim().is_empty() || input.source_module.trim().is_empty() {
+    if input.company_id.trim().is_empty()
+        || input.title.trim().is_empty()
+        || input.source_module.trim().is_empty()
+    {
         return Err("客户账套、待办标题和来源模块不能为空".to_string());
     }
     let priority = input.priority.unwrap_or_else(|| "normal".to_string());
@@ -115,13 +118,15 @@ pub async fn create_company_todo(
 #[tauri::command]
 pub async fn complete_company_todo(
     input: CompleteCompanyTodoInput,
+    auth_token: String,
     db: State<'_, Database>,
 ) -> Result<CompanyTodo, String> {
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
     if input.id.trim().is_empty() || input.company_id.trim().is_empty() {
         return Err("待办和客户账套不能为空".to_string());
     }
     let affected = sqlx::query("UPDATE company_todos SET status='completed', completed_at=datetime('now'), completed_by=?, note=COALESCE(?, note), updated_at=datetime('now') WHERE id=? AND company_id=?")
-        .bind(input.completed_by)
+        .bind(actor)
         .bind(input.note)
         .bind(input.id.trim())
         .bind(input.company_id.trim())
@@ -131,10 +136,13 @@ pub async fn complete_company_todo(
     if affected.rows_affected() == 0 {
         return Err("未找到当前账套待办".to_string());
     }
-    sqlx::query_as(&format!("{} WHERE t.id = ? AND t.company_id = ?", TODO_SELECT))
-        .bind(input.id.trim())
-        .bind(input.company_id.trim())
-        .fetch_one(db.pool())
-        .await
-        .map_err(|error| format!("查询完成后的账套待办失败: {error}"))
+    sqlx::query_as(&format!(
+        "{} WHERE t.id = ? AND t.company_id = ?",
+        TODO_SELECT
+    ))
+    .bind(input.id.trim())
+    .bind(input.company_id.trim())
+    .fetch_one(db.pool())
+    .await
+    .map_err(|error| format!("查询完成后的账套待办失败: {error}"))
 }

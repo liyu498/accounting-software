@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@config "../tailwind.config.js";
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
@@ -141,6 +141,19 @@
 }
 
 @layer utilities {
+  html:not(.dark) .text-slate-400,
+  html:not(.dark) .text-gray-400 {
+    color: #64748b !important;
+  }
+
+  html:not(.dark) .text-amber-600 {
+    color: #a14307 !important;
+  }
+
+  html:not(.dark) .text-emerald-600 {
+    color: #047857 !important;
+  }
+
   .dark .shadow-card,
   .dark .shadow-elevated,
   .dark .shadow-card-hover {
@@ -233,6 +246,10 @@
     color: #93c5fd !important;
   }
 
+  .dark .text-sky-700 {
+    color: #7dd3fc !important;
+  }
+
   .dark .hover\:text-\[\#1f65a7\]:hover,
   .dark .group:hover .group-hover\:text-\[\#1f65a7\],
   .dark .group:hover .group-hover\:text-primary-600 {
@@ -292,7 +309,6 @@
     color: #737373 !important;
   }
 
-  .dark [class~="bg-[#1f65a7]"],
   .dark [class~="bg-[#2d79bd]"],
   .dark [class~="bg-[#2d79e6]"] {
     background-color: #2563eb !important;

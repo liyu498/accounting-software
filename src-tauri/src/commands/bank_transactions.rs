@@ -1,4 +1,7 @@
-use crate::db::{BankTransaction, CreateBankTransactionInput, Database, UpdateBankTransactionInput};
+use crate::commands::period_guard::ensure_period_label_open;
+use crate::db::{
+    BankTransaction, CreateBankTransactionInput, Database, UpdateBankTransactionInput,
+};
 use tauri::State;
 
 #[tauri::command]
@@ -38,6 +41,7 @@ pub async fn create_bank_transaction(
             return Err("账户余额不能为负数".to_string());
         }
     }
+    ensure_period_label_open(db.pool(), &input.company_id, &input.period, "新增银行流水").await?;
 
     let id = uuid::Uuid::new_v4().to_string();
     sqlx::query(
@@ -91,6 +95,15 @@ pub async fn update_bank_transaction(
     if input.balance.is_some_and(|balance| balance < 0.0) {
         return Err("账户余额不能为负数".to_string());
     }
+    let period: String =
+        sqlx::query_scalar("SELECT period FROM bank_transactions WHERE id = ? AND company_id = ?")
+            .bind(&input.id)
+            .bind(&input.company_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|error| format!("查询银行流水账期失败: {error}"))?
+            .ok_or_else(|| "未找到当前账套的银行流水".to_string())?;
+    ensure_period_label_open(db.pool(), &input.company_id, &period, "修改银行流水").await?;
     let affected = sqlx::query(
         r#"
         UPDATE bank_transactions

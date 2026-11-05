@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronRight, Edit2, KeyRound, Plus, RefreshCw, Shield, Trash2, Users, X } from 'lucide-react'
+import { OperationalPagination } from '../../components/operations/OperationalPagination'
 import { invoke, isTauri } from '../../lib/tauri'
+import { paginateOperationalRows } from '../../lib/operationalPagination'
 import { automationApi } from '../../lib/api'
 import { useCompanyStore, type Company } from '../../stores/companyStore'
 import { usePermission } from '../../lib/usePermission'
@@ -38,12 +40,34 @@ interface UserWithRole {
 
 type ScopeCompany = Pick<Company, 'id' | 'code' | 'name' | 'tax_id' | 'tax_type'>
 
+type MemberDraft = {
+  username: string
+  realName: string
+  password: string
+  passwordConfirm: string
+  roleId: string
+  companyIds: Set<string>
+}
+
+const emptyMemberDraft = (): MemberDraft => ({
+  username: '',
+  realName: '',
+  password: '',
+  passwordConfirm: '',
+  roleId: '',
+  companyIds: new Set(),
+})
+
 const RESOURCES = [
   { key: 'vouchers', label: '凭证与审核' },
   { key: 'invoices', label: '发票与采集' },
   { key: 'tax', label: '税务申报' },
-  { key: 'reports', label: '账簿与报表' },
+  { key: 'reports', label: '财务报表' },
+  { key: 'ledger', label: '账簿查询' },
+  { key: 'period', label: '期间结账' },
   { key: 'bank', label: '银行与结算' },
+  { key: 'inventory', label: '存货与资产' },
+  { key: 'payroll', label: '人事与薪税' },
   { key: 'settings', label: '账套与设置' },
   { key: 'users', label: '成员与权限' },
 ]
@@ -111,10 +135,12 @@ function savePreviewRoleManagerData(data: PreviewRoleManagerData) {
 
 export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company' }) {
   const { selectedCompanyId, companies, fetchCompanies } = useCompanyStore()
-  const { canCreate, canDelete, canEdit, canView } = usePermission()
+  const { canView, isAdmin } = usePermission()
   const [roles, setRoles] = useState<RoleWithPermissions[]>([])
   const [users, setUsers] = useState<UserWithRole[]>([])
   const [activeTab, setActiveTab] = useState<'roles' | 'users'>('roles')
+  const [userPageNumber, setUserPageNumber] = useState(1)
+  const [userPageSize, setUserPageSize] = useState(20)
   const [expandedRole, setExpandedRole] = useState<string | null>(null)
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null)
   const [showEditor, setShowEditor] = useState(false)
@@ -127,6 +153,10 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
   const [scopeUser, setScopeUser] = useState<UserWithRole | null>(null)
   const [scopeCompanyIds, setScopeCompanyIds] = useState<Set<string>>(new Set())
   const [pendingRoleDeletion, setPendingRoleDeletion] = useState<RoleWithPermissions | null>(null)
+  const [memberDraft, setMemberDraft] = useState<MemberDraft | null>(null)
+  const [resetTarget, setResetTarget] = useState<UserWithRole | null>(null)
+  const [resetPassword, setResetPassword] = useState('')
+  const [savingMember, setSavingMember] = useState(false)
 
   const writePermissionAudit = (action: string, object: string, detail: string) => {
     if (!isTauri) return
@@ -137,7 +167,6 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
       riskLevel: '高',
       result: '成功',
       detail,
-      operator: 'admin',
     })
   }
 
@@ -184,6 +213,10 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
   const selectedRole = useMemo(() => roles.find((item) => item.role.id === editingRoleId) ?? null, [editingRoleId, roles])
   const isEditorOpen = showEditor || Boolean(selectedRole)
   const assignmentCount = users.filter((user) => user.role_id).length
+  const userPage = useMemo(
+    () => paginateOperationalRows(users, userPageNumber, userPageSize),
+    [userPageNumber, userPageSize, users],
+  )
   const scopeCompanies = useMemo<ScopeCompany[]>(() => {
     const activeCompanies = companies
       .filter((company) => company.is_deleted !== 1)
@@ -383,6 +416,110 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
     }
   }
 
+  const openMemberEditor = () => {
+    if (!roles.length) {
+      setNotice('请先创建至少一个角色，再新增登录成员。')
+      return
+    }
+    if (!scopeCompanies.length) {
+      setNotice('请先完成企业建档，再为成员分配账套范围。')
+      return
+    }
+    setMemberDraft({
+      ...emptyMemberDraft(),
+      roleId: roles.find((item) => item.role.code === 'accountant')?.role.id || roles[0].role.id,
+    })
+  }
+
+  const toggleMemberCompany = (companyId: string) => {
+    setMemberDraft((current) => {
+      if (!current) return current
+      const companyIds = new Set(current.companyIds)
+      if (companyIds.has(companyId)) companyIds.delete(companyId)
+      else companyIds.add(companyId)
+      return { ...current, companyIds }
+    })
+  }
+
+  const saveMember = async () => {
+    if (!memberDraft) return
+    const username = memberDraft.username.trim()
+    const realName = memberDraft.realName.trim()
+    if (!username || !realName || !memberDraft.roleId || memberDraft.companyIds.size === 0) {
+      setNotice('请填写成员姓名、登录账号，并选择角色和至少一个账套。')
+      return
+    }
+    if (memberDraft.password !== memberDraft.passwordConfirm) {
+      setNotice('两次输入的成员密码不一致。')
+      return
+    }
+    if (memberDraft.password.length < 12) {
+      setNotice('成员密码至少需要 12 位，并包含大小写字母、数字和符号。')
+      return
+    }
+    const role = roles.find((item) => item.role.id === memberDraft.roleId)
+    if (!role) return
+    setSavingMember(true)
+    try {
+      if (isTauri) {
+        await invoke('create_user', {
+          input: {
+            username,
+            realName,
+            password: memberDraft.password,
+            roleId: memberDraft.roleId,
+            companyIds: [...memberDraft.companyIds],
+          },
+        })
+        await loadData()
+      } else {
+        setUsers((current) => [...current, {
+          id: `preview-user-${Date.now()}`,
+          username,
+          real_name: realName,
+          role: role.role.code,
+          role_id: role.role.id,
+          role_name: role.role.name,
+          company_ids: [...memberDraft.companyIds],
+        }])
+      }
+      writePermissionAudit('新增登录成员', `${username}｜${role.role.name}`, `${memberDraft.companyIds.size} 个账套`)
+      setMemberDraft(null)
+      setActiveTab('users')
+      setNotice(`成员 ${realName} 已创建，可使用设置的初始密码登录。`)
+    } catch (error) {
+      console.error('Failed to create user:', error)
+      setNotice(`成员创建失败：${String(error)}`)
+    } finally {
+      setSavingMember(false)
+    }
+  }
+
+  const saveResetPassword = async () => {
+    if (!resetTarget) return
+    if (resetPassword.length < 12) {
+      setNotice('新密码至少需要 12 位，并包含大小写字母、数字和符号。')
+      return
+    }
+    setSavingMember(true)
+    try {
+      if (isTauri) {
+        await invoke('reset_user_password', {
+          input: { userId: resetTarget.id, password: resetPassword },
+        })
+      }
+      writePermissionAudit('重置成员密码', resetTarget.username, '管理员已设置新的登录密码')
+      setResetTarget(null)
+      setResetPassword('')
+      setNotice(`已重置 ${resetTarget.real_name} 的登录密码。`)
+    } catch (error) {
+      console.error('Failed to reset user password:', error)
+      setNotice(`密码重置失败：${String(error)}`)
+    } finally {
+      setSavingMember(false)
+    }
+  }
+
   if (!canView('users')) {
     return <div className="flex h-64 items-center justify-center text-sm text-slate-500">您没有权限查看机构成员与角色配置。</div>
   }
@@ -402,7 +539,8 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
             <button type="button" onClick={loadData} className="inline-flex h-8 items-center gap-1 border border-slate-300 px-2 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7] dark:border-neutral-600 dark:text-neutral-200" title="刷新角色与成员数据">
               <RefreshCw className="h-3.5 w-3.5" /> 刷新
             </button>
-            {canCreate('users') && <button type="button" onClick={openNewRole} className="inline-flex h-8 items-center gap-1 bg-[#1f65a7] px-2.5 text-xs font-medium text-white hover:bg-[#19568e] dark:bg-blue-600 dark:hover:bg-blue-500"><Plus className="h-3.5 w-3.5" /> 新增角色</button>}
+            {isAdmin && activeTab === 'roles' && <button type="button" onClick={openNewRole} className="inline-flex h-8 items-center gap-1 bg-[#1f65a7] px-2.5 text-xs font-medium text-white hover:bg-[#19568e] dark:bg-blue-600 dark:hover:bg-blue-500"><Plus className="h-3.5 w-3.5" /> 新增角色</button>}
+            {isAdmin && activeTab === 'users' && <button type="button" onClick={openMemberEditor} className="inline-flex h-8 items-center gap-1 bg-[#1f65a7] px-2.5 text-xs font-medium text-white hover:bg-[#19568e] dark:bg-blue-600 dark:hover:bg-blue-500"><Plus className="h-3.5 w-3.5" /> 新增成员</button>}
           </div>
         </div>
 
@@ -428,29 +566,75 @@ export function RoleManager({ scope = 'agency' }: { scope?: 'agency' | 'company'
       {loading ? <div className="flex h-40 items-center justify-center border border-slate-200 bg-white text-sm text-slate-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">正在加载角色与成员授权数据...</div> : activeTab === 'roles' ? (
         <section className="overflow-hidden border border-slate-200 bg-white dark:border-neutral-700 dark:bg-neutral-900">
           <div className="flex h-9 items-center justify-between border-b border-slate-200 px-3 dark:border-neutral-700"><h2 className="text-sm font-semibold">角色清单</h2><span className="text-xs text-slate-500 dark:text-neutral-400">点击角色查看权限矩阵与生效范围</span></div>
-          <div className="overflow-x-auto">
-            <table className="min-w-[860px] w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-600 dark:bg-neutral-800 dark:text-neutral-300"><tr><th className="w-9 px-3 py-2"></th><th className="min-w-48 px-3 py-2 font-medium">角色</th><th className="min-w-72 px-3 py-2 font-medium">职责范围</th><th className="px-3 py-2 font-medium">权限项</th><th className="px-3 py-2 font-medium">类型</th><th className="px-3 py-2 text-right font-medium">操作</th></tr></thead>
+          <div className="hidden min-w-0 lg:block">
+            <table className="w-full table-fixed text-left text-xs">
+              <thead className="bg-slate-50 text-slate-600 dark:bg-neutral-800 dark:text-neutral-300"><tr><th className="w-9 px-3 py-2"></th><th className="w-[20%] px-3 py-2 font-medium">角色</th><th className="px-3 py-2 font-medium">职责范围</th><th className="w-[10%] px-3 py-2 font-medium">权限项</th><th className="w-[10%] px-3 py-2 font-medium">类型</th><th className="w-[18%] px-3 py-2 text-right font-medium">操作</th></tr></thead>
               <tbody>
                 {roles.map((item) => {
                   const expanded = expandedRole === item.role.id
-                  return <RoleRow key={item.role.id} role={item} expanded={expanded} canEdit={canEdit('users')} canDelete={canDelete('users')} onToggle={() => setExpandedRole(expanded ? null : item.role.id)} onEdit={() => openEditRole(item)} onDelete={() => deleteRole(item)} />
+                  return <RoleRow key={item.role.id} role={item} expanded={expanded} canEdit={isAdmin} canDelete={isAdmin} onToggle={() => setExpandedRole(expanded ? null : item.role.id)} onEdit={() => openEditRole(item)} onDelete={() => deleteRole(item)} />
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="space-y-2 p-3 lg:hidden">
+            {roles.map((item) => {
+              const expanded = expandedRole === item.role.id
+              return <article key={item.role.id} className="border border-slate-200 p-3 dark:border-neutral-700">
+                <div className="flex items-start justify-between gap-3">
+                  <button type="button" onClick={() => setExpandedRole(expanded ? null : item.role.id)} className="flex min-w-0 items-start gap-2 text-left">
+                    <ChevronRight className={`mt-0.5 h-4 w-4 shrink-0 text-slate-500 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+                    <span className="min-w-0"><span className="block font-medium">{item.role.name}</span><span className="mt-0.5 block font-mono text-[11px] text-slate-500">{item.role.code}</span></span>
+                  </button>
+                  <span className="text-xs text-slate-500">{getPermissionCount(item)} 项权限</span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-neutral-300">{item.role.description || '未填写角色说明。'}</p>
+                {item.role.is_system === 1 ? <span className="mt-2 inline-flex border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs text-amber-700">系统角色</span> : <span className="mt-2 inline-flex border border-slate-200 px-1.5 py-0.5 text-xs text-slate-600">自定义</span>}
+                {item.role.is_system !== 1 && isAdmin && <div className="mt-3 flex gap-2">
+                  <button type="button" onClick={() => openEditRole(item)} className="inline-flex h-7 items-center gap-1 border border-slate-300 px-2 text-xs dark:border-neutral-600"><Edit2 className="h-3.5 w-3.5" />编辑</button>
+                  <button type="button" onClick={() => deleteRole(item)} className="inline-flex h-7 items-center gap-1 border border-red-200 px-2 text-xs text-red-700 dark:border-red-900 dark:text-red-300"><Trash2 className="h-3.5 w-3.5" />删除</button>
+                </div>}
+                {expanded && <div className="mt-3 border-t border-slate-200 pt-3 dark:border-neutral-700"><PermissionMatrix permissions={createPermissionDraft(item.permissions)} readOnly /></div>}
+              </article>
+            })}
           </div>
           {!roles.length && <div className="px-3 py-10 text-center text-sm text-slate-500 dark:text-neutral-400">当前没有可用角色，请先新增角色并配置权限。</div>}
         </section>
       ) : (
         <section className="overflow-hidden border border-slate-200 bg-white dark:border-neutral-700 dark:bg-neutral-900">
           <div className="flex h-9 items-center justify-between border-b border-slate-200 px-3 dark:border-neutral-700"><h2 className="text-sm font-semibold">成员授权</h2><span className="text-xs text-slate-500 dark:text-neutral-400">角色变更将写入机构操作留痕；高风险权限须由管理员复核。</span></div>
-          <div className="overflow-x-auto"><table className="min-w-[860px] w-full text-left text-xs"><thead className="bg-slate-50 text-slate-600 dark:bg-neutral-800 dark:text-neutral-300"><tr><th className="px-3 py-2 font-medium">成员</th><th className="px-3 py-2 font-medium">登录账号</th><th className="px-3 py-2 font-medium">可见账套</th><th className="px-3 py-2 font-medium">当前角色</th><th className="px-3 py-2 text-right font-medium">变更授权</th></tr></thead><tbody>{users.map((user) => <tr key={user.id} className="border-t border-slate-100 hover:bg-slate-50 dark:border-neutral-800 dark:hover:bg-neutral-800"><td className="px-3 py-2.5 font-medium">{user.real_name}</td><td className="px-3 py-2.5 font-mono text-slate-500 dark:text-neutral-400">{user.username}</td><td className="px-3 py-2.5">{user.company_ids.includes('all') ? '全部客户账套' : `${user.company_ids.length} 个账套`}</td><td className="px-3 py-2.5"><span className="inline-flex border border-slate-200 px-1.5 py-0.5 text-slate-700 dark:border-neutral-600 dark:text-neutral-200">{user.role_name || user.role || '未分配'}</span></td><td className="px-3 py-2.5 text-right">{canEdit('users') ? <div className="flex justify-end gap-2"><select value={user.role_id || ''} onChange={(event) => updateUserRole(user, event.target.value)} className="h-7 min-w-28 border border-slate-300 bg-white px-2 text-xs text-slate-700 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100" title={`为${user.real_name}分配角色`}><option value="">选择角色</option>{roles.map((role) => <option key={role.role.id} value={role.role.id}>{role.role.name}</option>)}</select>{scope === 'agency' && <button type="button" onClick={() => openCompanyScopeEditor(user)} className="inline-flex h-7 items-center gap-1 border border-slate-300 px-2 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7] dark:border-neutral-600 dark:text-neutral-200" title={`设置${user.real_name}的可见账套范围`}><KeyRound className="h-3.5 w-3.5" /> 账套范围</button>}</div> : <span className="text-slate-400">无编辑权限</span>}</td></tr>)}</tbody></table></div>
+          <div className="hidden min-w-0 lg:block">
+            <table className="w-full table-fixed text-left text-xs">
+              <thead className="bg-slate-50 text-slate-600 dark:bg-neutral-800 dark:text-neutral-300">
+                <tr><th className="w-[16%] px-3 py-2 font-medium">成员</th><th className="w-[16%] px-3 py-2 font-medium">登录账号</th><th className="w-[14%] px-3 py-2 font-medium">可见账套</th><th className="w-[14%] px-3 py-2 font-medium">当前角色</th><th className="px-3 py-2 text-right font-medium">变更授权</th></tr>
+              </thead>
+              <tbody>{userPage.rows.map((user) => <tr key={user.id} className="border-t border-slate-100 hover:bg-slate-50 dark:border-neutral-800 dark:hover:bg-neutral-800">
+                <td className="break-words px-3 py-2.5 font-medium">{user.real_name}</td>
+                <td className="break-words px-3 py-2.5 font-mono text-slate-500 dark:text-neutral-400">{user.username}</td>
+                <td className="px-3 py-2.5">{user.company_ids.includes('all') ? '全部客户账套' : `${user.company_ids.length} 个账套`}</td>
+                <td className="px-3 py-2.5"><span className="inline-flex border border-slate-200 px-1.5 py-0.5 text-slate-700 dark:border-neutral-600 dark:text-neutral-200">{user.role_name || user.role || '未分配'}</span></td>
+                <td className="px-3 py-2.5 text-right">{isAdmin ? <div className="flex flex-wrap justify-end gap-2">
+                  <select value={user.role_id || ''} onChange={(event) => updateUserRole(user, event.target.value)} className="h-7 min-w-28 border border-slate-300 bg-white px-2 text-xs text-slate-700 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100" title={`为${user.real_name}分配角色`}><option value="">选择角色</option>{roles.map((role) => <option key={role.role.id} value={role.role.id}>{role.role.name}</option>)}</select>
+                  {scope === 'agency' && <button type="button" onClick={() => openCompanyScopeEditor(user)} className="inline-flex h-7 items-center gap-1 border border-slate-300 px-2 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7] dark:border-neutral-600 dark:text-neutral-200" title={`设置${user.real_name}的可见账套范围`}><KeyRound className="h-3.5 w-3.5" /> 账套范围</button>}
+                  <button type="button" onClick={() => { setResetTarget(user); setResetPassword('') }} className="inline-flex h-7 items-center gap-1 border border-slate-300 px-2 text-xs text-slate-700 hover:border-[#1f65a7] hover:text-[#1f65a7] dark:border-neutral-600 dark:text-neutral-200" title={`重置${user.real_name}的登录密码`}><KeyRound className="h-3.5 w-3.5" /> 重置密码</button>
+                </div> : <span className="text-slate-400">只读</span>}</td>
+              </tr>)}</tbody>
+            </table>
+          </div>
+          <div className="space-y-2 p-3 lg:hidden">{userPage.rows.map((user) => <article key={user.id} className="border border-slate-200 p-3 dark:border-neutral-700">
+            <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="break-words text-sm font-medium">{user.real_name}</p><p className="mt-0.5 break-words font-mono text-xs text-slate-500 dark:text-neutral-400">{user.username}</p></div><span className="shrink-0 border border-slate-200 px-1.5 py-0.5 text-xs dark:border-neutral-600">{user.role_name || user.role || '未分配'}</span></div>
+            <p className="mt-2 text-xs text-slate-500 dark:text-neutral-400">可见范围：{user.company_ids.includes('all') ? '全部客户账套' : `${user.company_ids.length} 个账套`}</p>
+            {isAdmin ? <div className="mt-3 grid gap-2 sm:grid-cols-3"><select value={user.role_id || ''} onChange={(event) => updateUserRole(user, event.target.value)} className="h-8 min-w-0 border border-slate-300 bg-white px-2 text-xs dark:border-neutral-600 dark:bg-neutral-950" title={`为${user.real_name}分配角色`}><option value="">选择角色</option>{roles.map((role) => <option key={role.role.id} value={role.role.id}>{role.role.name}</option>)}</select>{scope === 'agency' && <button type="button" onClick={() => openCompanyScopeEditor(user)} className="inline-flex h-8 items-center justify-center gap-1 border border-slate-300 px-2 text-xs dark:border-neutral-600"><KeyRound className="h-3.5 w-3.5" />账套范围</button>}<button type="button" onClick={() => { setResetTarget(user); setResetPassword('') }} className="inline-flex h-8 items-center justify-center gap-1 border border-slate-300 px-2 text-xs dark:border-neutral-600"><KeyRound className="h-3.5 w-3.5" />重置密码</button></div> : <p className="mt-3 text-xs text-slate-400">只读</p>}
+          </article>)}</div>
           {!users.length && <div className="px-3 py-10 text-center text-sm text-slate-500 dark:text-neutral-400">当前没有机构成员记录。</div>}
+          <OperationalPagination page={userPage} onPageChange={setUserPageNumber} onPageSizeChange={(size) => { setUserPageSize(size); setUserPageNumber(1) }} />
         </section>
       )}
 
       {isEditorOpen && <RoleEditor isEditing={Boolean(selectedRole)} name={roleName} code={roleCode} description={roleDescription} permissions={permissionDraft} onName={setRoleName} onCode={setRoleCode} onDescription={setRoleDescription} onToggle={togglePermission} onCancel={closeEditor} onSave={saveRole} />}
       {scopeUser && <UserCompanyScopeEditor user={scopeUser} companies={scopeCompanies} companyIds={scopeCompanyIds} onToggle={toggleCompanyScope} onToggleAll={toggleAllCompanyScopes} onCancel={closeCompanyScopeEditor} onSave={saveCompanyScope} />}
+      {memberDraft && <MemberEditor draft={memberDraft} roles={roles} companies={scopeCompanies} saving={savingMember} onChange={setMemberDraft} onToggleCompany={toggleMemberCompany} onCancel={() => setMemberDraft(null)} onSave={saveMember} />}
+      {resetTarget && <PasswordResetDialog user={resetTarget} password={resetPassword} saving={savingMember} onPassword={setResetPassword} onCancel={() => { setResetTarget(null); setResetPassword('') }} onSave={saveResetPassword} />}
       {pendingRoleDeletion && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4" role="dialog" aria-modal="true" aria-label="确认删除角色权限"><section className="w-full max-w-md border border-slate-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"><div className="border-b border-slate-200 px-4 py-3 dark:border-neutral-700"><h2 className="text-sm font-semibold">确认删除角色权限</h2><p className="mt-1 text-xs text-slate-600 dark:text-neutral-300">确认删除“{pendingRoleDeletion.role.name}”吗？删除角色后，已分配成员需要重新授权。</p></div><div className="px-4 py-3 text-xs text-slate-500 dark:text-neutral-400">该操作仅变更本机机构权限配置，不会修改客户账套数据或向外部系统发送请求。</div><div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-neutral-700"><button type="button" onClick={() => setPendingRoleDeletion(null)} className="h-8 border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800">取消</button><button type="button" onClick={() => void confirmRoleDeletion()} className="h-8 bg-red-600 px-3 text-xs font-medium text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-500">删除角色</button></div></section></div>}
     </div>
   )
@@ -519,4 +703,48 @@ function RoleEditor({ isEditing, name, code, description, permissions, onName, o
 function UserCompanyScopeEditor({ user, companies, companyIds, onToggle, onToggleAll, onCancel, onSave }: { user: UserWithRole; companies: ScopeCompany[]; companyIds: Set<string>; onToggle: (companyId: string) => void; onToggleAll: () => void; onCancel: () => void; onSave: () => void }) {
   const allSelected = companies.length > 0 && companies.every((company) => companyIds.has(company.id))
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" role="dialog" aria-modal="true" aria-label="设置账套范围"><section className="w-full max-w-2xl border border-slate-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"><div className="flex h-11 items-center justify-between border-b border-slate-200 px-4 dark:border-neutral-700"><div><h2 className="text-sm font-semibold">设置账套范围</h2><p className="mt-0.5 text-xs text-slate-500 dark:text-neutral-400">{user.real_name} 仅能访问下列已授权客户账套；角色权限仍决定可执行的动作。</p></div><button type="button" onClick={onCancel} className="text-slate-500 hover:text-slate-900 dark:text-neutral-400 dark:hover:text-white" title="关闭"><X className="h-4 w-4" /></button></div><div className="p-4"><div className="mb-3 flex items-center justify-between border-b border-slate-200 pb-2 text-xs dark:border-neutral-700"><label className="inline-flex items-center gap-2 font-medium text-slate-700 dark:text-neutral-200"><input type="checkbox" checked={allSelected} onChange={onToggleAll} className="h-3.5 w-3.5 rounded border-slate-300 text-[#1f65a7] focus:ring-[#1f65a7] dark:border-neutral-600" />全部当前启用账套</label><span className="text-slate-500 dark:text-neutral-400">已选择 {companyIds.size} / {companies.length}</span></div><div className="max-h-72 divide-y divide-slate-100 overflow-y-auto border border-slate-200 dark:divide-neutral-800 dark:border-neutral-700">{companies.map((company) => <label key={company.id} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-neutral-800"><input type="checkbox" checked={companyIds.has(company.id)} onChange={() => onToggle(company.id)} className="h-3.5 w-3.5 rounded border-slate-300 text-[#1f65a7] focus:ring-[#1f65a7] dark:border-neutral-600" /><span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium text-slate-900 dark:text-white">{company.name}</span><span className="block truncate font-mono text-[11px] text-slate-500 dark:text-neutral-400">{company.code} · {company.tax_id || '未维护税号'}</span></span><span className="text-[11px] text-slate-500 dark:text-neutral-400">{company.tax_type || '未设置'}</span></label>)}{companies.length === 0 && <p className="px-3 py-8 text-center text-sm text-slate-500 dark:text-neutral-400">当前没有可授权的启用账套，请先在首页完成企业建档。</p>}</div></div><div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-neutral-700"><button type="button" onClick={onCancel} className="h-8 border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800">取消</button><button type="button" onClick={onSave} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#19568e] dark:bg-blue-600 dark:hover:bg-blue-500">保存范围</button></div></section></div>
+}
+
+function MemberEditor({ draft, roles, companies, saving, onChange, onToggleCompany, onCancel, onSave }: { draft: MemberDraft; roles: RoleWithPermissions[]; companies: ScopeCompany[]; saving: boolean; onChange: (draft: MemberDraft) => void; onToggleCompany: (companyId: string) => void; onCancel: () => void; onSave: () => void }) {
+  const inputClassName = 'h-8 border border-slate-300 bg-white px-2 text-sm text-slate-900 dark:border-neutral-600 dark:bg-neutral-950 dark:text-white'
+  const allSelected = companies.length > 0 && companies.every((company) => draft.companyIds.has(company.id))
+  const toggleAll = () => onChange({
+    ...draft,
+    companyIds: allSelected ? new Set() : new Set(companies.map((company) => company.id)),
+  })
+
+  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="新增成员">
+    <section className="max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-auto border border-slate-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-slate-200 px-4 py-2 dark:border-neutral-700">
+        <div><h2 className="text-sm font-semibold">新增成员</h2><p className="mt-0.5 text-xs text-slate-500 dark:text-neutral-400">创建本机登录账号，并同时设置角色和允许访问的客户账套。</p></div>
+        <button type="button" onClick={onCancel} className="text-slate-500 hover:text-slate-900 dark:text-neutral-400 dark:hover:text-white" title="关闭"><X className="h-4 w-4" /></button>
+      </div>
+      <div className="space-y-4 p-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-xs text-slate-600 dark:text-neutral-300">成员姓名 *<input value={draft.realName} onChange={(event) => onChange({ ...draft, realName: event.target.value })} className={inputClassName} autoComplete="name" placeholder="例如：王会计" /></label>
+          <label className="grid gap-1 text-xs text-slate-600 dark:text-neutral-300">登录账号 *<input value={draft.username} onChange={(event) => onChange({ ...draft, username: event.target.value })} className={inputClassName} autoComplete="username" placeholder="3-64 位账号" /></label>
+          <label className="grid gap-1 text-xs text-slate-600 dark:text-neutral-300">初始密码 *<input type="password" value={draft.password} onChange={(event) => onChange({ ...draft, password: event.target.value })} className={inputClassName} autoComplete="new-password" placeholder="至少 12 位强密码" /></label>
+          <label className="grid gap-1 text-xs text-slate-600 dark:text-neutral-300">确认密码 *<input type="password" value={draft.passwordConfirm} onChange={(event) => onChange({ ...draft, passwordConfirm: event.target.value })} className={inputClassName} autoComplete="new-password" placeholder="再次输入初始密码" /></label>
+          <label className="grid gap-1 text-xs text-slate-600 dark:text-neutral-300 sm:col-span-2">机构角色 *<select value={draft.roleId} onChange={(event) => onChange({ ...draft, roleId: event.target.value })} className={inputClassName}><option value="">选择角色</option>{roles.map((item) => <option key={item.role.id} value={item.role.id}>{item.role.name} · {item.role.code}</option>)}</select></label>
+        </div>
+        <p className="border-l-2 border-amber-400 pl-2 text-xs leading-5 text-slate-500 dark:text-neutral-400">密码须包含大写字母、小写字母、数字和符号。创建后不会显示明文密码。</p>
+        <div>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><h3 className="text-xs font-semibold">可访问账套 *</h3><label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-neutral-300"><input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-3.5 w-3.5 rounded border-slate-300 text-[#1f65a7] focus:ring-[#1f65a7] dark:border-neutral-600" />全部当前启用账套</label></div>
+          <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto border border-slate-200 dark:divide-neutral-800 dark:border-neutral-700">{companies.map((company) => <label key={company.id} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-neutral-800"><input type="checkbox" checked={draft.companyIds.has(company.id)} onChange={() => onToggleCompany(company.id)} className="h-3.5 w-3.5 rounded border-slate-300 text-[#1f65a7] focus:ring-[#1f65a7] dark:border-neutral-600" /><span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium">{company.name}</span><span className="block truncate font-mono text-[11px] text-slate-500 dark:text-neutral-400">{company.code} · {company.tax_id || '未维护税号'}</span></span><span className="text-[11px] text-slate-500 dark:text-neutral-400">{company.tax_type || '未设置'}</span></label>)}</div>
+          <p className="mt-1 text-right text-[11px] text-slate-500 dark:text-neutral-400">已选择 {draft.companyIds.size} / {companies.length}</p>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-neutral-700"><button type="button" onClick={onCancel} disabled={saving} className="h-8 border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800">取消</button><button type="button" onClick={onSave} disabled={saving} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#19568e] disabled:cursor-wait disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500">{saving ? '正在创建...' : '创建成员'}</button></div>
+    </section>
+  </div>
+}
+
+function PasswordResetDialog({ user, password, saving, onPassword, onCancel, onSave }: { user: UserWithRole; password: string; saving: boolean; onPassword: (password: string) => void; onCancel: () => void; onSave: () => void }) {
+  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="重置密码">
+    <section className="w-full max-w-md border border-slate-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-slate-200 px-4 py-2 dark:border-neutral-700"><div><h2 className="text-sm font-semibold">重置密码</h2><p className="mt-0.5 text-xs text-slate-500 dark:text-neutral-400">{user.real_name} · {user.username}</p></div><button type="button" onClick={onCancel} className="text-slate-500 hover:text-slate-900 dark:text-neutral-400 dark:hover:text-white" title="关闭"><X className="h-4 w-4" /></button></div>
+      <div className="space-y-2 p-4"><label className="grid gap-1 text-xs text-slate-600 dark:text-neutral-300">新密码 *<input type="password" value={password} onChange={(event) => onPassword(event.target.value)} autoComplete="new-password" className="h-8 border border-slate-300 bg-white px-2 text-sm text-slate-900 dark:border-neutral-600 dark:bg-neutral-950 dark:text-white" placeholder="至少 12 位强密码" /></label><p className="text-xs leading-5 text-slate-500 dark:text-neutral-400">须包含大写字母、小写字母、数字和符号；保存后原密码立即失效。</p></div>
+      <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-neutral-700"><button type="button" onClick={onCancel} disabled={saving} className="h-8 border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800">取消</button><button type="button" onClick={onSave} disabled={saving} className="h-8 bg-[#1f65a7] px-3 text-xs font-medium text-white hover:bg-[#19568e] disabled:cursor-wait disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500">{saving ? '正在保存...' : '确认重置'}</button></div>
+    </section>
+  </div>
 }

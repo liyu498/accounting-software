@@ -2,29 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown, Building2, Check, Plus } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { loadBrowserPreviewOpenPeriod } from '../../lib/browserPreviewPeriod'
+import { findLatestOpenBrowserPreviewPeriod } from '../../lib/browserPreviewPeriods.js'
 import { isTauri } from '../../lib/tauri'
 import { useCompanyStore } from '../../stores/companyStore'
-import { usePeriodStore, type AccountingPeriod } from '../../stores/periodStore'
-
-function loadBrowserPreviewOpenPeriod(companyId: string | null): AccountingPeriod | undefined {
-  if (typeof window === 'undefined') return undefined
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem('accounting-preview-periods-v1') || 'null') as unknown
-    if (!Array.isArray(parsed)) return undefined
-    return parsed.find((period): period is AccountingPeriod => Boolean(
-      period
-      && typeof period === 'object'
-      && typeof (period as AccountingPeriod).id === 'string'
-      && typeof (period as AccountingPeriod).company_id === 'string'
-      && Number.isInteger((period as AccountingPeriod).period_year)
-      && Number.isInteger((period as AccountingPeriod).period_month)
-      && (period as AccountingPeriod).status !== 'closed'
-      && ((period as AccountingPeriod).company_id === companyId || (!companyId && ['browser-preview-company', 'browser-preview', 'preview-company'].includes((period as AccountingPeriod).company_id))),
-    ))
-  } catch {
-    return undefined
-  }
-}
+import { usePeriodStore } from '../../stores/periodStore'
 
 export function CompanySelector() {
   const [isOpen, setIsOpen] = useState(false)
@@ -48,11 +30,10 @@ export function CompanySelector() {
     if (selectedCompanyId) {
       fetchPeriods(selectedCompanyId).then(() => {
         const { periods, currentPeriodId, setCurrentPeriod } = usePeriodStore.getState()
-        if (!currentPeriodId || !periods.find(p => p.id === currentPeriodId)) {
-          const companyPeriods = periods.filter(p => p.company_id === selectedCompanyId)
-          if (companyPeriods.length > 0) {
-            setCurrentPeriod(companyPeriods[0].id)
-          }
+        const selectedPeriod = periods.find(p => p.id === currentPeriodId)
+        if (!selectedPeriod || selectedPeriod.status === 'closed') {
+          const latestOpenPeriod = findLatestOpenBrowserPreviewPeriod(periods, selectedCompanyId)
+          setCurrentPeriod(latestOpenPeriod?.id ?? null)
         }
       }).catch(() => {})
     }

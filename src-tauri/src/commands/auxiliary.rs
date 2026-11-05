@@ -38,13 +38,12 @@ pub async fn create_auxiliary_category(
     .await
     .map_err(|e| format!("创建辅助核算类别失败: {}", e))?;
 
-    let result: AuxiliaryCategory = sqlx::query_as(
-        "SELECT * FROM auxiliary_categories WHERE id = ?",
-    )
-    .bind(&id)
-    .fetch_one(db.pool())
-    .await
-    .map_err(|e| format!("查询新创建的辅助核算类别失败: {}", e))?;
+    let result: AuxiliaryCategory =
+        sqlx::query_as("SELECT * FROM auxiliary_categories WHERE id = ?")
+            .bind(&id)
+            .fetch_one(db.pool())
+            .await
+            .map_err(|e| format!("查询新创建的辅助核算类别失败: {}", e))?;
 
     Ok(result)
 }
@@ -82,13 +81,12 @@ pub async fn update_auxiliary_category(
     .await
     .map_err(|e| format!("更新辅助核算类别失败: {}", e))?;
 
-    let result: AuxiliaryCategory = sqlx::query_as(
-        "SELECT * FROM auxiliary_categories WHERE id = ?",
-    )
-    .bind(&id)
-    .fetch_one(db.pool())
-    .await
-    .map_err(|e| format!("查询更新后的辅助核算类别失败: {}", e))?;
+    let result: AuxiliaryCategory =
+        sqlx::query_as("SELECT * FROM auxiliary_categories WHERE id = ?")
+            .bind(&id)
+            .fetch_one(db.pool())
+            .await
+            .map_err(|e| format!("查询更新后的辅助核算类别失败: {}", e))?;
 
     Ok(result)
 }
@@ -175,13 +173,11 @@ pub async fn get_all_auxiliary_items(
     company_id: String,
     db: State<'_, Database>,
 ) -> Result<Vec<AuxiliaryItem>, String> {
-    sqlx::query_as(
-        "SELECT * FROM auxiliary_items WHERE company_id = ? ORDER BY code",
-    )
-    .bind(&company_id)
-    .fetch_all(db.pool())
-    .await
-    .map_err(|e| format!("查询辅助核算项目失败: {}", e))
+    sqlx::query_as("SELECT * FROM auxiliary_items WHERE company_id = ? ORDER BY code")
+        .bind(&company_id)
+        .fetch_all(db.pool())
+        .await
+        .map_err(|e| format!("查询辅助核算项目失败: {}", e))
 }
 
 #[tauri::command]
@@ -190,13 +186,11 @@ pub async fn create_auxiliary_item(
     db: State<'_, Database>,
 ) -> Result<AuxiliaryItem, String> {
     // Verify category exists
-    let cat: Option<(String,)> = sqlx::query_as(
-        "SELECT id FROM auxiliary_categories WHERE id = ?",
-    )
-    .bind(&input.category_id)
-    .fetch_optional(db.pool())
-    .await
-    .map_err(|e| format!("查询失败: {}", e))?;
+    let cat: Option<(String,)> = sqlx::query_as("SELECT id FROM auxiliary_categories WHERE id = ?")
+        .bind(&input.category_id)
+        .fetch_optional(db.pool())
+        .await
+        .map_err(|e| format!("查询失败: {}", e))?;
 
     if cat.is_none() {
         return Err("辅助核算类别不存在".to_string());
@@ -216,13 +210,11 @@ pub async fn create_auxiliary_item(
     .await
     .map_err(|e| format!("创建辅助核算项目失败: {}", e))?;
 
-    let result: AuxiliaryItem = sqlx::query_as(
-        "SELECT * FROM auxiliary_items WHERE id = ?",
-    )
-    .bind(&id)
-    .fetch_one(db.pool())
-    .await
-    .map_err(|e| format!("查询新创建的辅助核算项目失败: {}", e))?;
+    let result: AuxiliaryItem = sqlx::query_as("SELECT * FROM auxiliary_items WHERE id = ?")
+        .bind(&id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|e| format!("查询新创建的辅助核算项目失败: {}", e))?;
 
     Ok(result)
 }
@@ -246,19 +238,21 @@ pub async fn update_auxiliary_item(
     .await
     .map_err(|e| format!("更新辅助核算项目失败: {}", e))?;
 
-    let result: AuxiliaryItem = sqlx::query_as(
-        "SELECT * FROM auxiliary_items WHERE id = ?",
-    )
-    .bind(&id)
-    .fetch_one(db.pool())
-    .await
-    .map_err(|e| format!("查询更新后的辅助核算项目失败: {}", e))?;
+    let result: AuxiliaryItem = sqlx::query_as("SELECT * FROM auxiliary_items WHERE id = ?")
+        .bind(&id)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|e| format!("查询更新后的辅助核算项目失败: {}", e))?;
 
     Ok(result)
 }
 
 #[tauri::command]
-pub async fn delete_auxiliary_item(id: String, company_id: String, db: State<'_, Database>) -> Result<(), String> {
+pub async fn delete_auxiliary_item(
+    id: String,
+    company_id: String,
+    db: State<'_, Database>,
+) -> Result<(), String> {
     // Check if item is used in any voucher entry
     let used: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM voucher_entry_auxiliaries WHERE auxiliary_item_id = ?",
@@ -283,7 +277,11 @@ pub async fn delete_auxiliary_item(id: String, company_id: String, db: State<'_,
 }
 
 #[tauri::command]
-pub async fn toggle_auxiliary_item(id: String, company_id: String, db: State<'_, Database>) -> Result<(), String> {
+pub async fn toggle_auxiliary_item(
+    id: String,
+    company_id: String,
+    db: State<'_, Database>,
+) -> Result<(), String> {
     sqlx::query(
         "UPDATE auxiliary_items SET is_enabled = CASE WHEN is_enabled = 1 THEN 0 ELSE 1 END WHERE id = ? AND company_id = ?",
     )
@@ -312,22 +310,6 @@ pub async fn get_account_auxiliary_links(
     .fetch_all(db.pool())
     .await
     .map_err(|e| format!("查询科目辅助核算关联失败: {}", e))
-}
-
-#[tauri::command]
-pub async fn get_accounts_with_auxiliary(
-    auxiliary_category_id: String,
-    company_id: String,
-    db: State<'_, Database>,
-) -> Result<Vec<AccountAuxiliaryLink>, String> {
-    sqlx::query_as(
-        "SELECT * FROM account_auxiliary_links WHERE auxiliary_category_id = ? AND company_id = ?",
-    )
-    .bind(&auxiliary_category_id)
-    .bind(&company_id)
-    .fetch_all(db.pool())
-    .await
-    .map_err(|e| format!("查询辅助核算关联科目失败: {}", e))
 }
 
 #[tauri::command]
@@ -374,13 +356,11 @@ pub async fn get_voucher_entry_auxiliaries(
     entry_id: String,
     db: State<'_, Database>,
 ) -> Result<Vec<VoucherEntryAuxiliary>, String> {
-    sqlx::query_as(
-        "SELECT * FROM voucher_entry_auxiliaries WHERE entry_id = ?",
-    )
-    .bind(&entry_id)
-    .fetch_all(db.pool())
-    .await
-    .map_err(|e| format!("查询凭证分录辅助核算失败: {}", e))
+    sqlx::query_as("SELECT * FROM voucher_entry_auxiliaries WHERE entry_id = ?")
+        .bind(&entry_id)
+        .fetch_all(db.pool())
+        .await
+        .map_err(|e| format!("查询凭证分录辅助核算失败: {}", e))
 }
 
 // ─── Auxiliary Ledger Queries ──────────────────────────────────────
@@ -432,7 +412,8 @@ pub async fn get_auxiliary_ledger(
         query = query.bind(b);
     }
 
-    query.fetch_all(db.pool())
+    query
+        .fetch_all(db.pool())
         .await
         .map_err(|e| format!("查询辅助核算明细账失败: {}", e))
 }
@@ -537,14 +518,13 @@ pub async fn get_account_auxiliary_setup(
     company_id: String,
     db: State<'_, Database>,
 ) -> Result<Option<AccountAuxiliarySetup>, String> {
-    let account: Option<(String, String)> = sqlx::query_as(
-        "SELECT code, name FROM account_codes WHERE code = ? AND company_id = ?",
-    )
-    .bind(&account_code)
-    .bind(&company_id)
-    .fetch_optional(db.pool())
-    .await
-    .map_err(|e| format!("查询科目失败: {}", e))?;
+    let account: Option<(String, String)> =
+        sqlx::query_as("SELECT code, name FROM account_codes WHERE code = ? AND company_id = ?")
+            .bind(&account_code)
+            .bind(&company_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|e| format!("查询科目失败: {}", e))?;
 
     let (code, name) = match account {
         Some(a) => a,
