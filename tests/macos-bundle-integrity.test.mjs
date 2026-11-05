@@ -33,3 +33,16 @@ test('distribution verification rejects ad-hoc signatures', () => {
   assert.match(script, /not set/)
   assert.match(script, /None/)
 })
+
+test('macOS release CI imports Developer ID credentials and enforces notarized distribution verification', () => {
+  const workflow = read('.github/workflows/desktop-build.yml')
+
+  assert.match(workflow, /APPLE_CERTIFICATE/)
+  assert.match(workflow, /APPLE_CERTIFICATE_PASSWORD/)
+  assert.match(workflow, /KEYCHAIN_PASSWORD/)
+  assert.match(workflow, /APPLE_SIGNING_IDENTITY/)
+  assert.match(workflow, /Import Apple Developer ID certificate/)
+  assert.match(workflow, /Build signed and notarized macOS bundle/)
+  assert.match(workflow, /REQUIRE_DISTRIBUTION_SIGNATURE:\s*['"]?1['"]?/)
+  assert.match(workflow, /Build ad-hoc macOS CI bundle/)
+})

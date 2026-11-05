@@ -19,3 +19,15 @@ test('Windows CI verifies generated NSIS and MSI installers', () => {
   assert.match(script, /NotSigned/)
   assert.match(script, /Valid/)
 })
+
+test('Windows release CI imports a PFX certificate and passes its thumbprint to Tauri', () => {
+  const workflow = read('.github/workflows/desktop-build.yml')
+
+  assert.match(workflow, /WINDOWS_CERTIFICATE/)
+  assert.match(workflow, /WINDOWS_CERTIFICATE_PASSWORD/)
+  assert.match(workflow, /Import-PfxCertificate/)
+  assert.match(workflow, /certificateThumbprint/)
+  assert.match(workflow, /Build signed Windows bundle/)
+  assert.match(workflow, /REQUIRE_DISTRIBUTION_SIGNATURE:\s*['"]?1['"]?/)
+  assert.match(workflow, /Build unsigned Windows CI bundle/)
+})

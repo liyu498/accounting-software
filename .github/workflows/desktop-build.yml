@@ -10,6 +10,9 @@ jobs:
   bundle:
     name: ${{ matrix.os }} desktop bundle
     runs-on: ${{ matrix.os }}
+    env:
+      MACOS_SIGNING_ENABLED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.KEYCHAIN_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
+      WINDOWS_SIGNING_ENABLED: ${{ secrets.WINDOWS_CERTIFICATE != '' && secrets.WINDOWS_CERTIFICATE_PASSWORD != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -38,17 +41,83 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo check --manifest-path src-tauri/Cargo.toml
       - run: cargo test --manifest-path src-tauri/Cargo.toml
-      - name: Build sealed macOS CI bundle
-        if: runner.os == 'macOS'
-        run: npm run tauri build -- --config src-tauri/tauri.macos.ci.conf.json
-      - name: Verify macOS app and disk image integrity
-        if: runner.os == 'macOS'
-        run: npm run verify:macos-bundle
-      - name: Build Windows bundle
-        if: runner.os == 'Windows'
+      - name: Import Apple Developer ID certificate
+        if: runner.os == 'macOS' && env.MACOS_SIGNING_ENABLED == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        shell: bash
+        run: |
+          CERTIFICATE_PATH="$RUNNER_TEMP/developer-id.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          CERT_ID="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Application/{print $2; exit}')"
+          test -n "$CERT_ID"
+          echo "APPLE_SIGNING_IDENTITY=$CERT_ID" >> "$GITHUB_ENV"
+      - name: Build signed and notarized macOS bundle
+        if: runner.os == 'macOS' && env.MACOS_SIGNING_ENABLED == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npm run tauri build
-      - name: Verify Windows installer integrity
-        if: runner.os == 'Windows'
+      - name: Verify signed macOS distribution bundle
+        if: runner.os == 'macOS' && env.MACOS_SIGNING_ENABLED == 'true'
+        env:
+          REQUIRE_DISTRIBUTION_SIGNATURE: '1'
+        run: npm run verify:macos-bundle
+      - name: Build ad-hoc macOS CI bundle
+        if: runner.os == 'macOS' && env.MACOS_SIGNING_ENABLED != 'true'
+        run: npm run tauri build -- --config src-tauri/tauri.macos.ci.conf.json
+      - name: Verify ad-hoc macOS bundle integrity
+        if: runner.os == 'macOS' && env.MACOS_SIGNING_ENABLED != 'true'
+        run: npm run verify:macos-bundle
+      - name: Import Windows code signing certificate
+        if: runner.os == 'Windows' && env.WINDOWS_SIGNING_ENABLED == 'true'
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+        shell: pwsh
+        run: |
+          $certificatePath = Join-Path $env:RUNNER_TEMP 'accounting-signing.pfx'
+          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $password = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          $certificate = Import-PfxCertificate -FilePath $certificatePath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          if (-not $certificate.HasPrivateKey) { throw 'Imported Windows signing certificate has no private key' }
+          $timestampUrl = if ($env:WINDOWS_TIMESTAMP_URL) { $env:WINDOWS_TIMESTAMP_URL } else { 'http://timestamp.digicert.com' }
+          $configPath = Join-Path $env:RUNNER_TEMP 'tauri.windows.signing.json'
+          @{
+            bundle = @{
+              windows = @{
+                certificateThumbprint = $certificate.Thumbprint
+                digestAlgorithm = 'sha256'
+                timestampUrl = $timestampUrl
+              }
+            }
+          } | ConvertTo-Json -Depth 5 | Set-Content -Path $configPath -Encoding utf8
+          "WINDOWS_TAURI_SIGNING_CONFIG=$configPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Build signed Windows bundle
+        if: runner.os == 'Windows' && env.WINDOWS_SIGNING_ENABLED == 'true'
+        shell: pwsh
+        run: npm run tauri build -- --config "$env:WINDOWS_TAURI_SIGNING_CONFIG"
+      - name: Verify signed Windows distribution bundle
+        if: runner.os == 'Windows' && env.WINDOWS_SIGNING_ENABLED == 'true'
+        env:
+          REQUIRE_DISTRIBUTION_SIGNATURE: '1'
+        run: npm run verify:windows-bundle
+      - name: Build unsigned Windows CI bundle
+        if: runner.os == 'Windows' && env.WINDOWS_SIGNING_ENABLED != 'true'
+        run: npm run tauri build
+      - name: Verify unsigned Windows bundle integrity
+        if: runner.os == 'Windows' && env.WINDOWS_SIGNING_ENABLED != 'true'
         run: npm run verify:windows-bundle
       - uses: actions/upload-artifact@v4
         with:
