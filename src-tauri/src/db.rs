@@ -10401,7 +10401,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upgrades_a_legacy_database_without_losing_business_data() {
+    async fn release_recovery_upgrades_a_legacy_database_without_losing_business_data() {
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
             .connect("sqlite::memory:")
@@ -10525,7 +10525,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn failed_versioned_migration_rolls_back_every_statement() {
+    async fn release_recovery_failed_versioned_migration_rolls_back_every_statement() {
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
             .connect("sqlite::memory:")

@@ -19,6 +19,7 @@
     "verify:pdf-sanitization": "node scripts/verify-pdf-sanitization.mjs",
     "verify:desktop": "node scripts/verify-desktop-targets.mjs",
     "verify:release-acceptance": "cargo test --manifest-path src-tauri/Cargo.toml release_acceptance -- --nocapture",
+    "verify:release-recovery": "cargo test --manifest-path src-tauri/Cargo.toml release_recovery -- --nocapture",
     "verify:macos-bundle": "node scripts/verify-macos-bundle.mjs",
     "verify:windows-bundle": "node scripts/verify-windows-bundle.mjs",
     "tauri": "tauri"

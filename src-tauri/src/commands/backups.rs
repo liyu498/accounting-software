@@ -432,10 +432,17 @@ pub(crate) async fn record_restore_failure(db: &Database, error: &str) -> Result
 mod tests {
     use super::{
         apply_pending_restore, apply_pending_restore_safely, backup_directory_for,
+        record_applied_restore, schedule_local_backup_restore, verify_local_backup,
         PendingLocalRestore,
     };
+    use crate::commands::{
+        auth::{self, InitializeAdminInput, LoginRequest},
+        companies,
+    };
+    use crate::db::{CreateCompanyInput, Database};
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::str::FromStr;
+    use tauri::Manager;
 
     #[cfg(unix)]
     #[test]
@@ -499,7 +506,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pending_restore_replaces_database_before_connections_open() {
+    async fn release_recovery_pending_restore_replaces_database_before_connections_open() {
         let app_dir = std::env::temp_dir().join(format!(
             "accounting-backup-restore-test-{}",
             uuid::Uuid::new_v4()
@@ -550,7 +557,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invalid_pending_restore_is_quarantined_without_replacing_current_database() {
+    async fn release_recovery_invalid_pending_restore_is_quarantined_without_replacing_current_database(
+    ) {
         let app_dir = std::env::temp_dir().join(format!(
             "accounting-backup-restore-failure-test-{}",
             uuid::Uuid::new_v4()
@@ -604,5 +612,196 @@ mod tests {
         pool.close().await;
 
         std::fs::remove_dir_all(app_dir).expect("removes failed restore test directory");
+    }
+
+    #[tokio::test]
+    async fn release_recovery_cross_version_restore_upgrades_v14_to_v15_and_preserves_data() {
+        let run_id = uuid::Uuid::new_v4();
+        let app_dir = std::env::temp_dir().join(format!("accounting-release-recovery-{run_id}"));
+        let legacy_dir =
+            std::env::temp_dir().join(format!("accounting-release-recovery-v14-{run_id}"));
+
+        let legacy = Database::new(legacy_dir.clone())
+            .await
+            .expect("initializes source database before v14 snapshot conversion");
+        let legacy_app = tauri::test::mock_app();
+        assert!(
+            legacy_app.manage(legacy),
+            "manages source database for company initialization"
+        );
+        let legacy_state = legacy_app.state::<Database>();
+        let legacy_company = companies::create_company(
+            CreateCompanyInput {
+                code: "LEGACY".to_string(),
+                name: "跨版本恢复账套".to_string(),
+                tax_id: Some("91310000RECOVERY001".to_string()),
+                tax_type: Some("small".to_string()),
+                industry: Some("软件和信息技术服务业".to_string()),
+                accounting_system: Some("small_enterprise".to_string()),
+                province: Some("上海市".to_string()),
+                city: Some("上海市".to_string()),
+                district: Some("浦东新区".to_string()),
+                enterprise_type: Some("有限责任公司".to_string()),
+                service_start: Some("2026-01-01".to_string()),
+                service_end: Some("2026-12-31".to_string()),
+                enable_year: Some(2026),
+                enable_month: Some(1),
+            },
+            legacy_state.clone(),
+        )
+        .await
+        .expect("creates a complete legacy account set");
+        sqlx::query("CREATE TABLE release_restore_probe (value TEXT NOT NULL)")
+            .execute(legacy_state.pool())
+            .await
+            .expect("creates legacy restore probe");
+        sqlx::query("INSERT INTO release_restore_probe (value) VALUES ('legacy-v14')")
+            .execute(legacy_state.pool())
+            .await
+            .expect("stores legacy restore probe");
+        sqlx::query("DROP TABLE inventory_bom_items")
+            .execute(legacy_state.pool())
+            .await
+            .expect("removes v15 BOM items from legacy fixture");
+        sqlx::query("DROP TABLE inventory_boms")
+            .execute(legacy_state.pool())
+            .await
+            .expect("removes v15 BOMs from legacy fixture");
+        sqlx::query("DELETE FROM schema_migrations WHERE version = 15")
+            .execute(legacy_state.pool())
+            .await
+            .expect("marks fixture as schema v14");
+        legacy_state.pool().close().await;
+        drop(legacy_state);
+        drop(legacy_app);
+
+        let current = Database::new(app_dir.clone())
+            .await
+            .expect("initializes current v15 database");
+        sqlx::query("CREATE TABLE release_restore_probe (value TEXT NOT NULL)")
+            .execute(current.pool())
+            .await
+            .expect("creates current restore probe");
+        sqlx::query("INSERT INTO release_restore_probe (value) VALUES ('current-v15')")
+            .execute(current.pool())
+            .await
+            .expect("stores current restore probe");
+        let backup_dir = app_dir.join("backups");
+        std::fs::create_dir_all(&backup_dir).expect("creates release recovery backup directory");
+        let backup_id = "legacy-v14.db";
+        std::fs::copy(legacy_dir.join("accounting.db"), backup_dir.join(backup_id))
+            .expect("copies v14 snapshot into backup storage");
+
+        let app = tauri::test::mock_app();
+        assert!(
+            app.manage(current),
+            "manages current database for restore commands"
+        );
+        let state = app.state::<Database>();
+        let admin_password = format!("A1!{}", uuid::Uuid::new_v4());
+        auth::initialize_admin(
+            InitializeAdminInput {
+                username: "recoveryadmin".to_string(),
+                password: admin_password.clone(),
+                real_name: "恢复验收员".to_string(),
+            },
+            state.clone(),
+        )
+        .await
+        .expect("initializes recovery administrator");
+        let login = auth::login(
+            LoginRequest {
+                username: "recoveryadmin".to_string(),
+                password: admin_password,
+            },
+            state.clone(),
+        )
+        .await
+        .expect("logs in recovery administrator");
+        let token = login.token.expect("recovery login returns token");
+
+        let verification = verify_local_backup(backup_id.to_string(), state.clone())
+            .await
+            .expect("verifies v14 backup snapshot");
+        assert!(
+            verification.valid,
+            "v14 snapshot must pass SQLite verification"
+        );
+        let schedule = schedule_local_backup_restore(backup_id.to_string(), token, state.clone())
+            .await
+            .expect("schedules cross-version restore");
+        assert!(schedule.restart_required);
+        assert!(backup_dir.join(&schedule.safety_backup_id).is_file());
+
+        state.pool().close().await;
+        drop(state);
+        drop(app);
+        let applied = apply_pending_restore(&app_dir)
+            .await
+            .expect("applies scheduled v14 restore")
+            .expect("returns applied restore metadata");
+        assert_eq!(applied.backup_id, backup_id);
+        assert_eq!(applied.safety_backup_id, schedule.safety_backup_id);
+
+        let restored = Database::new(app_dir.clone())
+            .await
+            .expect("opens restored snapshot and migrates it to v15");
+        let schema_version: i64 = sqlx::query_scalar("SELECT MAX(version) FROM schema_migrations")
+            .fetch_one(restored.pool())
+            .await
+            .expect("reads restored schema version");
+        assert_eq!(schema_version, 15);
+        let bom_tables: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('inventory_boms', 'inventory_bom_items')",
+        )
+        .fetch_one(restored.pool())
+        .await
+        .expect("checks v15 BOM tables");
+        assert_eq!(bom_tables, 2);
+        let restored_company: String =
+            sqlx::query_scalar("SELECT name FROM companies WHERE id = ?")
+                .bind(&legacy_company.id)
+                .fetch_one(restored.pool())
+                .await
+                .expect("reads preserved legacy business data");
+        assert_eq!(restored_company, "跨版本恢复账套");
+        let restored_probe: String = sqlx::query_scalar("SELECT value FROM release_restore_probe")
+            .fetch_one(restored.pool())
+            .await
+            .expect("reads restored v14 probe");
+        assert_eq!(restored_probe, "legacy-v14");
+
+        record_applied_restore(&restored, &applied)
+            .await
+            .expect("records completed restore audit");
+        let restore_audit_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM operation_audit_logs WHERE module_name = '系统备份' AND action = '完成备份恢复' AND result = 'success'",
+        )
+        .fetch_one(restored.pool())
+        .await
+        .expect("reads completed restore audit");
+        assert_eq!(restore_audit_count, 1);
+
+        let safety_options = SqliteConnectOptions::from_str(&format!(
+            "sqlite:{}",
+            backup_dir.join(&schedule.safety_backup_id).display()
+        ))
+        .expect("builds safety snapshot options")
+        .read_only(true);
+        let safety_pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(safety_options)
+            .await
+            .expect("opens pre-restore safety snapshot");
+        let safety_probe: String = sqlx::query_scalar("SELECT value FROM release_restore_probe")
+            .fetch_one(&safety_pool)
+            .await
+            .expect("reads pre-restore safety data");
+        assert_eq!(safety_probe, "current-v15");
+        safety_pool.close().await;
+
+        restored.pool().close().await;
+        std::fs::remove_dir_all(app_dir).expect("removes release recovery application data");
+        std::fs::remove_dir_all(legacy_dir).expect("removes release recovery v14 fixture");
     }
 }
