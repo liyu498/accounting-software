@@ -111,7 +111,7 @@ fn extract_account_codes(value: &str) -> Vec<String> {
         if character.is_ascii_digit() {
             current.push(character);
         } else {
-            if (4..=12).contains(&current.len()) && !codes.contains(&current) {
+            if (3..=12).contains(&current.len()) && !codes.contains(&current) {
                 codes.push(current.clone());
             }
             current.clear();
@@ -671,8 +671,16 @@ pub async fn delete_settlement_rule(
 
 #[cfg(test)]
 mod close_guard_tests {
-    use super::ensure_settlement_rules_completed;
+    use super::{ensure_settlement_rules_completed, extract_account_codes};
     use crate::db::Database;
+
+    #[test]
+    fn settlement_rules_accept_three_digit_cooperative_account_codes() {
+        assert_eq!(
+            extract_account_codes("损益结转至 331 本年盈余"),
+            vec!["331".to_string()]
+        );
+    }
 
     #[tokio::test]
     async fn enabled_rule_with_activity_requires_an_approved_settlement_voucher() {

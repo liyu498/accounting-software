@@ -287,6 +287,47 @@ test("desktop release manifests and bundle verification share one version", () =
   assert.doesNotMatch(macosVerifier, /智能代账系统_0\.1\.0_/);
 });
 
+test("release acceptance covers four accounting systems through the auditable close workflow", () => {
+  const lib = read("src-tauri/src/lib.rs");
+  const acceptance = read("src-tauri/src/release_acceptance.rs");
+  const packageJson = JSON.parse(read("package.json"));
+  const desktopWorkflow = read(".github/workflows/desktop-build.yml");
+
+  assert.match(lib, /#\[cfg\(test\)\]\s*mod release_acceptance;/);
+  assert.match(
+    packageJson.scripts?.["verify:release-acceptance"] ?? "",
+    /cargo test.*release_acceptance/,
+  );
+  assert.match(desktopWorkflow, /npm run verify:release-acceptance/);
+  for (const accountingSystem of [
+    "enterprise",
+    "small_enterprise",
+    "non_profit",
+    "cooperative",
+  ]) {
+    assert.match(acceptance, new RegExp(`"${accountingSystem}"`));
+  }
+  for (const workflowCall of [
+    "create_invoice",
+    "review_output_invoice",
+    "create_bank_transaction",
+    "create_voucher",
+    "match_invoice_to_voucher",
+    "approve_voucher",
+    "close_period",
+    "get_balance_sheet",
+    "get_income_statement",
+    "upsert_tax_declaration_task",
+    "confirm_tax_declaration_task",
+    "reopen_period",
+    "reverse_approve_voucher",
+    "reverse_voucher",
+    "operation_audit_logs",
+  ]) {
+    assert.match(acceptance, new RegExp(workflowCall));
+  }
+});
+
 test("route shell lazy-loads heavy operating surfaces", () => {
   const app = read("src/App.tsx");
 

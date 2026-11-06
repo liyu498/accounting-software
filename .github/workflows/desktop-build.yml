@@ -40,6 +40,7 @@ jobs:
       - run: npm run build
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo check --manifest-path src-tauri/Cargo.toml
+      - run: npm run verify:release-acceptance
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - name: Import Apple Developer ID certificate
         if: runner.os == 'macOS' && env.MACOS_SIGNING_ENABLED == 'true'
