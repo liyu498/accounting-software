@@ -4,6 +4,9 @@ pub mod db;
 #[cfg(test)]
 mod release_acceptance;
 
+#[cfg(test)]
+mod release_performance;
+
 use db::Database;
 use std::sync::Arc;
 use tauri::Manager;
