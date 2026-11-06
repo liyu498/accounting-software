@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+const readOptional = (path) => {
+  const url = new URL(`../${path}`, import.meta.url)
+  return existsSync(url) ? readFileSync(url, 'utf8') : ''
+}
 
 test('Windows CI verifies generated NSIS and MSI installers', () => {
   const workflow = read('.github/workflows/desktop-build.yml')
@@ -30,4 +34,24 @@ test('Windows release CI imports a PFX certificate and passes its thumbprint to 
   assert.match(workflow, /Build signed Windows bundle/)
   assert.match(workflow, /REQUIRE_DISTRIBUTION_SIGNATURE:\s*['"]?1['"]?/)
   assert.match(workflow, /Build unsigned Windows CI bundle/)
+})
+
+test('Windows CI installs, upgrades and uninstalls both bundles without deleting app data', () => {
+  const workflow = read('.github/workflows/desktop-build.yml')
+  const lifecycle = readOptional('.github/scripts/verify-windows-installer-lifecycle.ps1')
+
+  assert.match(workflow, /Build Windows upgrade baseline/)
+  assert.match(workflow, /WINDOWS_BASELINE_INSTALLER/)
+  assert.match(workflow, /Verify Windows installer lifecycle/)
+  assert.match(workflow, /verify-windows-installer-lifecycle\.ps1/)
+  assert.match(lifecycle, /Start-Process/)
+  assert.match(lifecycle, /DisplayVersion/)
+  assert.match(lifecycle, /0\.9\.0/)
+  assert.match(lifecycle, /1\.0\.0/)
+  assert.match(lifecycle, /msiexec\.exe/)
+  assert.match(lifecycle, /\/qn/)
+  assert.match(lifecycle, /\/S/)
+  assert.match(lifecycle, /\$env:APPDATA/)
+  assert.match(lifecycle, /release-data-sentinel/)
+  assert.match(lifecycle, /Test-Path/)
 })

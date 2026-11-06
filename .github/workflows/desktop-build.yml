@@ -82,6 +82,17 @@ jobs:
       - name: Verify ad-hoc macOS bundle integrity
         if: runner.os == 'macOS' && env.MACOS_SIGNING_ENABLED != 'true'
         run: npm run verify:macos-bundle
+      - name: Build Windows upgrade baseline
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          npm run tauri build -- --config src-tauri/tauri.windows.baseline.conf.json --bundles nsis
+          $baseline = Get-ChildItem -Path src-tauri/target/release/bundle/nsis -Filter '*0.9.0*.exe' -File | Select-Object -First 1
+          if (-not $baseline) { throw 'Windows 0.9.0 NSIS baseline installer was not generated' }
+          $baselineCopy = Join-Path $env:RUNNER_TEMP 'accounting-baseline-0.9.0-setup.exe'
+          Copy-Item -LiteralPath $baseline.FullName -Destination $baselineCopy
+          Remove-Item -LiteralPath $baseline.FullName
+          "WINDOWS_BASELINE_INSTALLER=$baselineCopy" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Import Windows code signing certificate
         if: runner.os == 'Windows' && env.WINDOWS_SIGNING_ENABLED == 'true'
         env:
@@ -122,6 +133,13 @@ jobs:
       - name: Verify unsigned Windows bundle integrity
         if: runner.os == 'Windows' && env.WINDOWS_SIGNING_ENABLED != 'true'
         run: npm run verify:windows-bundle
+      - name: Verify Windows installer lifecycle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./.github/scripts/verify-windows-installer-lifecycle.ps1 `
+            -BaselineInstaller "$env:WINDOWS_BASELINE_INSTALLER" `
+            -BundleRoot "src-tauri/target/release/bundle"
       - uses: actions/upload-artifact@v4
         with:
           name: accounting-desktop-${{ matrix.os }}

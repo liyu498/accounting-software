@@ -28,6 +28,8 @@
 
 两项密钥均存在时，CI 会把证书导入当前用户证书库，将证书指纹传给 Tauri，并以 `REQUIRE_DISTRIBUTION_SIGNATURE=1` 要求 NSIS 和 MSI 安装包具有有效 Authenticode 签名。
 
+Windows runner 还会先生成一个仅供演练的 0.9.0 NSIS 基线包，再执行 0.9.0 到 1.0.0 的静默升级和卸载。随后对 1.0.0 MSI 执行静默安装和卸载。演练在 `%APPDATA%\com.accounting.agent` 写入数据哨兵，并要求升级、NSIS 卸载和 MSI 卸载后数据均保留。0.9.0 基线包不会进入最终上传产物。
+
 ## 发布边界
 
 - 不要把 `.p12`、`.pfx`、密码、API 私钥或 Apple 专用密码提交到仓库。
