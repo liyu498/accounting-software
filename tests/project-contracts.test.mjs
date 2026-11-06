@@ -2400,6 +2400,12 @@ test("live data verification covers the dedicated company account workspace", ()
   assert.match(verifier, /["']accountArchive["']/);
 });
 
+test("module framework verification normalizes Windows source newlines", () => {
+  const verifier = read("scripts/verify-module-frameworks.mjs");
+
+  assert.match(verifier, /replace\(\/\\r\\n\?\/g, ['"]\\n['"]\)/);
+});
+
 test("module framework explicitly registers dedicated operational workspaces", () => {
   const verifier = read("scripts/verify-module-frameworks.mjs");
   const dedicatedWorkspaces = [

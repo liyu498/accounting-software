@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 
-const read = (file) => readFileSync(file, 'utf8')
+const read = (file) => readFileSync(file, 'utf8').replace(/\r\n?/g, '\n')
 const appSource = read('src/App.tsx')
 const shellSource = read('src/components/layout/AppShell.tsx')
 const registrySource = read('src/pages/operations/businessModuleRegistry.ts')
