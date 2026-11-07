@@ -18,3 +18,11 @@ test('all application routes are audited against WCAG AA in light and dark theme
   assert.match(audit, /THEMES = \['light', 'dark'\]/)
   assert.match(audit, /color-contrast/)
 })
+
+test('accessibility audit measures stable colors after disabling transitions', () => {
+  const audit = read('scripts/audit-routes-accessibility.mjs')
+
+  assert.match(audit, /addStyleTag/)
+  assert.match(audit, /transition:\s*none\s*!important/)
+  assert.match(audit, /animation:\s*none\s*!important/)
+})

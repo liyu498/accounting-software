@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { spawn } from 'node:child_process'
 import AxeBuilder from '@axe-core/playwright'
 import { chromium } from 'playwright'
+import { spawnNpm } from './spawn-npm.mjs'
 
 const ROOT = process.cwd()
 const APP_SOURCE = fs.readFileSync(path.join(ROOT, 'src/App.tsx'), 'utf8')
@@ -43,7 +43,7 @@ async function waitForServer() {
 
 async function ensureServer() {
   if (await isServerReady()) return null
-  const child = spawn('npm', ['run', 'dev', '--', '--host', HOST, '--port', String(PORT), '--strictPort'], {
+  const child = spawnNpm(['run', 'dev', '--', '--host', HOST, '--port', String(PORT), '--strictPort'], {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, BROWSER: 'none' },
@@ -60,6 +60,10 @@ async function navigateWithRetry(page, url) {
     try {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 8_000 })
       await page.waitForFunction(() => Boolean(document.querySelector('main')?.innerText.trim()), null, { timeout: 8_000 })
+      await page.addStyleTag({
+        content: '*, *::before, *::after { transition: none !important; animation: none !important; }',
+      })
+      await page.waitForTimeout(50)
       return
     } catch (error) {
       lastError = error

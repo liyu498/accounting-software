@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { spawn } from 'node:child_process'
 import { chromium } from 'playwright'
+import { spawnNpm } from './spawn-npm.mjs'
 
 const ROOT = process.cwd()
 const APP_SOURCE = fs.readFileSync(path.join(ROOT, 'src/App.tsx'), 'utf8')
@@ -37,7 +37,7 @@ async function isServerReady() {
 
 async function ensureServer() {
   if (await isServerReady()) return null
-  const child = spawn('npm', ['run', 'dev', '--', '--host', HOST, '--port', String(PORT)], {
+  const child = spawnNpm(['run', 'dev', '--', '--host', HOST, '--port', String(PORT)], {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, BROWSER: 'none' },

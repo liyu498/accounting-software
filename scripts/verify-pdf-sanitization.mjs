@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
 import { chromium } from 'playwright'
+import { spawnNpm } from './spawn-npm.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.PDF_SANITIZATION_PORT || 1421)
@@ -17,7 +17,7 @@ async function isServerReady() {
 async function ensureServer() {
   if (await isServerReady()) return null
 
-  const child = spawn('npm', ['run', 'dev', '--', '--host', HOST, '--port', String(PORT)], {
+  const child = spawnNpm(['run', 'dev', '--', '--host', HOST, '--port', String(PORT)], {
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, BROWSER: 'none' },
   })
