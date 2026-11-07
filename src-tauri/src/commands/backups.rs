@@ -3,7 +3,7 @@ use crate::db::{secure_private_directory, secure_private_file, Database};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::fs;
+use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 use std::path::Path;
 use tauri::State;
@@ -334,7 +334,9 @@ pub(crate) async fn apply_pending_restore(
         .map_err(|error| format!("Unable to stage restore snapshot: {error}"))?;
     secure_private_file(&staging)
         .map_err(|error| format!("Unable to secure staged restore snapshot: {error}"))?;
-    fs::File::open(&staging)
+    OpenOptions::new()
+        .write(true)
+        .open(&staging)
         .and_then(|file| file.sync_all())
         .map_err(|error| format!("Unable to sync staged restore snapshot: {error}"))?;
 
@@ -431,9 +433,8 @@ pub(crate) async fn record_restore_failure(db: &Database, error: &str) -> Result
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_pending_restore, apply_pending_restore_safely, backup_directory_for,
-        record_applied_restore, schedule_local_backup_restore, verify_local_backup,
-        PendingLocalRestore,
+        apply_pending_restore, apply_pending_restore_safely, record_applied_restore,
+        schedule_local_backup_restore, verify_local_backup, PendingLocalRestore,
     };
     use crate::commands::{
         auth::{self, InitializeAdminInput, LoginRequest},
@@ -462,7 +463,7 @@ mod tests {
         std::fs::set_permissions(&backup, std::fs::Permissions::from_mode(0o666))
             .expect("widens backup file");
 
-        backup_directory_for(&app_dir).expect("secures backup storage");
+        super::backup_directory_for(&app_dir).expect("secures backup storage");
 
         assert_eq!(
             std::fs::metadata(&backup_dir)
