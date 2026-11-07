@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import AxeBuilder from '@axe-core/playwright'
 import { chromium } from 'playwright'
-import { spawnNpm } from './spawn-npm.mjs'
+import { spawnNpm, stopProcessTree } from './spawn-npm.mjs'
 
 const ROOT = process.cwd()
 const APP_SOURCE = fs.readFileSync(path.join(ROOT, 'src/App.tsx'), 'utf8')
@@ -96,7 +96,7 @@ async function main() {
   try {
     browser = await chromium.launch({ headless: true })
   } catch (error) {
-    if (server) server.kill()
+    await stopProcessTree(server)
     console.error('Playwright Chromium is not installed. Run `npx playwright install chromium`, then retry `npm run verify:accessibility`.')
     console.error(String(error?.message || error))
     process.exitCode = 2
@@ -137,7 +137,7 @@ async function main() {
     }
   } finally {
     await browser.close()
-    if (server) server.kill()
+    await stopProcessTree(server)
   }
 
   const summary = {

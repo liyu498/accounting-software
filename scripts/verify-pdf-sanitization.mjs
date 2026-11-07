@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
-import { spawnNpm } from './spawn-npm.mjs'
+import { spawnNpm, stopProcessTree } from './spawn-npm.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.PDF_SANITIZATION_PORT || 1421)
@@ -30,7 +30,7 @@ async function ensureServer() {
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
 
-  child.kill()
+  await stopProcessTree(child)
   throw new Error(`Vite server did not become ready at ${BASE_URL}`)
 }
 
@@ -63,7 +63,7 @@ async function main() {
     console.log('PDF markup sanitization passed')
   } finally {
     await browser?.close()
-    if (server) server.kill()
+    await stopProcessTree(server)
   }
 }
 

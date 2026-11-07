@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { chromium } from 'playwright'
-import { spawnNpm } from './spawn-npm.mjs'
+import { spawnNpm, stopProcessTree } from './spawn-npm.mjs'
 
 const ROOT = process.cwd()
 const APP_SOURCE = fs.readFileSync(path.join(ROOT, 'src/App.tsx'), 'utf8')
@@ -50,7 +50,7 @@ async function ensureServer() {
     if (await isServerReady()) return child
     await new Promise((resolve) => setTimeout(resolve, 300))
   }
-  child.kill()
+  await stopProcessTree(child)
   throw new Error(`Vite server did not become ready at ${BASE_URL}`)
 }
 
@@ -139,7 +139,7 @@ async function main() {
   } finally {
     await context.close()
     await browser.close()
-    if (server) server.kill()
+    await stopProcessTree(server)
   }
 
   const canonicalRoutes = inspected.filter((row) => row.route === row.path)
