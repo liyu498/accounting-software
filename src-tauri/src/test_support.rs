@@ -10,7 +10,12 @@ pub(crate) fn remove_test_data_dir(path: &Path, label: &str) {
             Ok(()) => return,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
             Err(_) if attempt < MAX_ATTEMPTS => thread::sleep(Duration::from_millis(100)),
-            Err(error) => panic!("{label}: {error}"),
+            Err(error) => {
+                eprintln!(
+                    "warning: {label}: {error}; leaving isolated test data for process cleanup"
+                );
+                return;
+            }
         }
     }
 }

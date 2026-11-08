@@ -22,6 +22,12 @@ test("Rust test databases use bounded cross-platform cleanup", () => {
   const support = read("src-tauri/src/test_support.rs");
   assert.match(support, /pub\(crate\) fn remove_test_data_dir/);
   assert.match(support, /remove_dir_all[\s\S]*?thread::sleep/);
+  assert.match(support, /eprintln!/);
+  assert.doesNotMatch(
+    support,
+    /panic!\(/,
+    "temporary directory cleanup must not fail an otherwise successful test",
+  );
 
   const rustRoot = fileURLToPath(
     new URL("../src-tauri/src/", import.meta.url),
