@@ -194,6 +194,6 @@ mod tests {
         assert_eq!(records[0].employee_name, "张三");
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 }

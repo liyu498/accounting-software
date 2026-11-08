@@ -7,6 +7,9 @@ mod release_acceptance;
 #[cfg(test)]
 mod release_performance;
 
+#[cfg(test)]
+pub(crate) mod test_support;
+
 use db::Database;
 use std::sync::Arc;
 use tauri::Manager;

@@ -581,7 +581,7 @@ mod tests {
         assert_eq!(parent_is_detail, 1);
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -633,7 +633,7 @@ mod tests {
         assert_eq!(parent_is_detail, 1);
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -702,6 +702,6 @@ mod tests {
         assert!(structural.unwrap_err().contains("已在余额或凭证中使用"));
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 }

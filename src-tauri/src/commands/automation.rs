@@ -5358,7 +5358,7 @@ mod tests {
         assert_eq!(snapshots, 1);
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -5411,7 +5411,7 @@ mod tests {
         assert_eq!(error, "申报事项尚未完成取数，不能确认");
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -5462,7 +5462,7 @@ mod tests {
         assert_eq!(error, "已完成本地确认的申报事项不能回退或改写状态");
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -5523,7 +5523,7 @@ mod tests {
         assert_eq!(confirmed_by.as_deref(), Some("初始复核员"));
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 }
 

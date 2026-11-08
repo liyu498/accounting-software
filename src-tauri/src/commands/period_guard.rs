@@ -130,6 +130,6 @@ mod tests {
         assert!(wrong_company_error.contains("不存在"));
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes period write guard database");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes period write guard database");
     }
 }

@@ -1276,7 +1276,7 @@ mod tests {
         assert_eq!(count, 2, "failed replacement must keep prior lines");
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -1372,7 +1372,7 @@ mod tests {
         );
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -1468,7 +1468,7 @@ mod tests {
         assert_eq!(line, ("原服务".to_string(), 100.0, 13.0));
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -1532,7 +1532,7 @@ mod tests {
         assert_eq!(audit_count, 1);
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -1567,7 +1567,7 @@ mod tests {
         assert_eq!(count, 1);
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -1624,7 +1624,7 @@ mod tests {
         assert_eq!(audit, ("删除会计".to_string(), "invoice-1".to_string()));
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -1710,6 +1710,6 @@ mod tests {
         assert_eq!(audit, ("制证会计".to_string(), "invoice-1".to_string()));
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 }

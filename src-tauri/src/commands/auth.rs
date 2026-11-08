@@ -896,7 +896,10 @@ mod tests {
             .is_err());
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes authenticated actor database");
+        crate::test_support::remove_test_data_dir(
+            &data_dir,
+            "removes authenticated actor database",
+        );
     }
 
     #[test]

@@ -4,8 +4,6 @@ use crate::commands::{
     vouchers::{self, ImportEntryInput, ImportVoucherInput, VoucherQueryInput},
 };
 use crate::db::{CreateCompanyInput, Database, DbPool};
-use std::path::Path;
-use std::thread;
 use std::time::{Duration, Instant};
 use tauri::Manager;
 
@@ -90,19 +88,6 @@ fn assert_within(label: &str, elapsed: Duration, budget: Duration) {
         elapsed,
         budget
     );
-}
-
-fn remove_test_data_dir(path: &Path, label: &str) {
-    const MAX_ATTEMPTS: usize = 20;
-
-    for attempt in 1..=MAX_ATTEMPTS {
-        match std::fs::remove_dir_all(path) {
-            Ok(()) => return,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
-            Err(_) if attempt < MAX_ATTEMPTS => thread::sleep(Duration::from_millis(100)),
-            Err(error) => panic!("{label}: {error}"),
-        }
-    }
 }
 
 async fn seed_company_vouchers(pool: &DbPool, company_id: &str, count: usize) {
@@ -320,7 +305,7 @@ async fn release_performance_large_cross_year_account_set_meets_query_report_and
     state.pool().close().await;
     drop(state);
     drop(app);
-    remove_test_data_dir(&data_dir, "清理大账套性能数据库");
+    crate::test_support::remove_test_data_dir(&data_dir, "清理大账套性能数据库");
 }
 
 #[tokio::test]
@@ -388,5 +373,5 @@ async fn release_performance_multi_company_concurrency_meets_budget() {
     state.pool().close().await;
     drop(state);
     drop(app);
-    remove_test_data_dir(&data_dir, "清理多客户并发性能数据库");
+    crate::test_support::remove_test_data_dir(&data_dir, "清理多客户并发性能数据库");
 }

@@ -1,6 +1,8 @@
 use crate::db::{CreateInventoryItemInput, Database, InventoryItem, UpdateInventoryItemInput};
 use tauri::State;
 
+const INVENTORY_ITEM_COLUMNS: &str = "id, company_id, item_code, item_name, specification, unit, unit_id, tax_rate, default_subject, category, category_id, valuation_method, inventory_subject, cost_subject, safety_stock, status, created_at, updated_at";
+
 fn optional_text(value: Option<&String>) -> Option<&str> {
     value
         .map(String::as_str)
@@ -85,7 +87,10 @@ pub async fn get_inventory_items(
     company_id: String,
     db: State<'_, Database>,
 ) -> Result<Vec<InventoryItem>, String> {
-    sqlx::query_as("SELECT * FROM inventory_items WHERE company_id = ? ORDER BY item_code")
+    let query = format!(
+        "SELECT {INVENTORY_ITEM_COLUMNS} FROM inventory_items WHERE company_id = ? ORDER BY item_code"
+    );
+    sqlx::query_as(&query)
         .bind(company_id)
         .fetch_all(db.pool())
         .await
@@ -149,7 +154,10 @@ pub(crate) async fn create_inventory_item_record(
         .bind(cost_subject)
         .bind(input.safety_stock.unwrap_or(0.0))
         .execute(db.pool()).await.map_err(|error| format!("新增存货失败: {error}"))?;
-    sqlx::query_as("SELECT * FROM inventory_items WHERE id = ? AND company_id = ?")
+    let query = format!(
+        "SELECT {INVENTORY_ITEM_COLUMNS} FROM inventory_items WHERE id = ? AND company_id = ?"
+    );
+    sqlx::query_as(&query)
         .bind(id)
         .bind(&input.company_id)
         .fetch_one(db.pool())
@@ -230,7 +238,9 @@ pub(crate) async fn update_inventory_item_record(
     if affected.rows_affected() == 0 {
         return Err("未找到当前账套存货档案".into());
     }
-    sqlx::query_as("SELECT * FROM inventory_items WHERE id=? AND company_id=?")
+    let query =
+        format!("SELECT {INVENTORY_ITEM_COLUMNS} FROM inventory_items WHERE id=? AND company_id=?");
+    sqlx::query_as(&query)
         .bind(&input.id)
         .bind(&input.company_id)
         .fetch_one(db.pool())

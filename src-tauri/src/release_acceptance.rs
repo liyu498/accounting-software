@@ -451,5 +451,5 @@ async fn four_accounting_systems_complete_the_release_acceptance_matrix() {
     state.pool().close().await;
     drop(state);
     drop(app);
-    std::fs::remove_dir_all(data_dir).expect("清理发布验收数据库");
+    crate::test_support::remove_test_data_dir(&data_dir, "清理发布验收数据库");
 }

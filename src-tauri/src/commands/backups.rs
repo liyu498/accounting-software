@@ -482,7 +482,7 @@ mod tests {
             0o600
         );
 
-        std::fs::remove_dir_all(app_dir).expect("removes backup test directory");
+        crate::test_support::remove_test_data_dir(&app_dir, "removes backup test directory");
     }
 
     async fn create_database(path: &std::path::Path, value: &str) {
@@ -554,7 +554,10 @@ mod tests {
         assert_eq!(value, "restored");
         pool.close().await;
 
-        std::fs::remove_dir_all(app_dir).expect("removes backup restore test directory");
+        crate::test_support::remove_test_data_dir(
+            &app_dir,
+            "removes backup restore test directory",
+        );
     }
 
     #[tokio::test]
@@ -612,7 +615,10 @@ mod tests {
         assert_eq!(value, "current");
         pool.close().await;
 
-        std::fs::remove_dir_all(app_dir).expect("removes failed restore test directory");
+        crate::test_support::remove_test_data_dir(
+            &app_dir,
+            "removes failed restore test directory",
+        );
     }
 
     #[tokio::test]
@@ -802,7 +808,13 @@ mod tests {
         safety_pool.close().await;
 
         restored.pool().close().await;
-        std::fs::remove_dir_all(app_dir).expect("removes release recovery application data");
-        std::fs::remove_dir_all(legacy_dir).expect("removes release recovery v14 fixture");
+        crate::test_support::remove_test_data_dir(
+            &app_dir,
+            "removes release recovery application data",
+        );
+        crate::test_support::remove_test_data_dir(
+            &legacy_dir,
+            "removes release recovery v14 fixture",
+        );
     }
 }

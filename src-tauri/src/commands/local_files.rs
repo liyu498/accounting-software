@@ -511,6 +511,6 @@ mod tests {
         assert_eq!(audits, 4);
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes file registry database");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes file registry database");
     }
 }

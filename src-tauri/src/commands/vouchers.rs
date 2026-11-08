@@ -4563,6 +4563,9 @@ mod account_balance_posting_tests {
         assert_eq!(restored, (100.0, 0.0, 110.0, 0.0));
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes voucher balance test data directory");
+        crate::test_support::remove_test_data_dir(
+            &data_dir,
+            "removes voucher balance test data directory",
+        );
     }
 }

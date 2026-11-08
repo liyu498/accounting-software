@@ -740,6 +740,6 @@ mod tests {
 
         db.pool().close().await;
         drop(db);
-        std::fs::remove_dir_all(data_dir).expect("remove test data");
+        crate::test_support::remove_test_data_dir(&data_dir, "remove test data");
     }
 }

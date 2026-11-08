@@ -10389,7 +10389,7 @@ mod tests {
             0o600
         );
 
-        std::fs::remove_dir_all(directory).expect("removes test directory");
+        crate::test_support::remove_test_data_dir(&directory, "removes test directory");
     }
 
     fn top_level_accounts(codes: &[AccountCodeSeed]) -> HashMap<&'static str, &'static str> {

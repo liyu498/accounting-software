@@ -726,6 +726,9 @@ mod close_guard_tests {
             .expect("approved settlement voucher completes the enabled rule");
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes settlement close-guard database");
+        crate::test_support::remove_test_data_dir(
+            &data_dir,
+            "removes settlement close-guard database",
+        );
     }
 }

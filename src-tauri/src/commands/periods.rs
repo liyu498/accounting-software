@@ -6324,7 +6324,7 @@ mod transaction_tests {
 
     async fn cleanup(database: Database, data_dir: std::path::PathBuf) {
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -6552,7 +6552,7 @@ mod report_template_scope_tests {
 
     async fn cleanup(database: Database, data_dir: std::path::PathBuf) {
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -7574,7 +7574,7 @@ mod subsidiary_ledger_tests {
         assert_eq!(rows[2].balance_direction, "贷");
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes ledger test data directory");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes ledger test data directory");
     }
 }
 
@@ -7638,7 +7638,10 @@ mod ledger_hierarchy_tests {
         assert!(ledger.iter().all(|item| item.account_code != "CASH-A"));
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes hierarchy test data directory");
+        crate::test_support::remove_test_data_dir(
+            &data_dir,
+            "removes hierarchy test data directory",
+        );
     }
 }
 
@@ -7707,7 +7710,10 @@ mod cash_flow_reconciliation_tests {
         assert!(!unreconciled.is_reconciled);
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes cash-flow test data directory");
+        crate::test_support::remove_test_data_dir(
+            &data_dir,
+            "removes cash-flow test data directory",
+        );
     }
 
     #[tokio::test]
@@ -7789,7 +7795,10 @@ mod cash_flow_reconciliation_tests {
         assert!(!incomplete.is_reconciled);
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes cash-flow mapping test data directory");
+        crate::test_support::remove_test_data_dir(
+            &data_dir,
+            "removes cash-flow mapping test data directory",
+        );
     }
 }
 
@@ -7860,7 +7869,7 @@ mod reconciliation_tests {
             .any(|check| { check.code == "balance_rollforward" && check.status == "blocked" }));
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).unwrap();
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -7897,7 +7906,7 @@ mod reconciliation_tests {
         assert!(error.contains("凭证与科目余额"));
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).unwrap();
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -7960,7 +7969,7 @@ mod reconciliation_tests {
         assert!(!result.is_reconciled);
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).unwrap();
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 
     #[tokio::test]
@@ -8006,7 +8015,7 @@ mod reconciliation_tests {
         assert!(result.is_reconciled);
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).unwrap();
+        crate::test_support::remove_test_data_dir(&data_dir, "removes test data directory");
     }
 }
 
@@ -8117,6 +8126,6 @@ mod period_transition_guard_tests {
         assert_eq!(mar_status, "open");
 
         database.pool().close().await;
-        std::fs::remove_dir_all(data_dir).expect("removes period transition database");
+        crate::test_support::remove_test_data_dir(&data_dir, "removes period transition database");
     }
 }
