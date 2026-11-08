@@ -43,7 +43,12 @@ jobs:
       - run: npm run verify:release-acceptance
       - run: npm run verify:release-recovery
       - run: npm run verify:release-performance
-      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Run Rust tests (macOS)
+        if: runner.os != 'Windows'
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Run Rust tests (Windows serial)
+        if: runner.os == 'Windows'
+        run: cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1
       - name: Import Apple Developer ID certificate
         if: runner.os == 'macOS' && env.MACOS_SIGNING_ENABLED == 'true'
         env:

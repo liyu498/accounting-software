@@ -49,3 +49,11 @@ test("inventory item queries use stable explicit columns", () => {
     /const INVENTORY_ITEM_COLUMNS[\s\S]*?unit_id[\s\S]*?updated_at/,
   );
 });
+
+test("Windows CI runs SQLite-heavy Rust tests serially", () => {
+  const workflow = read(".github/workflows/desktop-build.yml");
+  assert.match(
+    workflow,
+    /name: Run Rust tests \(Windows serial\)[\s\S]*?runner\.os == 'Windows'[\s\S]*?cargo test[^\n]*--test-threads=1/,
+  );
+});
