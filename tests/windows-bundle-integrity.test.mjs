@@ -36,6 +36,14 @@ test('Windows release CI imports a PFX certificate and passes its thumbprint to 
   assert.match(workflow, /Build unsigned Windows CI bundle/)
 })
 
+test('Windows MSI uses a Chinese code page and a stable upgrade identity', () => {
+  const config = JSON.parse(read('src-tauri/tauri.conf.json'))
+  const wix = config.bundle?.windows?.wix
+
+  assert.equal(wix?.language, 'zh-CN')
+  assert.equal(wix?.upgradeCode, '95884cbd-6bf4-5430-b09b-1b9d6d0418ce')
+})
+
 test('Windows CI installs, upgrades and uninstalls both bundles without deleting app data', () => {
   const workflow = read('.github/workflows/desktop-build.yml')
   const lifecycle = readOptional('.github/scripts/verify-windows-installer-lifecycle.ps1')
