@@ -24,6 +24,13 @@ test('Windows CI verifies generated NSIS and MSI installers', () => {
   assert.match(script, /Valid/)
 })
 
+test('Windows Authenticode inspection preserves multiline PowerShell hashtable syntax', () => {
+  const script = read('scripts/verify-windows-bundle.mjs')
+
+  assert.match(script, /\]\.join\(['"]\\n['"]\)/)
+  assert.doesNotMatch(script, /\]\.join\(['"]; ['"]\)/)
+})
+
 test('Windows release CI imports a PFX certificate and passes its thumbprint to Tauri', () => {
   const workflow = read('.github/workflows/desktop-build.yml')
 

@@ -31,7 +31,7 @@ function readAuthenticodeSignature(installerPath) {
     '  Signer = if ($signature.SignerCertificate) { $signature.SignerCertificate.Subject } else { $null }',
     '}',
     '$result | ConvertTo-Json -Compress',
-  ].join('; ')
+  ].join('\n')
 
   const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], {
     encoding: 'utf8',
