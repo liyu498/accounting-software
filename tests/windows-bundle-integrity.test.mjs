@@ -11,6 +11,7 @@ const readOptional = (path) => {
 test('Windows CI verifies generated NSIS and MSI installers', () => {
   const workflow = read('.github/workflows/desktop-build.yml')
   const script = read('scripts/verify-windows-bundle.mjs')
+  const signatureScript = readOptional('scripts/inspect-authenticode-signature.ps1')
   const packageJson = JSON.parse(read('package.json'))
 
   assert.equal(packageJson.scripts['verify:windows-bundle'], 'node scripts/verify-windows-bundle.mjs')
@@ -18,17 +19,21 @@ test('Windows CI verifies generated NSIS and MSI installers', () => {
   assert.match(workflow, /npm run verify:windows-bundle/)
   assert.match(script, /path\.join\(BUNDLE_ROOT, ['"]nsis['"]\)/)
   assert.match(script, /path\.join\(BUNDLE_ROOT, ['"]msi['"]\)/)
-  assert.match(script, /Get-AuthenticodeSignature/)
+  assert.match(signatureScript, /Get-AuthenticodeSignature/)
   assert.match(script, /REQUIRE_DISTRIBUTION_SIGNATURE/)
   assert.match(script, /NotSigned/)
   assert.match(script, /Valid/)
 })
 
-test('Windows Authenticode inspection preserves multiline PowerShell hashtable syntax', () => {
+test('Windows Authenticode inspection uses a dedicated PowerShell file', () => {
   const script = read('scripts/verify-windows-bundle.mjs')
+  const signatureScript = readOptional('scripts/inspect-authenticode-signature.ps1')
 
-  assert.match(script, /\]\.join\(['"]\\n['"]\)/)
-  assert.doesNotMatch(script, /\]\.join\(['"]; ['"]\)/)
+  assert.notEqual(signatureScript, '')
+  assert.match(script, /inspect-authenticode-signature\.ps1/)
+  assert.match(script, /['"]-File['"]/)
+  assert.doesNotMatch(script, /['"]-Command['"]/)
+  assert.match(signatureScript, /ConvertTo-Json -Compress/)
 })
 
 test('Windows release CI imports a PFX certificate and passes its thumbprint to Tauri', () => {

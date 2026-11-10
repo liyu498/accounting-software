@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const BUNDLE_ROOT = path.join(ROOT, 'src-tauri', 'target', 'release', 'bundle')
+const SIGNATURE_SCRIPT = fileURLToPath(new URL('./inspect-authenticode-signature.ps1', import.meta.url))
 const strictSignature = process.env.REQUIRE_DISTRIBUTION_SIGNATURE === '1'
 
 if (process.platform !== 'win32') {
@@ -23,25 +24,33 @@ function findInstallers(directory, extension) {
 }
 
 function readAuthenticodeSignature(installerPath) {
-  const command = [
-    '$signature = Get-AuthenticodeSignature -LiteralPath $env:WINDOWS_INSTALLER_PATH',
-    '$result = [pscustomobject]@{',
-    '  Status = $signature.Status.ToString()',
-    '  StatusMessage = $signature.StatusMessage',
-    '  Signer = if ($signature.SignerCertificate) { $signature.SignerCertificate.Subject } else { $null }',
-    '}',
-    '$result | ConvertTo-Json -Compress',
-  ].join('\n')
-
-  const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], {
+  const result = spawnSync('powershell.exe', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    SIGNATURE_SCRIPT,
+    '-InstallerPath',
+    installerPath,
+  ], {
     encoding: 'utf8',
-    env: { ...process.env, WINDOWS_INSTALLER_PATH: installerPath },
   })
 
   if (result.status !== 0) {
     throw new Error(`Unable to inspect Authenticode signature for ${installerPath}: ${result.stderr.trim()}`)
   }
-  return JSON.parse(result.stdout.trim())
+
+  const output = result.stdout.trim()
+  if (!output) {
+    throw new Error(`Authenticode inspection produced no output for ${installerPath}`)
+  }
+
+  try {
+    return JSON.parse(output)
+  } catch (error) {
+    throw new Error(`Authenticode inspection returned invalid JSON for ${installerPath}: ${error.message}`)
+  }
 }
 
 const groups = [
