@@ -24,7 +24,7 @@ function findInstallers(directory, extension) {
 }
 
 function readAuthenticodeSignature(installerPath) {
-  const result = spawnSync('powershell.exe', [
+  const result = spawnSync('pwsh.exe', [
     '-NoProfile',
     '-NonInteractive',
     '-ExecutionPolicy',

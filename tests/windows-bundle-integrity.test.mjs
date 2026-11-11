@@ -31,6 +31,8 @@ test('Windows Authenticode inspection uses a dedicated PowerShell file', () => {
 
   assert.notEqual(signatureScript, '')
   assert.match(script, /inspect-authenticode-signature\.ps1/)
+  assert.match(script, /spawnSync\(['"]pwsh\.exe['"]/)
+  assert.doesNotMatch(script, /spawnSync\(['"]powershell\.exe['"]/)
   assert.match(script, /['"]-File['"]/)
   assert.doesNotMatch(script, /['"]-Command['"]/)
   assert.match(signatureScript, /ConvertTo-Json -Compress/)
