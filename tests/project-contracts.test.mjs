@@ -308,13 +308,16 @@ test("release acceptance covers four accounting systems through the auditable cl
     assert.match(acceptance, new RegExp(`"${accountingSystem}"`));
   }
   for (const workflowCall of [
-    "create_invoice",
+    "import_external_invoice_sync_item",
+    "import_external_bank_sync_item",
     "review_output_invoice",
     "create_bank_transaction",
     "create_voucher",
     "match_invoice_to_voucher",
     "approve_voucher",
     "close_period",
+    "get_general_ledger",
+    "get_subsidiary_ledger",
     "get_balance_sheet",
     "get_income_statement",
     "upsert_tax_declaration_task",

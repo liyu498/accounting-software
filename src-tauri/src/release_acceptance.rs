@@ -1,12 +1,11 @@
 use crate::commands::{
     auth::{self, InitializeAdminInput, LoginRequest},
-    automation, bank_transactions, companies,
-    invoices::{self, CreateInvoiceInput, InvoiceLineInput},
-    periods, settlement, vouchers,
+    automation, bank_transactions, companies, invoices, periods, settlement, vouchers,
 };
 use crate::db::{
-    ClosePeriodInput, ConfirmTaxDeclarationTaskInput, CreateBankTransactionInput,
+    BankTransaction, ClosePeriodInput, ConfirmTaxDeclarationTaskInput, CreateBankTransactionInput,
     CreateCompanyInput, CreateVoucherEntryInput, CreateVoucherInput, Database,
+    ReviewExternalBankSyncItemInput, ReviewExternalInvoiceSyncItemInput,
     UpsertTaxDeclarationTaskInput,
 };
 use tauri::Manager;
@@ -98,6 +97,149 @@ async fn account_name(database: &Database, company_id: &str, code: &str) -> Stri
         .unwrap_or_else(|error| panic!("验收科目 {code} 不存在: {error}"))
 }
 
+async fn stage_reviewable_collection_items(
+    database: &Database,
+    scenario: AcceptanceScenario,
+    company_id: &str,
+    company_name: &str,
+    company_tax_id: Option<&str>,
+) -> (String, String) {
+    let authorization_id = uuid::Uuid::new_v4().to_string();
+    let provider_config_id = uuid::Uuid::new_v4().to_string();
+    let invoice_batch_id = uuid::Uuid::new_v4().to_string();
+    let invoice_item_id = uuid::Uuid::new_v4().to_string();
+    let bank_batch_id = uuid::Uuid::new_v4().to_string();
+    let bank_item_id = uuid::Uuid::new_v4().to_string();
+    let mut transaction = database.pool().begin().await.expect("创建脱敏采集夹具事务");
+
+    sqlx::query(
+        r#"INSERT INTO adapter_authorizations
+           (id, company_id, adapter_type, adapter_code, region, auth_status,
+            account_mask, capability_scope)
+           VALUES (?, ?, 'release_acceptance_fixture', ?, 'test-only', 'pending',
+                   '****0000', 'fixture_only')"#,
+    )
+    .bind(&authorization_id)
+    .bind(company_id)
+    .bind(format!("FIXTURE-{}", scenario.code))
+    .execute(&mut *transaction)
+    .await
+    .expect("写入未授权的脱敏采集夹具");
+    sqlx::query(
+        r#"INSERT INTO adapter_provider_configs
+           (id, company_id, authorization_id, provider_name, endpoint, credential_env,
+            timeout_seconds, is_enabled, created_by, updated_by)
+           VALUES (?, ?, ?, 'release_acceptance_fixture',
+                   'https://release-acceptance.invalid',
+                   'RELEASE_ACCEPTANCE_FIXTURE_DISABLED', 5, 0,
+                   'releaseadmin', 'releaseadmin')"#,
+    )
+    .bind(&provider_config_id)
+    .bind(company_id)
+    .bind(&authorization_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("写入禁用的脱敏采集提供方夹具");
+
+    sqlx::query(
+        r#"INSERT INTO external_invoice_sync_batches
+           (id, company_id, authorization_id, provider_config_id, period,
+            idempotency_key, request_fingerprint, status, item_count, executed_by)
+           VALUES (?, ?, ?, ?, '2026-01', ?, ?, 'pending_review', 1, 'releaseadmin')"#,
+    )
+    .bind(&invoice_batch_id)
+    .bind(company_id)
+    .bind(&authorization_id)
+    .bind(&provider_config_id)
+    .bind(format!(
+        "release-acceptance-invoice-{}-{}",
+        scenario.code,
+        uuid::Uuid::new_v4()
+    ))
+    .bind(format!("fixture-invoice-request-{}", scenario.code))
+    .execute(&mut *transaction)
+    .await
+    .expect("写入脱敏发票采集批次");
+    sqlx::query(
+        r#"INSERT INTO external_invoice_sync_items
+           (id, batch_id, company_id, authorization_id, external_invoice_id,
+            invoice_type, invoice_code, invoice_no, invoice_date, seller_name,
+            seller_tax_id, buyer_name, buyer_tax_id, amount, tax_amount,
+            total_amount, tax_rate, currency, review_status, payload_checksum)
+           VALUES (?, ?, ?, ?, ?, 'output', ?, ?, '2026-01-15', ?, ?,
+                   '脱敏客户', '91310000CUSTOMER01', 943.40, 56.60,
+                   1000.00, 0.06, 'CNY', 'pending_review', ?)"#,
+    )
+    .bind(&invoice_item_id)
+    .bind(&invoice_batch_id)
+    .bind(company_id)
+    .bind(&authorization_id)
+    .bind(format!("EXT-INV-{}-202601", scenario.code))
+    .bind("3100260000")
+    .bind(format!("INV-{}-202601", scenario.code))
+    .bind(company_name)
+    .bind(company_tax_id)
+    .bind(format!("fixture-invoice-payload-{}", scenario.code))
+    .execute(&mut *transaction)
+    .await
+    .expect("写入脱敏待复核发票");
+    sqlx::query(
+        r#"INSERT INTO external_invoice_sync_item_lines
+           (id, staging_item_id, line_no, item_name, unit, quantity, unit_price,
+            amount, tax_rate, tax_amount, tax_classification_code)
+           VALUES (?, ?, 1, '信息技术服务', '项', 1, 943.40,
+                   943.40, 0.06, 56.60, '3040201990000000000')"#,
+    )
+    .bind(uuid::Uuid::new_v4().to_string())
+    .bind(&invoice_item_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("写入脱敏待复核发票明细");
+
+    sqlx::query(
+        r#"INSERT INTO external_bank_sync_batches
+           (id, company_id, authorization_id, provider_config_id, period,
+            idempotency_key, request_fingerprint, status, item_count, executed_by)
+           VALUES (?, ?, ?, ?, '2026-01', ?, ?, 'pending_review', 1, 'releaseadmin')"#,
+    )
+    .bind(&bank_batch_id)
+    .bind(company_id)
+    .bind(&authorization_id)
+    .bind(&provider_config_id)
+    .bind(format!(
+        "release-acceptance-bank-{}-{}",
+        scenario.code,
+        uuid::Uuid::new_v4()
+    ))
+    .bind(format!("fixture-bank-request-{}", scenario.code))
+    .execute(&mut *transaction)
+    .await
+    .expect("写入脱敏银行流水采集批次");
+    sqlx::query(
+        r#"INSERT INTO external_bank_sync_items
+           (id, batch_id, company_id, authorization_id, external_transaction_id,
+            account_mask, transaction_date, direction, amount, currency,
+            counterparty_name, counterparty_account_mask, bank_reference, summary,
+            balance, review_status, payload_checksum)
+           VALUES (?, ?, ?, ?, ?, '基本户 ****0000', '2026-01-15', 'income',
+                   1000.00, 'CNY', '脱敏客户', '****0000', ?, '收到预收服务款',
+                   1000.00, 'pending_review', ?)"#,
+    )
+    .bind(&bank_item_id)
+    .bind(&bank_batch_id)
+    .bind(company_id)
+    .bind(&authorization_id)
+    .bind(format!("BANK-{}-001", scenario.code))
+    .bind(format!("FIXTURE-BANK-{}", scenario.code))
+    .bind(format!("fixture-bank-payload-{}", scenario.code))
+    .execute(&mut *transaction)
+    .await
+    .expect("写入脱敏待复核银行流水");
+
+    transaction.commit().await.expect("提交脱敏采集夹具事务");
+    (invoice_item_id, bank_item_id)
+}
+
 #[tokio::test]
 async fn four_accounting_systems_complete_the_release_acceptance_matrix() {
     let data_dir = std::env::temp_dir().join(format!(
@@ -153,39 +295,34 @@ async fn four_accounting_systems_complete_the_release_acceptance_matrix() {
         .await
         .unwrap_or_else(|error| panic!("{context}: 读取凭证字失败: {error}"));
 
-        let invoice = invoices::create_invoice(
-            CreateInvoiceInput {
+        let (invoice_item_id, bank_item_id) = stage_reviewable_collection_items(
+            &state,
+            scenario,
+            &company.id,
+            &company.name,
+            company.tax_id.as_deref(),
+        )
+        .await;
+        let imported_invoice_item = automation::import_external_invoice_sync_item(
+            ReviewExternalInvoiceSyncItemInput {
                 company_id: company.id.clone(),
-                period_id: Some(period.id.clone()),
-                invoice_type: "output".to_string(),
-                invoice_no: format!("INV-{}-202601", scenario.code),
-                invoice_code: Some("3100260000".to_string()),
-                invoice_date: "2026-01-15".to_string(),
-                amount: 943.40,
-                tax_amount: 56.60,
-                tax_rate: Some(0.06),
-                seller_name: Some(company.name.clone()),
-                seller_tax_id: company.tax_id.clone(),
-                buyer_name: Some("脱敏客户".to_string()),
-                buyer_tax_id: Some("91310000CUSTOMER01".to_string()),
-                remarks: Some("1.0.0 发布验收".to_string()),
-                lines: vec![InvoiceLineInput {
-                    item_name: "信息技术服务".to_string(),
-                    specification: None,
-                    unit: Some("项".to_string()),
-                    quantity: Some(1.0),
-                    unit_price: Some(943.40),
-                    amount: 943.40,
-                    tax_rate: Some(0.06),
-                    tax_amount: 56.60,
-                    tax_classification_code: Some("3040201990000000000".to_string()),
-                }],
+                item_id: invoice_item_id,
+                review_confirmed: true,
+                review_note: Some("1.0.0 脱敏验收人工确认".to_string()),
             },
             auth_token.clone(),
             state.clone(),
         )
         .await
-        .unwrap_or_else(|error| panic!("{context}: 登记发票失败: {error}"));
+        .unwrap_or_else(|error| panic!("{context}: 复核导入采集发票失败: {error}"));
+        assert_eq!(imported_invoice_item.review_status, "imported");
+        let invoice_id = imported_invoice_item
+            .imported_invoice_id
+            .expect("采集发票导入后应关联正式发票");
+        let invoice = invoices::get_invoice(invoice_id, company.id.clone(), state.clone())
+            .await
+            .unwrap_or_else(|error| panic!("{context}: 读取导入发票失败: {error}"))
+            .expect("导入的正式发票应存在");
         let verified_invoice = invoices::review_output_invoice(
             invoice.id.clone(),
             company.id.clone(),
@@ -199,24 +336,29 @@ async fn four_accounting_systems_complete_the_release_acceptance_matrix() {
             "{context}: 发票复核状态"
         );
 
-        let bank_transaction = bank_transactions::create_bank_transaction(
-            CreateBankTransactionInput {
+        let imported_bank_item = automation::import_external_bank_sync_item(
+            ReviewExternalBankSyncItemInput {
                 company_id: company.id.clone(),
-                period: "2026-01".to_string(),
-                account_name: "基本户".to_string(),
-                serial_no: format!("BANK-{}-001", scenario.code),
-                transaction_date: "2026-01-15".to_string(),
-                counterparty: Some("脱敏客户".to_string()),
-                summary: Some("收到预收服务款".to_string()),
-                income_amount: 1_000.0,
-                expense_amount: 0.0,
-                balance: Some(1_000.0),
-                receipt_status: Some("已上传".to_string()),
+                item_id: bank_item_id,
+                review_confirmed: true,
+                review_note: Some("1.0.0 脱敏验收人工确认".to_string()),
             },
+            auth_token.clone(),
             state.clone(),
         )
         .await
-        .unwrap_or_else(|error| panic!("{context}: 登记银行流水失败: {error}"));
+        .unwrap_or_else(|error| panic!("{context}: 复核导入采集银行流水失败: {error}"));
+        assert_eq!(imported_bank_item.review_status, "imported");
+        let bank_transaction_id = imported_bank_item
+            .imported_transaction_id
+            .expect("采集银行流水导入后应关联正式流水");
+        let bank_transaction: BankTransaction =
+            sqlx::query_as("SELECT * FROM bank_transactions WHERE id = ? AND company_id = ?")
+                .bind(&bank_transaction_id)
+                .bind(&company.id)
+                .fetch_one(state.pool())
+                .await
+                .unwrap_or_else(|error| panic!("{context}: 读取导入银行流水失败: {error}"));
 
         let bank_name = account_name(&state, &company.id, scenario.bank_code).await;
         let liability_name = account_name(&state, &company.id, scenario.liability_code).await;
@@ -289,6 +431,28 @@ async fn four_accounting_systems_complete_the_release_acceptance_matrix() {
         .await
         .unwrap_or_else(|error| panic!("{context}: 结账失败: {error}"));
         assert_eq!(closed.status, "closed", "{context}: 结账状态");
+
+        let general_ledger = periods::get_general_ledger(period.id.clone(), None, state.clone())
+            .await
+            .unwrap_or_else(|error| panic!("{context}: 生成总账失败: {error}"));
+        let bank_general_ledger = general_ledger
+            .iter()
+            .find(|item| item.account_code == scenario.bank_code)
+            .unwrap_or_else(|| panic!("{context}: 总账缺少银行科目 {}", scenario.bank_code));
+        assert!((bank_general_ledger.period_debit - 1_000.0).abs() < 0.01);
+        let subsidiary_ledger = periods::get_subsidiary_ledger(
+            period.id.clone(),
+            scenario.bank_code.to_string(),
+            state.clone(),
+        )
+        .await
+        .unwrap_or_else(|error| panic!("{context}: 生成明细账失败: {error}"));
+        assert!(
+            subsidiary_ledger.iter().any(|item| {
+                item.voucher_id == voucher.voucher.id && (item.debit - 1_000.0).abs() < 0.01
+            }),
+            "{context}: 明细账应包含采集流水生成的借方凭证"
+        );
 
         let locked_error = bank_transactions::create_bank_transaction(
             CreateBankTransactionInput {
@@ -421,7 +585,8 @@ async fn four_accounting_systems_complete_the_release_acceptance_matrix() {
         .await
         .unwrap_or_else(|error| panic!("{context}: 读取业务审计日志失败: {error}"));
         for action in [
-            "登记发票",
+            "复核导入票池发票",
+            "复核导入银行流水",
             "复核销项发票",
             "关联发票与凭证",
             "结账",
