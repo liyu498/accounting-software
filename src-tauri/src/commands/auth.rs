@@ -173,6 +173,7 @@ fn command_permission(command: &str) -> Option<CommandPermission> {
             | "create_local_backup"
             | "list_local_backups"
             | "verify_local_backup"
+            | "export_local_backup"
             | "schedule_local_backup_restore"
     ) {
         return Some(CommandPermission {
@@ -992,7 +993,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        assert_eq!(commands.len(), 309, "registered command count changed");
+        assert_eq!(commands.len(), 310, "registered command count changed");
         for command in commands {
             assert!(
                 is_public_command(command) || command_permission(command).is_some(),

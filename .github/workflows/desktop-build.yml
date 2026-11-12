@@ -41,6 +41,7 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo check --manifest-path src-tauri/Cargo.toml
       - run: npm run verify:release-acceptance
+      - run: npm run verify:release-isolation
       - run: npm run verify:release-recovery
       - run: npm run verify:release-performance
       - name: Run Rust tests (macOS)

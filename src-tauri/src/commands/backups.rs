@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tauri::State;
 
 #[derive(Debug, Serialize)]
@@ -23,6 +23,15 @@ pub struct LocalBackupVerification {
     pub id: String,
     pub file_name: String,
     pub valid: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalBackupExport {
+    pub backup_id: String,
+    pub file_name: String,
+    pub size_bytes: u64,
     pub message: String,
 }
 
@@ -55,6 +64,16 @@ pub(crate) struct AppliedLocalRestore {
 const PENDING_RESTORE_FILE: &str = "pending-restore.json";
 const RESTORE_STAGING_FILE: &str = ".restore-staging.db";
 const RESTORE_ORIGINAL_FILE: &str = ".restore-original.db";
+const AUTOMATIC_BACKUP_PREFIX: &str = "automatic";
+const AUTOMATIC_BACKUP_INTERVAL_HOURS: i64 = 24;
+pub(crate) const AUTOMATIC_BACKUP_RETENTION: usize = 30;
+
+#[derive(Debug)]
+pub(crate) struct AutomaticBackupMaintenance {
+    pub created: Option<LocalBackupSnapshot>,
+    pub retained_count: usize,
+    pub deleted_count: usize,
+}
 
 fn backup_directory(db: &Database) -> Result<std::path::PathBuf, String> {
     backup_directory_for(&db.app_data_dir())
@@ -166,8 +185,16 @@ async fn create_backup_snapshot(
     db: &Database,
     prefix: &str,
 ) -> Result<LocalBackupSnapshot, String> {
+    create_backup_snapshot_at(db, prefix, Utc::now()).await
+}
+
+async fn create_backup_snapshot_at(
+    db: &Database,
+    prefix: &str,
+    created_at: DateTime<Utc>,
+) -> Result<LocalBackupSnapshot, String> {
     let directory = backup_directory(db)?;
-    let timestamp = Utc::now().format("%Y%m%d-%H%M%S-%3f");
+    let timestamp = created_at.format("%Y%m%d-%H%M%S-%3f");
     let file_name = format!("{prefix}-{timestamp}.db");
     let target_path = directory.join(&file_name);
     let target_sql = target_path.to_string_lossy().replace('\'', "''");
@@ -180,6 +207,101 @@ async fn create_backup_snapshot(
         .map_err(|error| format!("Unable to secure backup snapshot: {error}"))?;
 
     snapshot_from_path(&target_path)
+}
+
+fn automatic_backup_timestamp(path: &Path) -> Option<DateTime<Utc>> {
+    let value = path.file_name()?.to_str()?;
+    let timestamp = value
+        .strip_prefix(&format!("{AUTOMATIC_BACKUP_PREFIX}-"))?
+        .strip_suffix(".db")?;
+    chrono::NaiveDateTime::parse_from_str(timestamp, "%Y%m%d-%H%M%S-%3f")
+        .ok()
+        .map(|value| value.and_utc())
+}
+
+fn automatic_backup_paths(directory: &Path) -> Result<Vec<PathBuf>, String> {
+    let paths = fs::read_dir(directory)
+        .map_err(|error| format!("Unable to read automatic backups: {error}"))?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.is_file()
+                && path.extension().and_then(|extension| extension.to_str()) == Some("db")
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with(&format!("{AUTOMATIC_BACKUP_PREFIX}-")))
+        })
+        .collect::<Vec<_>>();
+    Ok(paths)
+}
+
+pub(crate) async fn maintain_automatic_backups(
+    db: &Database,
+) -> Result<AutomaticBackupMaintenance, String> {
+    maintain_automatic_backups_at(db, Utc::now()).await
+}
+
+async fn maintain_automatic_backups_at(
+    db: &Database,
+    now: DateTime<Utc>,
+) -> Result<AutomaticBackupMaintenance, String> {
+    let directory = backup_directory(db)?;
+    let existing = automatic_backup_paths(&directory)?;
+    let latest = existing
+        .iter()
+        .filter_map(|path| automatic_backup_timestamp(path))
+        .max();
+    let create_due = latest.is_none_or(|created_at| {
+        now.signed_duration_since(created_at)
+            >= chrono::Duration::hours(AUTOMATIC_BACKUP_INTERVAL_HOURS)
+    });
+    let created = if create_due {
+        Some(create_backup_snapshot_at(db, AUTOMATIC_BACKUP_PREFIX, now).await?)
+    } else {
+        None
+    };
+
+    let mut automatic = automatic_backup_paths(&directory)?;
+    automatic.sort_by(|left, right| {
+        automatic_backup_timestamp(right)
+            .cmp(&automatic_backup_timestamp(left))
+            .then_with(|| right.file_name().cmp(&left.file_name()))
+    });
+    let mut deleted_count = 0;
+    for path in automatic.iter().skip(AUTOMATIC_BACKUP_RETENTION) {
+        fs::remove_file(path)
+            .map_err(|error| format!("Unable to prune automatic backup: {error}"))?;
+        deleted_count += 1;
+    }
+    let retained_count = automatic.len().min(AUTOMATIC_BACKUP_RETENTION);
+
+    if created.is_some() || deleted_count > 0 {
+        sqlx::query(
+            r#"INSERT INTO operation_audit_logs
+               (id, company_id, module_name, action, object_ref, risk_level, result, detail, operator)
+               VALUES (?, NULL, '系统备份', '自动备份维护', ?, 'normal', 'success', ?, '系统启动')"#,
+        )
+        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(created.as_ref().map(|snapshot| snapshot.id.as_str()))
+        .bind(format!(
+            "自动备份间隔={}小时，保留上限={}份，本次创建={}，清理={}份，当前保留={}份",
+            AUTOMATIC_BACKUP_INTERVAL_HOURS,
+            AUTOMATIC_BACKUP_RETENTION,
+            created.is_some(),
+            deleted_count,
+            retained_count
+        ))
+        .execute(db.pool())
+        .await
+        .map_err(|error| format!("Unable to record automatic backup audit: {error}"))?;
+    }
+
+    Ok(AutomaticBackupMaintenance {
+        created,
+        retained_count,
+        deleted_count,
+    })
 }
 
 fn write_pending_restore(app_data_dir: &Path, pending: &PendingLocalRestore) -> Result<(), String> {
@@ -253,6 +375,105 @@ pub async fn verify_local_backup(
             )
         },
     })
+}
+
+async fn export_local_backup_to_path(
+    db: &Database,
+    backup_id: &str,
+    target_path: &Path,
+    actor: &str,
+) -> Result<LocalBackupExport, String> {
+    let source = local_backup_path(db, backup_id)?;
+    verify_sqlite_snapshot(&source)
+        .await
+        .map_err(|error| format!("备份源文件校验失败，禁止导出：{error}"))?;
+    let file_name = target_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.trim().is_empty())
+        .ok_or_else(|| "导出文件名无效".to_string())?
+        .to_string();
+    if target_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_none_or(|extension| !extension.eq_ignore_ascii_case("db"))
+    {
+        return Err("备份副本必须使用 .db 扩展名".to_string());
+    }
+    target_path
+        .parent()
+        .filter(|parent| parent.is_dir())
+        .ok_or_else(|| "导出目录不存在".to_string())?;
+    if target_path.exists() {
+        return Err("目标备份文件已存在，请选择新的文件名".to_string());
+    }
+    let mut source_file = fs::File::open(&source)
+        .map_err(|error| format!("Unable to open backup source: {error}"))?;
+    let mut target_file = match OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(target_path)
+    {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            return Err("目标备份文件已存在，请选择新的文件名".to_string())
+        }
+        Err(error) => return Err(format!("Unable to create backup export: {error}")),
+    };
+    let copy_result = std::io::copy(&mut source_file, &mut target_file)
+        .and_then(|_| target_file.sync_all())
+        .map_err(|error| format!("Unable to copy backup export: {error}"));
+    drop(target_file);
+    if let Err(error) = copy_result {
+        let _ = fs::remove_file(target_path);
+        return Err(error);
+    }
+    if let Err(error) = secure_private_file(target_path) {
+        let _ = fs::remove_file(target_path);
+        return Err(format!("Unable to secure backup export: {error}"));
+    }
+    if let Err(error) = verify_sqlite_snapshot(target_path).await {
+        let _ = fs::remove_file(target_path);
+        return Err(format!("导出副本完整性校验失败：{error}"));
+    }
+    let size_bytes = fs::metadata(target_path)
+        .map_err(|error| format!("Unable to read backup export metadata: {error}"))?
+        .len();
+    let audit_result = sqlx::query(
+        r#"INSERT INTO operation_audit_logs
+           (id, company_id, module_name, action, object_ref, risk_level, result, detail, operator)
+           VALUES (?, NULL, '系统备份', '导出备份快照', ?, 'medium', 'success', ?, ?)"#,
+    )
+    .bind(uuid::Uuid::new_v4().to_string())
+    .bind(backup_id)
+    .bind(format!(
+        "已导出并校验备份副本：{file_name}，大小 {size_bytes} 字节"
+    ))
+    .bind(actor)
+    .execute(db.pool())
+    .await;
+    if let Err(error) = audit_result {
+        let _ = fs::remove_file(target_path);
+        return Err(format!("Unable to record backup export audit: {error}"));
+    }
+
+    Ok(LocalBackupExport {
+        backup_id: backup_id.to_string(),
+        file_name: file_name.clone(),
+        size_bytes,
+        message: format!("备份副本已导出并通过完整性校验：{file_name}"),
+    })
+}
+
+#[tauri::command]
+pub async fn export_local_backup(
+    backup_id: String,
+    target_path: String,
+    auth_token: String,
+    db: State<'_, Database>,
+) -> Result<LocalBackupExport, String> {
+    let actor = authenticated_actor(db.pool(), &auth_token).await?;
+    export_local_backup_to_path(&db, &backup_id, Path::new(&target_path), &actor).await
 }
 
 #[tauri::command]
@@ -416,6 +637,23 @@ pub(crate) async fn record_applied_restore(
     Ok(())
 }
 
+pub(crate) async fn record_automatic_backup_failure(
+    db: &Database,
+    error: &str,
+) -> Result<(), String> {
+    sqlx::query(
+        r#"INSERT INTO operation_audit_logs
+           (id, company_id, module_name, action, object_ref, risk_level, result, detail, operator)
+           VALUES (?, NULL, '系统备份', '自动备份失败', NULL, 'high', 'failed', ?, '系统启动')"#,
+    )
+    .bind(uuid::Uuid::new_v4().to_string())
+    .bind(error)
+    .execute(db.pool())
+    .await
+    .map_err(|audit_error| format!("Unable to record automatic backup failure: {audit_error}"))?;
+    Ok(())
+}
+
 pub(crate) async fn record_restore_failure(db: &Database, error: &str) -> Result<(), String> {
     sqlx::query(
         r#"INSERT INTO operation_audit_logs
@@ -435,6 +673,7 @@ mod tests {
     use super::{
         apply_pending_restore, apply_pending_restore_safely, record_applied_restore,
         schedule_local_backup_restore, verify_local_backup, PendingLocalRestore,
+        AUTOMATIC_BACKUP_RETENTION,
     };
     use crate::commands::{
         auth::{self, InitializeAdminInput, LoginRequest},
@@ -483,6 +722,156 @@ mod tests {
         );
 
         crate::test_support::remove_test_data_dir(&app_dir, "removes backup test directory");
+    }
+
+    #[tokio::test]
+    async fn automatic_backups_run_daily_and_prune_only_automatic_snapshots() {
+        let app_dir = std::env::temp_dir().join(format!(
+            "accounting-automatic-backup-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let database = Database::new(app_dir.clone())
+            .await
+            .expect("initializes automatic backup database");
+        let started_at = chrono::Utc::now();
+
+        let first = super::maintain_automatic_backups_at(&database, started_at)
+            .await
+            .expect("creates first automatic backup");
+        assert!(first.created.is_some());
+        assert_eq!(first.retained_count, 1);
+
+        let repeated = super::maintain_automatic_backups_at(
+            &database,
+            started_at + chrono::Duration::hours(23),
+        )
+        .await
+        .expect("skips repeated backup inside one day");
+        assert!(repeated.created.is_none());
+        assert_eq!(repeated.retained_count, 1);
+
+        let next_day = super::maintain_automatic_backups_at(
+            &database,
+            started_at + chrono::Duration::hours(25),
+        )
+        .await
+        .expect("creates next daily automatic backup");
+        assert!(next_day.created.is_some());
+        assert_eq!(next_day.retained_count, 2);
+
+        let backup_dir = app_dir.join("backups");
+        std::fs::copy(
+            app_dir.join("accounting.db"),
+            backup_dir.join("accounting-manual.db"),
+        )
+        .expect("creates manual backup fixture");
+        std::fs::copy(
+            app_dir.join("accounting.db"),
+            backup_dir.join("pre-restore-safety.db"),
+        )
+        .expect("creates safety backup fixture");
+        for index in 0..=AUTOMATIC_BACKUP_RETENTION {
+            std::fs::copy(
+                app_dir.join("accounting.db"),
+                backup_dir.join(format!("automatic-fixture-{index:03}.db")),
+            )
+            .expect("creates automatic retention fixture");
+        }
+
+        let pruned = super::maintain_automatic_backups_at(
+            &database,
+            started_at + chrono::Duration::hours(26),
+        )
+        .await
+        .expect("prunes old automatic backups");
+        assert_eq!(pruned.retained_count, AUTOMATIC_BACKUP_RETENTION);
+        assert!(pruned.deleted_count >= 3);
+        assert!(backup_dir.join("accounting-manual.db").is_file());
+        assert!(backup_dir.join("pre-restore-safety.db").is_file());
+
+        database.pool().close().await;
+        crate::test_support::remove_test_data_dir(
+            &app_dir,
+            "removes automatic backup test directory",
+        );
+    }
+
+    #[tokio::test]
+    async fn exporting_backup_creates_verified_off_device_copy_without_overwrite() {
+        let app_dir = std::env::temp_dir().join(format!(
+            "accounting-backup-export-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let export_dir = std::env::temp_dir().join(format!(
+            "accounting-backup-export-target-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&export_dir).expect("creates backup export directory");
+        let database = Database::new(app_dir.clone())
+            .await
+            .expect("initializes backup export database");
+        let source = super::create_backup_snapshot(&database, "accounting")
+            .await
+            .expect("creates source backup");
+        let target = export_dir.join("off-device-backup.db");
+
+        let exported =
+            super::export_local_backup_to_path(&database, &source.id, &target, "备份管理员")
+                .await
+                .expect("exports verified backup");
+
+        assert_eq!(exported.file_name, "off-device-backup.db");
+        assert_eq!(exported.size_bytes, source.size_bytes);
+        super::verify_sqlite_snapshot(&target)
+            .await
+            .expect("exported backup remains valid");
+        let overwrite_error =
+            super::export_local_backup_to_path(&database, &source.id, &target, "备份管理员")
+                .await
+                .expect_err("does not overwrite an existing off-device backup");
+        assert!(overwrite_error.contains("已存在"));
+        let audit_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM operation_audit_logs WHERE action = '导出备份快照' AND result = 'success'",
+        )
+        .fetch_one(database.pool())
+        .await
+        .expect("reads backup export audit");
+        assert_eq!(audit_count, 1);
+
+        database.pool().close().await;
+        crate::test_support::remove_test_data_dir(&app_dir, "removes backup export database");
+        crate::test_support::remove_test_data_dir(&export_dir, "removes backup export directory");
+    }
+
+    #[tokio::test]
+    async fn automatic_backup_failure_is_recorded_for_operator_review() {
+        let app_dir = std::env::temp_dir().join(format!(
+            "accounting-backup-failure-audit-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let database = Database::new(app_dir.clone())
+            .await
+            .expect("initializes backup failure audit database");
+
+        super::record_automatic_backup_failure(&database, "磁盘空间不足")
+            .await
+            .expect("records automatic backup failure");
+
+        let audit: (String, String, String) = sqlx::query_as(
+            "SELECT result, risk_level, detail FROM operation_audit_logs WHERE action = '自动备份失败'",
+        )
+        .fetch_one(database.pool())
+        .await
+        .expect("reads automatic backup failure audit");
+        assert_eq!(audit.0, "failed");
+        assert_eq!(audit.1, "high");
+        assert!(audit.2.contains("磁盘空间不足"));
+
+        database.pool().close().await;
+        crate::test_support::remove_test_data_dir(
+            &app_dir,
+            "removes backup failure audit database",
+        );
     }
 
     async fn create_database(path: &std::path::Path, value: &str) {

@@ -157,6 +157,7 @@ export function BackupRestoreWorkspace() {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [exportingId, setExportingId] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -362,6 +363,37 @@ export function BackupRestoreWorkspace() {
     }
   };
 
+  const exportSnapshot = async (snapshot: LocalBackupSnapshot) => {
+    if (!isTauri || !verifications[snapshot.id]?.valid) {
+      setError("必须先完成快照完整性校验，才能导出副本。");
+      return;
+    }
+    setExportingId(snapshot.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      const targetPath = await save({
+        title: "导出备份副本",
+        defaultPath: snapshot.fileName,
+        filters: [{ name: "SQLite 备份", extensions: ["db"] }],
+      });
+      if (!targetPath) return;
+      const response = await backupApi.exportLocalBackup(
+        snapshot.id,
+        targetPath,
+      );
+      if (!response.success || !response.data) {
+        throw new Error(response.error || "未返回备份导出结果");
+      }
+      setNotice(response.data.message);
+    } catch (reason) {
+      setError(String(reason));
+    } finally {
+      setExportingId(null);
+    }
+  };
+
   return (
     <main className="min-h-full min-w-0 bg-slate-50 p-3 text-slate-900 dark:bg-[#0d0d0d] dark:text-slate-100">
       <section
@@ -423,7 +455,7 @@ export function BackupRestoreWorkspace() {
             </div>
             <p className="mt-1">
               {isTauri
-                ? "本地应用会创建一致性 SQLite 快照并在本机备份目录中维护。"
+                ? "桌面端每天自动创建一次一致性快照，自动快照最多保留 30 份；手工快照和恢复前安全快照不会被自动清理。"
                 : "浏览器预览只保存快照元数据，用于演示创建与校验流程，不产生可恢复文件。"}
             </p>
           </section>
@@ -471,7 +503,7 @@ export function BackupRestoreWorkspace() {
               <span>快照清单</span>
               <span>
                 {isTauri
-                  ? "校验结果仅代表文件头检查"
+                  ? "校验包含 SQLite 文件头和完整性检查"
                   : "浏览器预览元数据不可用于恢复"}
               </span>
             </div>
@@ -479,11 +511,11 @@ export function BackupRestoreWorkspace() {
               <table className="w-full table-fixed text-left text-xs">
                 <thead className="bg-slate-50 text-slate-500 dark:bg-[#0d1423] dark:text-slate-400">
                   <tr>
-                    <th className="w-[33%] px-4 py-3 font-medium">快照文件</th>
-                    <th className="w-[17%] px-4 py-3 font-medium">创建时间</th>
-                    <th className="w-[12%] px-4 py-3 font-medium">大小</th>
-                    <th className="w-[16%] px-4 py-3 font-medium">校验状态</th>
-                    <th className="w-[22%] px-4 py-3 text-right font-medium">
+                    <th className="w-[25%] px-4 py-3 font-medium">快照文件</th>
+                    <th className="w-[16%] px-4 py-3 font-medium">创建时间</th>
+                    <th className="w-[9%] px-4 py-3 font-medium">大小</th>
+                    <th className="w-[18%] px-4 py-3 font-medium">校验状态</th>
+                    <th className="w-[32%] px-4 py-3 text-right font-medium">
                       下一步
                     </th>
                   </tr>
@@ -526,11 +558,11 @@ export function BackupRestoreWorkspace() {
                           </p>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex flex-wrap justify-end gap-2">
                             <button
                               type="button"
                               onClick={() => void verifySnapshot(snapshot)}
-                              disabled={verifyingId === snapshot.id || restoringId === snapshot.id || creating}
+                              disabled={verifyingId === snapshot.id || exportingId === snapshot.id || restoringId === snapshot.id || creating}
                               className="inline-flex h-8 items-center justify-center gap-1 border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                             >
                               <FileCheck2 className="h-3.5 w-3.5" />
@@ -539,8 +571,19 @@ export function BackupRestoreWorkspace() {
                             {isTauri && verification?.valid && (
                               <button
                                 type="button"
+                                onClick={() => void exportSnapshot(snapshot)}
+                                disabled={exportingId === snapshot.id || restoringId === snapshot.id || creating}
+                                className="inline-flex h-8 items-center justify-center gap-1 border border-sky-300 px-3 text-xs text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-900 dark:text-sky-300 dark:hover:bg-sky-950/30"
+                              >
+                                <HardDriveDownload className="h-3.5 w-3.5" />
+                                {exportingId === snapshot.id ? "正在导出" : "导出副本"}
+                              </button>
+                            )}
+                            {isTauri && verification?.valid && (
+                              <button
+                                type="button"
                                 onClick={() => void scheduleRestore(snapshot)}
-                                disabled={restoringId === snapshot.id || creating}
+                                disabled={restoringId === snapshot.id || exportingId === snapshot.id || creating}
                                 className="inline-flex h-8 items-center justify-center gap-1 border border-rose-300 px-3 text-xs text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/30"
                               >
                                 <ArchiveRestore className="h-3.5 w-3.5" />
@@ -590,7 +633,7 @@ export function BackupRestoreWorkspace() {
                     <button
                       type="button"
                       onClick={() => void verifySnapshot(snapshot)}
-                      disabled={verifyingId === snapshot.id || creating}
+                      disabled={verifyingId === snapshot.id || exportingId === snapshot.id || creating}
                       className="mt-3 inline-flex h-8 items-center justify-center gap-1 border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
                       <FileCheck2 className="h-3.5 w-3.5" />
@@ -599,8 +642,19 @@ export function BackupRestoreWorkspace() {
                     {isTauri && verification?.valid && (
                       <button
                         type="button"
+                        onClick={() => void exportSnapshot(snapshot)}
+                        disabled={exportingId === snapshot.id || restoringId === snapshot.id || creating}
+                        className="ml-2 mt-3 inline-flex h-8 items-center justify-center gap-1 border border-sky-300 px-3 text-xs text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-900 dark:text-sky-300 dark:hover:bg-sky-950/30"
+                      >
+                        <HardDriveDownload className="h-3.5 w-3.5" />
+                        {exportingId === snapshot.id ? "正在导出" : "导出副本"}
+                      </button>
+                    )}
+                    {isTauri && verification?.valid && (
+                      <button
+                        type="button"
                         onClick={() => void scheduleRestore(snapshot)}
-                        disabled={restoringId === snapshot.id || creating}
+                        disabled={restoringId === snapshot.id || exportingId === snapshot.id || creating}
                         className="ml-2 mt-3 inline-flex h-8 items-center justify-center gap-1 border border-rose-300 px-3 text-xs text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/30"
                       >
                         <ArchiveRestore className="h-3.5 w-3.5" />

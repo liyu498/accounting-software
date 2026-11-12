@@ -5,6 +5,9 @@ pub mod db;
 mod release_acceptance;
 
 #[cfg(test)]
+mod release_isolation;
+
+#[cfg(test)]
 mod release_performance;
 
 #[cfg(test)]
@@ -39,6 +42,25 @@ pub fn run() {
             let database =
                 tauri::async_runtime::block_on(async { Database::new(app_data_dir).await })
                     .expect("Failed to initialize database");
+
+            match tauri::async_runtime::block_on(async {
+                commands::backups::maintain_automatic_backups(&database).await
+            }) {
+                Ok(maintenance) => log::info!(
+                    "Automatic backup maintenance completed: created={}, retained={}, deleted={}",
+                    maintenance.created.is_some(),
+                    maintenance.retained_count,
+                    maintenance.deleted_count
+                ),
+                Err(error) => {
+                    log::error!("Automatic backup maintenance failed: {error}");
+                    if let Err(audit_error) = tauri::async_runtime::block_on(async {
+                        commands::backups::record_automatic_backup_failure(&database, &error).await
+                    }) {
+                        log::error!("Unable to record automatic backup failure: {audit_error}");
+                    }
+                }
+            }
 
             if let Some(applied) = applied_restore.as_ref() {
                 tauri::async_runtime::block_on(async {
@@ -133,6 +155,7 @@ pub fn run() {
                     commands::backups::create_local_backup,
                     commands::backups::list_local_backups,
                     commands::backups::verify_local_backup,
+                    commands::backups::export_local_backup,
                     commands::backups::schedule_local_backup_restore,
                     // Employee archive commands
                     commands::employees::get_employees,

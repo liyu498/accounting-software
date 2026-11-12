@@ -55,13 +55,17 @@ test("release builds do not enable the Tauri devtools feature", () => {
   assert.doesNotMatch(cargoManifest, /tauri\s*=\s*\{[^\n]*features\s*=\s*\[[^\]]*["']devtools["']/);
 });
 
-test("desktop capabilities expose only the file picker used by the application", () => {
+test("desktop capabilities expose only the file dialogs used by the application", () => {
   const capabilities = JSON.parse(read("src-tauri/capabilities/default.json"));
   const cargoManifest = read("src-tauri/Cargo.toml");
   const backend = read("src-tauri/src/lib.rs");
   const tauriConfig = JSON.parse(read("src-tauri/tauri.conf.json"));
 
-  assert.deepEqual(capabilities.permissions, ["core:default", "dialog:allow-open"]);
+  assert.deepEqual(capabilities.permissions, [
+    "core:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+  ]);
   assert.doesNotMatch(cargoManifest, /tauri-plugin-opener/);
   assert.doesNotMatch(backend, /tauri_plugin_opener/);
   assert.equal(tauriConfig.plugins?.opener, undefined);
@@ -329,6 +333,67 @@ test("release acceptance covers four accounting systems through the auditable cl
   ]) {
     assert.match(acceptance, new RegExp(workflowCall));
   }
+});
+
+test("release isolation gate covers customer accounts, periods, invoices, and voucher writes", () => {
+  const lib = read("src-tauri/src/lib.rs");
+  const isolation = read("src-tauri/src/release_isolation.rs");
+  const packageJson = JSON.parse(read("package.json"));
+  const desktopWorkflow = read(".github/workflows/desktop-build.yml");
+
+  assert.match(lib, /#\[cfg\(test\)\]\s*mod release_isolation;/);
+  assert.match(
+    packageJson.scripts?.["verify:release-isolation"] ?? "",
+    /cargo test.*release_isolation/,
+  );
+  assert.match(desktopWorkflow, /npm run verify:release-isolation/);
+  for (const isolationBoundary of [
+    "get_company_accounts",
+    "update_company_account",
+    "get_accounting_periods",
+    "get_invoices",
+    "get_invoice",
+    "create_voucher",
+  ]) {
+    assert.match(isolation, new RegExp(isolationBoundary));
+  }
+});
+
+test("desktop startup maintains daily automatic backups with bounded retention", () => {
+  const lib = read("src-tauri/src/lib.rs");
+  const backups = read("src-tauri/src/commands/backups.rs");
+  const workspace = read(
+    "src/pages/operations/BackupRestoreWorkspace.tsx",
+  );
+
+  assert.match(lib, /maintain_automatic_backups\(&database\)/);
+  assert.match(backups, /AUTOMATIC_BACKUP_INTERVAL_HOURS:\s*i64\s*=\s*24/);
+  assert.match(backups, /AUTOMATIC_BACKUP_RETENTION:\s*usize\s*=\s*30/);
+  assert.match(backups, /automatic\.iter\(\)\.skip\(AUTOMATIC_BACKUP_RETENTION\)/);
+  assert.match(backups, /'系统备份', '自动备份维护'/);
+  assert.match(backups, /'系统备份', '自动备份失败'/);
+  assert.match(lib, /record_automatic_backup_failure\(&database, &error\)/);
+  assert.match(workspace, /每天自动创建一次一致性快照/);
+  assert.match(workspace, /自动快照最多保留 30 份/);
+});
+
+test("backup workspace exports verified snapshots to user-selected storage", () => {
+  const lib = read("src-tauri/src/lib.rs");
+  const backups = read("src-tauri/src/commands/backups.rs");
+  const api = read("src/lib/api.ts");
+  const workspace = read(
+    "src/pages/operations/BackupRestoreWorkspace.tsx",
+  );
+  const capability = read("src-tauri/capabilities/default.json");
+
+  assert.match(lib, /commands::backups::export_local_backup/);
+  assert.match(backups, /pub async fn export_local_backup/);
+  assert.match(backups, /verify_sqlite_snapshot\(&source\)/);
+  assert.match(backups, /'系统备份', '导出备份快照'/);
+  assert.match(api, /exportLocalBackup/);
+  assert.match(workspace, /导出副本/);
+  assert.match(workspace, /plugin-dialog/);
+  assert.match(capability, /dialog:allow-save/);
 });
 
 test("route shell lazy-loads heavy operating surfaces", () => {

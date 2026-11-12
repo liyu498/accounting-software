@@ -31,6 +31,13 @@ export interface LocalBackupVerification {
   message: string;
 }
 
+export interface LocalBackupExport {
+  backupId: string;
+  fileName: string;
+  sizeBytes: number;
+  message: string;
+}
+
 export interface LocalBackupRestoreSchedule {
   backupId: string;
   safetyBackupId: string;
@@ -4835,6 +4842,21 @@ export const backupApi = {
       const result = (await invoke("verify_local_backup", {
         backupId,
       })) as LocalBackupVerification;
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  },
+
+  exportLocalBackup: async (
+    backupId: string,
+    targetPath: string,
+  ): Promise<ApiResponse<LocalBackupExport>> => {
+    try {
+      const result = (await invoke("export_local_backup", {
+        backupId,
+        targetPath,
+      })) as LocalBackupExport;
       return { success: true, data: result };
     } catch (error) {
       return { success: false, error: String(error) };
